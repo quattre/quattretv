@@ -173,8 +173,16 @@ def user_edit(request, user_id):
         user.tariff_id = request.POST.get('tariff') or None
         user.max_devices = int(request.POST.get('max_devices', 5))
         user.is_active = 'is_active' in request.POST
+
+        # Handle password change
+        new_password = request.POST.get('new_password', '').strip()
+        if new_password:
+            user.set_password(new_password)
+            messages.success(request, 'Usuario y contrasena actualizados')
+        else:
+            messages.success(request, 'Usuario actualizado')
+
         user.save()
-        messages.success(request, 'Usuario actualizado')
         return redirect('portal:users')
 
     context = {
