@@ -41,21 +41,29 @@ class MACAuthentication(BaseAuthentication):
 
     def get_mac_from_request(self, request):
         """Extract MAC address from request."""
+        # Debug logging
+        print(f"DEBUG MAC - Cookies: {request.COOKIES}")
+        print(f"DEBUG MAC - Auth header: {request.META.get('HTTP_AUTHORIZATION', 'None')}")
+
         # Try Cookie header first (standard Stalker format)
         cookie_mac = request.COOKIES.get('mac')
         if cookie_mac:
+            print(f"DEBUG MAC - Found in cookie: {cookie_mac}")
             return self.normalize_mac(cookie_mac)
 
         # Try query parameter
-        query_mac = request.query_params.get('mac')
+        query_mac = request.query_params.get('mac') if hasattr(request, 'query_params') else request.GET.get('mac')
         if query_mac:
+            print(f"DEBUG MAC - Found in query: {query_mac}")
             return self.normalize_mac(query_mac)
 
         # Try Authorization header
         auth_header = request.META.get('HTTP_AUTHORIZATION', '')
         if auth_header.startswith('MAC '):
+            print(f"DEBUG MAC - Found in auth header: {auth_header}")
             return self.normalize_mac(auth_header[4:])
 
+        print("DEBUG MAC - No MAC found!")
         return None
 
     @staticmethod
