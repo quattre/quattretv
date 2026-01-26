@@ -25,9 +25,6 @@ def stb_loader_page(request):
 <head>
     <title>QuattreTV</title>
     <script>
-    var attempts = 0;
-    var maxAttempts = 2;
-
     function log(msg) {
         document.getElementById('status').innerHTML = msg;
     }
@@ -56,18 +53,14 @@ def stb_loader_page(request):
         if (mac) {
             setMacAndReload(mac);
         } else {
-            attempts++;
-            if (attempts < maxAttempts) {
-                setTimeout(initApp, 500);
-            } else {
-                showLogin();
-            }
+            showLogin();
         }
     }
 
     function showLogin() {
         document.getElementById('auto').style.display = 'none';
         document.getElementById('login').style.display = 'block';
+        document.getElementById('username').focus();
     }
 
     function doLogin() {
@@ -88,7 +81,7 @@ def stb_loader_page(request):
         .catch(e => { log('Error de conexión'); });
     }
 
-    window.onload = function() { setTimeout(initApp, 200); };
+    window.onload = function() { setTimeout(initApp, 100); };
     </script>
     <style>
         body { background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%); margin: 0; padding: 0; font-family: Arial; min-height: 100vh; }
