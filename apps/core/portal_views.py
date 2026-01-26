@@ -489,10 +489,11 @@ def channels_import(request):
 
         # Get content
         if m3u_file:
+            raw_content = m3u_file.read()
             try:
-                content = m3u_file.read().decode('utf-8')
+                content = raw_content.decode('utf-8')
             except UnicodeDecodeError:
-                content = m3u_file.read().decode('latin-1')
+                content = raw_content.decode('latin-1')
         else:
             content = m3u_text
 
@@ -562,9 +563,11 @@ def channels_import(request):
 
             except Exception as e:
                 errors += 1
+                import traceback
                 print(f"Error importing channel {ch_data.get('name')}: {e}")
+                traceback.print_exc()
 
-        messages.success(request, f'Importación completada: {created} creados, {updated} actualizados, {errors} errores')
+        messages.success(request, f'Importación completada: {len(channels_data)} parseados, {created} creados, {updated} actualizados, {errors} errores')
         return redirect('portal:channels')
 
     # GET request - show import form
@@ -580,12 +583,16 @@ def parse_m3u(content):
     import re
 
     channels = []
+    # Handle both Windows (\r\n) and Unix (\n) line endings
+    content = content.replace('\r\n', '\n').replace('\r', '\n')
     lines = content.strip().split('\n')
 
     current_channel = None
 
     for line in lines:
         line = line.strip()
+        if not line:
+            continue
 
         if line.startswith('#EXTINF:'):
             # Parse EXTINF line
