@@ -1,0 +1,285 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Canales - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-broadcast"></i> Canales</h1>
+        <p class="text-muted">Gestión de canales de TV</p>
+    </div>
+    <div>
+        <button class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#importModal">
+            <i class="bi bi-upload"></i> Importar M3U
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addChannelModal">
+            <i class="bi bi-plus-lg"></i> Nuevo Canal
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <input type="text" name="search" class="form-control" placeholder="Buscar canal..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <select name="category" class="form-select">
+                    <option value="">Todas las categorías</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Activos</option>
+                    <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactivos</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-secondary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Channels Table -->
+<div class="data-table">
+    <div class="table-header">
+        <h5>{{ channels.count }} canales</h5>
+        <div>
+            <button class="btn btn-sm btn-outline-success"><i class="bi bi-download"></i> Exportar M3U</button>
+        </div>
+    </div>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th style="width: 50px;">#</th>
+                <th style="width: 60px;">Logo</th>
+                <th>Canal</th>
+                <th>Categoría</th>
+                <th>Stream URL</th>
+                <th>EPG ID</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for channel in channels %}
+            <tr>
+                <td><strong>{{ channel.number }}</strong></td>
+                <td>
+                    {% if channel.logo %}
+                        <img src="{{ channel.logo }}" alt="{{ channel.name }}" style="width: 40px; height: 40px; object-fit: contain; background: #f0f0f0; border-radius: 5px;">
+                    {% else %}
+                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                            <i class="bi bi-tv"></i>
+                        </div>
+                    {% endif %}
+                </td>
+                <td>
+                    <strong>{{ channel.name }}</strong>
+                    {% if channel.is_hd %}
+                        <span class="badge bg-info">HD</span>
+                    {% endif %}
+                    {% if channel.is_adult %}
+                        <span class="badge bg-danger">+18</span>
+                    {% endif %}
+                </td>
+                <td>{{ channel.category.name|default:"-" }}</td>
+                <td>
+                    {% if channel.streams.exists %}
+                        <code class="small text-truncate d-inline-block" style="max-width: 200px;" title="{{ channel.streams.first.url }}">
+                            {{ channel.streams.first.url }}
+                        </code>
+                    {% else %}
+                        <span class="text-danger">Sin stream</span>
+                    {% endif %}
+                </td>
+                <td><code>{{ channel.epg_channel_id|default:"-" }}</code></td>
+                <td>
+                    {% if channel.is_active %}
+                        <span class="status-badge status-online">Activo</span>
+                    {% else %}
+                        <span class="status-badge status-offline">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="quick-actions">
+                        <a href="{% url 'portal:channel_edit' channel.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-success" onclick="testStream({{ channel.id }})" title="Probar stream">
+                            <i class="bi bi-play"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteChannel({{ channel.id }})" title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center py-4 text-muted">
+                    <i class="bi bi-inbox display-4"></i>
+                    <p class="mt-2">No hay canales configurados</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Channel Modal -->
+<div class="modal fade" id="addChannelModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-broadcast"></i> Nuevo Canal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'portal:channel_create' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Nombre *</label>
+                                <input type="text" name="name" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Número *</label>
+                                <input type="number" name="number" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Categoría</label>
+                                <select name="category" class="form-select">
+                                    <option value="">Sin categoría</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category.id }}">{{ category.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stream URL *</label>
+                        <input type="url" name="stream_url" class="form-control" placeholder="http://..." required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Logo URL</label>
+                                <input type="url" name="logo" class="form-control" placeholder="https://...">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">EPG Channel ID</label>
+                                <input type="text" name="epg_channel_id" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-check mb-3">
+                                <input type="checkbox" name="is_hd" class="form-check-input" id="isHd">
+                                <label class="form-check-label" for="isHd">HD</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mb-3">
+                                <input type="checkbox" name="is_adult" class="form-check-input" id="isAdult">
+                                <label class="form-check-label" for="isAdult">Contenido adulto (+18)</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mb-3">
+                                <input type="checkbox" name="has_archive" class="form-check-input" id="hasArchive">
+                                <label class="form-check-label" for="hasArchive">Tiene catchup/archivo</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Canal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Import M3U Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload"></i> Importar M3U</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'portal:channels_import' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Archivo M3U</label>
+                        <input type="file" name="m3u_file" class="form-control" accept=".m3u,.m3u8">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">O URL del M3U</label>
+                        <input type="url" name="m3u_url" class="form-control" placeholder="http://...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Categoría por defecto</label>
+                        <select name="default_category" class="form-select">
+                            <option value="">Sin categoría</option>
+                            {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" name="overwrite" class="form-check-input" id="overwrite">
+                        <label class="form-check-label" for="overwrite">Sobrescribir canales existentes</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Importar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testStream(channelId) {
+    window.open(`/portal/channels/${channelId}/test/`, '_blank', 'width=800,height=600');
+}
+
+function deleteChannel(channelId) {
+    if (confirm('¿Eliminar este canal?')) {
+        fetch(`/portal/channels/${channelId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

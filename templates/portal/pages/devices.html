@@ -1,0 +1,316 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Dispositivos - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-phone"></i> Dispositivos</h1>
+        <p class="text-muted">Gestión de STBs y dispositivos registrados</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Dispositivo
+    </button>
+</div>
+
+<!-- Stats -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h3>{{ stats.total }}</h3>
+                    <p>Total Dispositivos</p>
+                </div>
+                <div class="icon bg-primary">
+                    <i class="bi bi-phone"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h3>{{ stats.online }}</h3>
+                    <p>Online Ahora</p>
+                </div>
+                <div class="icon bg-success">
+                    <i class="bi bi-wifi"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h3>{{ stats.mag }}</h3>
+                    <p>MAG/STB</p>
+                </div>
+                <div class="icon bg-info">
+                    <i class="bi bi-tv"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h3>{{ stats.apps }}</h3>
+                    <p>Apps (Android/iOS)</p>
+                </div>
+                <div class="icon bg-warning">
+                    <i class="bi bi-phone"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <input type="text" name="search" class="form-control" placeholder="Buscar MAC, usuario..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <select name="type" class="form-select">
+                    <option value="">Todos los tipos</option>
+                    <option value="mag" {% if request.GET.type == 'mag' %}selected{% endif %}>MAG STB</option>
+                    <option value="android" {% if request.GET.type == 'android' %}selected{% endif %}>Android</option>
+                    <option value="ios" {% if request.GET.type == 'ios' %}selected{% endif %}>iOS</option>
+                    <option value="smart_tv" {% if request.GET.type == 'smart_tv' %}selected{% endif %}>Smart TV</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="online" {% if request.GET.status == 'online' %}selected{% endif %}>Online</option>
+                    <option value="offline" {% if request.GET.status == 'offline' %}selected{% endif %}>Offline</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-secondary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Devices Table -->
+<div class="data-table">
+    <div class="table-header">
+        <h5>{{ devices.count }} dispositivos encontrados</h5>
+    </div>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>MAC Address</th>
+                <th>Usuario</th>
+                <th>Tipo</th>
+                <th>Última IP</th>
+                <th>Última conexión</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+            <tr>
+                <td>
+                    <code class="fs-6">{{ device.mac_address }}</code>
+                    {% if device.name %}
+                        <br><small class="text-muted">{{ device.name }}</small>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'portal:user_edit' device.user.id %}">{{ device.user.username }}</a>
+                </td>
+                <td>
+                    {% if device.device_type == 'mag' %}
+                        <span class="badge bg-dark"><i class="bi bi-tv"></i> MAG</span>
+                    {% elif device.device_type == 'android' %}
+                        <span class="badge bg-success"><i class="bi bi-android2"></i> Android</span>
+                    {% elif device.device_type == 'ios' %}
+                        <span class="badge bg-secondary"><i class="bi bi-apple"></i> iOS</span>
+                    {% elif device.device_type == 'smart_tv' %}
+                        <span class="badge bg-info"><i class="bi bi-display"></i> Smart TV</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark">{{ device.get_device_type_display }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ device.last_ip|default:"-" }}</td>
+                <td>
+                    {% if device.last_seen %}
+                        {{ device.last_seen|timesince }} atrás
+                    {% else %}
+                        Nunca
+                    {% endif %}
+                </td>
+                <td>
+                    {% if device.is_online %}
+                        <span class="status-badge status-online">
+                            <i class="bi bi-circle-fill"></i> Online
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-offline">Offline</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="quick-actions">
+                        <a href="{% url 'portal:device_edit' device.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-warning" onclick="refreshToken({{ device.id }})" title="Regenerar token">
+                            <i class="bi bi-key"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-info" onclick="sendMessage({{ device.id }})" title="Enviar mensaje">
+                            <i class="bi bi-chat"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDevice({{ device.id }})" title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center py-4 text-muted">
+                    <i class="bi bi-inbox display-4"></i>
+                    <p class="mt-2">No hay dispositivos registrados</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Device Modal -->
+<div class="modal fade" id="addDeviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-phone-fill"></i> Nuevo Dispositivo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'portal:device_create' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">MAC Address *</label>
+                        <input type="text" name="mac_address" class="form-control" placeholder="00:1A:79:XX:XX:XX" required>
+                        <small class="text-muted">Formato: XX:XX:XX:XX:XX:XX</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Usuario *</label>
+                        <select name="user" class="form-select" required>
+                            <option value="">Seleccionar usuario...</option>
+                            {% for user in all_users %}
+                                <option value="{{ user.id }}">{{ user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de dispositivo</label>
+                        <select name="device_type" class="form-select">
+                            <option value="mag">MAG STB</option>
+                            <option value="android">Android</option>
+                            <option value="ios">iOS</option>
+                            <option value="smart_tv">Smart TV</option>
+                            <option value="web">Web Browser</option>
+                            <option value="other">Otro</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre (opcional)</label>
+                        <input type="text" name="name" class="form-control" placeholder="Ej: Salón, Habitación...">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Dispositivo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Send Message Modal -->
+<div class="modal fade" id="sendMessageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-chat"></i> Enviar Mensaje</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="sendMessageForm">
+                {% csrf_token %}
+                <input type="hidden" name="device_id" id="messageDeviceId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de mensaje</label>
+                        <select name="message_type" class="form-select">
+                            <option value="info">Información</option>
+                            <option value="warning">Advertencia</option>
+                            <option value="error">Error</option>
+                            <option value="reload">Recargar Portal</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Título</label>
+                        <input type="text" name="title" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mensaje</label>
+                        <textarea name="message" class="form-control" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Enviar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshToken(deviceId) {
+    if (confirm('¿Regenerar token de este dispositivo? El dispositivo deberá reconectarse.')) {
+        fetch(`/portal/devices/${deviceId}/refresh-token/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(response => {
+            if (response.ok) {
+                alert('Token regenerado');
+                location.reload();
+            }
+        });
+    }
+}
+
+function sendMessage(deviceId) {
+    document.getElementById('messageDeviceId').value = deviceId;
+    new bootstrap.Modal(document.getElementById('sendMessageModal')).show();
+}
+
+function deleteDevice(deviceId) {
+    if (confirm('¿Eliminar este dispositivo?')) {
+        fetch(`/portal/devices/${deviceId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

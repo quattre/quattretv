@@ -1,0 +1,113 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Editar Canal - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'portal:channels' %}">Canales</a></li>
+            <li class="breadcrumb-item active">{{ channel.name }}</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-broadcast"></i> Editar Canal</h1>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label">Nombre</label>
+                                <input type="text" name="name" class="form-control" value="{{ channel.name }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Número</label>
+                                <input type="number" name="number" class="form-control" value="{{ channel.number }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Categoría</label>
+                                <select name="category" class="form-select">
+                                    <option value="">Sin categoría</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category.id }}" {% if channel.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">EPG Channel ID</label>
+                                <input type="text" name="epg_channel_id" class="form-control" value="{{ channel.epg_channel_id }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stream URL</label>
+                        <input type="url" name="stream_url" class="form-control" value="{{ channel.streams.first.url }}" placeholder="http://...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Logo URL</label>
+                        <input type="url" name="logo" class="form-control" value="{{ channel.logo }}">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_hd" class="form-check-input" id="isHd" {% if channel.is_hd %}checked{% endif %}>
+                                <label class="form-check-label" for="isHd">HD</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_adult" class="form-check-input" id="isAdult" {% if channel.is_adult %}checked{% endif %}>
+                                <label class="form-check-label" for="isAdult">+18</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="has_archive" class="form-check-input" id="hasArchive" {% if channel.has_archive %}checked{% endif %}>
+                                <label class="form-check-label" for="hasArchive">Catchup</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_active" class="form-check-input" id="isActive" {% if channel.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="isActive">Activo</label>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <a href="{% url 'portal:channels' %}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">Vista previa</div>
+                <div class="card-body text-center">
+                    {% if channel.logo %}
+                        <img src="{{ channel.logo }}" alt="{{ channel.name }}" style="max-width: 150px; max-height: 100px;">
+                    {% else %}
+                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center mx-auto" style="width: 100px; height: 100px;">
+                            <i class="bi bi-tv display-4"></i>
+                        </div>
+                    {% endif %}
+                    <h5 class="mt-3">{{ channel.name }}</h5>
+                    <p class="text-muted">Canal {{ channel.number }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

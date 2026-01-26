@@ -1,0 +1,85 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Editar Dispositivo - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'portal:devices' %}">Dispositivos</a></li>
+            <li class="breadcrumb-item active">{{ device.mac_address }}</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-phone"></i> Editar Dispositivo</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">MAC Address</label>
+                        <input type="text" class="form-control" value="{{ device.mac_address }}" disabled>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Usuario</label>
+                                <select name="user" class="form-select">
+                                    {% for user in all_users %}
+                                        <option value="{{ user.id }}" {% if device.user_id == user.id %}selected{% endif %}>{{ user.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Tipo</label>
+                                <select name="device_type" class="form-select">
+                                    <option value="mag" {% if device.device_type == 'mag' %}selected{% endif %}>MAG STB</option>
+                                    <option value="android" {% if device.device_type == 'android' %}selected{% endif %}>Android</option>
+                                    <option value="ios" {% if device.device_type == 'ios' %}selected{% endif %}>iOS</option>
+                                    <option value="smart_tv" {% if device.device_type == 'smart_tv' %}selected{% endif %}>Smart TV</option>
+                                    <option value="web" {% if device.device_type == 'web' %}selected{% endif %}>Web</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" name="name" class="form-control" value="{{ device.name }}">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="isActive" {% if device.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="isActive">Dispositivo activo</label>
+                        </div>
+                    </div>
+                    <hr>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                    <a href="{% url 'portal:devices' %}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Información</div>
+            <div class="card-body">
+                <p><strong>Token:</strong> <code class="small">{{ device.token|truncatechars:20 }}</code></p>
+                <p><strong>Última IP:</strong> {{ device.last_ip|default:"-" }}</p>
+                <p><strong>Última conexión:</strong> {{ device.last_seen|default:"-" }}</p>
+                <p><strong>Estado:</strong>
+                    {% if device.is_online %}
+                        <span class="status-badge status-online">Online</span>
+                    {% else %}
+                        <span class="status-badge status-offline">Offline</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

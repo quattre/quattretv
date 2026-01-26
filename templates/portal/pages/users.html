@@ -1,0 +1,235 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Usuarios - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-people"></i> Usuarios</h1>
+        <p class="text-muted">Gestión de usuarios y suscripciones</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Usuario
+    </button>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <input type="text" name="search" class="form-control" placeholder="Buscar usuario..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <select name="tariff" class="form-select">
+                    <option value="">Todas las tarifas</option>
+                    {% for tariff in tariffs %}
+                        <option value="{{ tariff.id }}" {% if request.GET.tariff == tariff.id|stringformat:"s" %}selected{% endif %}>{{ tariff.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Activos</option>
+                    <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactivos</option>
+                    <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Expirados</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-secondary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="data-table">
+    <div class="table-header">
+        <h5>{{ users.count }} usuarios encontrados</h5>
+        <div>
+            <button class="btn btn-sm btn-outline-success"><i class="bi bi-download"></i> Exportar</button>
+        </div>
+    </div>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Usuario</th>
+                <th>Email</th>
+                <th>Tarifa</th>
+                <th>Dispositivos</th>
+                <th>Expira</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>
+                    <strong>{{ user.username }}</strong>
+                    <br><small class="text-muted">ID: {{ user.id }}</small>
+                </td>
+                <td>{{ user.email|default:"-" }}</td>
+                <td>
+                    {% if user.tariff %}
+                        <span class="badge bg-primary">{{ user.tariff.name }}</span>
+                    {% else %}
+                        <span class="text-muted">Sin tarifa</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge bg-secondary">{{ user.devices.count }}/{{ user.max_devices }}</span>
+                </td>
+                <td>
+                    {% if user.subscription_expires %}
+                        {{ user.subscription_expires|date:"d/m/Y" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.is_subscription_active %}
+                        <span class="status-badge status-active">Activo</span>
+                    {% elif user.is_active %}
+                        <span class="status-badge status-inactive">Expirado</span>
+                    {% else %}
+                        <span class="status-badge status-offline">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="quick-actions">
+                        <a href="{% url 'portal:user_edit' user.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <a href="{% url 'portal:user_devices' user.id %}" class="btn btn-sm btn-outline-info" title="Dispositivos">
+                            <i class="bi bi-phone"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-success" onclick="renewUser({{ user.id }})" title="Renovar">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser({{ user.id }})" title="Eliminar">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center py-4 text-muted">
+                    <i class="bi bi-inbox display-4"></i>
+                    <p class="mt-2">No hay usuarios registrados</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    {% if users.has_other_pages %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination justify-content-center mb-0">
+                {% if users.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page={{ users.previous_page_number }}">Anterior</a></li>
+                {% endif %}
+                {% for num in users.paginator.page_range %}
+                    <li class="page-item {% if users.number == num %}active{% endif %}">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                {% endfor %}
+                {% if users.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ users.next_page_number }}">Siguiente</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-plus"></i> Nuevo Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'portal:user_create' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Usuario *</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña *</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tarifa</label>
+                        <select name="tariff" class="form-select">
+                            <option value="">Sin tarifa</option>
+                            {% for tariff in tariffs %}
+                                <option value="{{ tariff.id }}">{{ tariff.name }} - {{ tariff.price }}€</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Duración suscripción (días)</label>
+                        <input type="number" name="duration" class="form-control" value="30">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Máx. dispositivos</label>
+                        <input type="number" name="max_devices" class="form-control" value="5">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function renewUser(userId) {
+    if (confirm('¿Renovar suscripción por 30 días?')) {
+        fetch(`/portal/users/${userId}/renew/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function deleteUser(userId) {
+    if (confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) {
+        fetch(`/portal/users/${userId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

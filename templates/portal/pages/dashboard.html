@@ -1,0 +1,290 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Dashboard - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
+    <p class="text-muted">Resumen general de la plataforma</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h3>{{ stats.users_count }}</h3>
+                    <p>Usuarios Totales</p>
+                </div>
+                <div class="icon bg-primary">
+                    <i class="bi bi-people"></i>
+                </div>
+            </div>
+            <small class="text-success"><i class="bi bi-arrow-up"></i> {{ stats.users_active }} activos</small>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h3>{{ stats.devices_count }}</h3>
+                    <p>Dispositivos</p>
+                </div>
+                <div class="icon bg-success">
+                    <i class="bi bi-phone"></i>
+                </div>
+            </div>
+            <small class="text-success"><i class="bi bi-circle-fill"></i> {{ stats.devices_online }} online</small>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h3>{{ stats.channels_count }}</h3>
+                    <p>Canales</p>
+                </div>
+                <div class="icon bg-info">
+                    <i class="bi bi-broadcast"></i>
+                </div>
+            </div>
+            <small class="text-muted">{{ stats.categories_count }} categorías</small>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h3>{{ stats.streams_active }}</h3>
+                    <p>Streams Activos</p>
+                </div>
+                <div class="icon bg-warning">
+                    <i class="bi bi-activity"></i>
+                </div>
+            </div>
+            <small class="text-muted">En este momento</small>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Connections Chart -->
+    <div class="col-lg-8">
+        <div class="data-table">
+            <div class="table-header">
+                <h5><i class="bi bi-graph-up"></i> Conexiones (Últimas 24h)</h5>
+            </div>
+            <div class="p-4">
+                <canvas id="connectionsChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Types -->
+    <div class="col-lg-4">
+        <div class="data-table">
+            <div class="table-header">
+                <h5><i class="bi bi-pie-chart"></i> Tipos de Dispositivos</h5>
+            </div>
+            <div class="p-4">
+                <canvas id="devicesChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <!-- Recent Users -->
+    <div class="col-lg-6">
+        <div class="data-table">
+            <div class="table-header">
+                <h5><i class="bi bi-person-plus"></i> Últimos Usuarios</h5>
+                <a href="{% url 'portal:users' %}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+            </div>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Tarifa</th>
+                        <th>Estado</th>
+                        <th>Registro</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in recent_users %}
+                    <tr>
+                        <td>
+                            <strong>{{ user.username }}</strong>
+                            <br><small class="text-muted">{{ user.email }}</small>
+                        </td>
+                        <td>{{ user.tariff.name|default:"-" }}</td>
+                        <td>
+                            {% if user.is_subscription_active %}
+                                <span class="status-badge status-active">Activo</span>
+                            {% else %}
+                                <span class="status-badge status-inactive">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.date_joined|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No hay usuarios registrados</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Online Devices -->
+    <div class="col-lg-6">
+        <div class="data-table">
+            <div class="table-header">
+                <h5><i class="bi bi-wifi"></i> Dispositivos Online</h5>
+                <a href="{% url 'portal:devices' %}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+            </div>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>MAC</th>
+                        <th>Usuario</th>
+                        <th>IP</th>
+                        <th>Última actividad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in online_devices %}
+                    <tr>
+                        <td>
+                            <code>{{ device.mac_address }}</code>
+                            <br><small class="text-muted">{{ device.get_device_type_display }}</small>
+                        </td>
+                        <td>{{ device.user.username }}</td>
+                        <td>{{ device.last_ip|default:"-" }}</td>
+                        <td>{{ device.last_seen|timesince }} atrás</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No hay dispositivos online</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Top Channels -->
+<div class="row g-4 mt-2">
+    <div class="col-12">
+        <div class="data-table">
+            <div class="table-header">
+                <h5><i class="bi bi-star"></i> Canales Más Vistos</h5>
+            </div>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">#</th>
+                        <th>Canal</th>
+                        <th>Categoría</th>
+                        <th>Visualizaciones</th>
+                        <th>Stream</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for channel in top_channels %}
+                    <tr>
+                        <td>
+                            {% if channel.logo %}
+                                <img src="{{ channel.logo }}" alt="{{ channel.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                            {% else %}
+                                <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-tv"></i>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ channel.name }}</strong>
+                            <br><small class="text-muted">{{ channel.number }}</small>
+                        </td>
+                        <td>{{ channel.category.name|default:"-" }}</td>
+                        <td>
+                            <div class="progress" style="height: 6px; width: 100px;">
+                                <div class="progress-bar bg-success" style="width: {{ channel.popularity|default:0 }}%"></div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if channel.is_active %}
+                                <span class="status-badge status-online">Activo</span>
+                            {% else %}
+                                <span class="status-badge status-offline">Inactivo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No hay canales configurados</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Connections Chart
+const ctx1 = document.getElementById('connectionsChart').getContext('2d');
+new Chart(ctx1, {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels|safe }},
+        datasets: [{
+            label: 'Conexiones',
+            data: {{ chart_data|safe }},
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+
+// Devices Chart
+const ctx2 = document.getElementById('devicesChart').getContext('2d');
+new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+        labels: {{ device_types_labels|safe }},
+        datasets: [{
+            data: {{ device_types_data|safe }},
+            backgroundColor: ['#667eea', '#11998e', '#f5576c', '#4facfe', '#f093fb']
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Configuración - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-gear"></i> Configuración</h1>
+    <p class="text-muted">Ajustes del sistema</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-server"></i> Servidor</h5>
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del portal</label>
+                        <input type="text" class="form-control" value="QuattreTV">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">URL del servidor de streaming</label>
+                        <input type="url" class="form-control" placeholder="http://streaming-server:8080">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Zona horaria</label>
+                        <select class="form-select">
+                            <option selected>Europe/Madrid</option>
+                            <option>Europe/London</option>
+                            <option>America/New_York</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Timeshift</h5>
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="timeshiftEnabled" checked>
+                            <label class="form-check-label" for="timeshiftEnabled">Habilitar Timeshift</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Horas de archivo</label>
+                        <input type="number" class="form-control" value="24">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Directorio de archivo</label>
+                        <input type="text" class="form-control" value="/var/archive">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Seguridad</h5>
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="forceHttps">
+                            <label class="form-check-label" for="forceHttps">Forzar HTTPS</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="ipCheck" checked>
+                            <label class="form-check-label" for="ipCheck">Verificar IP del dispositivo</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tiempo de sesión (horas)</label>
+                        <input type="number" class="form-control" value="24">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-palette"></i> Apariencia</h5>
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="mb-3">
+                        <label class="form-label">Logo del portal</label>
+                        <input type="file" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Color primario</label>
+                        <input type="color" class="form-control form-control-color" value="#1a1a2e">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

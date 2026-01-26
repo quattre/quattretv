@@ -1,0 +1,110 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Tarifas - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-credit-card"></i> Tarifas</h1>
+        <p class="text-muted">Planes de suscripción</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTariffModal">
+        <i class="bi bi-plus-lg"></i> Nueva Tarifa
+    </button>
+</div>
+
+<div class="row g-4">
+    {% for tariff in tariffs %}
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">{{ tariff.name }}</h5>
+            </div>
+            <div class="card-body">
+                <h2 class="text-center mb-4">{{ tariff.price }}€<small class="text-muted">/{{ tariff.duration_days }} días</small></h2>
+                <ul class="list-unstyled">
+                    <li><i class="bi bi-check-circle text-success"></i> {{ tariff.max_devices }} dispositivos</li>
+                    <li><i class="bi bi-check-circle text-success"></i> {{ tariff.max_concurrent_streams }} streams simultáneos</li>
+                    {% if tariff.has_timeshift %}
+                    <li><i class="bi bi-check-circle text-success"></i> Timeshift</li>
+                    {% endif %}
+                    {% if tariff.has_pvr %}
+                    <li><i class="bi bi-check-circle text-success"></i> Grabaciones (PVR)</li>
+                    {% endif %}
+                    {% if tariff.has_vod %}
+                    <li><i class="bi bi-check-circle text-success"></i> VOD</li>
+                    {% endif %}
+                    {% if tariff.has_catchup %}
+                    <li><i class="bi bi-check-circle text-success"></i> Catchup</li>
+                    {% endif %}
+                </ul>
+                <p class="text-muted">{{ tariff.users_count }} usuarios</p>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> Editar</button>
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Eliminar</button>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle"></i> No hay tarifas configuradas
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add Tariff Modal -->
+<div class="modal fade" id="addTariffModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Tarifa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Precio (€)</label>
+                                <input type="number" name="price" class="form-control" step="0.01" required>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Duración (días)</label>
+                                <input type="number" name="duration_days" class="form-control" value="30" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Máx. dispositivos</label>
+                                <input type="number" name="max_devices" class="form-control" value="5">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <label class="form-label">Streams simultáneos</label>
+                                <input type="number" name="max_concurrent_streams" class="form-control" value="2">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
