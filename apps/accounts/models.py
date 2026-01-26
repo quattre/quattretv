@@ -40,8 +40,9 @@ class User(AbstractUser):
 
     @property
     def is_subscription_active(self):
+        # Si no tiene fecha de expiración, nunca caduca (siempre activo)
         if not self.subscription_expires:
-            return False
+            return True
         return self.subscription_expires > timezone.now()
 
     @property
@@ -64,11 +65,19 @@ class Tariff(TimeStampedModel):
     has_vod = models.BooleanField(default=True)
     has_catchup = models.BooleanField(default=True)
 
-    # Channel packages
+    # Channel packages (grupos de canales)
     channel_packages = models.ManyToManyField(
         'channels.ChannelPackage',
         blank=True,
         related_name='tariffs'
+    )
+
+    # Canales individuales seleccionados
+    channels = models.ManyToManyField(
+        'channels.Channel',
+        blank=True,
+        related_name='tariffs',
+        help_text='Canales individuales incluidos en esta tarifa'
     )
 
     is_active = models.BooleanField(default=True)

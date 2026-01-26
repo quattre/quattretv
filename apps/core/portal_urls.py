@@ -37,6 +37,9 @@ urlpatterns = [
 
     # Tariffs
     path('tariffs/', views.tariffs_list, name='tariffs'),
+    path('tariffs/create/', views.tariff_create, name='tariff_create'),
+    path('tariffs/<int:tariff_id>/', views.tariff_edit, name='tariff_edit'),
+    path('tariffs/<int:tariff_id>/delete/', views.tariff_delete, name='tariff_delete'),
 
     # EPG
     path('epg/', views.epg_list, name='epg'),

@@ -505,15 +505,95 @@ def categories_list(request):
 @staff_member_required
 def tariffs_list(request):
     """Tariffs list."""
-    tariffs = Tariff.objects.annotate(users_count=Count('users'))
+    tariffs = Tariff.objects.prefetch_related('channels').annotate(users_count=Count('users'))
+    categories = Category.objects.prefetch_related('channels').all()
+    uncategorized_channels = Channel.objects.filter(category__isnull=True)
 
     context = {
         'active_page': 'tariffs',
         'stats': get_base_stats(),
         'tariffs': tariffs,
+        'categories': categories,
+        'uncategorized_channels': uncategorized_channels,
     }
 
     return render(request, 'portal/pages/tariffs.html', context)
+
+
+@staff_member_required
+def tariff_create(request):
+    """Create new tariff."""
+    if request.method == 'POST':
+        tariff = Tariff.objects.create(
+            name=request.POST.get('name'),
+            price=request.POST.get('price', 0),
+            duration_days=int(request.POST.get('duration_days', 0)),
+            max_devices=int(request.POST.get('max_devices', 5)),
+            max_concurrent_streams=int(request.POST.get('max_concurrent_streams', 2)),
+            has_timeshift='has_timeshift' in request.POST,
+            has_catchup='has_catchup' in request.POST,
+            has_vod='has_vod' in request.POST,
+            has_pvr='has_pvr' in request.POST,
+        )
+
+        # Añadir canales seleccionados
+        channel_ids = request.POST.getlist('channels')
+        if channel_ids:
+            tariff.channels.set(channel_ids)
+
+        messages.success(request, f'Tarifa {tariff.name} creada con {tariff.channels.count()} canales')
+
+    return redirect('portal:tariffs')
+
+
+@staff_member_required
+def tariff_edit(request, tariff_id):
+    """Edit tariff."""
+    tariff = get_object_or_404(Tariff, id=tariff_id)
+
+    if request.method == 'POST':
+        tariff.name = request.POST.get('name')
+        tariff.price = request.POST.get('price', 0)
+        tariff.duration_days = int(request.POST.get('duration_days', 0))
+        tariff.max_devices = int(request.POST.get('max_devices', 5))
+        tariff.max_concurrent_streams = int(request.POST.get('max_concurrent_streams', 2))
+        tariff.has_timeshift = 'has_timeshift' in request.POST
+        tariff.has_catchup = 'has_catchup' in request.POST
+        tariff.has_vod = 'has_vod' in request.POST
+        tariff.has_pvr = 'has_pvr' in request.POST
+        tariff.is_active = 'is_active' in request.POST
+        tariff.save()
+
+        # Actualizar canales
+        channel_ids = request.POST.getlist('channels')
+        tariff.channels.set(channel_ids)
+
+        messages.success(request, 'Tarifa actualizada')
+        return redirect('portal:tariffs')
+
+    categories = Category.objects.prefetch_related('channels').all()
+    uncategorized_channels = Channel.objects.filter(category__isnull=True)
+
+    context = {
+        'active_page': 'tariffs',
+        'stats': get_base_stats(),
+        'tariff': tariff,
+        'categories': categories,
+        'uncategorized_channels': uncategorized_channels,
+    }
+
+    return render(request, 'portal/pages/tariff_edit.html', context)
+
+
+@staff_member_required
+def tariff_delete(request, tariff_id):
+    """Delete tariff."""
+    if request.method == 'POST':
+        tariff = get_object_or_404(Tariff, id=tariff_id)
+        tariff.delete()
+        return JsonResponse({'status': 'ok'})
+
+    return JsonResponse({'status': 'error'}, status=400)
 
 
 # EPG

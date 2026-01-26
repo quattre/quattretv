@@ -1,0 +1,205 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Editar Tarifa - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'portal:tariffs' %}">Tarifas</a></li>
+            <li class="breadcrumb-item active">{{ tariff.name }}</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-credit-card"></i> Editar Tarifa</h1>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">Información básica</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Nombre *</label>
+                                <input type="text" name="name" class="form-control" value="{{ tariff.name }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Precio (€) *</label>
+                                <input type="number" name="price" class="form-control" step="0.01" value="{{ tariff.price }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Duración (días)</label>
+                                <input type="number" name="duration_days" class="form-control" value="{{ tariff.duration_days }}">
+                                <small class="text-muted">0 = Sin caducidad</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Máx. dispositivos</label>
+                                <input type="number" name="max_devices" class="form-control" value="{{ tariff.max_devices }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Streams simultáneos</label>
+                                <input type="number" name="max_concurrent_streams" class="form-control" value="{{ tariff.max_concurrent_streams }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Características</label>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input type="checkbox" name="has_timeshift" class="form-check-input" id="hasTimeshift" {% if tariff.has_timeshift %}checked{% endif %}>
+                                    <label class="form-check-label" for="hasTimeshift">Timeshift</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input type="checkbox" name="has_catchup" class="form-check-input" id="hasCatchup" {% if tariff.has_catchup %}checked{% endif %}>
+                                    <label class="form-check-label" for="hasCatchup">Catchup</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input type="checkbox" name="has_vod" class="form-check-input" id="hasVod" {% if tariff.has_vod %}checked{% endif %}>
+                                    <label class="form-check-label" for="hasVod">VOD</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input type="checkbox" name="has_pvr" class="form-check-input" id="hasPvr" {% if tariff.has_pvr %}checked{% endif %}>
+                                    <label class="form-check-label" for="hasPvr">PVR</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input type="checkbox" name="is_active" class="form-check-input" id="isActive" {% if tariff.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="isActive">Tarifa activa</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Canales incluidos</span>
+                    <span class="badge bg-info" id="channelCount">{{ tariff.channels.count }} seleccionados</span>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% for category in categories %}
+                        <div class="mb-2">
+                            <strong>{{ category.name }}</strong>
+                            <button type="button" class="btn btn-xs btn-link" onclick="selectCategory({{ category.id }})">
+                                Seleccionar todos
+                            </button>
+                        </div>
+                        <div class="row mb-3">
+                            {% for channel in category.channels.all %}
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input type="checkbox" name="channels" value="{{ channel.id }}"
+                                           class="form-check-input channel-cb channel-{{ category.id }}" id="ch-{{ channel.id }}"
+                                           {% if channel in tariff.channels.all %}checked{% endif %}
+                                           onchange="updateCount()">
+                                    <label class="form-check-label small" for="ch-{{ channel.id }}">
+                                        {{ channel.name }}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% empty %}
+                        <p class="text-muted">No hay canales con categoría.</p>
+                    {% endfor %}
+
+                    {% if uncategorized_channels %}
+                    <div class="mb-2"><strong>Sin categoría</strong></div>
+                    <div class="row">
+                        {% for channel in uncategorized_channels %}
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input type="checkbox" name="channels" value="{{ channel.id }}"
+                                       class="form-check-input channel-cb" id="ch-{{ channel.id }}"
+                                       {% if channel in tariff.channels.all %}checked{% endif %}
+                                       onchange="updateCount()">
+                                <label class="form-check-label small" for="ch-{{ channel.id }}">
+                                    {{ channel.name }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllChannels()">
+                        Seleccionar todos
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllChannels()">
+                        Deseleccionar todos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">Información</div>
+                <div class="card-body">
+                    <p><strong>ID:</strong> {{ tariff.id }}</p>
+                    <p><strong>Usuarios:</strong> {{ tariff.users.count }}</p>
+                    <p><strong>Creada:</strong> {{ tariff.created_at|date:"d/m/Y" }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <button type="submit" class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-check-lg"></i> Guardar cambios
+                    </button>
+                    <a href="{% url 'portal:tariffs' %}" class="btn btn-secondary w-100">
+                        Cancelar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateCount() {
+    const count = document.querySelectorAll('.channel-cb:checked').length;
+    document.getElementById('channelCount').textContent = count + ' seleccionados';
+}
+
+function selectAllChannels() {
+    document.querySelectorAll('.channel-cb').forEach(cb => cb.checked = true);
+    updateCount();
+}
+
+function deselectAllChannels() {
+    document.querySelectorAll('.channel-cb').forEach(cb => cb.checked = false);
+    updateCount();
+}
+
+function selectCategory(categoryId) {
+    document.querySelectorAll('.channel-' + categoryId).forEach(cb => cb.checked = true);
+    updateCount();
+}
+</script>
+{% endblock %}

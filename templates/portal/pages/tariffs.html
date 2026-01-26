@@ -6,7 +6,7 @@
 <div class="page-header d-flex justify-content-between align-items-center">
     <div>
         <h1><i class="bi bi-credit-card"></i> Tarifas</h1>
-        <p class="text-muted">Planes de suscripción</p>
+        <p class="text-muted">Planes de suscripción por canales</p>
     </div>
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTariffModal">
         <i class="bi bi-plus-lg"></i> Nueva Tarifa
@@ -17,39 +17,67 @@
     {% for tariff in tariffs %}
     <div class="col-md-4">
         <div class="card h-100">
-            <div class="card-header bg-primary text-white">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{{ tariff.name }}</h5>
+                {% if not tariff.is_active %}
+                    <span class="badge bg-secondary">Inactiva</span>
+                {% endif %}
             </div>
             <div class="card-body">
-                <h2 class="text-center mb-4">{{ tariff.price }}€<small class="text-muted">/{{ tariff.duration_days }} días</small></h2>
-                <ul class="list-unstyled">
+                <h2 class="text-center mb-4">{{ tariff.price }}€<small class="text-muted">/mes</small></h2>
+
+                <h6 class="text-muted mb-2">Características:</h6>
+                <ul class="list-unstyled mb-3">
                     <li><i class="bi bi-check-circle text-success"></i> {{ tariff.max_devices }} dispositivos</li>
                     <li><i class="bi bi-check-circle text-success"></i> {{ tariff.max_concurrent_streams }} streams simultáneos</li>
                     {% if tariff.has_timeshift %}
                     <li><i class="bi bi-check-circle text-success"></i> Timeshift</li>
                     {% endif %}
-                    {% if tariff.has_pvr %}
-                    <li><i class="bi bi-check-circle text-success"></i> Grabaciones (PVR)</li>
+                    {% if tariff.has_catchup %}
+                    <li><i class="bi bi-check-circle text-success"></i> Catchup</li>
                     {% endif %}
                     {% if tariff.has_vod %}
                     <li><i class="bi bi-check-circle text-success"></i> VOD</li>
                     {% endif %}
-                    {% if tariff.has_catchup %}
-                    <li><i class="bi bi-check-circle text-success"></i> Catchup</li>
-                    {% endif %}
                 </ul>
-                <p class="text-muted">{{ tariff.users_count }} usuarios</p>
+
+                <h6 class="text-muted mb-2">Canales incluidos:</h6>
+                <div class="mb-3">
+                    {% if tariff.channels.exists %}
+                        <span class="badge bg-info">{{ tariff.channels.count }} canales</span>
+                        <button class="btn btn-sm btn-link" data-bs-toggle="collapse" data-bs-target="#channels-{{ tariff.id }}">
+                            Ver canales
+                        </button>
+                        <div class="collapse mt-2" id="channels-{{ tariff.id }}">
+                            <div class="small" style="max-height: 150px; overflow-y: auto;">
+                                {% for channel in tariff.channels.all %}
+                                    <span class="badge bg-secondary me-1 mb-1">{{ channel.name }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <span class="text-muted">Sin canales asignados</span>
+                    {% endif %}
+                </div>
+
+                <p class="text-muted small mb-0">
+                    <i class="bi bi-people"></i> {{ tariff.users_count }} usuarios
+                </p>
             </div>
             <div class="card-footer">
-                <button class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i> Editar</button>
-                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Eliminar</button>
+                <a href="{% url 'portal:tariff_edit' tariff.id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-pencil"></i> Editar
+                </a>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteTariff({{ tariff.id }})">
+                    <i class="bi bi-trash"></i> Eliminar
+                </button>
             </div>
         </div>
     </div>
     {% empty %}
     <div class="col-12">
         <div class="alert alert-info text-center">
-            <i class="bi bi-info-circle"></i> No hay tarifas configuradas
+            <i class="bi bi-info-circle"></i> No hay tarifas configuradas. Crea una para empezar.
         </div>
     </div>
     {% endfor %}
@@ -57,54 +85,166 @@
 
 <!-- Add Tariff Modal -->
 <div class="modal fade" id="addTariffModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Nueva Tarifa</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post">
+            <form method="post" action="{% url 'portal:tariff_create' %}">
                 {% csrf_token %}
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre</label>
-                        <input type="text" name="name" class="form-control" required>
-                    </div>
                     <div class="row">
-                        <div class="col-6">
+                        <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Precio (€)</label>
+                                <label class="form-label">Nombre *</label>
+                                <input type="text" name="name" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Precio (€) *</label>
                                 <input type="number" name="price" class="form-control" step="0.01" required>
                             </div>
                         </div>
-                        <div class="col-6">
+                        <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label">Duración (días)</label>
-                                <input type="number" name="duration_days" class="form-control" value="30" required>
+                                <input type="number" name="duration_days" class="form-control" value="0">
+                                <small class="text-muted">0 = Sin caducidad</small>
                             </div>
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-6">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Máx. dispositivos</label>
                                 <input type="number" name="max_devices" class="form-control" value="5">
                             </div>
                         </div>
-                        <div class="col-6">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Streams simultáneos</label>
                                 <input type="number" name="max_concurrent_streams" class="form-control" value="2">
                             </div>
                         </div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Características</label>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input type="checkbox" name="has_timeshift" class="form-check-input" id="hasTimeshift" checked>
+                                    <label class="form-check-label" for="hasTimeshift">Timeshift</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input type="checkbox" name="has_catchup" class="form-check-input" id="hasCatchup" checked>
+                                    <label class="form-check-label" for="hasCatchup">Catchup</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input type="checkbox" name="has_vod" class="form-check-input" id="hasVod" checked>
+                                    <label class="form-check-label" for="hasVod">VOD</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    <input type="checkbox" name="has_pvr" class="form-check-input" id="hasPvr" checked>
+                                    <label class="form-check-label" for="hasPvr">PVR</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar Canales</label>
+                        <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                            {% for category in categories %}
+                                <div class="mb-2">
+                                    <strong>{{ category.name }}</strong>
+                                    <button type="button" class="btn btn-xs btn-link" onclick="selectCategory({{ category.id }})">
+                                        Seleccionar todos
+                                    </button>
+                                </div>
+                                <div class="row mb-3">
+                                    {% for channel in category.channels.all %}
+                                    <div class="col-md-4">
+                                        <div class="form-check">
+                                            <input type="checkbox" name="channels" value="{{ channel.id }}"
+                                                   class="form-check-input channel-{{ category.id }}" id="ch-{{ channel.id }}">
+                                            <label class="form-check-label small" for="ch-{{ channel.id }}">
+                                                {{ channel.name }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% empty %}
+                                <p class="text-muted">No hay canales. Crea canales primero.</p>
+                            {% endfor %}
+
+                            {% if uncategorized_channels %}
+                            <div class="mb-2"><strong>Sin categoría</strong></div>
+                            <div class="row">
+                                {% for channel in uncategorized_channels %}
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="channels" value="{{ channel.id }}"
+                                               class="form-check-input" id="ch-{{ channel.id }}">
+                                        <label class="form-check-label small" for="ch-{{ channel.id }}">
+                                            {{ channel.name }}
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllChannels()">
+                                Seleccionar todos
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllChannels()">
+                                Deseleccionar todos
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Crear</button>
+                    <button type="submit" class="btn btn-primary">Crear Tarifa</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectAllChannels() {
+    document.querySelectorAll('input[name="channels"]').forEach(cb => cb.checked = true);
+}
+
+function deselectAllChannels() {
+    document.querySelectorAll('input[name="channels"]').forEach(cb => cb.checked = false);
+}
+
+function selectCategory(categoryId) {
+    document.querySelectorAll('.channel-' + categoryId).forEach(cb => cb.checked = true);
+}
+
+function deleteTariff(tariffId) {
+    if (confirm('¿Eliminar esta tarifa?')) {
+        fetch(`/tariffs/${tariffId}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(response => {
+            if (response.ok) location.reload();
+        });
+    }
+}
+</script>
 {% endblock %}
