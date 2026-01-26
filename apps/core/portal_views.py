@@ -620,8 +620,11 @@ def parse_m3u(content):
                 current_channel['name'] = tvg_name_match.group(1)
 
         elif line and not line.startswith('#') and current_channel:
-            # This is the URL line
-            current_channel['url'] = line
+            # This is the URL line - clean Stalker "ffmpeg " prefix if present
+            url = line
+            if url.startswith('ffmpeg '):
+                url = url[7:]  # Remove "ffmpeg " prefix
+            current_channel['url'] = url
             if current_channel.get('name') and current_channel.get('url'):
                 channels.append(current_channel)
             current_channel = None
