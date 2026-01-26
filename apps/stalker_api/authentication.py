@@ -41,9 +41,12 @@ class MACAuthentication(BaseAuthentication):
 
     def get_mac_from_request(self, request):
         """Extract MAC address from request."""
-        # Debug logging
+        # Debug logging - show ALL headers
         print(f"DEBUG MAC - Cookies: {request.COOKIES}")
-        print(f"DEBUG MAC - Auth header: {request.META.get('HTTP_AUTHORIZATION', 'None')}")
+        print(f"DEBUG MAC - All META headers:")
+        for key, value in request.META.items():
+            if key.startswith('HTTP_'):
+                print(f"  {key}: {value}")
 
         # Try Cookie header first (standard Stalker format)
         cookie_mac = request.COOKIES.get('mac')
