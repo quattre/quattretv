@@ -9,9 +9,6 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # Portal Admin (Stalker-style)
-    path('portal/', include('apps.core.portal_urls')),
-
     # API v1
     path('api/v1/', include('apps.core.urls')),
     path('api/v1/accounts/', include('apps.accounts.urls')),
@@ -25,6 +22,9 @@ urlpatterns = [
     # Stalker Portal compatible API
     path('stalker_portal/', include('apps.stalker_api.urls')),
     path('portal.php', include('apps.stalker_api.portal_urls')),
+
+    # Portal Admin (en la raíz - al final para no interferir con APIs)
+    path('', include('apps.core.portal_urls')),
 ]
 
 if settings.DEBUG:
