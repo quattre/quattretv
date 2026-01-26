@@ -18,93 +18,111 @@ from .authentication import MACAuthentication
 def stb_loader_page(request):
     """
     Serve initial loader page for MAG boxes.
-    This page extracts the MAC and redirects to the main portal.
+    This page extracts the MAC or shows login form.
     """
     html = '''<!DOCTYPE html>
 <html>
 <head>
     <title>QuattreTV</title>
-    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
     <script>
-    var debug = [];
+    var attempts = 0;
+    var maxAttempts = 2;
+
     function log(msg) {
-        debug.push(msg);
-        document.getElementById('debug').innerHTML = debug.join('<br>');
+        document.getElementById('status').innerHTML = msg;
+    }
+
+    function setMacAndReload(mac) {
+        mac = mac.replace(/%3A/g, ':').replace(/-/g, ':').toUpperCase().trim();
+        document.cookie = 'mac=' + mac + '; path=/; max-age=31536000';
+        setTimeout(function() { location.reload(); }, 200);
     }
 
     function initApp() {
-        log('Iniciando...');
         var mac = '';
-
         try {
-            // MAG540/544 (Android-based) - uses Android JS interface
             if (typeof(Android) !== 'undefined') {
-                log('Detectado: Android interface');
                 if (Android.getMac) mac = Android.getMac();
                 else if (Android.getMAC) mac = Android.getMAC();
-                else if (Android.getDeviceMac) mac = Android.getDeviceMac();
             }
-
-            // MAG classic (stb object)
-            if (!mac && typeof(stb) !== 'undefined') {
-                log('Detectado: stb object');
-                if (stb.GetDeviceMAC) mac = stb.GetDeviceMAC();
-                else if (stb.RDir) mac = stb.RDir('vMAC');
+            if (!mac && typeof(stb) !== 'undefined' && stb.GetDeviceMAC) {
+                mac = stb.GetDeviceMAC();
             }
-
-            // MAG with gSTB
-            if (!mac && typeof(gSTB) !== 'undefined') {
-                log('Detectado: gSTB object');
-                if (gSTB.GetDeviceMAC) mac = gSTB.GetDeviceMAC();
+            if (!mac && typeof(gSTB) !== 'undefined' && gSTB.GetDeviceMAC) {
+                mac = gSTB.GetDeviceMAC();
             }
-
-            // Netscape plugin (older MAG)
-            if (!mac) {
-                var plugin = document.getElementById('stbPlugin');
-                if (plugin && plugin.GetDeviceMAC) {
-                    log('Detectado: stbPlugin');
-                    mac = plugin.GetDeviceMAC();
-                }
-            }
-
-            // Check window.stbWebKit
-            if (!mac && typeof(stbWebKit) !== 'undefined') {
-                log('Detectado: stbWebKit');
-                if (stbWebKit.GetDeviceMAC) mac = stbWebKit.GetDeviceMAC();
-            }
-
-        } catch(e) {
-            log('Error: ' + e.message);
-        }
+        } catch(e) {}
 
         if (mac) {
-            log('MAC encontrada: ' + mac);
-            // Normalize MAC format
-            mac = mac.replace(/%3A/g, ':').toUpperCase();
-            // Set MAC as cookie
-            document.cookie = 'mac=' + mac + '; path=/';
-            log('Cookie seteada, recargando...');
-            setTimeout(function() { location.reload(); }, 500);
+            setMacAndReload(mac);
         } else {
-            log('MAC no encontrada, reintentando...');
-            setTimeout(initApp, 2000);
+            attempts++;
+            if (attempts < maxAttempts) {
+                setTimeout(initApp, 500);
+            } else {
+                showLogin();
+            }
         }
     }
 
-    window.onload = function() {
-        setTimeout(initApp, 500);
-    };
+    function showLogin() {
+        document.getElementById('auto').style.display = 'none';
+        document.getElementById('login').style.display = 'block';
+    }
+
+    function doLogin() {
+        var user = document.getElementById('username').value;
+        var pass = document.getElementById('password').value;
+        if (!user) { log('Introduce usuario'); return; }
+
+        log('Verificando...');
+        fetch('?type=stb&action=login&login=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass))
+        .then(r => r.json())
+        .then(data => {
+            if (data.js && data.js.mac) {
+                setMacAndReload(data.js.mac);
+            } else {
+                log(data.js && data.js.error ? data.js.error : 'Usuario o contraseña incorrectos');
+            }
+        })
+        .catch(e => { log('Error de conexión'); });
+    }
+
+    window.onload = function() { setTimeout(initApp, 200); };
     </script>
     <style>
-        body { background: #1a1a2e; margin: 0; padding: 20px; font-family: Arial; }
-        h2 { color: #e94560; text-align: center; margin-top: 50px; }
-        #debug { color: #aaa; font-size: 14px; margin-top: 30px; padding: 20px; }
+        body { background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%); margin: 0; padding: 0; font-family: Arial; min-height: 100vh; }
+        .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        h1 { color: #e94560; font-size: 42px; margin-bottom: 5px; }
+        h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
+        #status { color: #e94560; font-size: 16px; margin: 15px; min-height: 20px; }
+        #login { display: none; text-align: center; }
+        input { font-size: 20px; padding: 12px 20px; width: 280px; margin: 8px 0; border: 2px solid #333; border-radius: 8px;
+                background: #0f0f23; color: #fff; }
+        input:focus { outline: none; border-color: #e94560; }
+        button { font-size: 18px; padding: 12px 50px; margin-top: 15px; background: #e94560; color: #fff;
+                 border: none; border-radius: 8px; cursor: pointer; }
+        button:hover, button:focus { background: #ff6b8a; }
     </style>
 </head>
 <body>
-    <h2>QuattreTV</h2>
-    <div id="debug"></div>
-    <object type="application/x-stb-native" id="stbPlugin" style="display:none;"></object>
+    <div class="container">
+        <h1>QuattreTV</h1>
+        <h2>IPTV Middleware</h2>
+
+        <div id="auto">
+            <div id="status">Conectando...</div>
+        </div>
+
+        <div id="login">
+            <input type="text" id="username" placeholder="Usuario" onkeypress="if(event.keyCode==13)document.getElementById('password').focus()">
+            <br>
+            <input type="password" id="password" placeholder="Contraseña" onkeypress="if(event.keyCode==13)doLogin()">
+            <br>
+            <button onclick="doLogin()">Entrar</button>
+            <div id="status"></div>
+        </div>
+    </div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
@@ -171,6 +189,8 @@ def handle_stb(request, action):
         return handle_get_profile(request)
     elif action == 'do_auth':
         return handle_do_auth(request)
+    elif action == 'login':
+        return handle_login(request)
     elif action == 'get_localization':
         return handle_get_localization(request)
     elif action == 'get_modules':
@@ -179,6 +199,38 @@ def handle_stb(request, action):
         return stalker_response({'result': True})
 
     return stalker_response({'error': 'Unknown action'})
+
+
+def handle_login(request):
+    """Handle login with username/password, return device MAC."""
+    from django.contrib.auth import authenticate
+
+    username = request.GET.get('login', request.POST.get('login', ''))
+    password = request.GET.get('password', request.POST.get('password', ''))
+
+    if not username:
+        return stalker_response({'error': 'Usuario requerido'})
+
+    # Authenticate user
+    user = authenticate(username=username, password=password)
+    if not user:
+        # Try without password (some setups don't use password)
+        from apps.accounts.models import User
+        try:
+            user = User.objects.get(username=username, is_active=True)
+        except User.DoesNotExist:
+            return stalker_response({'error': 'Usuario no encontrado'})
+
+    # Get user's first active device
+    device = user.devices.filter(is_active=True).first()
+    if not device:
+        return stalker_response({'error': 'No hay dispositivo asociado'})
+
+    return stalker_response({
+        'status': 1,
+        'mac': device.mac_address,
+        'user': user.username,
+    })
 
 
 def handle_handshake(request):
