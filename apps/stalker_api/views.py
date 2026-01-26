@@ -3,7 +3,7 @@ Stalker Portal compatible API views.
 """
 import hashlib
 import time
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
@@ -13,6 +13,60 @@ from apps.channels.models import Channel, Category
 from apps.epg.models import Program
 from apps.vod.models import Movie, Series, VodCategory
 from .authentication import MACAuthentication
+
+
+def stb_loader_page(request):
+    """
+    Serve initial loader page for MAG boxes.
+    This page extracts the MAC and redirects to the main portal.
+    """
+    html = '''<!DOCTYPE html>
+<html>
+<head>
+    <title>QuattreTV</title>
+    <script>
+    function initApp() {
+        try {
+            // Get MAC from STB
+            var mac = '';
+            if (typeof(stb) !== 'undefined' && stb.GetDeviceMAC) {
+                mac = stb.GetDeviceMAC();
+            } else if (typeof(gSTB) !== 'undefined' && gSTB.GetDeviceMAC) {
+                mac = gSTB.GetDeviceMAC();
+            }
+
+            if (mac) {
+                // Set MAC as cookie
+                document.cookie = 'mac=' + mac + '; path=/';
+                // Reload to continue with authentication
+                location.reload();
+            } else {
+                document.body.innerHTML = '<h2 style="color:white;text-align:center;margin-top:100px;">QuattreTV - Cargando...</h2>';
+                // Retry after 1 second
+                setTimeout(initApp, 1000);
+            }
+        } catch(e) {
+            console.log('Error getting MAC: ' + e);
+            setTimeout(initApp, 1000);
+        }
+    }
+
+    // Wait for STB to be ready
+    if (document.readyState === 'complete') {
+        initApp();
+    } else {
+        window.onload = initApp;
+    }
+    </script>
+    <style>
+        body { background: #1a1a2e; margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <h2 style="color:white;text-align:center;margin-top:100px;">QuattreTV - Iniciando...</h2>
+</body>
+</html>'''
+    return HttpResponse(html, content_type='text/html')
 
 
 @csrf_exempt
@@ -25,6 +79,10 @@ def portal_handler(request):
     """
     request_type = request.GET.get('type', request.POST.get('type', ''))
     action = request.GET.get('action', request.POST.get('action', ''))
+
+    # If no params and no MAC cookie, serve loader page for MAG boxes
+    if not request_type and not action and not request.COOKIES.get('mac'):
+        return stb_loader_page(request)
 
     # Route to appropriate handler
     handlers = {
