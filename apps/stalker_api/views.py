@@ -24,46 +24,87 @@ def stb_loader_page(request):
 <html>
 <head>
     <title>QuattreTV</title>
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
     <script>
+    var debug = [];
+    function log(msg) {
+        debug.push(msg);
+        document.getElementById('debug').innerHTML = debug.join('<br>');
+    }
+
     function initApp() {
+        log('Iniciando...');
+        var mac = '';
+
         try {
-            // Get MAC from STB
-            var mac = '';
-            if (typeof(stb) !== 'undefined' && stb.GetDeviceMAC) {
-                mac = stb.GetDeviceMAC();
-            } else if (typeof(gSTB) !== 'undefined' && gSTB.GetDeviceMAC) {
-                mac = gSTB.GetDeviceMAC();
+            // MAG540/544 (Android-based) - uses Android JS interface
+            if (typeof(Android) !== 'undefined') {
+                log('Detectado: Android interface');
+                if (Android.getMac) mac = Android.getMac();
+                else if (Android.getMAC) mac = Android.getMAC();
+                else if (Android.getDeviceMac) mac = Android.getDeviceMac();
             }
 
-            if (mac) {
-                // Set MAC as cookie
-                document.cookie = 'mac=' + mac + '; path=/';
-                // Reload to continue with authentication
-                location.reload();
-            } else {
-                document.body.innerHTML = '<h2 style="color:white;text-align:center;margin-top:100px;">QuattreTV - Cargando...</h2>';
-                // Retry after 1 second
-                setTimeout(initApp, 1000);
+            // MAG classic (stb object)
+            if (!mac && typeof(stb) !== 'undefined') {
+                log('Detectado: stb object');
+                if (stb.GetDeviceMAC) mac = stb.GetDeviceMAC();
+                else if (stb.RDir) mac = stb.RDir('vMAC');
             }
+
+            // MAG with gSTB
+            if (!mac && typeof(gSTB) !== 'undefined') {
+                log('Detectado: gSTB object');
+                if (gSTB.GetDeviceMAC) mac = gSTB.GetDeviceMAC();
+            }
+
+            // Netscape plugin (older MAG)
+            if (!mac) {
+                var plugin = document.getElementById('stbPlugin');
+                if (plugin && plugin.GetDeviceMAC) {
+                    log('Detectado: stbPlugin');
+                    mac = plugin.GetDeviceMAC();
+                }
+            }
+
+            // Check window.stbWebKit
+            if (!mac && typeof(stbWebKit) !== 'undefined') {
+                log('Detectado: stbWebKit');
+                if (stbWebKit.GetDeviceMAC) mac = stbWebKit.GetDeviceMAC();
+            }
+
         } catch(e) {
-            console.log('Error getting MAC: ' + e);
-            setTimeout(initApp, 1000);
+            log('Error: ' + e.message);
+        }
+
+        if (mac) {
+            log('MAC encontrada: ' + mac);
+            // Normalize MAC format
+            mac = mac.replace(/%3A/g, ':').toUpperCase();
+            // Set MAC as cookie
+            document.cookie = 'mac=' + mac + '; path=/';
+            log('Cookie seteada, recargando...');
+            setTimeout(function() { location.reload(); }, 500);
+        } else {
+            log('MAC no encontrada, reintentando...');
+            setTimeout(initApp, 2000);
         }
     }
 
-    // Wait for STB to be ready
-    if (document.readyState === 'complete') {
-        initApp();
-    } else {
-        window.onload = initApp;
-    }
+    window.onload = function() {
+        setTimeout(initApp, 500);
+    };
     </script>
     <style>
-        body { background: #1a1a2e; margin: 0; padding: 0; }
+        body { background: #1a1a2e; margin: 0; padding: 20px; font-family: Arial; }
+        h2 { color: #e94560; text-align: center; margin-top: 50px; }
+        #debug { color: #aaa; font-size: 14px; margin-top: 30px; padding: 20px; }
     </style>
 </head>
 <body>
-    <h2 style="color:white;text-align:center;margin-top:100px;">QuattreTV - Iniciando...</h2>
+    <h2>QuattreTV</h2>
+    <div id="debug"></div>
+    <object type="application/x-stb-native" id="stbPlugin" style="display:none;"></object>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
