@@ -415,7 +415,8 @@ def channel_create(request):
             ChannelStream.objects.create(
                 channel=channel,
                 url=stream_url,
-                is_primary=True,
+                name='Principal',
+                priority=100,
             )
 
         messages.success(request, f'Canal {name} creado')
@@ -443,14 +444,18 @@ def channel_edit(request, channel_id):
         # Update stream
         stream_url = request.POST.get('stream_url')
         if stream_url:
-            stream, created = ChannelStream.objects.get_or_create(
-                channel=channel,
-                is_primary=True,
-                defaults={'url': stream_url}
-            )
-            if not created:
+            # Get or create the primary stream (highest priority)
+            stream = channel.streams.order_by('-priority').first()
+            if stream:
                 stream.url = stream_url
                 stream.save()
+            else:
+                ChannelStream.objects.create(
+                    channel=channel,
+                    url=stream_url,
+                    name='Principal',
+                    priority=100,
+                )
 
         messages.success(request, 'Canal actualizado')
         return redirect('portal:channels')
