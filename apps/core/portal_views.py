@@ -538,7 +538,7 @@ def channels_import(request):
                     existing = Channel.objects.filter(name__iexact=ch_data['name']).first()
 
                 if existing:
-                    # Update existing
+                    # Update existing channel
                     existing.stream_url = ch_data['url']
                     if ch_data.get('logo'):
                         existing.logo_url = ch_data['logo']
@@ -549,11 +549,24 @@ def channels_import(request):
                     existing.is_hd = 'HD' in ch_data['name'].upper() or '1080' in ch_data['name']
                     existing.is_4k = '4K' in ch_data['name'].upper() or 'UHD' in ch_data['name'].upper()
                     existing.save()
+
+                    # Update or create stream
+                    stream = existing.streams.order_by('-priority').first()
+                    if stream:
+                        stream.url = ch_data['url']
+                        stream.save()
+                    else:
+                        ChannelStream.objects.create(
+                            channel=existing,
+                            url=ch_data['url'],
+                            name='Principal',
+                            priority=100,
+                        )
                     updated += 1
                 else:
-                    # Create new
+                    # Create new channel
                     max_number += 1
-                    Channel.objects.create(
+                    channel = Channel.objects.create(
                         name=ch_data['name'],
                         number=max_number,
                         stream_url=ch_data['url'],
@@ -563,6 +576,13 @@ def channels_import(request):
                         is_hd='HD' in ch_data['name'].upper() or '1080' in ch_data['name'],
                         is_4k='4K' in ch_data['name'].upper() or 'UHD' in ch_data['name'].upper(),
                         is_active=True
+                    )
+                    # Create stream
+                    ChannelStream.objects.create(
+                        channel=channel,
+                        url=ch_data['url'],
+                        name='Principal',
+                        priority=100,
                     )
                     created += 1
 
