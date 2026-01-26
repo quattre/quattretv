@@ -3,85 +3,92 @@
 {% block title %}Editar Usuario - QuattreTV Portal{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'portal:users' %}">Usuarios</a></li>
-            <li class="breadcrumb-item active">{{ edit_user.username }}</li>
+<!-- Page Header with Breadcrumbs -->
+<div class="mb-6">
+    <nav class="mb-2">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+            <li><a href="{% url 'portal:users' %}" class="hover:text-blue-500 transition">Usuarios</a></li>
+            <li><span class="text-gray-400">/</span></li>
+            <li class="text-gray-700">{{ edit_user.username }}</li>
         </ol>
     </nav>
-    <h1><i class="bi bi-person"></i> Editar Usuario</h1>
+    <h1 class="text-2xl font-semibold text-gray-800">
+        <i class="bi bi-person mr-2"></i>Editar Usuario
+    </h1>
 </div>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-body">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main Form -->
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="p-6">
                 <form method="post">
                     {% csrf_token %}
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Usuario</label>
-                                <input type="text" class="form-control" value="{{ edit_user.username }}" disabled>
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                            <input type="text" class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed" value="{{ edit_user.username }}" disabled>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" name="email" class="form-control" value="{{ edit_user.email }}">
-                            </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" name="email" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ edit_user.email }}">
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Tarifa</label>
-                                <select name="tariff" class="form-select">
-                                    <option value="">Sin tarifa</option>
-                                    {% for tariff in tariffs %}
-                                        <option value="{{ tariff.id }}" {% if edit_user.tariff_id == tariff.id %}selected{% endif %}>
-                                            {{ tariff.name }} - {{ tariff.price }}€
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tarifa</label>
+                            <select name="tariff" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Sin tarifa</option>
+                                {% for tariff in tariffs %}
+                                    <option value="{{ tariff.id }}" {% if edit_user.tariff_id == tariff.id %}selected{% endif %}>
+                                        {{ tariff.name }} - {{ tariff.price }}€
+                                    </option>
+                                {% endfor %}
+                            </select>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Máx. dispositivos</label>
-                                <input type="number" name="max_devices" class="form-control" value="{{ edit_user.max_devices }}">
-                            </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Max. dispositivos</label>
+                            <input type="number" name="max_devices" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ edit_user.max_devices }}">
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="is_active" id="isActive" {% if edit_user.is_active %}checked{% endif %}>
-                            <label class="form-check-label" for="isActive">Usuario activo</label>
-                        </div>
+                    <div class="mt-4">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="is_active" id="isActive" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" {% if edit_user.is_active %}checked{% endif %}>
+                            <span class="ml-2 text-sm text-gray-700">Usuario activo</span>
+                        </label>
                     </div>
-                    <hr>
-                    <button type="submit" class="btn btn-primary">Guardar cambios</button>
-                    <a href="{% url 'portal:users' %}" class="btn btn-secondary">Cancelar</a>
+                    <hr class="my-6 border-gray-200">
+                    <div class="flex gap-3">
+                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                            Guardar cambios
+                        </button>
+                        <a href="{% url 'portal:users' %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                            Cancelar
+                        </a>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">Información</div>
-            <div class="card-body">
-                <p><strong>ID:</strong> {{ edit_user.id }}</p>
-                <p><strong>Creado:</strong> {{ edit_user.date_joined|date:"d/m/Y H:i" }}</p>
-                <p><strong>Último login:</strong> {{ edit_user.last_login|date:"d/m/Y H:i"|default:"-" }}</p>
-                <p><strong>Expira:</strong> {{ edit_user.subscription_expires|date:"d/m/Y"|default:"Sin suscripción" }}</p>
-                <p><strong>Dispositivos:</strong> {{ edit_user.devices.count }}/{{ edit_user.max_devices }}</p>
-                <hr>
-                <a href="{% url 'portal:user_devices' edit_user.id %}" class="btn btn-sm btn-outline-info w-100 mb-2">
-                    <i class="bi bi-phone"></i> Ver dispositivos
+
+    <!-- Sidebar Info -->
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-sm">
+            <div class="px-6 py-4 border-b border-gray-200 font-medium text-gray-700">
+                Informacion
+            </div>
+            <div class="p-6 space-y-3 text-sm text-gray-600">
+                <p><span class="font-semibold text-gray-700">ID:</span> {{ edit_user.id }}</p>
+                <p><span class="font-semibold text-gray-700">Creado:</span> {{ edit_user.date_joined|date:"d/m/Y H:i" }}</p>
+                <p><span class="font-semibold text-gray-700">Ultimo login:</span> {{ edit_user.last_login|date:"d/m/Y H:i"|default:"-" }}</p>
+                <p><span class="font-semibold text-gray-700">Expira:</span> {{ edit_user.subscription_expires|date:"d/m/Y"|default:"Sin suscripcion" }}</p>
+                <p><span class="font-semibold text-gray-700">Dispositivos:</span> {{ edit_user.devices.count }}/{{ edit_user.max_devices }}</p>
+                <hr class="border-gray-200">
+                <a href="{% url 'portal:user_devices' edit_user.id %}" class="block w-full px-4 py-2 text-center text-blue-500 border border-blue-500 rounded-lg hover:bg-blue-50 transition">
+                    <i class="bi bi-phone mr-1"></i> Ver dispositivos
                 </a>
-                <button class="btn btn-sm btn-outline-danger w-100" onclick="if(confirm('¿Eliminar usuario?')) location.href='{% url 'portal:user_delete' edit_user.id %}'">
-                    <i class="bi bi-trash"></i> Eliminar usuario
+                <button class="w-full px-4 py-2 text-red-500 border border-red-500 rounded-lg hover:bg-red-50 transition" onclick="if(confirm('Eliminar usuario?')) location.href='{% url 'portal:user_delete' edit_user.id %}'">
+                    <i class="bi bi-trash mr-1"></i> Eliminar usuario
                 </button>
             </div>
         </div>

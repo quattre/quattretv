@@ -3,115 +3,101 @@
 {% block title %}Configuración - QuattreTV Portal{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1><i class="bi bi-gear"></i> Configuración</h1>
-    <p class="text-muted">Ajustes del sistema</p>
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900"><i class="bi bi-gear"></i> Configuración</h1>
+    <p class="text-gray-500">Ajustes del sistema</p>
 </div>
 
-<div class="row g-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-server"></i> Servidor</h5>
-            </div>
-            <div class="card-body">
-                <form>
-                    <div class="mb-3">
-                        <label class="form-label">Nombre del portal</label>
-                        <input type="text" class="form-control" value="QuattreTV">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">URL del servidor de streaming</label>
-                        <input type="url" class="form-control" placeholder="http://streaming-server:8080">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Zona horaria</label>
-                        <select class="form-select">
-                            <option selected>Europe/Madrid</option>
-                            <option>Europe/London</option>
-                            <option>America/New_York</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </form>
-            </div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h5 class="font-semibold text-gray-900"><i class="bi bi-server"></i> Servidor</h5>
+        </div>
+        <div class="p-6">
+            <form class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del portal</label>
+                    <input type="text" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="QuattreTV">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">URL del servidor de streaming</label>
+                    <input type="url" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="http://streaming-server:8080">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Zona horaria</label>
+                    <select class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option selected>Europe/Madrid</option>
+                        <option>Europe/London</option>
+                        <option>America/New_York</option>
+                    </select>
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Guardar</button>
+            </form>
         </div>
     </div>
 
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Timeshift</h5>
-            </div>
-            <div class="card-body">
-                <form>
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="timeshiftEnabled" checked>
-                            <label class="form-check-label" for="timeshiftEnabled">Habilitar Timeshift</label>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Horas de archivo</label>
-                        <input type="number" class="form-control" value="24">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Directorio de archivo</label>
-                        <input type="text" class="form-control" value="/var/archive">
-                    </div>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </form>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h5 class="font-semibold text-gray-900"><i class="bi bi-clock-history"></i> Timeshift</h5>
+        </div>
+        <div class="p-6">
+            <form class="space-y-4">
+                <div class="flex items-center">
+                    <input type="checkbox" id="timeshiftEnabled" checked class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="timeshiftEnabled" class="ml-2 text-sm text-gray-700">Habilitar Timeshift</label>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Horas de archivo</label>
+                    <input type="number" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="24">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Directorio de archivo</label>
+                    <input type="text" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="/var/archive">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Guardar</button>
+            </form>
         </div>
     </div>
 
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Seguridad</h5>
-            </div>
-            <div class="card-body">
-                <form>
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="forceHttps">
-                            <label class="form-check-label" for="forceHttps">Forzar HTTPS</label>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="ipCheck" checked>
-                            <label class="form-check-label" for="ipCheck">Verificar IP del dispositivo</label>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Tiempo de sesión (horas)</label>
-                        <input type="number" class="form-control" value="24">
-                    </div>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </form>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h5 class="font-semibold text-gray-900"><i class="bi bi-shield-lock"></i> Seguridad</h5>
+        </div>
+        <div class="p-6">
+            <form class="space-y-4">
+                <div class="flex items-center">
+                    <input type="checkbox" id="forceHttps" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="forceHttps" class="ml-2 text-sm text-gray-700">Forzar HTTPS</label>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="ipCheck" checked class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="ipCheck" class="ml-2 text-sm text-gray-700">Verificar IP del dispositivo</label>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tiempo de sesión (horas)</label>
+                    <input type="number" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="24">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Guardar</button>
+            </form>
         </div>
     </div>
 
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-palette"></i> Apariencia</h5>
-            </div>
-            <div class="card-body">
-                <form>
-                    <div class="mb-3">
-                        <label class="form-label">Logo del portal</label>
-                        <input type="file" class="form-control">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Color primario</label>
-                        <input type="color" class="form-control form-control-color" value="#1a1a2e">
-                    </div>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </form>
-            </div>
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h5 class="font-semibold text-gray-900"><i class="bi bi-palette"></i> Apariencia</h5>
+        </div>
+        <div class="p-6">
+            <form class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Logo del portal</label>
+                    <input type="file" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Color primario</label>
+                    <input type="color" class="w-16 h-10 border border-gray-200 rounded-lg cursor-pointer" value="#1a1a2e">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Guardar</button>
+            </form>
         </div>
     </div>
 </div>

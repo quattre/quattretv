@@ -3,220 +3,242 @@
 {% block title %}Tarifas - QuattreTV Portal{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex justify-content-between align-items-center">
+<div x-data="{ showAddModal: false, expandedChannels: {} }">
+<div class="flex justify-between items-center mb-6">
     <div>
-        <h1><i class="bi bi-credit-card"></i> Tarifas</h1>
-        <p class="text-muted">Planes de suscripción por canales</p>
+        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+            </svg>
+            Tarifas
+        </h1>
+        <p class="text-gray-500">Planes de suscripcion por canales</p>
     </div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTariffModal">
-        <i class="bi bi-plus-lg"></i> Nueva Tarifa
+    <button @click="showAddModal = true" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Nueva Tarifa
     </button>
 </div>
-
-<div class="row g-4">
-    {% for tariff in tariffs %}
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">{{ tariff.name }}</h5>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for tariff in tariffs %}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
+            <div class="bg-blue-500 text-white px-4 py-3 flex justify-between items-center">
+                <h5 class="font-semibold">{{ tariff.name }}</h5>
                 {% if not tariff.is_active %}
-                    <span class="badge bg-secondary">Inactiva</span>
+                    <span class="px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700">Inactiva</span>
                 {% endif %}
             </div>
-            <div class="card-body">
-                <h2 class="text-center mb-4">{{ tariff.price }}€<small class="text-muted">/mes</small></h2>
+            <div class="p-4 flex-1">
+                <h2 class="text-3xl font-bold text-center mb-4">{{ tariff.price }}<span class="text-lg text-gray-500">/mes</span></h2>
 
-                <h6 class="text-muted mb-2">Características:</h6>
-                <ul class="list-unstyled mb-3">
-                    <li><i class="bi bi-check-circle text-success"></i> {{ tariff.max_devices }} dispositivos</li>
-                    <li><i class="bi bi-check-circle text-success"></i> {{ tariff.max_concurrent_streams }} streams simultáneos</li>
+                <h6 class="text-gray-500 text-sm mb-2">Caracteristicas:</h6>
+                <ul class="space-y-1 mb-4">
+                    <li class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        {{ tariff.max_devices }} dispositivos
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        {{ tariff.max_concurrent_streams }} streams simultaneos
+                    </li>
                     {% if tariff.has_timeshift %}
-                    <li><i class="bi bi-check-circle text-success"></i> Timeshift</li>
+                    <li class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Timeshift
+                    </li>
                     {% endif %}
                     {% if tariff.has_catchup %}
-                    <li><i class="bi bi-check-circle text-success"></i> Catchup</li>
+                    <li class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Catchup
+                    </li>
                     {% endif %}
                     {% if tariff.has_vod %}
-                    <li><i class="bi bi-check-circle text-success"></i> VOD</li>
+                    <li class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        VOD
+                    </li>
                     {% endif %}
                 </ul>
 
-                <h6 class="text-muted mb-2">Canales incluidos:</h6>
-                <div class="mb-3">
+                <h6 class="text-gray-500 text-sm mb-2">Canales incluidos:</h6>
+                <div class="mb-4">
                     {% if tariff.channels.exists %}
-                        <span class="badge bg-info">{{ tariff.channels.count }} canales</span>
-                        <button class="btn btn-sm btn-link" data-bs-toggle="collapse" data-bs-target="#channels-{{ tariff.id }}">
+                        <span class="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-700">{{ tariff.channels.count }} canales</span>
+                        <button @click="expandedChannels[{{ tariff.id }}] = !expandedChannels[{{ tariff.id }}]" class="text-sm text-blue-500 hover:text-blue-700 ml-2">
                             Ver canales
                         </button>
-                        <div class="collapse mt-2" id="channels-{{ tariff.id }}">
-                            <div class="small" style="max-height: 150px; overflow-y: auto;">
+                        <div x-show="expandedChannels[{{ tariff.id }}]" x-transition class="mt-2">
+                            <div class="text-sm max-h-36 overflow-y-auto">
                                 {% for channel in tariff.channels.all %}
-                                    <span class="badge bg-secondary me-1 mb-1">{{ channel.name }}</span>
+                                    <span class="inline-block px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 mr-1 mb-1">{{ channel.name }}</span>
                                 {% endfor %}
                             </div>
                         </div>
                     {% else %}
-                        <span class="text-muted">Sin canales asignados</span>
+                        <span class="text-gray-500 text-sm">Sin canales asignados</span>
                     {% endif %}
                 </div>
 
-                <p class="text-muted small mb-0">
-                    <i class="bi bi-people"></i> {{ tariff.users_count }} usuarios
+                <p class="text-gray-500 text-sm flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    {{ tariff.users_count }} usuarios
                 </p>
             </div>
-            <div class="card-footer">
-                <a href="{% url 'portal:tariff_edit' tariff.id %}" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-pencil"></i> Editar
+            <div class="px-4 py-3 border-t border-gray-100 flex gap-2">
+                <a href="{% url 'portal:tariff_edit' tariff.id %}" class="px-3 py-1.5 text-sm border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Editar
                 </a>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteTariff({{ tariff.id }})">
-                    <i class="bi bi-trash"></i> Eliminar
+                <button onclick="deleteTariff({{ tariff.id }})" class="px-3 py-1.5 text-sm border border-red-500 text-red-500 rounded-lg hover:bg-red-50 transition flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Eliminar
                 </button>
             </div>
         </div>
-    </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="alert alert-info text-center">
-            <i class="bi bi-info-circle"></i> No hay tarifas configuradas. Crea una para empezar.
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-<!-- Add Tariff Modal -->
-<div class="modal fade" id="addTariffModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Nueva Tarifa</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        {% empty %}
+        <div class="col-span-full">
+            <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-center flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                No hay tarifas configuradas. Crea una para empezar.
             </div>
-            <form method="post" action="{% url 'portal:tariff_create' %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Nombre *</label>
-                                <input type="text" name="name" class="form-control" required>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Add Tariff Modal -->
+    <div x-show="showAddModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div @click="showAddModal = false" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+            <div x-show="showAddModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative inline-block bg-white rounded-xl shadow-xl transform transition-all sm:my-8 sm:max-w-2xl sm:w-full">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h5 class="text-lg font-semibold text-gray-800">Nueva Tarifa</h5>
+                    <button @click="showAddModal = false" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <form method="post" action="{% url 'portal:tariff_create' %}">
+                    {% csrf_token %}
+                    <div class="px-6 py-4 max-h-[70vh] overflow-y-auto">
+                        <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+                            <div class="md:col-span-3">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                                <input type="text" name="name" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            </div>
+                            <div class="md:col-span-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Precio () *</label>
+                                <input type="number" name="price" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" step="0.01" required>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Duracion (dias)</label>
+                                <input type="number" name="duration_days" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="0">
+                                <small class="text-gray-500 text-xs">0 = Sin caducidad</small>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label class="form-label">Precio (€) *</label>
-                                <input type="number" name="price" class="form-control" step="0.01" required>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Max. dispositivos</label>
+                                <input type="number" name="max_devices" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="5">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Streams simultaneos</label>
+                                <input type="number" name="max_concurrent_streams" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="2">
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label class="form-label">Duración (días)</label>
-                                <input type="number" name="duration_days" class="form-control" value="0">
-                                <small class="text-muted">0 = Sin caducidad</small>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Caracteristicas</label>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="has_timeshift" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" id="hasTimeshift" checked>
+                                    <span class="text-sm text-gray-700">Timeshift</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="has_catchup" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" id="hasCatchup" checked>
+                                    <span class="text-sm text-gray-700">Catchup</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="has_vod" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" id="hasVod" checked>
+                                    <span class="text-sm text-gray-700">VOD</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" name="has_pvr" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" id="hasPvr" checked>
+                                    <span class="text-sm text-gray-700">PVR</span>
+                                </label>
                             </div>
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Máx. dispositivos</label>
-                                <input type="number" name="max_devices" class="form-control" value="5">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Streams simultáneos</label>
-                                <input type="number" name="max_concurrent_streams" class="form-control" value="2">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Características</label>
-                        <div class="row">
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    <input type="checkbox" name="has_timeshift" class="form-check-input" id="hasTimeshift" checked>
-                                    <label class="form-check-label" for="hasTimeshift">Timeshift</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    <input type="checkbox" name="has_catchup" class="form-check-input" id="hasCatchup" checked>
-                                    <label class="form-check-label" for="hasCatchup">Catchup</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    <input type="checkbox" name="has_vod" class="form-check-input" id="hasVod" checked>
-                                    <label class="form-check-label" for="hasVod">VOD</label>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="form-check">
-                                    <input type="checkbox" name="has_pvr" class="form-check-input" id="hasPvr" checked>
-                                    <label class="form-check-label" for="hasPvr">PVR</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Seleccionar Canales</label>
-                        <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
-                            {% for category in categories %}
-                                <div class="mb-2">
-                                    <strong>{{ category.name }}</strong>
-                                    <button type="button" class="btn btn-xs btn-link" onclick="selectCategory({{ category.id }})">
-                                        Seleccionar todos
-                                    </button>
-                                </div>
-                                <div class="row mb-3">
-                                    {% for channel in category.channels.all %}
-                                    <div class="col-md-4">
-                                        <div class="form-check">
-                                            <input type="checkbox" name="channels" value="{{ channel.id }}"
-                                                   class="form-check-input channel-{{ category.id }}" id="ch-{{ channel.id }}">
-                                            <label class="form-check-label small" for="ch-{{ channel.id }}">
-                                                {{ channel.name }}
-                                            </label>
-                                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Seleccionar Canales</label>
+                            <div class="border border-gray-200 rounded-lg p-4 max-h-72 overflow-y-auto">
+                                {% for category in categories %}
+                                    <div class="mb-2 flex items-center gap-2">
+                                        <strong class="text-sm text-gray-800">{{ category.name }}</strong>
+                                        <button type="button" class="text-xs text-blue-500 hover:text-blue-700" onclick="selectCategory({{ category.id }})">
+                                            Seleccionar todos
+                                        </button>
                                     </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+                                        {% for channel in category.channels.all %}
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" name="channels" value="{{ channel.id }}" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500 channel-{{ category.id }}" id="ch-{{ channel.id }}">
+                                            <span class="text-sm text-gray-700">{{ channel.name }}</span>
+                                        </label>
+                                        {% endfor %}
+                                    </div>
+                                {% empty %}
+                                    <p class="text-gray-500 text-sm">No hay canales. Crea canales primero.</p>
+                                {% endfor %}
+
+                                {% if uncategorized_channels %}
+                                <div class="mb-2"><strong class="text-sm text-gray-800">Sin categoria</strong></div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                    {% for channel in uncategorized_channels %}
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" name="channels" value="{{ channel.id }}" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" id="ch-{{ channel.id }}">
+                                        <span class="text-sm text-gray-700">{{ channel.name }}</span>
+                                    </label>
                                     {% endfor %}
                                 </div>
-                            {% empty %}
-                                <p class="text-muted">No hay canales. Crea canales primero.</p>
-                            {% endfor %}
-
-                            {% if uncategorized_channels %}
-                            <div class="mb-2"><strong>Sin categoría</strong></div>
-                            <div class="row">
-                                {% for channel in uncategorized_channels %}
-                                <div class="col-md-4">
-                                    <div class="form-check">
-                                        <input type="checkbox" name="channels" value="{{ channel.id }}"
-                                               class="form-check-input" id="ch-{{ channel.id }}">
-                                        <label class="form-check-label small" for="ch-{{ channel.id }}">
-                                            {{ channel.name }}
-                                        </label>
-                                    </div>
-                                </div>
-                                {% endfor %}
+                                {% endif %}
                             </div>
-                            {% endif %}
-                        </div>
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllChannels()">
-                                Seleccionar todos
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllChannels()">
-                                Deseleccionar todos
-                            </button>
+                            <div class="mt-2 flex gap-2">
+                                <button type="button" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition" onclick="selectAllChannels()">
+                                    Seleccionar todos
+                                </button>
+                                <button type="button" class="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition" onclick="deselectAllChannels()">
+                                    Deseleccionar todos
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Crear Tarifa</button>
-                </div>
-            </form>
+                    <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                        <button type="button" @click="showAddModal = false" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Crear Tarifa</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -237,7 +259,7 @@ function selectCategory(categoryId) {
 }
 
 function deleteTariff(tariffId) {
-    if (confirm('¿Eliminar esta tarifa?')) {
+    if (confirm('Eliminar esta tarifa?')) {
         fetch(`/tariffs/${tariffId}/delete/`, {
             method: 'POST',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }

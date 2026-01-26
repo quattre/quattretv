@@ -3,41 +3,44 @@
 {% block title %}Usuarios - QuattreTV Portal{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex justify-content-between align-items-center">
+<div x-data="{ addUserModalOpen: false }" @keydown.escape.window="addUserModalOpen = false">
+<div class="flex justify-between items-center mb-6">
     <div>
-        <h1><i class="bi bi-people"></i> Usuarios</h1>
-        <p class="text-muted">Gestión de usuarios y suscripciones</p>
+        <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <i class="bi bi-people"></i> Usuarios
+        </h1>
+        <p class="text-gray-500 mt-1">Gestion de usuarios y suscripciones</p>
     </div>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+    <button @click="addUserModalOpen = true" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
         <i class="bi bi-plus-lg"></i> Nuevo Usuario
     </button>
 </div>
 
 <!-- Filters -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                <input type="text" name="search" class="form-control" placeholder="Buscar usuario..." value="{{ request.GET.search }}">
+<div class="bg-white rounded-xl shadow-sm mb-6">
+    <div class="p-6">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div class="md:col-span-3">
+                <input type="text" name="search" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Buscar usuario..." value="{{ request.GET.search }}">
             </div>
-            <div class="col-md-2">
-                <select name="tariff" class="form-select">
+            <div class="md:col-span-3">
+                <select name="tariff" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Todas las tarifas</option>
                     {% for tariff in tariffs %}
                         <option value="{{ tariff.id }}" {% if request.GET.tariff == tariff.id|stringformat:"s" %}selected{% endif %}>{{ tariff.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-2">
-                <select name="status" class="form-select">
+            <div class="md:col-span-3">
+                <select name="status" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Todos los estados</option>
                     <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Activos</option>
                     <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactivos</option>
                     <option value="expired" {% if request.GET.status == 'expired' %}selected{% endif %}>Expirados</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-secondary w-100">
+            <div class="md:col-span-3">
+                <button type="submit" class="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center justify-center gap-2">
                     <i class="bi bi-search"></i> Filtrar
                 </button>
             </div>
@@ -46,102 +49,110 @@
 </div>
 
 <!-- Users Table -->
-<div class="data-table">
-    <div class="table-header">
-        <h5>{{ users.count }} usuarios encontrados</h5>
+<div class="bg-white rounded-xl shadow-sm">
+    <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+        <h5 class="font-semibold text-gray-700">{{ users.count }} usuarios encontrados</h5>
         <div>
-            <button class="btn btn-sm btn-outline-success"><i class="bi bi-download"></i> Exportar</button>
+            <button class="px-3 py-1.5 text-sm border border-green-500 text-green-500 rounded-lg hover:bg-green-50 transition flex items-center gap-1">
+                <i class="bi bi-download"></i> Exportar
+            </button>
         </div>
     </div>
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Usuario</th>
-                <th>Email</th>
-                <th>Tarifa</th>
-                <th>Dispositivos</th>
-                <th>Expira</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for user in users %}
-            <tr>
-                <td>
-                    <strong>{{ user.username }}</strong>
-                    <br><small class="text-muted">ID: {{ user.id }}</small>
-                </td>
-                <td>{{ user.email|default:"-" }}</td>
-                <td>
-                    {% if user.tariff %}
-                        <span class="badge bg-primary">{{ user.tariff.name }}</span>
-                    {% else %}
-                        <span class="text-muted">Sin tarifa</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <span class="badge bg-secondary">{{ user.devices.count }}/{{ user.max_devices }}</span>
-                </td>
-                <td>
-                    {% if user.subscription_expires %}
-                        {{ user.subscription_expires|date:"d/m/Y" }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                <td>
-                    {% if user.is_subscription_active %}
-                        <span class="status-badge status-active">Activo</span>
-                    {% elif user.is_active %}
-                        <span class="status-badge status-inactive">Expirado</span>
-                    {% else %}
-                        <span class="status-badge status-offline">Inactivo</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <div class="quick-actions">
-                        <a href="{% url 'portal:user_edit' user.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <a href="{% url 'portal:user_devices' user.id %}" class="btn btn-sm btn-outline-info" title="Dispositivos">
-                            <i class="bi bi-phone"></i>
-                        </a>
-                        <button class="btn btn-sm btn-outline-success" onclick="renewUser({{ user.id }})" title="Renovar">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteUser({{ user.id }})" title="Eliminar">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="7" class="text-center py-4 text-muted">
-                    <i class="bi bi-inbox display-4"></i>
-                    <p class="mt-2">No hay usuarios registrados</p>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarifa</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dispositivos</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expira</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for user in users %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4">
+                        <div class="font-medium text-gray-900">{{ user.username }}</div>
+                        <div class="text-sm text-gray-500">ID: {{ user.id }}</div>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">{{ user.email|default:"-" }}</td>
+                    <td class="px-6 py-4">
+                        {% if user.tariff %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-700">{{ user.tariff.name }}</span>
+                        {% else %}
+                            <span class="text-gray-400">Sin tarifa</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700">{{ user.devices.count }}/{{ user.max_devices }}</span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">
+                        {% if user.subscription_expires %}
+                            {{ user.subscription_expires|date:"d/m/Y" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if user.is_subscription_active %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">Activo</span>
+                        {% elif user.is_active %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">Expirado</span>
+                        {% else %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-red-100 text-red-700">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            <a href="{% url 'portal:user_edit' user.id %}" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'portal:user_devices' user.id %}" class="p-2 text-cyan-500 hover:bg-cyan-50 rounded-lg transition" title="Dispositivos">
+                                <i class="bi bi-phone"></i>
+                            </a>
+                            <button class="p-2 text-green-500 hover:bg-green-50 rounded-lg transition" onclick="renewUser({{ user.id }})" title="Renovar">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                            <button class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" onclick="deleteUser({{ user.id }})" title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                        <i class="bi bi-inbox text-6xl"></i>
+                        <p class="mt-4">No hay usuarios registrados</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
     <!-- Pagination -->
     {% if users.has_other_pages %}
-    <div class="card-footer">
-        <nav>
-            <ul class="pagination justify-content-center mb-0">
+    <div class="px-6 py-4 border-t border-gray-100">
+        <nav class="flex justify-center">
+            <ul class="flex items-center gap-1">
                 {% if users.has_previous %}
-                    <li class="page-item"><a class="page-link" href="?page={{ users.previous_page_number }}">Anterior</a></li>
+                    <li>
+                        <a class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition" href="?page={{ users.previous_page_number }}">Anterior</a>
+                    </li>
                 {% endif %}
                 {% for num in users.paginator.page_range %}
-                    <li class="page-item {% if users.number == num %}active{% endif %}">
-                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    <li>
+                        <a class="px-4 py-2 text-sm rounded-lg transition {% if users.number == num %}bg-blue-500 text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}" href="?page={{ num }}">{{ num }}</a>
                     </li>
                 {% endfor %}
                 {% if users.has_next %}
-                    <li class="page-item"><a class="page-link" href="?page={{ users.next_page_number }}">Siguiente</a></li>
+                    <li>
+                        <a class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition" href="?page={{ users.next_page_number }}">Siguiente</a>
+                    </li>
                 {% endif %}
             </ul>
         </nav>
@@ -149,61 +160,90 @@
     {% endif %}
 </div>
 
-<!-- Add User Modal -->
-<div class="modal fade" id="addUserModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-person-plus"></i> Nuevo Usuario</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- Add User Modal (Alpine.js) -->
+<div>
+    <!-- Modal Backdrop -->
+    <div x-show="addUserModalOpen"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black bg-opacity-50 z-40"
+         @click="addUserModalOpen = false">
+    </div>
+
+    <!-- Modal Content -->
+    <div x-show="addUserModalOpen"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform scale-95"
+         x-transition:enter-end="opacity-100 transform scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform scale-100"
+         x-transition:leave-end="opacity-0 transform scale-95"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md" @click.stop>
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h5 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="bi bi-person-plus"></i> Nuevo Usuario
+                </h5>
+                <button @click="addUserModalOpen = false" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
             <form method="post" action="{% url 'portal:user_create' %}">
                 {% csrf_token %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Usuario *</label>
-                        <input type="text" name="username" class="form-control" required>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Usuario *</label>
+                        <input type="text" name="username" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" name="email" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Contraseña *</label>
-                        <input type="password" name="password" class="form-control" required>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Contrasena *</label>
+                        <input type="password" name="password" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Tarifa</label>
-                        <select name="tariff" class="form-select">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tarifa</label>
+                        <select name="tariff" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">Sin tarifa</option>
                             {% for tariff in tariffs %}
-                                <option value="{{ tariff.id }}">{{ tariff.name }} - {{ tariff.price }}€</option>
+                                <option value="{{ tariff.id }}">{{ tariff.name }} - {{ tariff.price }}EUR</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Duración suscripción (días)</label>
-                        <input type="number" name="duration" class="form-control" value="30">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Duracion suscripcion (dias)</label>
+                        <input type="number" name="duration" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="30">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Máx. dispositivos</label>
-                        <input type="number" name="max_devices" class="form-control" value="5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Max. dispositivos</label>
+                        <input type="number" name="max_devices" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="5">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Crear Usuario</button>
+                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl">
+                    <button type="button" @click="addUserModalOpen = false" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                        Crear Usuario
+                    </button>
                 </div>
             </form>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 function renewUser(userId) {
-    if (confirm('¿Renovar suscripción por 30 días?')) {
+    if (confirm('Renovar suscripcion por 30 dias?')) {
         fetch(`/portal/users/${userId}/renew/`, {
             method: 'POST',
             headers: {
@@ -218,7 +258,7 @@ function renewUser(userId) {
 }
 
 function deleteUser(userId) {
-    if (confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')) {
+    if (confirm('Estas seguro de eliminar este usuario? Esta accion no se puede deshacer.')) {
         fetch(`/portal/users/${userId}/delete/`, {
             method: 'POST',
             headers: {

@@ -3,108 +3,107 @@
 {% block title %}Editar Canal - QuattreTV Portal{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'portal:channels' %}">Canales</a></li>
-            <li class="breadcrumb-item active">{{ channel.name }}</li>
+<!-- Page Header with Breadcrumbs -->
+<div class="mb-6">
+    <nav class="mb-2">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+            <li><a href="{% url 'portal:channels' %}" class="hover:text-blue-500 transition">Canales</a></li>
+            <li><span class="text-gray-400">/</span></li>
+            <li class="text-gray-700">{{ channel.name }}</li>
         </ol>
     </nav>
-    <h1><i class="bi bi-broadcast"></i> Editar Canal</h1>
+    <h1 class="text-2xl font-semibold text-gray-800">
+        <i class="bi bi-broadcast mr-2"></i>Editar Canal
+    </h1>
 </div>
 
 <form method="post">
     {% csrf_token %}
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="mb-3">
-                                <label class="form-label">Nombre</label>
-                                <input type="text" name="name" class="form-control" value="{{ channel.name }}" required>
-                            </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Form -->
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-xl shadow-sm">
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                            <input type="text" name="name" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ channel.name }}" required>
                         </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Número</label>
-                                <input type="number" name="number" class="form-control" value="{{ channel.number }}" required>
-                            </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Numero</label>
+                            <input type="number" name="number" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ channel.number }}" required>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Categoría</label>
-                                <select name="category" class="form-select">
-                                    <option value="">Sin categoría</option>
-                                    {% for category in categories %}
-                                        <option value="{{ category.id }}" {% if channel.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                            <select name="category" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Sin categoria</option>
+                                {% for category in categories %}
+                                    <option value="{{ category.id }}" {% if channel.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">EPG Channel ID</label>
-                                <input type="text" name="epg_channel_id" class="form-control" value="{{ channel.epg_channel_id }}">
-                            </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">EPG Channel ID</label>
+                            <input type="text" name="epg_channel_id" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ channel.epg_channel_id }}">
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Stream URL</label>
-                        <input type="url" name="stream_url" class="form-control" value="{{ channel.streams.first.url }}" placeholder="http://...">
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Stream URL</label>
+                        <input type="url" name="stream_url" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ channel.streams.first.url }}" placeholder="http://...">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Logo URL</label>
-                        <input type="url" name="logo" class="form-control" value="{{ channel.logo }}">
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
+                        <input type="url" name="logo" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ channel.logo }}">
                     </div>
-                    <div class="row">
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="is_hd" class="form-check-input" id="isHd" {% if channel.is_hd %}checked{% endif %}>
-                                <label class="form-check-label" for="isHd">HD</label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="is_adult" class="form-check-input" id="isAdult" {% if channel.is_adult %}checked{% endif %}>
-                                <label class="form-check-label" for="isAdult">+18</label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="has_archive" class="form-check-input" id="hasArchive" {% if channel.has_archive %}checked{% endif %}>
-                                <label class="form-check-label" for="hasArchive">Catchup</label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input type="checkbox" name="is_active" class="form-check-input" id="isActive" {% if channel.is_active %}checked{% endif %}>
-                                <label class="form-check-label" for="isActive">Activo</label>
-                            </div>
-                        </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="is_hd" id="isHd" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" {% if channel.is_hd %}checked{% endif %}>
+                            <span class="ml-2 text-sm text-gray-700">HD</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="is_adult" id="isAdult" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" {% if channel.is_adult %}checked{% endif %}>
+                            <span class="ml-2 text-sm text-gray-700">+18</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="has_archive" id="hasArchive" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" {% if channel.has_archive %}checked{% endif %}>
+                            <span class="ml-2 text-sm text-gray-700">Catchup</span>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="is_active" id="isActive" class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500" {% if channel.is_active %}checked{% endif %}>
+                            <span class="ml-2 text-sm text-gray-700">Activo</span>
+                        </label>
                     </div>
-                    <hr>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                    <a href="{% url 'portal:channels' %}" class="btn btn-secondary">Cancelar</a>
+                    <hr class="my-6 border-gray-200">
+                    <div class="flex gap-3">
+                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+                            Guardar
+                        </button>
+                        <a href="{% url 'portal:channels' %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                            Cancelar
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">Vista previa</div>
-                <div class="card-body text-center">
+
+        <!-- Sidebar Preview -->
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-xl shadow-sm">
+                <div class="px-6 py-4 border-b border-gray-200 font-medium text-gray-700">
+                    Vista previa
+                </div>
+                <div class="p-6 text-center">
                     {% if channel.logo %}
-                        <img src="{{ channel.logo }}" alt="{{ channel.name }}" style="max-width: 150px; max-height: 100px;">
+                        <img src="{{ channel.logo }}" alt="{{ channel.name }}" class="max-w-[150px] max-h-[100px] mx-auto">
                     {% else %}
-                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center mx-auto" style="width: 100px; height: 100px;">
-                            <i class="bi bi-tv display-4"></i>
+                        <div class="w-24 h-24 mx-auto bg-gray-200 text-gray-500 rounded-lg flex items-center justify-content-center">
+                            <i class="bi bi-tv text-4xl"></i>
                         </div>
                     {% endif %}
-                    <h5 class="mt-3">{{ channel.name }}</h5>
-                    <p class="text-muted">Canal {{ channel.number }}</p>
+                    <h5 class="mt-4 text-lg font-medium text-gray-800">{{ channel.name }}</h5>
+                    <p class="text-sm text-gray-500">Canal {{ channel.number }}</p>
                 </div>
             </div>
         </div>

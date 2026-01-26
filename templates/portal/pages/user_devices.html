@@ -3,62 +3,70 @@
 {% block title %}Dispositivos de {{ view_user.username }} - QuattreTV Portal{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'portal:users' %}">Usuarios</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'portal:user_edit' view_user.id %}">{{ view_user.username }}</a></li>
-            <li class="breadcrumb-item active">Dispositivos</li>
+<div class="mb-6">
+    <nav class="mb-4">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500">
+            <li><a href="{% url 'portal:users' %}" class="hover:text-blue-500 transition">Usuarios</a></li>
+            <li><span class="mx-2">/</span></li>
+            <li><a href="{% url 'portal:user_edit' view_user.id %}" class="hover:text-blue-500 transition">{{ view_user.username }}</a></li>
+            <li><span class="mx-2">/</span></li>
+            <li class="text-gray-700 font-medium">Dispositivos</li>
         </ol>
     </nav>
-    <h1><i class="bi bi-phone"></i> Dispositivos de {{ view_user.username }}</h1>
+    <h1 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+        <i class="bi bi-phone"></i> Dispositivos de {{ view_user.username }}
+    </h1>
 </div>
 
-<div class="alert alert-info">
+<div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
     <i class="bi bi-info-circle"></i>
-    Este usuario tiene <strong>{{ devices.count }}/{{ view_user.max_devices }}</strong> dispositivos registrados.
+    Este usuario tiene <strong class="mx-1">{{ devices.count }}/{{ view_user.max_devices }}</strong> dispositivos registrados.
 </div>
 
-<div class="data-table">
-    <table class="table table-hover">
-        <thead>
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <table class="w-full">
+        <thead class="bg-gray-50">
             <tr>
-                <th>MAC Address</th>
-                <th>Nombre</th>
-                <th>Tipo</th>
-                <th>Última IP</th>
-                <th>Última conexión</th>
-                <th>Estado</th>
-                <th>Acciones</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MAC Address</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Última IP</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Última conexión</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody class="divide-y divide-gray-200">
             {% for device in devices %}
-            <tr>
-                <td><code>{{ device.mac_address }}</code></td>
-                <td>{{ device.name|default:"-" }}</td>
-                <td>{{ device.get_device_type_display }}</td>
-                <td>{{ device.last_ip|default:"-" }}</td>
-                <td>{{ device.last_seen|timesince|default:"Nunca" }}</td>
-                <td>
+            <tr class="hover:bg-gray-50 transition">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <code class="bg-gray-100 px-2 py-1 rounded text-sm font-mono text-gray-700">{{ device.mac_address }}</code>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-gray-700">{{ device.name|default:"-" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-gray-700">{{ device.get_device_type_display }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-gray-700">{{ device.last_ip|default:"-" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-gray-700">{{ device.last_seen|timesince|default:"Nunca" }}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
                     {% if device.is_online %}
-                        <span class="status-badge status-online">Online</span>
+                        <span class="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">Online</span>
                     {% else %}
-                        <span class="status-badge status-offline">Offline</span>
+                        <span class="px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700">Offline</span>
                     {% endif %}
                 </td>
-                <td>
-                    <a href="{% url 'portal:device_edit' device.id %}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-pencil"></i>
-                    </a>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteDevice({{ device.id }})">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center gap-2">
+                        <a href="{% url 'portal:device_edit' device.id %}" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" onclick="deleteDevice({{ device.id }})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" class="text-center text-muted py-4">
+                <td colspan="7" class="px-6 py-12 text-center text-gray-500">
                     Este usuario no tiene dispositivos registrados
                 </td>
             </tr>
@@ -67,7 +75,7 @@
     </table>
 </div>
 
-<a href="{% url 'portal:user_edit' view_user.id %}" class="btn btn-secondary mt-3">
+<a href="{% url 'portal:user_edit' view_user.id %}" class="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
     <i class="bi bi-arrow-left"></i> Volver al usuario
 </a>
 {% endblock %}

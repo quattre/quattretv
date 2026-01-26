@@ -3,46 +3,64 @@
 {% block title %}Canales - QuattreTV Portal{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex justify-content-between align-items-center">
+<div class="flex justify-between items-center mb-6">
     <div>
-        <h1><i class="bi bi-broadcast"></i> Canales</h1>
-        <p class="text-muted">Gestión de canales de TV</p>
+        <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z"></path>
+            </svg>
+            Canales
+        </h1>
+        <p class="text-gray-500 mt-1">Gestion de canales de TV</p>
     </div>
-    <div>
-        <a href="{% url 'portal:channels_import' %}" class="btn btn-outline-primary me-2">
-            <i class="bi bi-upload"></i> Importar M3U
+    <div class="flex gap-2">
+        <a href="{% url 'portal:channels_import' %}" class="px-4 py-2 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+            </svg>
+            Importar M3U
         </a>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addChannelModal">
-            <i class="bi bi-plus-lg"></i> Nuevo Canal
+        <button
+            x-data
+            @click="$dispatch('open-modal', 'addChannelModal')"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+        >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Nuevo Canal
         </button>
     </div>
 </div>
 
 <!-- Filters -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                <input type="text" name="search" class="form-control" placeholder="Buscar canal..." value="{{ request.GET.search }}">
+<div class="bg-white rounded-xl shadow-sm mb-6">
+    <div class="p-6">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div class="md:col-span-3">
+                <input type="text" name="search" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Buscar canal..." value="{{ request.GET.search }}">
             </div>
-            <div class="col-md-2">
-                <select name="category" class="form-select">
-                    <option value="">Todas las categorías</option>
+            <div class="md:col-span-3">
+                <select name="category" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todas las categorias</option>
                     {% for category in categories %}
                         <option value="{{ category.id }}" {% if request.GET.category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-2">
-                <select name="status" class="form-select">
+            <div class="md:col-span-3">
+                <select name="status" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Todos los estados</option>
                     <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Activos</option>
                     <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactivos</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-secondary w-100">
-                    <i class="bi bi-search"></i> Filtrar
+            <div class="md:col-span-3">
+                <button type="submit" class="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    Filtrar
                 </button>
             </div>
         </form>
@@ -50,170 +68,211 @@
 </div>
 
 <!-- Channels Table -->
-<div class="data-table">
-    <div class="table-header">
-        <h5>{{ channels.count }} canales</h5>
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="flex justify-between items-center p-4 border-b border-gray-200">
+        <h5 class="font-semibold text-gray-700">{{ channels.count }} canales</h5>
         <div>
-            <button class="btn btn-sm btn-outline-success"><i class="bi bi-download"></i> Exportar M3U</button>
+            <button class="px-3 py-1.5 text-sm border border-green-500 text-green-600 rounded-lg hover:bg-green-50 transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Exportar M3U
+            </button>
         </div>
     </div>
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th style="width: 50px;">#</th>
-                <th style="width: 60px;">Logo</th>
-                <th>Canal</th>
-                <th>Categoría</th>
-                <th>Stream URL</th>
-                <th>EPG ID</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for channel in channels %}
-            <tr>
-                <td><strong>{{ channel.number }}</strong></td>
-                <td>
-                    {% if channel.logo %}
-                        <img src="{{ channel.logo }}" alt="{{ channel.name }}" style="width: 40px; height: 40px; object-fit: contain; background: #f0f0f0; border-radius: 5px;">
-                    {% else %}
-                        <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                            <i class="bi bi-tv"></i>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Logo</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Canal</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stream URL</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EPG ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for channel in channels %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-4 py-3 text-sm font-semibold text-gray-900">{{ channel.number }}</td>
+                    <td class="px-4 py-3">
+                        {% if channel.logo %}
+                            <img src="{{ channel.logo }}" alt="{{ channel.name }}" class="w-10 h-10 object-contain bg-gray-100 rounded-lg">
+                        {% else %}
+                            <div class="w-10 h-10 bg-gray-400 text-white rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="font-semibold text-gray-900">{{ channel.name }}</span>
+                        {% if channel.is_hd %}
+                            <span class="ml-2 px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-700">HD</span>
+                        {% endif %}
+                        {% if channel.is_adult %}
+                            <span class="ml-1 px-3 py-1 text-xs rounded-full bg-red-100 text-red-700">+18</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600">{{ channel.category.name|default:"-" }}</td>
+                    <td class="px-4 py-3">
+                        {% if channel.streams.exists %}
+                            <code class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded truncate block max-w-[200px]" title="{{ channel.streams.first.url }}">
+                                {{ channel.streams.first.url }}
+                            </code>
+                        {% else %}
+                            <span class="text-red-500 text-sm">Sin stream</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <code class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">{{ channel.epg_channel_id|default:"-" }}</code>
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if channel.is_active %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">Activo</span>
+                        {% else %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-red-100 text-red-700">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-1">
+                            <a href="{% url 'portal:channel_edit' channel.id %}" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Editar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                </svg>
+                            </a>
+                            <button onclick="testStream({{ channel.id }})" class="p-2 text-green-500 hover:bg-green-50 rounded-lg transition" title="Probar stream">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </button>
+                            <button onclick="deleteChannel({{ channel.id }})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" title="Eliminar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
                         </div>
-                    {% endif %}
-                </td>
-                <td>
-                    <strong>{{ channel.name }}</strong>
-                    {% if channel.is_hd %}
-                        <span class="badge bg-info">HD</span>
-                    {% endif %}
-                    {% if channel.is_adult %}
-                        <span class="badge bg-danger">+18</span>
-                    {% endif %}
-                </td>
-                <td>{{ channel.category.name|default:"-" }}</td>
-                <td>
-                    {% if channel.streams.exists %}
-                        <code class="small text-truncate d-inline-block" style="max-width: 200px;" title="{{ channel.streams.first.url }}">
-                            {{ channel.streams.first.url }}
-                        </code>
-                    {% else %}
-                        <span class="text-danger">Sin stream</span>
-                    {% endif %}
-                </td>
-                <td><code>{{ channel.epg_channel_id|default:"-" }}</code></td>
-                <td>
-                    {% if channel.is_active %}
-                        <span class="status-badge status-online">Activo</span>
-                    {% else %}
-                        <span class="status-badge status-offline">Inactivo</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <div class="quick-actions">
-                        <a href="{% url 'portal:channel_edit' channel.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        <button class="btn btn-sm btn-outline-success" onclick="testStream({{ channel.id }})" title="Probar stream">
-                            <i class="bi bi-play"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteChannel({{ channel.id }})" title="Eliminar">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="8" class="text-center py-4 text-muted">
-                    <i class="bi bi-inbox display-4"></i>
-                    <p class="mt-2">No hay canales configurados</p>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                        <p>No hay canales configurados</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Add Channel Modal -->
-<div class="modal fade" id="addChannelModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-broadcast"></i> Nuevo Canal</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div
+    x-data="{ open: false }"
+    x-show="open"
+    @open-modal.window="if ($event.detail === 'addChannelModal') open = true"
+    @keydown.escape.window="open = false"
+    class="fixed inset-0 z-50 overflow-y-auto"
+    x-cloak
+>
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div
+            x-show="open"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            @click="open = false"
+            class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+        ></div>
+
+        <div
+            x-show="open"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            class="relative bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 overflow-hidden"
+        >
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z"></path>
+                    </svg>
+                    Nuevo Canal
+                </h3>
+                <button @click="open = false" class="text-gray-400 hover:text-gray-600 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
             </div>
             <form method="post" action="{% url 'portal:channel_create' %}">
                 {% csrf_token %}
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Nombre *</label>
-                                <input type="text" name="name" class="form-control" required>
-                            </div>
+                <div class="px-6 py-4">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div class="md:col-span-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                            <input type="text" name="name" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                         </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label class="form-label">Número *</label>
-                                <input type="number" name="number" class="form-control" required>
-                            </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Numero *</label>
+                            <input type="number" name="number" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                         </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label class="form-label">Categoría</label>
-                                <select name="category" class="form-select">
-                                    <option value="">Sin categoría</option>
-                                    {% for category in categories %}
-                                        <option value="{{ category.id }}">{{ category.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                            <select name="category" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Sin categoria</option>
+                                {% for category in categories %}
+                                    <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Stream URL *</label>
-                        <input type="url" name="stream_url" class="form-control" placeholder="http://..." required>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Stream URL *</label>
+                        <input type="url" name="stream_url" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="http://..." required>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Logo URL</label>
-                                <input type="url" name="logo" class="form-control" placeholder="https://...">
-                            </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
+                            <input type="url" name="logo" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://...">
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">EPG Channel ID</label>
-                                <input type="text" name="epg_channel_id" class="form-control">
-                            </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">EPG Channel ID</label>
+                            <input type="text" name="epg_channel_id" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <input type="checkbox" name="is_hd" class="form-check-input" id="isHd">
-                                <label class="form-check-label" for="isHd">HD</label>
-                            </div>
+                    <div class="grid grid-cols-3 gap-4 mt-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" name="is_hd" id="isHd" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="isHd" class="ml-2 text-sm text-gray-700">HD</label>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <input type="checkbox" name="is_adult" class="form-check-input" id="isAdult">
-                                <label class="form-check-label" for="isAdult">Contenido adulto (+18)</label>
-                            </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="is_adult" id="isAdult" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="isAdult" class="ml-2 text-sm text-gray-700">Contenido adulto (+18)</label>
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-check mb-3">
-                                <input type="checkbox" name="has_archive" class="form-check-input" id="hasArchive">
-                                <label class="form-check-label" for="hasArchive">Tiene catchup/archivo</label>
-                            </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="has_archive" id="hasArchive" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <label for="hasArchive" class="ml-2 text-sm text-gray-700">Tiene catchup/archivo</label>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Crear Canal</button>
+                <div class="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <button type="button" @click="open = false" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Crear Canal</button>
                 </div>
             </form>
         </div>
@@ -221,41 +280,78 @@
 </div>
 
 <!-- Import M3U Modal -->
-<div class="modal fade" id="importModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-upload"></i> Importar M3U</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<div
+    x-data="{ open: false }"
+    x-show="open"
+    @open-modal.window="if ($event.detail === 'importModal') open = true"
+    @keydown.escape.window="open = false"
+    class="fixed inset-0 z-50 overflow-y-auto"
+    x-cloak
+>
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div
+            x-show="open"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            @click="open = false"
+            class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+        ></div>
+
+        <div
+            x-show="open"
+            x-transition:enter="ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave="ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            class="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 overflow-hidden"
+        >
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                    </svg>
+                    Importar M3U
+                </h3>
+                <button @click="open = false" class="text-gray-400 hover:text-gray-600 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
             </div>
             <form method="post" action="{% url 'portal:channels_import' %}" enctype="multipart/form-data">
                 {% csrf_token %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Archivo M3U</label>
-                        <input type="file" name="m3u_file" class="form-control" accept=".m3u,.m3u8">
+                <div class="px-6 py-4">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Archivo M3U</label>
+                        <input type="file" name="m3u_file" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" accept=".m3u,.m3u8">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">O URL del M3U</label>
-                        <input type="url" name="m3u_url" class="form-control" placeholder="http://...">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">O URL del M3U</label>
+                        <input type="url" name="m3u_url" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="http://...">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Categoría por defecto</label>
-                        <select name="default_category" class="form-select">
-                            <option value="">Sin categoría</option>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Categoria por defecto</label>
+                        <select name="default_category" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Sin categoria</option>
                             {% for category in categories %}
                                 <option value="{{ category.id }}">{{ category.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="form-check mb-3">
-                        <input type="checkbox" name="overwrite" class="form-check-input" id="overwrite">
-                        <label class="form-check-label" for="overwrite">Sobrescribir canales existentes</label>
+                    <div class="flex items-center">
+                        <input type="checkbox" name="overwrite" id="overwrite" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <label for="overwrite" class="ml-2 text-sm text-gray-700">Sobrescribir canales existentes</label>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Importar</button>
+                <div class="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <button type="button" @click="open = false" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Importar</button>
                 </div>
             </form>
         </div>
@@ -270,7 +366,7 @@ function testStream(channelId) {
 }
 
 function deleteChannel(channelId) {
-    if (confirm('¿Eliminar este canal?')) {
+    if (confirm('Eliminar este canal?')) {
         fetch(`/portal/channels/${channelId}/delete/`, {
             method: 'POST',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }
