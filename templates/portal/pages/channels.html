@@ -9,9 +9,9 @@
         <p class="text-muted">Gestión de canales de TV</p>
     </div>
     <div>
-        <button class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#importModal">
+        <a href="{% url 'portal:channels_import' %}" class="btn btn-outline-primary me-2">
             <i class="bi bi-upload"></i> Importar M3U
-        </button>
+        </a>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addChannelModal">
             <i class="bi bi-plus-lg"></i> Nuevo Canal
         </button>

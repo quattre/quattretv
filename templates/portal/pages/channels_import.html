@@ -1,0 +1,99 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Importar Canales - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'portal:channels' %}">Canales</a></li>
+            <li class="breadcrumb-item active">Importar M3U</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-cloud-upload"></i> Importar Canales M3U</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-file-earmark-arrow-up"></i> Subir archivo M3U/M3U8
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar archivo</label>
+                        <input type="file" name="m3u_file" class="form-control" accept=".m3u,.m3u8,.txt">
+                        <small class="text-muted">Formatos aceptados: .m3u, .m3u8, .txt</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-clipboard"></i> O pegar contenido M3U
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Contenido M3U</label>
+                        <textarea name="m3u_text" class="form-control font-monospace" rows="15"
+                                  placeholder="#EXTM3U
+#EXTINF:-1 tvg-id=&quot;canal1&quot; tvg-logo=&quot;http://example.com/logo.png&quot; group-title=&quot;Grupo&quot;,Nombre del Canal
+http://stream.example.com/canal1.m3u8"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-cloud-upload"></i> Importar Canales
+                </button>
+                <a href="{% url 'portal:channels' %}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Formato M3U
+            </div>
+            <div class="card-body">
+                <p class="small">El archivo M3U debe seguir el formato estándar:</p>
+                <pre class="bg-dark text-light p-3 rounded small"><code>#EXTM3U
+#EXTINF:-1 tvg-id="ID" tvg-name="Nombre" tvg-logo="URL_LOGO" group-title="Categoria",Nombre Canal
+http://url-del-stream.m3u8</code></pre>
+
+                <h6 class="mt-3">Atributos soportados:</h6>
+                <ul class="small">
+                    <li><strong>tvg-id</strong>: ID para EPG</li>
+                    <li><strong>tvg-name</strong>: Nombre alternativo</li>
+                    <li><strong>tvg-logo</strong>: URL del logo</li>
+                    <li><strong>group-title</strong>: Categoría</li>
+                </ul>
+
+                <h6 class="mt-3">Comportamiento:</h6>
+                <ul class="small">
+                    <li>Canales existentes se actualizan</li>
+                    <li>Canales nuevos se crean</li>
+                    <li>Categorías se crean automáticamente</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-file-earmark-text"></i> Archivo de ejemplo
+            </div>
+            <div class="card-body">
+                <p class="small">Puedes usar el archivo de ejemplo generado:</p>
+                <code class="small">/home/sergio/quattretv/channels_import.m3u8</code>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

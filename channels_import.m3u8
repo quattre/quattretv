@@ -1,0 +1,129 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="LA 1" tvg-name="LA 1 HD" tvg-logo="http://cdn11.quattre.com/logos/2.png" group-title="Generalistas",LA 1 HD
+http://cdn11.quattre.com:1500/hls/la1/index.m3u8
+#EXTINF:-1 tvg-id="La 2" tvg-name="La 2 HD" tvg-logo="http://cdn11.quattre.com/logos/3.png" group-title="Generalistas",La 2 HD
+http://cdn11.quattre.com:1500/hls/la2/index.m3u8
+#EXTINF:-1 tvg-id="Antena 3" tvg-name="Antena 3 HD" tvg-logo="http://cdn11.quattre.com/logos/4.png" group-title="Generalistas",Antena 3 HD
+http://cdn11.quattre.com:1500/hls/antena3/index.m3u8
+#EXTINF:-1 tvg-id="La Sexta" tvg-name="La Sexta HD" tvg-logo="http://cdn11.quattre.com/logos/5.png" group-title="Generalistas",La Sexta HD
+http://cdn11.quattre.com:1500/hls/lasexta/index.m3u8
+#EXTINF:-1 tvg-id="Telecinco" tvg-name="Telecinco HD" tvg-logo="http://cdn11.quattre.com/logos/16.png" group-title="Generalistas",Telecinco HD
+http://cdn11.quattre.com:1500/hls/telecinco/index.m3u8
+#EXTINF:-1 tvg-id="Cuatro" tvg-name="Cuatro HD" tvg-logo="http://cdn11.quattre.com/logos/17.png" group-title="Generalistas",Cuatro HD
+http://cdn11.quattre.com:1500/hls/cuatro/index.m3u8
+#EXTINF:-1 tvg-id="Neox" tvg-name="Neox" tvg-logo="http://cdn11.quattre.com/logos/6.png" group-title="Entretenimiento",Neox
+http://cdn11.quattre.com:1500/hls/neox/index.m3u8
+#EXTINF:-1 tvg-id="Nova" tvg-name="Nova" tvg-logo="http://cdn11.quattre.com/logos/7.png" group-title="Entretenimiento",Nova
+http://cdn11.quattre.com:1500/hls/nova/index.m3u8
+#EXTINF:-1 tvg-id="Mega" tvg-name="Mega" tvg-logo="http://cdn11.quattre.com/logos/23.png" group-title="Entretenimiento",Mega
+http://cdn11.quattre.com:1500/hls/mega/index.m3u8
+#EXTINF:-1 tvg-id="Energy" tvg-name="Energy" tvg-logo="http://cdn11.quattre.com/logos/22.png" group-title="Entretenimiento",Energy
+http://cdn11.quattre.com:1500/hls/energy/index.m3u8
+#EXTINF:-1 tvg-id="Divinity" tvg-name="Divinity" tvg-logo="http://cdn11.quattre.com/logos/15.png" group-title="Entretenimiento",Divinity
+http://cdn11.quattre.com:1500/hls/divinity/index.m3u8
+#EXTINF:-1 tvg-id="FDF" tvg-name="Factoría de Ficción" tvg-logo="http://cdn10.quattre.com/logos/14.png" group-title="Entretenimiento",Factoría de Ficción
+http://cdn10.quattre.com:1500/hls/fdf/index.m3u8
+#EXTINF:-1 tvg-id="Ten" tvg-name="Ten" tvg-logo="http://cdn11.quattre.com/logos/20.png" group-title="Entretenimiento",Ten
+http://cdn11.quattre.com:1500/hls/ten/index.m3u8
+#EXTINF:-1 tvg-id="13 TV" tvg-name="13 TV" tvg-logo="http://cdn11.quattre.com/logos/24.png" group-title="Entretenimiento",13 TV
+http://cdn11.quattre.com:1500/hls/13tv/index.m3u8
+#EXTINF:-1 tvg-id="Atreseries" tvg-name="Atreseries" tvg-logo="http://cdn11.quattre.com/logos/91.png" group-title="Generalistas",Atreseries
+http://cdn11.quattre.com:1500/hls/atreseries/index.m3u8
+#EXTINF:-1 tvg-id="Squirrel TV" tvg-name="Squirrel TV" tvg-logo="http://cdn11.quattre.com/logos/8.png" group-title="Infantil",Squirrel TV
+http://cdn11.quattre.com:1500/hls/squirrel/index.m3u8
+#EXTINF:-1 tvg-id="Clan TVE" tvg-name="Clan TVE" tvg-logo="http://cdn11.quattre.com/logos/13.png" group-title="Infantil",Clan TVE
+http://cdn11.quattre.com:1500/hls/clan/index.m3u8
+#EXTINF:-1 tvg-id="Boing" tvg-name="Boing" tvg-logo="http://cdn11.quattre.com/logos/21.png" group-title="Infantil",Boing
+http://cdn11.quattre.com:1500/hls/boing/index.m3u8
+#EXTINF:-1 tvg-id="Disney Junior" tvg-name="Disney Junior" tvg-logo="http://cdn11.quattre.com/logos/99.jpg" group-title="Infantil",Disney Junior
+http://cdn11.quattre.com:1500/hls/disneyjr/index.m3u8
+#EXTINF:-1 tvg-id="Baby TV" tvg-name="Baby TV" tvg-logo="http://cdn11.quattre.com/logos/103.jpg" group-title="Infantil",Baby TV
+http://cdn11.quattre.com:1500/hls/babytv/index.m3u8
+#EXTINF:-1 tvg-id="VinTV" tvg-name="VinTV" tvg-logo="http://cdn10.quattre.com/logos/115.png" group-title="Infantil",VinTV
+http://cdn10.quattre.com:1500/hls/vintv/index.m3u8
+#EXTINF:-1 tvg-id="Hollywood" tvg-name="Hollywood" tvg-logo="http://cdn11.quattre.com/logos/69.png" group-title="Cine",Hollywood
+http://cdn11.quattre.com:1500/hls/hollywood/index.m3u8
+#EXTINF:-1 tvg-id="Paramount" tvg-name="Squirrel 2" tvg-logo="http://cdn11.quattre.com/logos/9.png" group-title="Cine",Squirrel 2
+http://cdn11.quattre.com:1500/hls/paramount/index.m3u8
+#EXTINF:-1 tvg-id="AMC" tvg-name="AMC" tvg-logo="http://cdn11.quattre.com/logos/75.png" group-title="Series",AMC
+http://cdn11.quattre.com:1500/hls/amc/index.m3u8
+#EXTINF:-1 tvg-id="Fox" tvg-name="Fox" tvg-logo="http://cdn11.quattre.com/logos/104.png" group-title="Series",Fox
+http://cdn11.quattre.com:1500/hls/star/index.m3u8
+#EXTINF:-1 tvg-id="TNT" tvg-name="TNT" tvg-logo="http://cdn10.quattre.com/logos/123.png" group-title="Cine",TNT
+http://cdn10.quattre.com:1500/hls/warner/index.m3u8
+#EXTINF:-1 tvg-id="TCM" tvg-name="TCM" tvg-logo="http://cdn11.quattre.com/logos/125.png" group-title="Cine",TCM
+http://cdn11.quattre.com:1500/hls/tcm/index.m3u8
+#EXTINF:-1 tvg-id="Calle 13" tvg-name="Calle 13" tvg-logo="http://cdn11.quattre.com/logos/124.png" group-title="Cine",Calle 13
+http://cdn11.quattre.com:1500/hls/calle13/index.m3u8
+#EXTINF:-1 tvg-id="SYFY" tvg-name="SYFY" tvg-logo="http://cdn11.quattre.com/logos/126.png" group-title="Cine",SYFY
+http://cdn11.quattre.com:1500/hls/syfy/index.m3u8
+#EXTINF:-1 tvg-id="XTRM" tvg-name="XTRM" tvg-logo="http://cdn10.quattre.com/logos/117.png" group-title="Cine",XTRM
+http://cdn10.quattre.com:1500/hls/xtrm/index.m3u8
+#EXTINF:-1 tvg-id="DARK" tvg-name="DARK" tvg-logo="http://cdn11.quattre.com/logos/118.jpg" group-title="Cine",DARK
+http://cdn11.quattre.com:1500/hls/dark/index.m3u8
+#EXTINF:-1 tvg-id="Somos" tvg-name="Somos" tvg-logo="http://cdn11.quattre.com/logos/122.png" group-title="Cine",Somos
+http://cdn11.quattre.com:1500/hls/somos/index.m3u8
+#EXTINF:-1 tvg-id="Teledeporte" tvg-name="Teledeporte" tvg-logo="http://cdn11.quattre.com/logos/18.png" group-title="Deportes",Teledeporte
+http://cdn11.quattre.com:1500/hls/tdp/index.m3u8
+#EXTINF:-1 tvg-id="Veo7" tvg-name="Veo7" tvg-logo="http://cdn11.quattre.com/logos/11.png" group-title="Deportes",Veo7
+http://cdn11.quattre.com:1500/hls/veo7/index.m3u8
+#EXTINF:-1 tvg-id="Eurosport 1" tvg-name="Eurosport 1" tvg-logo="http://cdn11.quattre.com/logos/68.png" group-title="Deportes",Eurosport 1
+http://cdn11.quattre.com:1500/hls/eurosport1/index.m3u8
+#EXTINF:-1 tvg-id="Esport 3" tvg-name="Esport 3" tvg-logo="http://cdn11.quattre.com/logos/79.png" group-title="Deportes",Esport 3
+http://cdn11.quattre.com:1500/hls/sport3/index.m3u8
+#EXTINF:-1 tvg-id="Real Madrid TV" tvg-name="Real Madrid TV" tvg-logo="http://cdn11.quattre.com/logos/80.png" group-title="Deportes",Real Madrid TV
+http://cdn11.quattre.com:1500/hls/realmadridtv/index.m3u8
+#EXTINF:-1 tvg-id="24 Horas" tvg-name="24 Horas" tvg-logo="http://cdn11.quattre.com/logos/12.png" group-title="Noticias",24 Horas
+http://cdn11.quattre.com:1500/hls/24h/index.m3u8
+#EXTINF:-1 tvg-id="Intereconomia" tvg-name="Intereconomía TV" tvg-logo="http://cdn11.quattre.com/logos/78.png" group-title="Noticias",Intereconomía TV
+http://cdn11.quattre.com:1500/hls/intereconomia/index.m3u8
+#EXTINF:-1 tvg-id="National Geographic" tvg-name="National Geographic" tvg-logo="http://cdn11.quattre.com/logos/106.png" group-title="Documentales",National Geographic
+http://cdn11.quattre.com:1500/hls/nationalgeo/index.m3u8
+#EXTINF:-1 tvg-id="Nat Geo Wild" tvg-name="Nat Geo Wild" tvg-logo="http://cdn11.quattre.com/logos/107.png" group-title="Documentales",Nat Geo Wild
+http://cdn11.quattre.com:1500/hls/nationalgeowild/index.m3u8
+#EXTINF:-1 tvg-id="Odisea" tvg-name="Odisea" tvg-logo="http://cdn11.quattre.com/logos/71.png" group-title="Documentales",Odisea
+http://cdn11.quattre.com:1500/hls/odisea/index.m3u8
+#EXTINF:-1 tvg-id="Historia" tvg-name="Historia" tvg-logo="http://cdn11.quattre.com/logos/72.png" group-title="Documentales",Historia
+http://cdn11.quattre.com:1500/hls/historia/index.m3u8
+#EXTINF:-1 tvg-id="Blaze" tvg-name="Blaze" tvg-logo="http://cdn11.quattre.com/logos/116.png" group-title="Documentales",Blaze
+http://cdn11.quattre.com:1500/hls/blaze/index.m3u8
+#EXTINF:-1 tvg-id="Iberalia" tvg-name="Iberalia" tvg-logo="http://cdn10.quattre.com/logos/70.png" group-title="Documentales",Iberalia
+http://cdn10.quattre.com:1500/hls/iberalia/index.m3u8
+#EXTINF:-1 tvg-id="Iberalia caza" tvg-name="Iberalia caza" tvg-logo="http://cdn11.quattre.com/logos/95.png" group-title="Documentales",Iberalia caza
+http://cdn11.quattre.com:1500/hls/iberalia_caza/index.m3u8
+#EXTINF:-1 tvg-id="Iberalia pesca" tvg-name="Iberalia pesca" tvg-logo="http://cdn10.quattre.com/logos/109.png" group-title="Documentales",Iberalia pesca
+http://cdn10.quattre.com:1500/hls/iberalia_pesca/index.m3u8
+#EXTINF:-1 tvg-id="DMAX" tvg-name="DMAX" tvg-logo="http://cdn10.quattre.com/logos/10.png" group-title="Estilo de vida",DMAX
+http://cdn10.quattre.com:1500/hls/discovery/index.m3u8
+#EXTINF:-1 tvg-id="DKISS" tvg-name="DKISS" tvg-logo="http://cdn10.quattre.com/logos/19.png" group-title="Estilo de vida",DKISS
+http://cdn10.quattre.com:1500/hls/dkiss/index.m3u8
+#EXTINF:-1 tvg-id="Canal Decasa" tvg-name="Canal Decasa" tvg-logo="http://cdn10.quattre.com/logos/73.JPG" group-title="Estilo de vida",Canal Decasa
+http://cdn10.quattre.com:1500/hls/decasa/index.m3u8
+#EXTINF:-1 tvg-id="Canal Cocina" tvg-name="Canal Cocina" tvg-logo="http://cdn11.quattre.com/logos/74.png" group-title="Estilo de vida",Canal Cocina
+http://cdn11.quattre.com:1500/hls/cocina/index.m3u8
+#EXTINF:-1 tvg-id="BE MAD" tvg-name="BE MAD" tvg-logo="http://cdn11.quattre.com/logos/92.png" group-title="Documentales",BE MAD
+http://cdn11.quattre.com:1500/hls/bemad/index.m3u8
+#EXTINF:-1 tvg-id="BuenViaje" tvg-name="BuenViaje" tvg-logo="http://cdn10.quattre.com/logos/119.png" group-title="Viajes",BuenViaje
+http://cdn10.quattre.com:1500/hls/buenviaje/index.m3u8
+#EXTINF:-1 tvg-id="TV3 Cat" tvg-name="TV3 Cat" tvg-logo="http://cdn11.quattre.com/logos/44.png" group-title="Autonómicas",TV3 Cat
+http://cdn11.quattre.com:1500/hls/tv3/index.m3u8
+#EXTINF:-1 tvg-id="Canal 33" tvg-name="Canal 33" tvg-logo="http://cdn11.quattre.com/logos/45.png" group-title="Autonómicas",Canal 33
+http://cdn11.quattre.com:1500/hls/canal33/index.m3u8
+#EXTINF:-1 tvg-id="Canal Sur" tvg-name="Canal Sur Andalucía" tvg-logo="http://cdn11.quattre.com/logos/43.png" group-title="Autonómicas",Canal Sur Andalucía
+http://cdn11.quattre.com:1500/hls/canalsur/index.m3u8
+#EXTINF:-1 tvg-id="ETB 1" tvg-name="ETB 1" tvg-logo="http://cdn11.quattre.com/logos/84.png" group-title="Autonómicas",ETB 1
+http://cdn11.quattre.com:1500/hls/etb1/index.m3u8
+#EXTINF:-1 tvg-id="ETB 2" tvg-name="ETB 2" tvg-logo="http://cdn11.quattre.com/logos/85.png" group-title="Autonómicas",ETB 2
+http://cdn11.quattre.com:1500/hls/etb2/index.m3u8
+#EXTINF:-1 tvg-id="APUNT" tvg-name="APUNT" tvg-logo="http://cdn11.quattre.com/logos/96.jpg" group-title="Autonómicas",APUNT
+http://cdn11.quattre.com:1500/hls/apunt/index.m3u8
+#EXTINF:-1 tvg-id="Castilla la Mancha TV" tvg-name="Castilla la Mancha TV" tvg-logo="http://cdn11.quattre.com/logos/88.png" group-title="Autonómicas",Castilla la Mancha TV
+http://cdn11.quattre.com:1500/hls/castillalamancha/index.m3u8
+#EXTINF:-1 tvg-id="Canal Extremadura" tvg-name="Canal Extremadura" tvg-logo="http://cdn10.quattre.com/logos/101.png" group-title="Autonómicas",Canal Extremadura
+http://cdn10.quattre.com:1500/hls/extremaduratv/index.m3u8
+#EXTINF:-1 tvg-id="Levante TV" tvg-name="Levante TV" tvg-logo="http://cdn11.quattre.com/logos/90.png" group-title="Generalistas",Levante TV
+http://cdn11.quattre.com:1500/hls/levantetv/index.m3u8
+#EXTINF:-1 tvg-id="La 7" tvg-name="La 7" tvg-logo="http://cdn10.quattre.com/logos/89.png" group-title="Entretenimiento",La 7
+http://cdn10.quattre.com:1500/hls/valenciatv/index.m3u8
+#EXTINF:-1 tvg-id="La Ocho" tvg-name="La Ocho Mediterráneo" tvg-logo="http://cdn10.quattre.com/logos/93.png" group-title="Generalistas",La Ocho Mediterráneo
+http://cdn10.quattre.com:1500/hls/laochomed/index.m3u8

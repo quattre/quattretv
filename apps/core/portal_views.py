@@ -478,12 +478,170 @@ def channel_delete(request, channel_id):
 
 @staff_member_required
 def channels_import(request):
-    """Import channels from M3U."""
+    """Import channels from M3U/M3U8."""
     if request.method == 'POST':
-        # TODO: Implement M3U import
-        messages.info(request, 'Función de importación M3U en desarrollo')
+        m3u_file = request.FILES.get('m3u_file')
+        m3u_text = request.POST.get('m3u_text', '').strip()
 
-    return redirect('portal:channels')
+        if not m3u_file and not m3u_text:
+            messages.error(request, 'Debes subir un archivo M3U o pegar el contenido')
+            return redirect('portal:channels_import')
+
+        # Get content
+        if m3u_file:
+            try:
+                content = m3u_file.read().decode('utf-8')
+            except UnicodeDecodeError:
+                content = m3u_file.read().decode('latin-1')
+        else:
+            content = m3u_text
+
+        # Parse M3U
+        channels_data = parse_m3u(content)
+
+        if not channels_data:
+            messages.error(request, 'No se encontraron canales válidos en el archivo')
+            return redirect('portal:channels_import')
+
+        # Import channels
+        created = 0
+        updated = 0
+        errors = 0
+
+        # Get max channel number
+        max_number = Channel.objects.order_by('-number').values_list('number', flat=True).first() or 0
+
+        for ch_data in channels_data:
+            try:
+                # Get or create category
+                category = None
+                if ch_data.get('group'):
+                    category, _ = Category.objects.get_or_create(
+                        name=ch_data['group'],
+                        defaults={
+                            'alias': slugify(ch_data['group']),
+                            'is_active': True
+                        }
+                    )
+
+                # Check if channel exists (by name or epg_id)
+                existing = None
+                if ch_data.get('tvg_id'):
+                    existing = Channel.objects.filter(epg_id=ch_data['tvg_id']).first()
+                if not existing:
+                    existing = Channel.objects.filter(name__iexact=ch_data['name']).first()
+
+                if existing:
+                    # Update existing
+                    existing.stream_url = ch_data['url']
+                    if ch_data.get('logo'):
+                        existing.logo_url = ch_data['logo']
+                    if category:
+                        existing.category = category
+                    if ch_data.get('tvg_id'):
+                        existing.epg_id = ch_data['tvg_id']
+                    existing.is_hd = 'HD' in ch_data['name'].upper() or '1080' in ch_data['name']
+                    existing.is_4k = '4K' in ch_data['name'].upper() or 'UHD' in ch_data['name'].upper()
+                    existing.save()
+                    updated += 1
+                else:
+                    # Create new
+                    max_number += 1
+                    Channel.objects.create(
+                        name=ch_data['name'],
+                        number=max_number,
+                        stream_url=ch_data['url'],
+                        logo_url=ch_data.get('logo', ''),
+                        category=category,
+                        epg_id=ch_data.get('tvg_id', ''),
+                        is_hd='HD' in ch_data['name'].upper() or '1080' in ch_data['name'],
+                        is_4k='4K' in ch_data['name'].upper() or 'UHD' in ch_data['name'].upper(),
+                        is_active=True
+                    )
+                    created += 1
+
+            except Exception as e:
+                errors += 1
+                print(f"Error importing channel {ch_data.get('name')}: {e}")
+
+        messages.success(request, f'Importación completada: {created} creados, {updated} actualizados, {errors} errores')
+        return redirect('portal:channels')
+
+    # GET request - show import form
+    context = {
+        'active_page': 'channels',
+        'stats': get_base_stats(),
+    }
+    return render(request, 'portal/pages/channels_import.html', context)
+
+
+def parse_m3u(content):
+    """Parse M3U/M3U8 content and extract channel data."""
+    import re
+
+    channels = []
+    lines = content.strip().split('\n')
+
+    current_channel = None
+
+    for line in lines:
+        line = line.strip()
+
+        if line.startswith('#EXTINF:'):
+            # Parse EXTINF line
+            current_channel = {}
+
+            # Extract attributes
+            # tvg-id
+            tvg_id_match = re.search(r'tvg-id="([^"]*)"', line)
+            if tvg_id_match:
+                current_channel['tvg_id'] = tvg_id_match.group(1)
+
+            # tvg-name
+            tvg_name_match = re.search(r'tvg-name="([^"]*)"', line)
+            if tvg_name_match:
+                current_channel['tvg_name'] = tvg_name_match.group(1)
+
+            # tvg-logo
+            logo_match = re.search(r'tvg-logo="([^"]*)"', line)
+            if logo_match:
+                current_channel['logo'] = logo_match.group(1)
+
+            # group-title
+            group_match = re.search(r'group-title="([^"]*)"', line)
+            if group_match:
+                current_channel['group'] = group_match.group(1)
+
+            # Channel name (after the last comma)
+            name_match = re.search(r',\s*(.+)$', line)
+            if name_match:
+                current_channel['name'] = name_match.group(1).strip()
+            elif tvg_name_match:
+                current_channel['name'] = tvg_name_match.group(1)
+
+        elif line and not line.startswith('#') and current_channel:
+            # This is the URL line
+            current_channel['url'] = line
+            if current_channel.get('name') and current_channel.get('url'):
+                channels.append(current_channel)
+            current_channel = None
+
+    return channels
+
+
+def slugify(text):
+    """Simple slugify function."""
+    import re
+    text = text.lower()
+    text = re.sub(r'[áàäâ]', 'a', text)
+    text = re.sub(r'[éèëê]', 'e', text)
+    text = re.sub(r'[íìïî]', 'i', text)
+    text = re.sub(r'[óòöô]', 'o', text)
+    text = re.sub(r'[úùüû]', 'u', text)
+    text = re.sub(r'[ñ]', 'n', text)
+    text = re.sub(r'[^a-z0-9]+', '-', text)
+    text = text.strip('-')
+    return text or 'sin-categoria'
 
 
 # Categories
