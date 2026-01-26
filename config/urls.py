@@ -23,6 +23,10 @@ urlpatterns = [
     path('stalker_portal/', include('apps.stalker_api.urls')),
     path('portal.php', include('apps.stalker_api.portal_urls')),
 
+    # QuattreTV STB endpoint (alternativa a stalker_portal)
+    path('quattretv/c/', include('apps.stalker_api.urls')),
+    path('quattretv/c/portal.php', include('apps.stalker_api.portal_urls')),
+
     # Portal Admin (en la raíz - al final para no interferir con APIs)
     path('', include('apps.core.portal_urls')),
 ]
