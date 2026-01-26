@@ -4,6 +4,7 @@ from . import views
 app_name = 'stalker_api'
 
 urlpatterns = [
+    path('', views.portal_handler, name='root'),
     path('server/load.php', views.portal_handler, name='load'),
     path('c/', views.portal_handler, name='c'),
 ]
