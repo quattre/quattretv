@@ -525,15 +525,14 @@ def channels_import(request):
         updated = 0
         errors = 0
 
-        # Separate TV and Radio, then assign correlative numbers
-        # Get current max numbers for TV and Radio
-        max_tv_number = Channel.objects.filter(is_radio=False).order_by('-number').values_list('number', flat=True).first() or 0
-        max_radio_number = Channel.objects.filter(is_radio=True).order_by('-number').values_list('number', flat=True).first() or 0
+        # Get import type from form (tv or radio)
+        import_type = request.POST.get('import_type', 'tv')
+        is_radio_import = (import_type == 'radio')
 
-        # Radio keywords for detection
-        radio_keywords = ['radio', 'rne', 'kiss fm', 'hit fm', 'onda cero', 'europa fm',
-                          'melodia fm', 'cope', 'cadena 100', 'cadena ser', 'los 40',
-                          'cadena dial', 'vaughan', 'es radio', 'radio maria', 'marca']
+        # Get current max numbers for TV and Radio
+        # TV starts at 1, Radio starts at 1001 to avoid conflicts (number field is unique)
+        max_tv_number = Channel.objects.filter(is_radio=False).order_by('-number').values_list('number', flat=True).first() or 0
+        max_radio_number = Channel.objects.filter(is_radio=True).order_by('-number').values_list('number', flat=True).first() or 1000
 
         for ch_data in channels_data:
             try:
@@ -548,17 +547,8 @@ def channels_import(request):
                         }
                     )
 
-                # Detect if radio by group-title, name, or URL
-                name_lower = ch_data.get('name', '').lower()
-                url_lower = ch_data.get('url', '').lower()
-                group_lower = ch_data.get('group', '').lower()
-
-                is_radio = group_lower == 'radio'
-                if not is_radio:
-                    for keyword in radio_keywords:
-                        if keyword in name_lower or keyword in url_lower:
-                            is_radio = True
-                            break
+                # Use the import type selected by the user (TV or Radio button)
+                is_radio = is_radio_import
 
                 # Check if channel exists (by epg_id or name)
                 existing = None

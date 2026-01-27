@@ -106,7 +106,7 @@ def stb_portal_app(request):
         var h = '<div class="header">';
         h += '<div class="logo">QuattreTV</div>';
         h += '<div class="tabs">';
-        h += '<span class="tab' + (mode === 'tv' ? ' active' : '') + '" onclick="switchMode(\'tv\')">TV (' + channels.length + ')</span>';
+        h += '<span class="tab' + (mode === 'tv' ? ' active' : '') + '" onclick="switchMode(\'tv\')">Canales IPTV (' + channels.length + ')</span>';
         h += '<span class="tab' + (mode === 'radio' ? ' active' : '') + '" onclick="switchMode(\'radio\')">Radio (' + radios.length + ')</span>';
         h += '</div></div>';
 
@@ -133,7 +133,7 @@ def stb_portal_app(request):
         h += '<div class="help">';
         h += '<span>OK = Reproducir</span>';
         h += '<span>Flechas = Navegar</span>';
-        h += '<span>Izq/Der = TV/Radio</span>';
+        h += '<span>Izq/Der = IPTV/Radio</span>';
         h += '<span>Vol+/- = Volumen</span>';
         h += '</div>';
 
