@@ -27,64 +27,36 @@ def stb_portal_app(request):
     <script type="text/javascript">
     var stbAPI = null;
     var channels = [];
-    var categories = [];
     var currentChannel = 0;
-    var currentCategory = 0;
     var isPlaying = false;
 
     function init() {
-        log("Inicio");
-
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
-            log("gSTB OK");
             try {
                 stbAPI.InitPlayer();
                 stbAPI.SetViewport(0, 0, 1920, 1080);
                 stbAPI.SetWinMode(0, 1);
                 stbAPI.SetTopWin(1);
                 stbAPI.SetTransparentColor(0x000000);
-                log("Player listo");
-            } catch(err) {
-                log("Error STB: " + err);
-            }
+            } catch(err) {}
         } else if (typeof stb !== "undefined") {
             stbAPI = stb;
-            log("stb OK");
-        } else {
-            log("Sin STB API");
         }
-
         loadData();
     }
 
-    function log(t) {
-        var el = document.getElementById("log");
-        if (el) el.innerHTML = el.innerHTML + t + "<br>";
-    }
-
     function loadData() {
-        log("Cargando...");
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                log("Status: " + xhr.status);
-                if (xhr.status === 200) {
-                    try {
-                        var r = JSON.parse(xhr.responseText);
-                        if (r.js && r.js.data) {
-                            channels = r.js.data;
-                            log("Canales: " + channels.length);
-                            showChannels();
-                        } else {
-                            log("Sin datos");
-                        }
-                    } catch(err) {
-                        log("Error JSON: " + err);
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var r = JSON.parse(xhr.responseText);
+                    if (r.js && r.js.data) {
+                        channels = r.js.data;
+                        showChannels();
                     }
-                } else {
-                    log("Error HTTP");
-                }
+                } catch(err) {}
             }
         };
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
@@ -105,25 +77,16 @@ def stb_portal_app(request):
     }
 
     function play(ch) {
-        if (!ch) return;
-        log("Play: " + ch.name);
-        var url = ch.cmd;
-        log("URL: " + url);
-        if (!url) {
-            log("ERROR: Sin URL!");
-            return;
-        }
+        if (!ch || !ch.cmd) return;
         if (stbAPI) {
             try {
-                stbAPI.Play(url);
+                stbAPI.Play(ch.cmd);
                 isPlaying = true;
                 document.body.style.background = "transparent";
                 document.getElementById("content").style.display = "none";
                 document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name + "<br><small style='font-size:12px;color:#888'>" + url.substring(0,50) + "...</small>";
-            } catch(err) {
-                log("Error play: " + err);
-            }
+                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
+            } catch(err) {}
         }
     }
 
@@ -140,8 +103,6 @@ def stb_portal_app(request):
 
     function handleKey(e) {
         var k = e.keyCode;
-        log("Key: " + k);
-
         if (isPlaying) {
             if (k === 38 || k === 33) {
                 if (currentChannel > 0) { currentChannel--; play(channels[currentChannel]); }
@@ -173,14 +134,12 @@ def stb_portal_app(request):
         .ch { padding: 10px 15px; margin: 3px 0; background: #222; }
         .sel { background: #e94560; }
         .help { margin-top: 20px; color: #666; }
-        #log { position: fixed; bottom: 10px; right: 10px; width: 300px; max-height: 200px; overflow: auto; background: #000; color: #0f0; font-size: 11px; padding: 5px; font-family: monospace; }
         #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
     </style>
 </head>
 <body>
     <div id="content">Cargando QuattreTV...</div>
     <div id="osd"></div>
-    <div id="log"></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
