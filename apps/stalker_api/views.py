@@ -498,10 +498,22 @@ def portal_handler(request):
 
     # If no params, serve appropriate page
     if not request_type and not action:
-        if not request.COOKIES.get('mac'):
+        mac = request.COOKIES.get('mac')
+        if not mac:
             return stb_loader_page(request)
-        else:
-            return stb_portal_app(request)
+
+        # Verify MAC is valid (device exists)
+        from .authentication import MACAuthentication
+        normalized_mac = MACAuthentication.normalize_mac(mac)
+        if normalized_mac:
+            device_exists = Device.objects.filter(mac_address=normalized_mac, is_active=True).exists()
+            if device_exists:
+                return stb_portal_app(request)
+
+        # Invalid MAC - clear cookie and show login
+        response = stb_loader_page(request)
+        response.delete_cookie('mac')
+        return response
 
     # Route to appropriate handler
     handlers = {
