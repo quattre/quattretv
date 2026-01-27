@@ -31,7 +31,7 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(Tariff)
 class TariffAdmin(admin.ModelAdmin):
     list_display = (
-        'name', 'price', 'duration_days', 'max_devices',
+        'name', 'duration_days', 'max_devices',
         'has_timeshift', 'has_pvr', 'has_vod', 'is_active'
     )
     list_filter = ('is_active', 'has_timeshift', 'has_pvr', 'has_vod')

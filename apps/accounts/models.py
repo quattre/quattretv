@@ -54,7 +54,6 @@ class Tariff(TimeStampedModel):
     """Subscription tariff/plan."""
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
     duration_days = models.PositiveIntegerField(default=30)
 
     # Features
@@ -85,10 +84,10 @@ class Tariff(TimeStampedModel):
     class Meta:
         verbose_name = 'Tariff'
         verbose_name_plural = 'Tariffs'
-        ordering = ['price']
+        ordering = ['name']
 
     def __str__(self):
-        return f"{self.name} - {self.price}€"
+        return self.name
 
 
 class UserSession(TimeStampedModel):
