@@ -24,6 +24,233 @@ def stb_portal_app(request):
 <html>
 <head>
     <title>QuattreTV</title>
+    <script type="text/javascript">
+    var stbAPI = null;
+    var channels = [];
+    var radios = [];
+    var currentList = [];
+    var currentIndex = 0;
+    var isPlaying = false;
+    var volume = 50;
+    var volumeTimeout = null;
+    var osdTimeout = null;
+    var mode = 'tv'; // 'tv' or 'radio'
+
+    function init() {
+        if (typeof gSTB !== "undefined") {
+            stbAPI = gSTB;
+            try {
+                stbAPI.InitPlayer();
+                stbAPI.SetViewport(0, 0, 1920, 1080);
+                stbAPI.SetWinMode(0, 1);
+                stbAPI.SetTopWin(1);
+                stbAPI.SetTransparentColor(0x000000);
+                volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50;
+            } catch(err) {}
+        } else if (typeof stb !== "undefined") {
+            stbAPI = stb;
+            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
+        }
+        loadChannels();
+        loadRadios();
+    }
+
+    function loadChannels() {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var r = JSON.parse(xhr.responseText);
+                    if (r.js && r.js.data) {
+                        channels = r.js.data;
+                        if (mode === 'tv') {
+                            currentList = channels;
+                            showList();
+                        }
+                    }
+                } catch(err) {}
+            }
+        };
+        xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
+        xhr.send();
+    }
+
+    function loadRadios() {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var r = JSON.parse(xhr.responseText);
+                    if (r.js && r.js.data) {
+                        radios = r.js.data;
+                        if (mode === 'radio') {
+                            currentList = radios;
+                            showList();
+                        }
+                    }
+                } catch(err) {}
+            }
+        };
+        xhr.open("GET", "?type=radio&action=get_ordered_list&p=0&_t=" + Date.now(), true);
+        xhr.send();
+    }
+
+    function switchMode(newMode) {
+        mode = newMode;
+        currentIndex = 0;
+        currentList = (mode === 'tv') ? channels : radios;
+        showList();
+    }
+
+    function showList() {
+        var h = '<div class="header">';
+        h += '<div class="logo">QuattreTV</div>';
+        h += '<div class="tabs">';
+        h += '<span class="tab' + (mode === 'tv' ? ' active' : '') + '" onclick="switchMode(\'tv\')">TV (' + channels.length + ')</span>';
+        h += '<span class="tab' + (mode === 'radio' ? ' active' : '') + '" onclick="switchMode(\'radio\')">Radio (' + radios.length + ')</span>';
+        h += '</div></div>';
+
+        h += '<div class="list">';
+        var start = Math.max(0, currentIndex - 4);
+        var end = Math.min(currentList.length, start + 9);
+
+        for (var i = start; i < end; i++) {
+            var c = currentList[i];
+            var cls = (i === currentIndex) ? "item sel" : "item";
+            var logo = c.logo ? '<img src="' + c.logo + '" onerror="this.style.display=\'none\'">' : '<div class="no-logo">' + (mode === 'tv' ? 'TV' : 'R') + '</div>';
+            var epg = c.cur_playing ? '<div class="epg">' + c.cur_playing + '</div>' : '';
+            h += '<div class="' + cls + '">';
+            h += '<div class="thumb">' + logo + '</div>';
+            h += '<div class="info">';
+            h += '<div class="name"><span class="num">' + c.number + '</span> ' + c.name + '</div>';
+            h += epg;
+            h += '</div>';
+            if (c.hd) h += '<span class="badge">HD</span>';
+            h += '</div>';
+        }
+        h += '</div>';
+
+        h += '<div class="help">';
+        h += '<span>OK = Reproducir</span>';
+        h += '<span>Flechas = Navegar</span>';
+        h += '<span>Izq/Der = TV/Radio</span>';
+        h += '<span>Vol+/- = Volumen</span>';
+        h += '</div>';
+
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function play(item) {
+        if (!item || !item.cmd) return;
+
+        if (stbAPI) {
+            try {
+                stbAPI.Play(item.cmd);
+                isPlaying = true;
+                document.body.style.background = "transparent";
+                document.getElementById("content").style.display = "none";
+                showOSD(item);
+            } catch(err) {}
+        }
+    }
+
+    function showOSD(item) {
+        var osd = document.getElementById("osd");
+        var logo = item.logo ? '<img src="' + item.logo + '" onerror="this.style.display=\'none\'">' : '';
+        var epg = item.cur_playing ? '<div class="osd-epg">' + item.cur_playing + '</div>' : '';
+
+        osd.innerHTML = '<div class="osd-content">' +
+            '<div class="osd-logo">' + logo + '</div>' +
+            '<div class="osd-info">' +
+            '<div class="osd-name">' + item.number + '. ' + item.name + '</div>' +
+            epg +
+            '</div></div>';
+        osd.style.display = "block";
+
+        clearTimeout(osdTimeout);
+        osdTimeout = setTimeout(function() {
+            osd.style.display = "none";
+        }, 5000);
+    }
+
+    function showVolume() {
+        var vol = document.getElementById("volume");
+        vol.innerHTML = '<div class="vol-icon">Vol</div><div class="vol-bar"><div class="vol-fill" style="width:' + volume + '%"></div></div><div class="vol-num">' + volume + '</div>';
+        vol.style.display = "flex";
+
+        clearTimeout(volumeTimeout);
+        volumeTimeout = setTimeout(function() {
+            vol.style.display = "none";
+        }, 2000);
+    }
+
+    function adjustVolume(delta) {
+        volume = Math.max(0, Math.min(100, volume + delta));
+        if (stbAPI && stbAPI.SetVolume) {
+            try { stbAPI.SetVolume(volume); } catch(err) {}
+        }
+        showVolume();
+    }
+
+    function stopPlay() {
+        if (stbAPI) {
+            try { stbAPI.Stop(); } catch(err) {}
+        }
+        isPlaying = false;
+        document.body.style.background = "#0a0a1a";
+        document.getElementById("content").style.display = "block";
+        document.getElementById("osd").style.display = "none";
+        showList();
+    }
+
+    function handleKey(e) {
+        var k = e.keyCode;
+        e.preventDefault();
+
+        // Volume keys (various codes for different remotes)
+        if (k === 175 || k === 259) { adjustVolume(5); return false; }
+        if (k === 174 || k === 260) { adjustVolume(-5); return false; }
+
+        if (isPlaying) {
+            if (k === 38 || k === 33) { // Up, PageUp - previous channel
+                if (currentIndex > 0) { currentIndex--; play(currentList[currentIndex]); }
+            } else if (k === 40 || k === 34) { // Down, PageDown - next channel
+                if (currentIndex < currentList.length - 1) { currentIndex++; play(currentList[currentIndex]); }
+            } else if (k === 37) { // Left - show OSD
+                showOSD(currentList[currentIndex]);
+            } else if (k === 39) { // Right - show OSD
+                showOSD(currentList[currentIndex]);
+            } else if (k === 8 || k === 27 || k === 461) { // Back, Escape, Return
+                stopPlay();
+            } else if (k === 13) { // OK - toggle OSD
+                var osd = document.getElementById("osd");
+                if (osd.style.display === "none") {
+                    showOSD(currentList[currentIndex]);
+                } else {
+                    osd.style.display = "none";
+                }
+            }
+        } else {
+            if (k === 38 && currentIndex > 0) { // Up
+                currentIndex--;
+                showList();
+            } else if (k === 40 && currentIndex < currentList.length - 1) { // Down
+                currentIndex++;
+                showList();
+            } else if (k === 37) { // Left - switch to TV
+                if (mode !== 'tv') switchMode('tv');
+            } else if (k === 39) { // Right - switch to Radio
+                if (mode !== 'radio') switchMode('radio');
+            } else if (k === 13 && currentList.length > 0) { // OK - play
+                play(currentList[currentIndex]);
+            }
+        }
+        return false;
+    }
+
+    document.onkeydown = handleKey;
+    window.onload = init;
+    </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; height: 100vh; overflow: hidden; }
@@ -71,153 +298,9 @@ def stb_portal_app(request):
     </style>
 </head>
 <body>
-    <div id="content" style="padding:40px;">Cargando QuattreTV...</div>
+    <div id="content">Cargando QuattreTV...</div>
     <div id="osd"></div>
     <div id="volume"></div>
-    <script>
-    var stbAPI = null;
-    var channels = [];
-    var radios = [];
-    var currentList = [];
-    var currentIndex = 0;
-    var isPlaying = false;
-    var volume = 50;
-    var volumeTimeout = null;
-    var osdTimeout = null;
-    var mode = "tv";
-
-    function init() {
-        if (typeof gSTB !== "undefined") {
-            stbAPI = gSTB;
-            try {
-                stbAPI.InitPlayer();
-                stbAPI.SetViewport(0, 0, 1920, 1080);
-                stbAPI.SetWinMode(0, 1);
-                stbAPI.SetTopWin(1);
-                stbAPI.SetTransparentColor(0x000000);
-                volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50;
-            } catch(err) {}
-        } else if (typeof stb !== "undefined") {
-            stbAPI = stb;
-            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
-        }
-        loadChannels();
-        loadRadios();
-    }
-
-    function loadChannels() {
-        var xhr = new XMLHttpRequest();
-        xhr.onerror = function() {
-            document.getElementById("content").innerHTML = "Error de red";
-        };
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try {
-                        var r = JSON.parse(xhr.responseText);
-                        if (r.js && r.js.data) {
-                            channels = r.js.data;
-                            if (mode === "tv") {
-                                currentList = channels;
-                                showList();
-                            }
-                        } else {
-                            document.getElementById("content").innerHTML = "Sin datos";
-                        }
-                    } catch(err) {
-                        document.getElementById("content").innerHTML = "Error JSON";
-                    }
-                } else {
-                    document.getElementById("content").innerHTML = "Error HTTP " + xhr.status;
-                }
-            }
-        };
-        xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
-        xhr.send();
-    }
-
-    function loadRadios() {
-        var xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                try {
-                    var r = JSON.parse(xhr.responseText);
-                    if (r.js && r.js.data) {
-                        radios = r.js.data;
-                    }
-                } catch(err) {}
-            }
-        };
-        xhr.open("GET", "?type=radio&action=get_ordered_list&p=0&_t=" + Date.now(), true);
-        xhr.send();
-    }
-
-    function switchMode(newMode) {
-        mode = newMode;
-        currentIndex = 0;
-        currentList = (mode === "tv") ? channels : radios;
-        showList();
-    }
-
-    function showList() {
-        var h = "<div class=\"header\"><div class=\"logo\">QuattreTV</div><div class=\"tabs\">";
-        h += "<span class=\"tab" + (mode === "tv" ? " active" : "") + "\" onclick=\"switchMode('tv')\">TV (" + channels.length + ")</span>";
-        h += "<span class=\"tab" + (mode === "radio" ? " active" : "") + "\" onclick=\"switchMode('radio')\">Radio (" + radios.length + ")</span>";
-        h += "</div></div><div class=\"list\">";
-        var start = Math.max(0, currentIndex - 4);
-        var end = Math.min(currentList.length, start + 9);
-        for (var i = start; i < end; i++) {
-            var c = currentList[i];
-            var cls = (i === currentIndex) ? "item sel" : "item";
-            h += "<div class=\"" + cls + "\">";
-            h += "<div class=\"thumb\">" + (c.logo ? "<img src=\"" + c.logo + "\">" : "<div class=\"no-logo\">TV</div>") + "</div>";
-            h += "<div class=\"info\"><div class=\"name\"><span class=\"num\">" + c.number + "</span> " + c.name + "</div></div>";
-            if (c.hd) h += "<span class=\"badge\">HD</span>";
-            h += "</div>";
-        }
-        h += "</div><div class=\"help\"><span>OK=Play</span><span>Flechas=Nav</span></div>";
-        document.getElementById("content").innerHTML = h;
-    }
-
-    function play(item) {
-        if (!item || !item.cmd) return;
-        if (stbAPI) {
-            try {
-                stbAPI.Play(item.cmd);
-                isPlaying = true;
-                document.body.style.background = "transparent";
-                document.getElementById("content").style.display = "none";
-            } catch(err) {}
-        }
-    }
-
-    function stopPlay() {
-        if (stbAPI) { try { stbAPI.Stop(); } catch(err) {} }
-        isPlaying = false;
-        document.body.style.background = "#0a0a1a";
-        document.getElementById("content").style.display = "block";
-        showList();
-    }
-
-    function handleKey(e) {
-        var k = e.keyCode;
-        if (isPlaying) {
-            if (k === 38 && currentIndex > 0) { currentIndex--; play(currentList[currentIndex]); }
-            else if (k === 40 && currentIndex < currentList.length - 1) { currentIndex++; play(currentList[currentIndex]); }
-            else if (k === 8 || k === 27 || k === 461) { stopPlay(); }
-        } else {
-            if (k === 38 && currentIndex > 0) { currentIndex--; showList(); }
-            else if (k === 40 && currentIndex < currentList.length - 1) { currentIndex++; showList(); }
-            else if (k === 37 && mode !== "tv") { switchMode("tv"); }
-            else if (k === 39 && mode !== "radio") { switchMode("radio"); }
-            else if (k === 13 && currentList.length > 0) { play(currentList[currentIndex]); }
-        }
-        return false;
-    }
-
-    document.onkeydown = handleKey;
-    init();
-    </script>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
