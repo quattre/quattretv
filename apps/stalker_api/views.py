@@ -320,7 +320,7 @@ def stb_portal_app(request):
     <div id="content" style="padding:40px;">Cargando QuattreTV...</div>
     <div id="osd"></div>
     <div id="volume"></div>
-    <script>document.getElementById("content").innerHTML = "TEST JS FUNCIONA";</script>
+    <script>init();</script>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
