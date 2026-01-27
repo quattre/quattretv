@@ -24,7 +24,7 @@ def stb_portal_app(request):
 <html>
 <head>
     <title>QuattreTV</title>
-    <script type="text/javascript">
+    <script>
     var stbAPI = null;
     var channels = [];
     var radios = [];
