@@ -1,0 +1,169 @@
+#EXTM3U
+
+#EXTINF:-1 tvg-id="410" tvg-chno="2" group-title="TV",La 1
+http://cdn10.quattre.com:1500/hls/la1/index.m3u8
+#EXTINF:-1 tvg-id="200" tvg-chno="3" group-title="TV",La 2
+http://cdn11.quattre.com:1500/hls/la2/index.m3u8
+#EXTINF:-1 tvg-id="412" tvg-chno="4" group-title="TV",Antena 3
+http://cdn10.quattre.com:1500/hls/antena3/index.m3u8
+#EXTINF:-1 tvg-id="253" tvg-chno="5" group-title="TV",La Sexta
+http://cdn11.quattre.com:1500/hls/lasexta/index.m3u8
+#EXTINF:-1 tvg-id="427" tvg-chno="6" group-title="TV",Neox
+http://cdn10.quattre.com:1500/hls/neox/index.m3u8
+#EXTINF:-1 tvg-id="214" tvg-chno="7" group-title="TV",Nova
+http://cdn11.quattre.com:1500/hls/nova/index.m3u8
+#EXTINF:-1 tvg-id="421" tvg-chno="8" group-title="TV",Squirrel
+http://cdn11.quattre.com:1500/hls/squirrel/index.m3u8
+#EXTINF:-1 tvg-id="225" tvg-chno="9" group-title="TV",Paramount
+http://cdn11.quattre.com:1500/hls/paramount/index.m3u8
+#EXTINF:-1 tvg-id="459" tvg-chno="10" group-title="TV",Discovery
+http://cdn10.quattre.com:1500/hls/discovery/index.m3u8
+#EXTINF:-1 tvg-id="261" tvg-chno="11" group-title="TV",Veo7
+http://cdn11.quattre.com:1500/hls/veo7/index.m3u8
+#EXTINF:-1 tvg-id="442" tvg-chno="12" group-title="TV",24h
+http://cdn10.quattre.com:1500/hls/24h/index.m3u8
+#EXTINF:-1 tvg-id="254" tvg-chno="13" group-title="TV",Clan
+http://cdn11.quattre.com:1500/hls/clan/index.m3u8
+#EXTINF:-1 tvg-id="434" tvg-chno="14" group-title="TV",FDF
+http://cdn10.quattre.com:1500/hls/fdf/index.m3u8
+#EXTINF:-1 tvg-id="226" tvg-chno="15" group-title="TV",Divinity
+http://cdn11.quattre.com:1500/hls/divinity/index.m3u8
+#EXTINF:-1 tvg-id="414" tvg-chno="16" group-title="TV",Telecinco
+http://cdn10.quattre.com:1500/hls/telecinco/index.m3u8
+#EXTINF:-1 tvg-id="202" tvg-chno="17" group-title="TV",Cuatro
+http://cdn11.quattre.com:1500/hls/cuatro/index.m3u8
+#EXTINF:-1 tvg-id="447" tvg-chno="18" group-title="TV",TDP
+http://cdn10.quattre.com:1500/hls/tdp/index.m3u8
+#EXTINF:-1 tvg-id="257" tvg-chno="19" group-title="TV",DKiss
+http://cdn11.quattre.com:1500/hls/dkiss/index.m3u8
+#EXTINF:-1 tvg-id="455" tvg-chno="20" group-title="TV",Ten
+http://cdn10.quattre.com:1500/hls/ten/index.m3u8
+#EXTINF:-1 tvg-id="211" tvg-chno="21" group-title="TV",Boing
+http://cdn11.quattre.com:1500/hls/boing/index.m3u8
+#EXTINF:-1 tvg-id="441" tvg-chno="22" group-title="TV",Energy
+http://cdn10.quattre.com:1500/hls/energy/index.m3u8
+#EXTINF:-1 tvg-id="223" tvg-chno="23" group-title="TV",Mega
+http://cdn11.quattre.com:1500/hls/mega/index.m3u8
+#EXTINF:-1 tvg-id="458" tvg-chno="24" group-title="TV",13TV
+http://cdn10.quattre.com:1500/hls/13tv/index.m3u8
+#EXTINF:-1 tvg-id="268" tvg-chno="43" group-title="TV",Canal Sur
+http://cdn11.quattre.com:1500/hls/canalsur/index.m3u8
+#EXTINF:-1 tvg-id="423" tvg-chno="44" group-title="TV",TV3
+http://cdn10.quattre.com:1500/hls/tv3/index.m3u8
+#EXTINF:-1 tvg-id="334" tvg-chno="45" group-title="TV",Canal 33
+http://cdn11.quattre.com:1500/hls/canal33/index.m3u8
+#EXTINF:-1 tvg-id="444" tvg-chno="68" group-title="TV",Eurosport 1
+http://cdn10.quattre.com:1500/hls/eurosport1/index.m3u8
+#EXTINF:-1 tvg-id="347" tvg-chno="69" group-title="TV",Hollywood
+http://cdn11.quattre.com:1500/hls/hollywood/index.m3u8
+#EXTINF:-1 tvg-id="457" tvg-chno="70" group-title="TV",Iberalia
+http://cdn10.quattre.com:1500/hls/iberalia/index.m3u8
+#EXTINF:-1 tvg-id="353" tvg-chno="71" group-title="TV",Odisea
+http://cdn11.quattre.com:1500/hls/odisea/index.m3u8
+#EXTINF:-1 tvg-id="460" tvg-chno="72" group-title="TV",Historia
+http://cdn10.quattre.com:1500/hls/historia/index.m3u8
+#EXTINF:-1 tvg-id="340" tvg-chno="73" group-title="TV",Decasa
+http://cdn11.quattre.com:1500/hls/decasa/index.m3u8
+#EXTINF:-1 tvg-id="450" tvg-chno="74" group-title="TV",Cocina
+http://cdn10.quattre.com:1500/hls/cocina/index.m3u8
+#EXTINF:-1 tvg-id="335" tvg-chno="75" group-title="TV",AMC
+http://cdn11.quattre.com:1500/hls/amc/index.m3u8
+#EXTINF:-1 tvg-id="440" tvg-chno="78" group-title="TV",Intereconomia
+http://cdn10.quattre.com:1500/hls/intereconomia/index.m3u8
+#EXTINF:-1 tvg-id="341" tvg-chno="79" group-title="TV",Sport3
+http://cdn11.quattre.com:1500/hls/sport3/index.m3u8
+#EXTINF:-1 tvg-id="446" tvg-chno="80" group-title="TV",Real Madrid TV
+http://cdn10.quattre.com:1500/hls/realmadridtv/index.m3u8
+#EXTINF:-1 tvg-id="342" tvg-chno="84" group-title="TV",ETB1
+http://cdn11.quattre.com:1500/hls/etb1/index.m3u8
+#EXTINF:-1 tvg-id="431" tvg-chno="85" group-title="TV",ETB2
+http://cdn10.quattre.com:1500/hls/etb2/index.m3u8
+#EXTINF:-1 tvg-id="338" tvg-chno="88" group-title="TV",Castilla La Mancha
+http://cdn11.quattre.com:1500/hls/castillalamancha/index.m3u8
+#EXTINF:-1 tvg-id="429" tvg-chno="89" group-title="TV",Valencia TV
+http://cdn10.quattre.com:1500/hls/valenciatv/index.m3u8
+#EXTINF:-1 tvg-id="299" tvg-chno="90" group-title="TV",Levante TV
+http://cdn11.quattre.com:1500/hls/levantetv/index.m3u8
+#EXTINF:-1 tvg-id="432" tvg-chno="91" group-title="TV",Atreseries
+http://cdn10.quattre.com:1500/hls/atreseries/index.m3u8
+#EXTINF:-1 tvg-id="256" tvg-chno="92" group-title="TV",BeMad
+http://cdn11.quattre.com:1500/hls/bemad/index.m3u8
+#EXTINF:-1 tvg-id="407" tvg-chno="93" group-title="TV",La 8 Mediterraneo
+http://cdn10.quattre.com:1500/hls/laochomed/index.m3u8
+#EXTINF:-1 tvg-id="348" tvg-chno="95" group-title="TV",Iberalia Caza
+http://cdn11.quattre.com:1500/hls/iberalia_caza/index.m3u8
+#EXTINF:-1 tvg-id="415" tvg-chno="96" group-title="TV",A Punt
+http://cdn10.quattre.com:1500/hls/apunt/index.m3u8
+#EXTINF:-1 tvg-id="316" tvg-chno="99" group-title="TV",Disney Junior
+http://cdn11.quattre.com:1500/hls/disneyjr/index.m3u8
+#EXTINF:-1 tvg-id="435" tvg-chno="101" group-title="TV",Extremadura TV
+http://cdn10.quattre.com:1500/hls/extremaduratv/index.m3u8
+#EXTINF:-1 tvg-id="317" tvg-chno="103" group-title="TV",Baby TV
+http://cdn11.quattre.com:1500/hls/babytv/index.m3u8
+#EXTINF:-1 tvg-id="445" tvg-chno="104" group-title="TV",Star
+http://cdn10.quattre.com:1500/hls/star/index.m3u8
+#EXTINF:-1 tvg-id="351" tvg-chno="106" group-title="TV",National Geographic
+http://cdn11.quattre.com:1500/hls/nationalgeo/index.m3u8
+#EXTINF:-1 tvg-id="463" tvg-chno="107" group-title="TV",National Geographic Wild
+http://cdn10.quattre.com:1500/hls/nationalgeowild/index.m3u8
+#EXTINF:-1 tvg-id="349" tvg-chno="109" group-title="TV",Iberalia Pesca
+http://cdn11.quattre.com:1500/hls/iberalia_pesca/index.m3u8
+#EXTINF:-1 tvg-id="416" tvg-chno="115" group-title="TV",VinTV
+http://cdn10.quattre.com:1500/hls/vintv/index.m3u8
+#EXTINF:-1 tvg-id="365" tvg-chno="116" group-title="TV",Blaze
+http://cdn11.quattre.com:1500/hls/blaze/index.m3u8
+#EXTINF:-1 tvg-id="471" tvg-chno="117" group-title="TV",XTRM
+http://cdn10.quattre.com:1500/hls/xtrm/index.m3u8
+#EXTINF:-1 tvg-id="367" tvg-chno="118" group-title="TV",Dark
+http://cdn11.quattre.com:1500/hls/dark/index.m3u8
+#EXTINF:-1 tvg-id="461" tvg-chno="119" group-title="TV",Buen Viaje
+http://cdn10.quattre.com:1500/hls/buenviaje/index.m3u8
+#EXTINF:-1 tvg-id="470" tvg-chno="122" group-title="TV",Somos
+http://cdn11.quattre.com:1500/hls/somos/index.m3u8
+#EXTINF:-1 tvg-id="448" tvg-chno="123" group-title="TV",Warner
+http://cdn10.quattre.com:1500/hls/warner/index.m3u8
+#EXTINF:-1 tvg-id="402" tvg-chno="124" group-title="TV",Calle 13
+http://cdn11.quattre.com:1500/hls/calle13/index.m3u8
+#EXTINF:-1 tvg-id="469" tvg-chno="125" group-title="TV",TCM
+http://cdn10.quattre.com:1500/hls/tcm/index.m3u8
+#EXTINF:-1 tvg-id="404" tvg-chno="126" group-title="TV",Syfy
+http://cdn11.quattre.com:1500/hls/syfy/index.m3u8
+#EXTINF:-1 tvg-id="467" tvg-chno="127" group-title="TV",Dark Sin X
+http://cdn10.quattre.com:1500/hls/darksinx/index.m3u8
+
+#EXTINF:-1 tvg-id="r1" tvg-chno="1" group-title="Radio",Radio Clasica
+http://cdn10.quattre.com:1500/hls/radio_clasica/index.m3u8
+#EXTINF:-1 tvg-id="r2" tvg-chno="2" group-title="Radio",RNE 3 HQ
+http://cdn10.quattre.com:1500/hls/radio_rne3/index.m3u8
+#EXTINF:-1 tvg-id="r3" tvg-chno="3" group-title="Radio",RNE Exterior
+http://cdn10.quattre.com:1500/hls/radio_rneexterior/index.m3u8
+#EXTINF:-1 tvg-id="r4" tvg-chno="4" group-title="Radio",KISS FM
+http://cdn10.quattre.com:1500/hls/radio_kissfm/index.m3u8
+#EXTINF:-1 tvg-id="r5" tvg-chno="5" group-title="Radio",HIT FM
+http://cdn10.quattre.com:1500/hls/radio_hit/index.m3u8
+#EXTINF:-1 tvg-id="r6" tvg-chno="6" group-title="Radio",Onda Cero
+http://cdn10.quattre.com:1500/hls/radio_ondacero/index.m3u8
+#EXTINF:-1 tvg-id="r7" tvg-chno="7" group-title="Radio",Europa FM
+http://cdn10.quattre.com:1500/hls/radio_europafm/index.m3u8
+#EXTINF:-1 tvg-id="r8" tvg-chno="8" group-title="Radio",Melodia FM
+http://cdn10.quattre.com:1500/hls/radio_melodiafm/index.m3u8
+#EXTINF:-1 tvg-id="r9" tvg-chno="9" group-title="Radio",Cope FM
+http://cdn10.quattre.com:1500/hls/radio_cope/index.m3u8
+#EXTINF:-1 tvg-id="r10" tvg-chno="10" group-title="Radio",Marca
+http://cdn10.quattre.com:1500/hls/radio_marca/index.m3u8
+#EXTINF:-1 tvg-id="r11" tvg-chno="11" group-title="Radio",Vaughan (Ingles)
+http://cdn10.quattre.com:1500/hls/vaughan/index.m3u8
+#EXTINF:-1 tvg-id="r12" tvg-chno="12" group-title="Radio",Cadena 100
+http://cdn10.quattre.com:1500/hls/radio_cadena100/index.m3u8
+#EXTINF:-1 tvg-id="r13" tvg-chno="13" group-title="Radio",Radio Maria
+http://cdn10.quattre.com:1500/hls/radio_maria/index.m3u8
+#EXTINF:-1 tvg-id="r14" tvg-chno="14" group-title="Radio",Es Radio
+http://cdn10.quattre.com:1500/hls/radio_esradio/index.m3u8
+#EXTINF:-1 tvg-id="r15" tvg-chno="15" group-title="Radio",Cadena Ser
+http://cdn10.quattre.com:1500/hls/radio_ser/index.m3u8
+#EXTINF:-1 tvg-id="r16" tvg-chno="16" group-title="Radio",Los 40
+http://cdn10.quattre.com:1500/hls/radio_los40/index.m3u8
+#EXTINF:-1 tvg-id="r17" tvg-chno="17" group-title="Radio",Cadena Dial
+http://cdn10.quattre.com:1500/hls/radio_dial/index.m3u8
+#EXTINF:-1 tvg-id="r18" tvg-chno="18" group-title="Radio",97.7 La Radio
+http://cdn10.quattre.com:1500/play/hls/97laradio/index.m3u8

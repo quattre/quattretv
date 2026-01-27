@@ -756,7 +756,6 @@ def tariff_create(request):
     if request.method == 'POST':
         tariff = Tariff.objects.create(
             name=request.POST.get('name'),
-            price=request.POST.get('price', 0),
             duration_days=int(request.POST.get('duration_days', 0)),
             max_devices=int(request.POST.get('max_devices', 5)),
             max_concurrent_streams=int(request.POST.get('max_concurrent_streams', 2)),
@@ -783,7 +782,6 @@ def tariff_edit(request, tariff_id):
 
     if request.method == 'POST':
         tariff.name = request.POST.get('name')
-        tariff.price = request.POST.get('price', 0)
         tariff.duration_days = int(request.POST.get('duration_days', 0))
         tariff.max_devices = int(request.POST.get('max_devices', 5))
         tariff.max_concurrent_streams = int(request.POST.get('max_concurrent_streams', 2))
