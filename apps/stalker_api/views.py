@@ -490,6 +490,12 @@ def portal_handler(request):
     request_type = request.GET.get('type', request.POST.get('type', ''))
     action = request.GET.get('action', request.POST.get('action', ''))
 
+    # Reset/logout endpoint
+    if request.GET.get('logout') == '1':
+        response = stb_loader_page(request)
+        response.delete_cookie('mac')
+        return response
+
     # If no params, serve appropriate page
     if not request_type and not action:
         if not request.COOKIES.get('mac'):
