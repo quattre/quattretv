@@ -37,6 +37,7 @@ def stb_portal_app(request):
     var mode = 'tv'; // 'tv' or 'radio'
 
     function init() {
+        document.getElementById("content").innerHTML = '<div style="padding:40px;">Init ejecutado...</div>';
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
             try {
@@ -265,6 +266,9 @@ def stb_portal_app(request):
     }
 
     document.onkeydown = handleKey;
+    window.onerror = function(msg, url, line) {
+        document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">JS Error: ' + msg + ' (linea ' + line + ')</div>';
+    };
     window.onload = init;
     </script>
     <style>
