@@ -373,7 +373,11 @@ function deleteChannel(channelId) {
         }).then(response => {
             if (response.ok) {
                 location.reload();
+            } else {
+                alert('Error al eliminar: ' + response.status);
             }
+        }).catch(err => {
+            alert('Error de conexión: ' + err);
         });
     }
 }
