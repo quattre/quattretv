@@ -37,6 +37,8 @@ def stb_portal_app(request):
     var viewMode = 'menu'; // menu, channels, fullscreen
 
     function initSTB() {
+        showMessage('Iniciando...');
+
         // Detect STB API
         if (typeof(gSTB) !== 'undefined') {
             stbAPI = gSTB;
@@ -48,45 +50,71 @@ def stb_portal_app(request):
             try {
                 stbAPI.InitPlayer();
                 stbAPI.SetViewport(0, 0, 1920, 1080);
-                stbAPI.SetWinMode(1, 1); // Fullscreen video
-                stbAPI.SetTopWin(1); // Browser on top
-                stbAPI.SetTransparentColor(0x000001);
-                stbAPI.SetChromaKey(0x000001, 0xffffff);
-            } catch(e) { console.log('STB init error:', e); }
+                stbAPI.SetWinMode(1, 1);
+                stbAPI.SetTopWin(1);
+            } catch(e) {}
         }
 
         loadCategories();
     }
 
+    function showMessage(msg) {
+        document.getElementById('osd').innerHTML = '<div class="loading"><h1>QuattreTV</h1><p>' + msg + '</p></div>';
+    }
+
     function loadCategories() {
+        showMessage('Cargando categorias...');
         ajax('?type=itv&action=get_genres', function(data) {
-            if (data.js) {
+            if (data && data.js) {
                 categories = [{id: '*', title: 'Todos'}].concat(data.js);
-                loadChannels();
+            } else {
+                categories = [{id: '*', title: 'Todos'}];
             }
+            loadChannels();
+        }, function() {
+            categories = [{id: '*', title: 'Todos'}];
+            loadChannels();
         });
     }
 
     function loadChannels() {
+        showMessage('Cargando canales...');
         var catId = categories[currentCategory] ? categories[currentCategory].id : '*';
         ajax('?type=itv&action=get_ordered_list&genre=' + catId + '&p=0', function(data) {
-            if (data.js && data.js.data) {
+            if (data && data.js && data.js.data) {
                 channels = data.js.data;
-                currentChannel = 0;
-                render();
+            } else {
+                channels = [];
             }
+            currentChannel = 0;
+            render();
+        }, function() {
+            channels = [];
+            render();
         });
     }
 
-    function ajax(url, callback) {
+    function ajax(url, callback, errorCallback) {
         var xhr = new XMLHttpRequest();
         xhr.open('GET', url, true);
+        xhr.timeout = 10000;
         xhr.onreadystatechange = function() {
-            if (xhr.readyState == 4 && xhr.status == 200) {
-                try { callback(JSON.parse(xhr.responseText)); } catch(e) {}
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
+                    try { callback(JSON.parse(xhr.responseText)); } catch(e) { if(errorCallback) errorCallback(); }
+                } else {
+                    if(errorCallback) errorCallback();
+                }
             }
         };
+        xhr.ontimeout = function() { if(errorCallback) errorCallback(); };
+        xhr.onerror = function() { if(errorCallback) errorCallback(); };
         xhr.send();
+    }
+
+    function logout() {
+        document.cookie = 'mac=; path=/; max-age=0';
+        location.reload();
     }
 
     function render() {
@@ -109,15 +137,19 @@ def stb_portal_app(request):
 
         // Channel list
         html += '<div class="channels">';
-        var start = Math.max(0, currentChannel - 4);
-        var end = Math.min(channels.length, start + 9);
-        for (var i = start; i < end; i++) {
-            var ch = channels[i];
-            html += '<div class="channel' + (i == currentChannel ? ' active' : '') + '">';
-            if (ch.logo) html += '<img class="logo" src="' + ch.logo + '" onerror="this.style.display=\'none\'">';
-            html += '<div class="info"><div class="name">' + ch.number + '. ' + ch.name + '</div>';
-            if (ch.cur_playing) html += '<div class="epg">' + ch.cur_playing + '</div>';
-            html += '</div></div>';
+        if (channels.length == 0) {
+            html += '<div class="empty">No hay canales disponibles</div>';
+        } else {
+            var start = Math.max(0, currentChannel - 4);
+            var end = Math.min(channels.length, start + 9);
+            for (var i = start; i < end; i++) {
+                var ch = channels[i];
+                html += '<div class="channel' + (i == currentChannel ? ' active' : '') + '">';
+                if (ch.logo) html += '<img class="logo" src="' + ch.logo + '" onerror="this.style.display=\'none\'">';
+                html += '<div class="info"><div class="name">' + ch.number + '. ' + ch.name + '</div>';
+                if (ch.cur_playing) html += '<div class="epg">' + ch.cur_playing + '</div>';
+                html += '</div></div>';
+            }
         }
         html += '</div>';
 
@@ -125,7 +157,8 @@ def stb_portal_app(request):
         html += '<div class="footer">';
         html += '<span class="key">OK</span> Ver &nbsp; ';
         html += '<span class="key">&#9650;&#9660;</span> Navegar &nbsp; ';
-        html += '<span class="key">&#9664;&#9654;</span> Categoria';
+        html += '<span class="key">&#9664;&#9654;</span> Categoria &nbsp; ';
+        html += '<span class="key">MENU</span> Cerrar sesion';
         html += '</div>';
 
         document.getElementById('osd').innerHTML = html;
@@ -239,6 +272,8 @@ def stb_portal_app(request):
             } else if (key == 34) { // Page Down
                 currentChannel = Math.min(channels.length - 1, currentChannel + 9);
                 render();
+            } else if (key == 459 || key == 119 || key == 77) { // MENU or M key - logout
+                logout();
             }
         }
 
@@ -280,10 +315,14 @@ def stb_portal_app(request):
         .osd-hint { font-size: 12px; color: #666; margin-top: 10px; }
 
         .no-stb { padding: 50px; text-align: center; background: #1a1a2e; }
+        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .loading h1 { color: #e94560; font-size: 48px; margin-bottom: 20px; }
+        .loading p { color: #888; font-size: 18px; }
+        .empty { padding: 100px; text-align: center; color: #888; font-size: 20px; }
     </style>
 </head>
 <body>
-    <div id="osd">Cargando...</div>
+    <div id="osd"><div class="loading"><h1>QuattreTV</h1><p>Iniciando...</p></div></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
