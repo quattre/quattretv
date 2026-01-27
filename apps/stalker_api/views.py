@@ -25,138 +25,260 @@ def stb_portal_app(request):
 <head>
     <title>QuattreTV</title>
     <script>
+    var stbAPI = null;
     var currentMenu = 0;
     var currentChannel = 0;
     var channels = [];
-    var menuItems = ['TV en Vivo', 'Peliculas', 'Series', 'Configuracion'];
+    var categories = [];
+    var currentCategory = 0;
+    var isPlaying = false;
+    var osdVisible = true;
+    var osdTimer = null;
+    var viewMode = 'menu'; // menu, channels, fullscreen
 
-    function init() {
-        loadChannels();
-        render();
+    function initSTB() {
+        // Detect STB API
+        if (typeof(gSTB) !== 'undefined') {
+            stbAPI = gSTB;
+        } else if (typeof(stb) !== 'undefined') {
+            stbAPI = stb;
+        }
+
+        if (stbAPI) {
+            try {
+                stbAPI.InitPlayer();
+                stbAPI.SetViewport(0, 0, 1920, 1080);
+                stbAPI.SetWinMode(1, 1); // Fullscreen video
+                stbAPI.SetTopWin(1); // Browser on top
+                stbAPI.SetTransparentColor(0x000001);
+                stbAPI.SetChromaKey(0x000001, 0xffffff);
+            } catch(e) { console.log('STB init error:', e); }
+        }
+
+        loadCategories();
+    }
+
+    function loadCategories() {
+        ajax('?type=itv&action=get_genres', function(data) {
+            if (data.js) {
+                categories = [{id: '*', title: 'Todos'}].concat(data.js);
+                loadChannels();
+            }
+        });
     }
 
     function loadChannels() {
+        var catId = categories[currentCategory] ? categories[currentCategory].id : '*';
+        ajax('?type=itv&action=get_ordered_list&genre=' + catId + '&p=0', function(data) {
+            if (data.js && data.js.data) {
+                channels = data.js.data;
+                currentChannel = 0;
+                render();
+            }
+        });
+    }
+
+    function ajax(url, callback) {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '?type=itv&action=get_ordered_list&p=0', true);
+        xhr.open('GET', url, true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState == 4 && xhr.status == 200) {
-                try {
-                    var data = JSON.parse(xhr.responseText);
-                    if (data.js && data.js.data) {
-                        channels = data.js.data;
-                        render();
-                    }
-                } catch(e) {}
+                try { callback(JSON.parse(xhr.responseText)); } catch(e) {}
             }
         };
         xhr.send();
     }
 
     function render() {
-        var html = '<div class="menu">';
-        for (var i = 0; i < menuItems.length; i++) {
-            html += '<div class="menu-item' + (i == currentMenu ? ' active' : '') + '">' + menuItems[i] + '</div>';
+        if (viewMode == 'fullscreen') {
+            renderOSD();
+            return;
+        }
+
+        var html = '';
+
+        // Header
+        html += '<div class="header"><div class="logo">QuattreTV</div></div>';
+
+        // Categories bar
+        html += '<div class="categories">';
+        for (var i = 0; i < categories.length && i < 10; i++) {
+            html += '<span class="cat' + (i == currentCategory ? ' active' : '') + '">' + categories[i].title + '</span>';
         }
         html += '</div>';
 
-        if (currentMenu == 0 && channels.length > 0) {
-            html += '<div class="channels">';
-            var start = Math.max(0, currentChannel - 5);
-            var end = Math.min(channels.length, start + 11);
-            for (var i = start; i < end; i++) {
-                var ch = channels[i];
-                html += '<div class="channel' + (i == currentChannel ? ' active' : '') + '">';
-                html += '<span class="num">' + ch.number + '</span>';
-                html += '<span class="name">' + ch.name + '</span>';
-                if (ch.cur_playing) html += '<span class="epg">' + ch.cur_playing + '</span>';
-                html += '</div>';
-            }
-            html += '</div>';
-            html += '<div class="info">Pulsa OK para ver - Total: ' + channels.length + ' canales</div>';
+        // Channel list
+        html += '<div class="channels">';
+        var start = Math.max(0, currentChannel - 4);
+        var end = Math.min(channels.length, start + 9);
+        for (var i = start; i < end; i++) {
+            var ch = channels[i];
+            html += '<div class="channel' + (i == currentChannel ? ' active' : '') + '">';
+            if (ch.logo) html += '<img class="logo" src="' + ch.logo + '" onerror="this.style.display=\'none\'">';
+            html += '<div class="info"><div class="name">' + ch.number + '. ' + ch.name + '</div>';
+            if (ch.cur_playing) html += '<div class="epg">' + ch.cur_playing + '</div>';
+            html += '</div></div>';
         }
+        html += '</div>';
 
-        document.getElementById('content').innerHTML = html;
+        // Footer
+        html += '<div class="footer">';
+        html += '<span class="key">OK</span> Ver &nbsp; ';
+        html += '<span class="key">&#9650;&#9660;</span> Navegar &nbsp; ';
+        html += '<span class="key">&#9664;&#9654;</span> Categoria';
+        html += '</div>';
+
+        document.getElementById('osd').innerHTML = html;
+        document.getElementById('osd').style.display = 'block';
     }
 
-    function playChannel(ch) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '?type=itv&action=get_url&cmd=' + encodeURIComponent(ch.cmd), true);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState == 4 && xhr.status == 200) {
-                try {
-                    var data = JSON.parse(xhr.responseText);
-                    if (data.js && data.js.cmd) {
-                        playStream(data.js.cmd);
-                    }
-                } catch(e) {}
-            }
-        };
-        xhr.send();
+    function renderOSD() {
+        if (!osdVisible) {
+            document.getElementById('osd').style.display = 'none';
+            return;
+        }
+        var ch = channels[currentChannel];
+        if (!ch) return;
+
+        var html = '<div class="osd-bar">';
+        html += '<div class="osd-channel">' + ch.number + '. ' + ch.name + '</div>';
+        if (ch.cur_playing) html += '<div class="osd-epg">' + ch.cur_playing + '</div>';
+        html += '<div class="osd-hint">OK: Lista &nbsp; CH+/-: Cambiar</div>';
+        html += '</div>';
+
+        document.getElementById('osd').innerHTML = html;
+        document.getElementById('osd').style.display = 'block';
     }
 
-    function playStream(url) {
-        try {
-            if (typeof(gSTB) !== 'undefined') {
-                gSTB.Play(url);
-            } else if (typeof(stb) !== 'undefined') {
-                stb.Play(url);
-            } else {
-                document.getElementById('content').innerHTML = '<div class="playing">Reproduciendo: ' + url + '</div>';
+    function showOSD() {
+        osdVisible = true;
+        renderOSD();
+        clearTimeout(osdTimer);
+        osdTimer = setTimeout(function() {
+            osdVisible = false;
+            document.getElementById('osd').style.display = 'none';
+        }, 5000);
+    }
+
+    function playChannel(index) {
+        if (index < 0 || index >= channels.length) return;
+        currentChannel = index;
+        var ch = channels[currentChannel];
+
+        ajax('?type=itv&action=get_url&cmd=' + encodeURIComponent(ch.cmd || ch.id), function(data) {
+            if (data.js && data.js.cmd) {
+                var url = data.js.cmd;
+                if (stbAPI) {
+                    try {
+                        stbAPI.Play(url);
+                        isPlaying = true;
+                        viewMode = 'fullscreen';
+                        showOSD();
+                    } catch(e) { console.log('Play error:', e); }
+                } else {
+                    document.getElementById('osd').innerHTML = '<div class="no-stb">URL: ' + url + '</div>';
+                }
             }
-        } catch(e) {
-            alert('Error: ' + e);
+        });
+    }
+
+    function stopPlayback() {
+        if (stbAPI && isPlaying) {
+            try { stbAPI.Stop(); } catch(e) {}
+            isPlaying = false;
         }
+        viewMode = 'menu';
+        render();
     }
 
     document.onkeydown = function(e) {
         var key = e.keyCode;
 
-        if (key == 37) { // Left
-            if (currentMenu > 0) currentMenu--;
-            render();
-        } else if (key == 39) { // Right
-            if (currentMenu < menuItems.length - 1) currentMenu++;
-            render();
-        } else if (key == 38) { // Up
-            if (currentMenu == 0 && currentChannel > 0) currentChannel--;
-            render();
-        } else if (key == 40) { // Down
-            if (currentMenu == 0 && currentChannel < channels.length - 1) currentChannel++;
-            render();
-        } else if (key == 13) { // OK
-            if (currentMenu == 0 && channels.length > 0) {
-                playChannel(channels[currentChannel]);
+        if (viewMode == 'fullscreen') {
+            // Fullscreen mode controls
+            if (key == 38 || key == 33) { // Up or CH+
+                playChannel(currentChannel - 1);
+            } else if (key == 40 || key == 34) { // Down or CH-
+                playChannel(currentChannel + 1);
+            } else if (key == 13) { // OK - show channel list
+                stopPlayback();
+            } else if (key == 8 || key == 27 || key == 461) { // Back
+                stopPlayback();
+            } else if (key == 73) { // Info
+                showOSD();
+            } else {
+                showOSD();
             }
-        } else if (key == 8 || key == 27) { // Back / ESC
-            render();
+        } else {
+            // Menu mode controls
+            if (key == 37) { // Left - prev category
+                if (currentCategory > 0) {
+                    currentCategory--;
+                    loadChannels();
+                }
+            } else if (key == 39) { // Right - next category
+                if (currentCategory < categories.length - 1) {
+                    currentCategory++;
+                    loadChannels();
+                }
+            } else if (key == 38) { // Up
+                if (currentChannel > 0) currentChannel--;
+                render();
+            } else if (key == 40) { // Down
+                if (currentChannel < channels.length - 1) currentChannel++;
+                render();
+            } else if (key == 13) { // OK - play
+                playChannel(currentChannel);
+            } else if (key == 33) { // Page Up
+                currentChannel = Math.max(0, currentChannel - 9);
+                render();
+            } else if (key == 34) { // Page Down
+                currentChannel = Math.min(channels.length - 1, currentChannel + 9);
+                render();
+            }
         }
 
         e.preventDefault();
         return false;
     };
 
-    window.onload = init;
+    window.onload = initSTB;
     </script>
     <style>
-        * { box-sizing: border-box; }
-        body { background: #1a1a2e; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
-        .menu { display: flex; gap: 10px; margin-bottom: 20px; padding: 10px; background: #16213e; border-radius: 8px; }
-        .menu-item { padding: 15px 30px; border-radius: 5px; cursor: pointer; }
-        .menu-item.active { background: #e94560; }
-        .channels { background: #16213e; border-radius: 8px; padding: 10px; }
-        .channel { display: flex; align-items: center; padding: 12px 15px; border-radius: 5px; margin: 2px 0; }
-        .channel.active { background: #e94560; }
-        .channel .num { width: 50px; font-weight: bold; color: #888; }
-        .channel.active .num { color: #fff; }
-        .channel .name { flex: 1; font-size: 18px; }
-        .channel .epg { color: #888; font-size: 14px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: transparent; color: #fff; font-family: Arial, sans-serif; overflow: hidden; }
+
+        #osd { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 15, 30, 0.95); }
+
+        .header { padding: 20px 40px; background: linear-gradient(90deg, #e94560 0%, #1a1a2e 100%); }
+        .header .logo { font-size: 28px; font-weight: bold; }
+
+        .categories { padding: 15px 40px; background: #16213e; display: flex; gap: 5px; overflow: hidden; }
+        .cat { padding: 8px 20px; border-radius: 20px; font-size: 14px; white-space: nowrap; }
+        .cat.active { background: #e94560; }
+
+        .channels { padding: 20px 40px; height: calc(100vh - 180px); overflow: hidden; }
+        .channel { display: flex; align-items: center; padding: 15px 20px; margin: 5px 0; border-radius: 8px; background: rgba(255,255,255,0.05); }
+        .channel.active { background: #e94560; transform: scale(1.02); }
+        .channel .logo { width: 60px; height: 40px; object-fit: contain; margin-right: 15px; }
+        .channel .info { flex: 1; }
+        .channel .name { font-size: 20px; font-weight: 500; }
+        .channel .epg { font-size: 14px; color: #aaa; margin-top: 3px; }
         .channel.active .epg { color: #ffd; }
-        .info { margin-top: 15px; color: #888; text-align: center; }
-        .playing { padding: 50px; text-align: center; font-size: 20px; }
+
+        .footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 15px 40px; background: #16213e; font-size: 14px; color: #888; }
+        .key { background: #333; padding: 3px 8px; border-radius: 3px; color: #fff; }
+
+        .osd-bar { position: fixed; bottom: 50px; left: 50px; right: 50px; padding: 20px 30px; background: rgba(0,0,0,0.85); border-radius: 10px; border-left: 4px solid #e94560; }
+        .osd-channel { font-size: 24px; font-weight: bold; }
+        .osd-epg { font-size: 16px; color: #aaa; margin-top: 5px; }
+        .osd-hint { font-size: 12px; color: #666; margin-top: 10px; }
+
+        .no-stb { padding: 50px; text-align: center; background: #1a1a2e; }
     </style>
 </head>
 <body>
-    <div id="content">Cargando...</div>
+    <div id="osd">Cargando...</div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
