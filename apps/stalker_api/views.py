@@ -56,7 +56,14 @@ def stb_portal_app(request):
     }
 
     function loadChannels() {
+        document.getElementById("content").innerHTML = '<div style="padding:40px;">Solicitando canales...</div>';
         var xhr = new XMLHttpRequest();
+        xhr.onerror = function() {
+            document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error de red</div>';
+        };
+        xhr.ontimeout = function() {
+            document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Timeout</div>';
+        };
         xhr.onreadystatechange = function() {
             if (xhr.readyState === 4) {
                 if (xhr.status === 200) {
@@ -69,16 +76,17 @@ def stb_portal_app(request):
                                 showList();
                             }
                         } else {
-                            document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error: No hay datos de canales</div>';
+                            document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error: respuesta=' + xhr.responseText.substring(0,200) + '</div>';
                         }
                     } catch(err) {
-                        document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error JSON: ' + err.message + '</div>';
+                        document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error JSON: ' + err.message + '<br>Respuesta: ' + xhr.responseText.substring(0,200) + '</div>';
                     }
                 } else {
                     document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error HTTP: ' + xhr.status + '</div>';
                 }
             }
         };
+        xhr.timeout = 10000;
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
         xhr.send();
     }
