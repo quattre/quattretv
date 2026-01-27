@@ -82,9 +82,10 @@ def stb_portal_app(request):
 
     function play(ch) {
         if (!ch) return;
+        var url = ch.cmd;
         if (stbAPI) {
             try {
-                stbAPI.Play(ch.cmd);
+                stbAPI.Play(url);
                 isPlaying = true;
                 document.body.style.background = "transparent";
                 document.getElementById("content").style.display = "none";
@@ -107,7 +108,7 @@ def stb_portal_app(request):
 
     function showVolume() {
         var v = document.getElementById("vol");
-        v.innerHTML = "Volumen: " + volume;
+        v.innerHTML = "Vol: " + volume;
         v.style.display = "block";
         clearTimeout(volTimeout);
         volTimeout = setTimeout(function() { v.style.display = "none"; }, 2000);
