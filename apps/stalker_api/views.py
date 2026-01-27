@@ -320,7 +320,14 @@ def stb_portal_app(request):
     <div id="content" style="padding:40px;">Cargando QuattreTV...</div>
     <div id="osd"></div>
     <div id="volume"></div>
-    <script>init();</script>
+    <script>
+    try {
+        document.getElementById("content").innerHTML = "Llamando init...";
+        init();
+    } catch(e) {
+        document.getElementById("content").innerHTML = "Error: " + e.message;
+    }
+    </script>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
