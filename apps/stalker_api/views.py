@@ -24,351 +24,131 @@ def stb_portal_app(request):
 <html>
 <head>
     <title>QuattreTV</title>
-    <script>
+    <script type="text/javascript">
     var stbAPI = null;
-    var currentMenu = 0;
-    var currentChannel = 0;
     var channels = [];
     var categories = [];
+    var currentChannel = 0;
     var currentCategory = 0;
     var isPlaying = false;
-    var osdVisible = true;
-    var osdTimer = null;
-    var viewMode = 'menu'; // menu, channels, fullscreen
 
-    function initSTB() {
-        debug('initSTB llamado');
+    function init() {
+        log("Inicio");
 
-        // Detect STB API
-        if (typeof(gSTB) != 'undefined') {
+        if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
-            debug('gSTB detectado');
-        } else if (typeof(stb) != 'undefined') {
-            stbAPI = stb;
-            debug('stb detectado');
-        } else {
-            debug('Sin API STB');
-        }
-
-        if (stbAPI) {
+            log("gSTB OK");
             try {
                 stbAPI.InitPlayer();
-                debug('Player iniciado');
-            } catch(e) { debug('Error player: ' + e); }
-        }
-
-        debug('Llamando loadCategories...');
-        loadCategories();
-    }
-
-    function debug(msg) {
-        var d = document.getElementById('debug');
-        if (d) d.innerHTML += msg + '<br>';
-    }
-
-    function showMessage(msg) {
-        document.getElementById('msg').innerHTML = msg;
-    }
-
-    function loadCategories() {
-        showMessage('Cargando categorias...');
-        debug('loadCategories llamado');
-
-        var xhr = new XMLHttpRequest();
-        debug('XHR creado');
-        xhr.open('GET', '?type=itv&action=get_genres', true);
-        debug('XHR abierto');
-        xhr.onload = function() {
-            debug('XHR onload, status=' + xhr.status);
-            if (xhr.status == 200) {
-                try {
-                    var data = JSON.parse(xhr.responseText);
-                    debug('Categorias: ' + (data.js ? data.js.length : 0));
-                    if (data && data.js) {
-                        categories = [{id: '*', title: 'Todos'}].concat(data.js);
-                    } else {
-                        categories = [{id: '*', title: 'Todos'}];
-                    }
-                } catch(e) {
-                    debug('Error parse: ' + e);
-                    categories = [{id: '*', title: 'Todos'}];
-                }
-            } else {
-                debug('Error HTTP: ' + xhr.status);
-                categories = [{id: '*', title: 'Todos'}];
+                stbAPI.SetViewport(0, 0, 1920, 1080);
+            } catch(err) {
+                log("Error STB: " + err);
             }
-            loadChannels();
-        };
-        xhr.onerror = function() {
-            debug('XHR error');
-            categories = [{id: '*', title: 'Todos'}];
-            loadChannels();
-        };
-        xhr.send();
-        debug('XHR enviado');
-    }
-
-    function loadChannels() {
-        showMessage('Cargando canales...');
-        debug('loadChannels llamado');
-        var catId = categories[currentCategory] ? categories[currentCategory].id : '*';
-
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '?type=itv&action=get_ordered_list&genre=' + catId + '&p=0', true);
-        xhr.onload = function() {
-            debug('Canales onload, status=' + xhr.status);
-            if (xhr.status == 200) {
-                try {
-                    var data = JSON.parse(xhr.responseText);
-                    debug('Canales: ' + (data.js && data.js.data ? data.js.data.length : 0));
-                    if (data && data.js && data.js.data) {
-                        channels = data.js.data;
-                    } else {
-                        channels = [];
-                    }
-                } catch(e) {
-                    debug('Error parse canales: ' + e);
-                    channels = [];
-                }
-            } else {
-                channels = [];
-            }
-            currentChannel = 0;
-            debug('Llamando render...');
-            render();
-        };
-        xhr.onerror = function() {
-            debug('Canales XHR error');
-            channels = [];
-            render();
-        };
-        xhr.send();
-    }
-
-    function logout() {
-        document.cookie = 'mac=; path=/; max-age=0';
-        location.reload();
-    }
-
-    function ajax(url, callback) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.onload = function() {
-            if (xhr.status == 200) {
-                try { callback(JSON.parse(xhr.responseText)); } catch(e) {}
-            }
-        };
-        xhr.send();
-    }
-
-    function render() {
-        if (viewMode == 'fullscreen') {
-            renderOSD();
-            return;
-        }
-
-        var html = '';
-
-        // Header
-        html += '<div class="header"><div class="logo">QuattreTV</div></div>';
-
-        // Categories bar
-        html += '<div class="categories">';
-        for (var i = 0; i < categories.length && i < 10; i++) {
-            html += '<span class="cat' + (i == currentCategory ? ' active' : '') + '">' + categories[i].title + '</span>';
-        }
-        html += '</div>';
-
-        // Channel list
-        html += '<div class="channels">';
-        if (channels.length == 0) {
-            html += '<div class="empty">No hay canales disponibles</div>';
+        } else if (typeof stb !== "undefined") {
+            stbAPI = stb;
+            log("stb OK");
         } else {
-            var start = Math.max(0, currentChannel - 4);
-            var end = Math.min(channels.length, start + 9);
-            for (var i = start; i < end; i++) {
-                var ch = channels[i];
-                html += '<div class="channel' + (i == currentChannel ? ' active' : '') + '">';
-                if (ch.logo) html += '<img class="logo" src="' + ch.logo + '" onerror="this.style.display=\'none\'">';
-                html += '<div class="info"><div class="name">' + ch.number + '. ' + ch.name + '</div>';
-                if (ch.cur_playing) html += '<div class="epg">' + ch.cur_playing + '</div>';
-                html += '</div></div>';
-            }
+            log("Sin STB API");
         }
-        html += '</div>';
 
-        // Footer
-        html += '<div class="footer">';
-        html += '<span class="key">OK</span> Ver &nbsp; ';
-        html += '<span class="key">&#9650;&#9660;</span> Navegar &nbsp; ';
-        html += '<span class="key">&#9664;&#9654;</span> Categoria &nbsp; ';
-        html += '<span class="key">MENU</span> Cerrar sesion';
-        html += '</div>';
-
-        document.getElementById('osd').innerHTML = html;
-        document.getElementById('osd').style.display = 'block';
+        loadData();
     }
 
-    function renderOSD() {
-        if (!osdVisible) {
-            document.getElementById('osd').style.display = 'none';
-            return;
-        }
-        var ch = channels[currentChannel];
-        if (!ch) return;
-
-        var html = '<div class="osd-bar">';
-        html += '<div class="osd-channel">' + ch.number + '. ' + ch.name + '</div>';
-        if (ch.cur_playing) html += '<div class="osd-epg">' + ch.cur_playing + '</div>';
-        html += '<div class="osd-hint">OK: Lista &nbsp; CH+/-: Cambiar</div>';
-        html += '</div>';
-
-        document.getElementById('osd').innerHTML = html;
-        document.getElementById('osd').style.display = 'block';
+    function log(t) {
+        var el = document.getElementById("log");
+        if (el) el.innerHTML = el.innerHTML + t + "<br>";
     }
 
-    function showOSD() {
-        osdVisible = true;
-        renderOSD();
-        clearTimeout(osdTimer);
-        osdTimer = setTimeout(function() {
-            osdVisible = false;
-            document.getElementById('osd').style.display = 'none';
-        }, 5000);
-    }
-
-    function playChannel(index) {
-        if (index < 0 || index >= channels.length) return;
-        currentChannel = index;
-        var ch = channels[currentChannel];
-
-        ajax('?type=itv&action=get_url&cmd=' + encodeURIComponent(ch.cmd || ch.id), function(data) {
-            if (data.js && data.js.cmd) {
-                var url = data.js.cmd;
-                if (stbAPI) {
+    function loadData() {
+        log("Cargando...");
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                log("Status: " + xhr.status);
+                if (xhr.status === 200) {
                     try {
-                        stbAPI.Play(url);
-                        isPlaying = true;
-                        viewMode = 'fullscreen';
-                        document.body.style.background = 'transparent';
-                        document.getElementById('osd').className = 'playing';
-                        showOSD();
-                    } catch(e) { console.log('Play error:', e); }
+                        var r = JSON.parse(xhr.responseText);
+                        if (r.js && r.js.data) {
+                            channels = r.js.data;
+                            log("Canales: " + channels.length);
+                            showChannels();
+                        } else {
+                            log("Sin datos");
+                        }
+                    } catch(err) {
+                        log("Error JSON: " + err);
+                    }
                 } else {
-                    document.getElementById('osd').innerHTML = '<div class="no-stb">URL: ' + url + '</div>';
+                    log("Error HTTP");
                 }
             }
-        });
+        };
+        xhr.open("GET", "?type=itv&action=get_ordered_list&p=0", true);
+        xhr.send();
     }
 
-    function stopPlayback() {
-        if (stbAPI && isPlaying) {
-            try { stbAPI.Stop(); } catch(e) {}
-            isPlaying = false;
+    function showChannels() {
+        var h = "<div class='title'>QuattreTV - " + channels.length + " canales</div>";
+        var start = Math.max(0, currentChannel - 5);
+        var end = Math.min(channels.length, start + 11);
+        for (var i = start; i < end; i++) {
+            var c = channels[i];
+            var cls = (i === currentChannel) ? "ch sel" : "ch";
+            h = h + "<div class='" + cls + "'>" + c.number + ". " + c.name + "</div>";
         }
-        viewMode = 'menu';
-        document.body.style.background = '#0a0f1e';
-        document.getElementById('osd').className = '';
-        render();
+        h = h + "<div class='help'>OK=Ver  Flechas=Navegar</div>";
+        document.getElementById("content").innerHTML = h;
     }
 
-    document.onkeydown = function(e) {
-        var key = e.keyCode;
-
-        if (viewMode == 'fullscreen') {
-            // Fullscreen mode controls
-            if (key == 38 || key == 33) { // Up or CH+
-                playChannel(currentChannel - 1);
-            } else if (key == 40 || key == 34) { // Down or CH-
-                playChannel(currentChannel + 1);
-            } else if (key == 13) { // OK - show channel list
-                stopPlayback();
-            } else if (key == 8 || key == 27 || key == 461) { // Back
-                stopPlayback();
-            } else if (key == 73) { // Info
-                showOSD();
-            } else {
-                showOSD();
-            }
-        } else {
-            // Menu mode controls
-            if (key == 37) { // Left - prev category
-                if (currentCategory > 0) {
-                    currentCategory--;
-                    loadChannels();
-                }
-            } else if (key == 39) { // Right - next category
-                if (currentCategory < categories.length - 1) {
-                    currentCategory++;
-                    loadChannels();
-                }
-            } else if (key == 38) { // Up
-                if (currentChannel > 0) currentChannel--;
-                render();
-            } else if (key == 40) { // Down
-                if (currentChannel < channels.length - 1) currentChannel++;
-                render();
-            } else if (key == 13) { // OK - play
-                playChannel(currentChannel);
-            } else if (key == 33) { // Page Up
-                currentChannel = Math.max(0, currentChannel - 9);
-                render();
-            } else if (key == 34) { // Page Down
-                currentChannel = Math.min(channels.length - 1, currentChannel + 9);
-                render();
-            } else if (key == 459 || key == 119 || key == 77) { // MENU or M key - logout
-                logout();
+    function play(ch) {
+        if (!ch) return;
+        log("Play: " + ch.name);
+        var url = ch.cmd;
+        if (stbAPI) {
+            try {
+                stbAPI.Play(url);
+                isPlaying = true;
+            } catch(err) {
+                log("Error play: " + err);
             }
         }
+    }
 
-        e.preventDefault();
+    function handleKey(e) {
+        var k = e.keyCode;
+        log("Key: " + k);
+        if (k === 38 && currentChannel > 0) {
+            currentChannel--;
+            showChannels();
+        } else if (k === 40 && currentChannel < channels.length - 1) {
+            currentChannel++;
+            showChannels();
+        } else if (k === 13 && channels.length > 0) {
+            play(channels[currentChannel]);
+        } else if (k === 8 || k === 27) {
+            if (isPlaying && stbAPI) {
+                try { stbAPI.Stop(); } catch(err) {}
+                isPlaying = false;
+            }
+        }
         return false;
-    };
+    }
 
-    window.onload = initSTB;
+    document.onkeydown = handleKey;
+    window.onload = init;
     </script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0f1e; color: #fff; font-family: Arial, sans-serif; overflow: hidden; }
-
-        #osd { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #0a0f1e; }
-        #osd.playing { background: transparent; }
-
-        .header { padding: 20px 40px; background: linear-gradient(90deg, #e94560 0%, #1a1a2e 100%); }
-        .header .logo { font-size: 28px; font-weight: bold; }
-
-        .categories { padding: 15px 40px; background: #16213e; display: flex; gap: 5px; overflow: hidden; }
-        .cat { padding: 8px 20px; border-radius: 20px; font-size: 14px; white-space: nowrap; }
-        .cat.active { background: #e94560; }
-
-        .channels { padding: 20px 40px; height: calc(100vh - 180px); overflow: hidden; }
-        .channel { display: flex; align-items: center; padding: 15px 20px; margin: 5px 0; border-radius: 8px; background: rgba(255,255,255,0.05); }
-        .channel.active { background: #e94560; transform: scale(1.02); }
-        .channel .logo { width: 60px; height: 40px; object-fit: contain; margin-right: 15px; }
-        .channel .info { flex: 1; }
-        .channel .name { font-size: 20px; font-weight: 500; }
-        .channel .epg { font-size: 14px; color: #aaa; margin-top: 3px; }
-        .channel.active .epg { color: #ffd; }
-
-        .footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 15px 40px; background: #16213e; font-size: 14px; color: #888; }
-        .key { background: #333; padding: 3px 8px; border-radius: 3px; color: #fff; }
-
-        .osd-bar { position: fixed; bottom: 50px; left: 50px; right: 50px; padding: 20px 30px; background: rgba(0,0,0,0.85); border-radius: 10px; border-left: 4px solid #e94560; }
-        .osd-channel { font-size: 24px; font-weight: bold; }
-        .osd-epg { font-size: 16px; color: #aaa; margin-top: 5px; }
-        .osd-hint { font-size: 12px; color: #666; margin-top: 10px; }
-
-        .no-stb { padding: 50px; text-align: center; background: #1a1a2e; }
-        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
-        .loading h1 { color: #e94560; font-size: 48px; margin-bottom: 20px; }
-        .loading p { color: #888; font-size: 18px; }
-        .empty { padding: 100px; text-align: center; color: #888; font-size: 20px; }
-        #debug { position: fixed; top: 10px; right: 10px; width: 400px; background: rgba(0,0,0,0.9); color: #0f0; font-size: 12px; padding: 10px; max-height: 300px; overflow: auto; font-family: monospace; z-index: 9999; }
+        body { background: #111; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
+        .title { color: #e94560; font-size: 28px; margin-bottom: 20px; }
+        .ch { padding: 10px 15px; margin: 3px 0; background: #222; }
+        .sel { background: #e94560; }
+        .help { margin-top: 20px; color: #666; }
+        #log { position: fixed; bottom: 10px; right: 10px; width: 300px; max-height: 200px; overflow: auto; background: #000; color: #0f0; font-size: 11px; padding: 5px; font-family: monospace; }
     </style>
 </head>
 <body>
-    <div id="osd"><div class="loading"><h1>QuattreTV</h1><p id="msg">Iniciando...</p></div></div>
-    <div id="debug">DEBUG:<br></div>
+    <div id="content">Cargando QuattreTV...</div>
+    <div id="log"></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
