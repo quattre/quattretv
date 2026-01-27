@@ -41,6 +41,10 @@ def stb_portal_app(request):
             try {
                 stbAPI.InitPlayer();
                 stbAPI.SetViewport(0, 0, 1920, 1080);
+                stbAPI.SetWinMode(0, 1);
+                stbAPI.SetTopWin(1);
+                stbAPI.SetTransparentColor(0x000000);
+                log("Player listo");
             } catch(err) {
                 log("Error STB: " + err);
             }
@@ -108,27 +112,50 @@ def stb_portal_app(request):
             try {
                 stbAPI.Play(url);
                 isPlaying = true;
+                document.body.style.background = "transparent";
+                document.getElementById("content").style.display = "none";
+                document.getElementById("log").style.display = "none";
+                document.getElementById("osd").style.display = "block";
+                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
             } catch(err) {
                 log("Error play: " + err);
             }
         }
     }
 
+    function stopPlay() {
+        if (stbAPI) {
+            try { stbAPI.Stop(); } catch(err) {}
+        }
+        isPlaying = false;
+        document.body.style.background = "#111";
+        document.getElementById("content").style.display = "block";
+        document.getElementById("log").style.display = "block";
+        document.getElementById("osd").style.display = "none";
+        showChannels();
+    }
+
     function handleKey(e) {
         var k = e.keyCode;
         log("Key: " + k);
-        if (k === 38 && currentChannel > 0) {
-            currentChannel--;
-            showChannels();
-        } else if (k === 40 && currentChannel < channels.length - 1) {
-            currentChannel++;
-            showChannels();
-        } else if (k === 13 && channels.length > 0) {
-            play(channels[currentChannel]);
-        } else if (k === 8 || k === 27) {
-            if (isPlaying && stbAPI) {
-                try { stbAPI.Stop(); } catch(err) {}
-                isPlaying = false;
+
+        if (isPlaying) {
+            if (k === 38 || k === 33) {
+                if (currentChannel > 0) { currentChannel--; play(channels[currentChannel]); }
+            } else if (k === 40 || k === 34) {
+                if (currentChannel < channels.length - 1) { currentChannel++; play(channels[currentChannel]); }
+            } else if (k === 8 || k === 27 || k === 13) {
+                stopPlay();
+            }
+        } else {
+            if (k === 38 && currentChannel > 0) {
+                currentChannel--;
+                showChannels();
+            } else if (k === 40 && currentChannel < channels.length - 1) {
+                currentChannel++;
+                showChannels();
+            } else if (k === 13 && channels.length > 0) {
+                play(channels[currentChannel]);
             }
         }
         return false;
@@ -144,10 +171,12 @@ def stb_portal_app(request):
         .sel { background: #e94560; }
         .help { margin-top: 20px; color: #666; }
         #log { position: fixed; bottom: 10px; right: 10px; width: 300px; max-height: 200px; overflow: auto; background: #000; color: #0f0; font-size: 11px; padding: 5px; font-family: monospace; }
+        #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
     </style>
 </head>
 <body>
     <div id="content">Cargando QuattreTV...</div>
+    <div id="osd"></div>
     <div id="log"></div>
 </body>
 </html>'''
