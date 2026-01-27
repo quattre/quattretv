@@ -37,7 +37,7 @@ def stb_portal_app(request):
             stbAPI = gSTB;
             try {
                 stbAPI.InitPlayer();
-                stbAPI.SetViewport(1350, 80, 530, 300);
+                stbAPI.SetViewport(0, 0, 1920, 1080);
                 stbAPI.SetWinMode(0, 1);
                 stbAPI.SetTopWin(1);
                 stbAPI.SetTransparentColor(0x000000);
@@ -45,6 +45,7 @@ def stb_portal_app(request):
             } catch(err) {}
         } else if (typeof stb !== "undefined") {
             stbAPI = stb;
+            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
         }
         loadData();
     }
@@ -58,11 +59,8 @@ def stb_portal_app(request):
                     if (r.js && r.js.data) {
                         channels = r.js.data;
                         showChannels();
-                        playPreview();
                     }
-                } catch(err) {
-                    document.getElementById("content").innerHTML = "Error cargando";
-                }
+                } catch(err) {}
             }
         };
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0", true);
@@ -78,50 +76,41 @@ def stb_portal_app(request):
             var cls = (i === currentChannel) ? "ch sel" : "ch";
             h = h + "<div class='" + cls + "'>" + c.number + ". " + c.name + "</div>";
         }
-        h = h + "<div class='help'>OK=Ver  Flechas=Navegar  Vol+/-</div>";
+        h = h + "<div class='help'>OK=Ver  Flechas=Navegar  Vol+/-=Volumen</div>";
         document.getElementById("content").innerHTML = h;
-    }
-
-    function playPreview() {
-        if (stbAPI && channels.length > 0 && !isPlaying) {
-            try {
-                stbAPI.SetViewport(1350, 80, 530, 300);
-                stbAPI.Play(channels[currentChannel].cmd);
-            } catch(err) {}
-        }
     }
 
     function play(ch) {
         if (!ch) return;
         if (stbAPI) {
             try {
-                stbAPI.SetViewport(0, 0, 1920, 1080);
                 stbAPI.Play(ch.cmd);
                 isPlaying = true;
                 document.body.style.background = "transparent";
                 document.getElementById("content").style.display = "none";
-                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
                 document.getElementById("osd").style.display = "block";
-                setTimeout(function() { document.getElementById("osd").style.display = "none"; }, 3000);
+                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
             } catch(err) {}
         }
     }
 
     function stopPlay() {
+        if (stbAPI) {
+            try { stbAPI.Stop(); } catch(err) {}
+        }
         isPlaying = false;
         document.body.style.background = "#111";
         document.getElementById("content").style.display = "block";
         document.getElementById("osd").style.display = "none";
         showChannels();
-        playPreview();
     }
 
     function showVolume() {
         var v = document.getElementById("vol");
-        v.innerHTML = "Vol: " + volume;
+        v.innerHTML = "Volumen: " + volume;
         v.style.display = "block";
         clearTimeout(volTimeout);
-        volTimeout = setTimeout(function() { v.style.display = "none"; }, 1500);
+        volTimeout = setTimeout(function() { v.style.display = "none"; }, 2000);
     }
 
     function adjustVolume(delta) {
@@ -136,7 +125,6 @@ def stb_portal_app(request):
         var k = e.keyCode;
         if (k === 175 || k === 259) { adjustVolume(5); return false; }
         if (k === 174 || k === 260) { adjustVolume(-5); return false; }
-
         if (isPlaying) {
             if (k === 38 || k === 33) {
                 if (currentChannel > 0) { currentChannel--; play(channels[currentChannel]); }
@@ -149,11 +137,9 @@ def stb_portal_app(request):
             if (k === 38 && currentChannel > 0) {
                 currentChannel--;
                 showChannels();
-                playPreview();
             } else if (k === 40 && currentChannel < channels.length - 1) {
                 currentChannel++;
                 showChannels();
-                playPreview();
             } else if (k === 13 && channels.length > 0) {
                 play(channels[currentChannel]);
             }
@@ -167,11 +153,11 @@ def stb_portal_app(request):
     <style>
         body { background: #111; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
         .title { color: #e94560; font-size: 28px; margin-bottom: 20px; }
-        .ch { padding: 10px 15px; margin: 3px 0; background: #222; max-width: 700px; }
+        .ch { padding: 10px 15px; margin: 3px 0; background: #222; }
         .sel { background: #e94560; }
         .help { margin-top: 20px; color: #666; }
         #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
-        #vol { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.9); padding: 15px 40px; font-size: 22px; border-radius: 8px; }
+        #vol { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.9); padding: 20px 40px; font-size: 24px; border-radius: 10px; }
     </style>
 </head>
 <body>
