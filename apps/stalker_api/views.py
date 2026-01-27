@@ -60,6 +60,19 @@ def stb_loader_page(request):
     function showLogin() {
         document.getElementById('auto').style.display = 'none';
         document.getElementById('login').style.display = 'block';
+        document.getElementById('username').focus();
+    }
+
+    function showKeyboard(inputId) {
+        var input = document.getElementById(inputId);
+        input.focus();
+        try {
+            if (typeof(gSTB) !== 'undefined' && gSTB.ShowVirtualKeyboard) {
+                gSTB.ShowVirtualKeyboard();
+            } else if (typeof(stb) !== 'undefined' && stb.ShowVirtualKeyboard) {
+                stb.ShowVirtualKeyboard();
+            }
+        } catch(e) {}
     }
 
     function doLogin() {
@@ -91,6 +104,28 @@ def stb_loader_page(request):
         xhr.send();
     }
 
+    // Handle remote control navigation
+    document.onkeydown = function(e) {
+        var key = e.keyCode;
+        var focused = document.activeElement;
+
+        if (key == 13) { // OK button
+            if (focused.id == 'username') {
+                document.getElementById('password').focus();
+            } else if (focused.id == 'password') {
+                doLogin();
+            } else if (focused.tagName == 'BUTTON') {
+                focused.click();
+            }
+        } else if (key == 38) { // Up
+            if (focused.id == 'password') document.getElementById('username').focus();
+            else if (focused.id == 'loginBtn') document.getElementById('password').focus();
+        } else if (key == 40) { // Down
+            if (focused.id == 'username') document.getElementById('password').focus();
+            else if (focused.id == 'password') document.getElementById('loginBtn').focus();
+        }
+    };
+
     window.onload = function() { setTimeout(initApp, 100); };
     </script>
     <style>
@@ -118,11 +153,11 @@ def stb_loader_page(request):
         </div>
 
         <div id="login">
-            <input type="text" id="username" placeholder="Usuario" onkeypress="if(event.keyCode==13)document.getElementById('password').focus()">
+            <input type="text" id="username" placeholder="Usuario" onclick="showKeyboard('username')" onfocus="showKeyboard('username')">
             <br>
-            <input type="password" id="password" placeholder="Contrasena" onkeypress="if(event.keyCode==13)doLogin()">
+            <input type="password" id="password" placeholder="Contrasena" onclick="showKeyboard('password')" onfocus="showKeyboard('password')">
             <br>
-            <button onclick="doLogin()">Entrar</button>
+            <button id="loginBtn" onclick="doLogin()">Entrar</button>
             <div id="msg"></div>
         </div>
     </div>
