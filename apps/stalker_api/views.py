@@ -27,104 +27,169 @@ def stb_portal_app(request):
     <script type="text/javascript">
     var stbAPI = null;
     var channels = [];
-    var categories = [];
-    var currentChannel = 0;
-    var currentCategory = 0;
+    var radios = [];
+    var currentList = [];
+    var currentIndex = 0;
     var isPlaying = false;
+    var volume = 50;
+    var volumeTimeout = null;
+    var osdTimeout = null;
+    var mode = 'tv'; // 'tv' or 'radio'
 
     function init() {
-        log("Inicio");
-
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
-            log("gSTB OK");
             try {
                 stbAPI.InitPlayer();
                 stbAPI.SetViewport(0, 0, 1920, 1080);
                 stbAPI.SetWinMode(0, 1);
                 stbAPI.SetTopWin(1);
                 stbAPI.SetTransparentColor(0x000000);
-                log("Player listo");
-            } catch(err) {
-                log("Error STB: " + err);
-            }
+                volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50;
+            } catch(err) {}
         } else if (typeof stb !== "undefined") {
             stbAPI = stb;
-            log("stb OK");
-        } else {
-            log("Sin STB API");
+            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
         }
-
-        loadData();
+        loadChannels();
+        loadRadios();
     }
 
-    function log(t) {
-        var el = document.getElementById("log");
-        if (el) el.innerHTML = el.innerHTML + t + "<br>";
-    }
-
-    function loadData() {
-        log("Cargando...");
+    function loadChannels() {
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                log("Status: " + xhr.status);
-                if (xhr.status === 200) {
-                    try {
-                        var r = JSON.parse(xhr.responseText);
-                        if (r.js && r.js.data) {
-                            channels = r.js.data;
-                            log("Canales: " + channels.length);
-                            showChannels();
-                        } else {
-                            log("Sin datos");
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var r = JSON.parse(xhr.responseText);
+                    if (r.js && r.js.data) {
+                        channels = r.js.data;
+                        if (mode === 'tv') {
+                            currentList = channels;
+                            showList();
                         }
-                    } catch(err) {
-                        log("Error JSON: " + err);
                     }
-                } else {
-                    log("Error HTTP");
-                }
+                } catch(err) {}
             }
         };
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
         xhr.send();
     }
 
-    function showChannels() {
-        var h = "<div class='title'>QuattreTV - " + channels.length + " canales</div>";
-        var start = Math.max(0, currentChannel - 5);
-        var end = Math.min(channels.length, start + 11);
+    function loadRadios() {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var r = JSON.parse(xhr.responseText);
+                    if (r.js && r.js.data) {
+                        radios = r.js.data;
+                        if (mode === 'radio') {
+                            currentList = radios;
+                            showList();
+                        }
+                    }
+                } catch(err) {}
+            }
+        };
+        xhr.open("GET", "?type=radio&action=get_ordered_list&p=0&_t=" + Date.now(), true);
+        xhr.send();
+    }
+
+    function switchMode(newMode) {
+        mode = newMode;
+        currentIndex = 0;
+        currentList = (mode === 'tv') ? channels : radios;
+        showList();
+    }
+
+    function showList() {
+        var h = '<div class="header">';
+        h += '<div class="logo">QuattreTV</div>';
+        h += '<div class="tabs">';
+        h += '<span class="tab' + (mode === 'tv' ? ' active' : '') + '" onclick="switchMode(\'tv\')">TV (' + channels.length + ')</span>';
+        h += '<span class="tab' + (mode === 'radio' ? ' active' : '') + '" onclick="switchMode(\'radio\')">Radio (' + radios.length + ')</span>';
+        h += '</div></div>';
+
+        h += '<div class="list">';
+        var start = Math.max(0, currentIndex - 4);
+        var end = Math.min(currentList.length, start + 9);
+
         for (var i = start; i < end; i++) {
-            var c = channels[i];
-            var cls = (i === currentChannel) ? "ch sel" : "ch";
-            h = h + "<div class='" + cls + "'>" + c.number + ". " + c.name + "</div>";
+            var c = currentList[i];
+            var cls = (i === currentIndex) ? "item sel" : "item";
+            var logo = c.logo ? '<img src="' + c.logo + '" onerror="this.style.display=\'none\'">' : '<div class="no-logo">' + (mode === 'tv' ? 'TV' : 'R') + '</div>';
+            var epg = c.cur_playing ? '<div class="epg">' + c.cur_playing + '</div>' : '';
+            h += '<div class="' + cls + '">';
+            h += '<div class="thumb">' + logo + '</div>';
+            h += '<div class="info">';
+            h += '<div class="name"><span class="num">' + c.number + '</span> ' + c.name + '</div>';
+            h += epg;
+            h += '</div>';
+            if (c.hd) h += '<span class="badge">HD</span>';
+            h += '</div>';
         }
-        h = h + "<div class='help'>OK=Ver  Flechas=Navegar</div>";
+        h += '</div>';
+
+        h += '<div class="help">';
+        h += '<span>OK = Reproducir</span>';
+        h += '<span>Flechas = Navegar</span>';
+        h += '<span>Izq/Der = TV/Radio</span>';
+        h += '<span>Vol+/- = Volumen</span>';
+        h += '</div>';
+
         document.getElementById("content").innerHTML = h;
     }
 
-    function play(ch) {
-        if (!ch) return;
-        log("Play: " + ch.name);
-        var url = ch.cmd;
-        log("URL: " + url);
-        if (!url) {
-            log("ERROR: Sin URL!");
-            return;
-        }
+    function play(item) {
+        if (!item || !item.cmd) return;
+
         if (stbAPI) {
             try {
-                stbAPI.Play(url);
+                stbAPI.Play(item.cmd);
                 isPlaying = true;
                 document.body.style.background = "transparent";
                 document.getElementById("content").style.display = "none";
-                document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name + "<br><small style='font-size:12px;color:#888'>" + url.substring(0,50) + "...</small>";
-            } catch(err) {
-                log("Error play: " + err);
-            }
+                showOSD(item);
+            } catch(err) {}
         }
+    }
+
+    function showOSD(item) {
+        var osd = document.getElementById("osd");
+        var logo = item.logo ? '<img src="' + item.logo + '" onerror="this.style.display=\'none\'">' : '';
+        var epg = item.cur_playing ? '<div class="osd-epg">' + item.cur_playing + '</div>' : '';
+
+        osd.innerHTML = '<div class="osd-content">' +
+            '<div class="osd-logo">' + logo + '</div>' +
+            '<div class="osd-info">' +
+            '<div class="osd-name">' + item.number + '. ' + item.name + '</div>' +
+            epg +
+            '</div></div>';
+        osd.style.display = "block";
+
+        clearTimeout(osdTimeout);
+        osdTimeout = setTimeout(function() {
+            osd.style.display = "none";
+        }, 5000);
+    }
+
+    function showVolume() {
+        var vol = document.getElementById("volume");
+        vol.innerHTML = '<div class="vol-icon">Vol</div><div class="vol-bar"><div class="vol-fill" style="width:' + volume + '%"></div></div><div class="vol-num">' + volume + '</div>';
+        vol.style.display = "flex";
+
+        clearTimeout(volumeTimeout);
+        volumeTimeout = setTimeout(function() {
+            vol.style.display = "none";
+        }, 2000);
+    }
+
+    function adjustVolume(delta) {
+        volume = Math.max(0, Math.min(100, volume + delta));
+        if (stbAPI && stbAPI.SetVolume) {
+            try { stbAPI.SetVolume(volume); } catch(err) {}
+        }
+        showVolume();
     }
 
     function stopPlay() {
@@ -132,33 +197,52 @@ def stb_portal_app(request):
             try { stbAPI.Stop(); } catch(err) {}
         }
         isPlaying = false;
-        document.body.style.background = "#111";
+        document.body.style.background = "#0a0a1a";
         document.getElementById("content").style.display = "block";
         document.getElementById("osd").style.display = "none";
-        showChannels();
+        showList();
     }
 
     function handleKey(e) {
         var k = e.keyCode;
-        log("Key: " + k);
+        e.preventDefault();
+
+        // Volume keys (various codes for different remotes)
+        if (k === 175 || k === 259) { adjustVolume(5); return false; }
+        if (k === 174 || k === 260) { adjustVolume(-5); return false; }
 
         if (isPlaying) {
-            if (k === 38 || k === 33) {
-                if (currentChannel > 0) { currentChannel--; play(channels[currentChannel]); }
-            } else if (k === 40 || k === 34) {
-                if (currentChannel < channels.length - 1) { currentChannel++; play(channels[currentChannel]); }
-            } else if (k === 8 || k === 27 || k === 13) {
+            if (k === 38 || k === 33) { // Up, PageUp - previous channel
+                if (currentIndex > 0) { currentIndex--; play(currentList[currentIndex]); }
+            } else if (k === 40 || k === 34) { // Down, PageDown - next channel
+                if (currentIndex < currentList.length - 1) { currentIndex++; play(currentList[currentIndex]); }
+            } else if (k === 37) { // Left - show OSD
+                showOSD(currentList[currentIndex]);
+            } else if (k === 39) { // Right - show OSD
+                showOSD(currentList[currentIndex]);
+            } else if (k === 8 || k === 27 || k === 461) { // Back, Escape, Return
                 stopPlay();
+            } else if (k === 13) { // OK - toggle OSD
+                var osd = document.getElementById("osd");
+                if (osd.style.display === "none") {
+                    showOSD(currentList[currentIndex]);
+                } else {
+                    osd.style.display = "none";
+                }
             }
         } else {
-            if (k === 38 && currentChannel > 0) {
-                currentChannel--;
-                showChannels();
-            } else if (k === 40 && currentChannel < channels.length - 1) {
-                currentChannel++;
-                showChannels();
-            } else if (k === 13 && channels.length > 0) {
-                play(channels[currentChannel]);
+            if (k === 38 && currentIndex > 0) { // Up
+                currentIndex--;
+                showList();
+            } else if (k === 40 && currentIndex < currentList.length - 1) { // Down
+                currentIndex++;
+                showList();
+            } else if (k === 37) { // Left - switch to TV
+                if (mode !== 'tv') switchMode('tv');
+            } else if (k === 39) { // Right - switch to Radio
+                if (mode !== 'radio') switchMode('radio');
+            } else if (k === 13 && currentList.length > 0) { // OK - play
+                play(currentList[currentIndex]);
             }
         }
         return false;
@@ -168,19 +252,55 @@ def stb_portal_app(request):
     window.onload = init;
     </script>
     <style>
-        body { background: #111; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
-        .title { color: #e94560; font-size: 28px; margin-bottom: 20px; }
-        .ch { padding: 10px 15px; margin: 3px 0; background: #222; }
-        .sel { background: #e94560; }
-        .help { margin-top: 20px; color: #666; }
-        #log { position: fixed; bottom: 10px; right: 10px; width: 300px; max-height: 200px; overflow: auto; background: #000; color: #0f0; font-size: 11px; padding: 5px; font-family: monospace; }
-        #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; height: 100vh; overflow: hidden; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; background: linear-gradient(180deg, #1a1a2e 0%, transparent 100%); }
+        .logo { font-size: 32px; font-weight: bold; color: #e94560; }
+        .tabs { display: flex; gap: 10px; }
+        .tab { padding: 10px 25px; background: #222; border-radius: 20px; cursor: pointer; transition: all 0.2s; }
+        .tab:hover { background: #333; }
+        .tab.active { background: #e94560; }
+
+        .list { padding: 10px 40px; height: calc(100vh - 180px); overflow: hidden; }
+        .item { display: flex; align-items: center; padding: 12px 20px; margin: 6px 0; background: #16162a; border-radius: 10px; transition: all 0.2s; }
+        .item.sel { background: linear-gradient(90deg, #e94560 0%, #c73e54 100%); transform: scale(1.02); }
+
+        .thumb { width: 80px; height: 50px; margin-right: 20px; display: flex; align-items: center; justify-content: center; background: #222; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+        .thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .no-logo { color: #666; font-size: 14px; }
+
+        .info { flex: 1; overflow: hidden; }
+        .name { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .num { color: #888; margin-right: 5px; }
+        .sel .num { color: rgba(255,255,255,0.7); }
+        .epg { font-size: 14px; color: #888; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sel .epg { color: rgba(255,255,255,0.7); }
+
+        .badge { background: #f0a500; color: #000; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 10px; }
+
+        .help { position: fixed; bottom: 0; left: 0; right: 0; padding: 15px 40px; background: linear-gradient(0deg, #0a0a1a 0%, transparent 100%); display: flex; justify-content: center; gap: 40px; color: #666; font-size: 14px; }
+
+        #osd { display: none; position: fixed; bottom: 60px; left: 40px; right: 40px; background: rgba(0,0,0,0.9); padding: 20px 30px; border-radius: 15px; border-left: 5px solid #e94560; }
+        .osd-content { display: flex; align-items: center; }
+        .osd-logo { width: 100px; height: 60px; margin-right: 25px; display: flex; align-items: center; justify-content: center; background: #222; border-radius: 8px; overflow: hidden; }
+        .osd-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .osd-name { font-size: 28px; font-weight: bold; }
+        .osd-epg { font-size: 16px; color: #888; margin-top: 5px; }
+
+        #volume { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 20px 40px; border-radius: 15px; align-items: center; gap: 15px; }
+        .vol-icon { font-size: 18px; color: #e94560; }
+        .vol-bar { width: 200px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+        .vol-fill { height: 100%; background: linear-gradient(90deg, #e94560, #f0a500); border-radius: 4px; transition: width 0.1s; }
+        .vol-num { font-size: 18px; width: 40px; text-align: right; }
+
+        #content { height: 100vh; }
     </style>
 </head>
 <body>
     <div id="content">Cargando QuattreTV...</div>
     <div id="osd"></div>
-    <div id="log"></div>
+    <div id="volume"></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
@@ -377,6 +497,7 @@ def portal_handler(request):
     handlers = {
         'stb': handle_stb,
         'itv': handle_itv,
+        'radio': handle_radio,
         'vod': handle_vod,
         'series': handle_series,
         'epg': handle_epg,
@@ -586,13 +707,13 @@ def handle_get_all_channels(request):
 
 
 def handle_get_ordered_list(request):
-    """Get ordered channel list."""
+    """Get ordered channel list (TV only, no radio)."""
     device = get_device_from_request(request)
     genre_id = request.GET.get('genre', '*')
     page = int(request.GET.get('p', 0))
     per_page = 50
 
-    channels = Channel.objects.filter(is_active=True).order_by('number')
+    channels = Channel.objects.filter(is_active=True, is_radio=False).order_by('number')
 
     if genre_id and genre_id != '*':
         channels = channels.filter(category_id=genre_id)
@@ -721,6 +842,59 @@ def handle_set_favorite(request):
         ).delete()
 
     return stalker_response({'result': True})
+
+
+# ============== Radio Handlers ==============
+
+def handle_radio(request, action):
+    """Handle Radio actions."""
+    if action == 'get_ordered_list':
+        return handle_radio_list(request)
+    elif action == 'get_genres':
+        return handle_get_genres(request)
+
+    return stalker_response({'error': 'Unknown action'})
+
+
+def handle_radio_list(request):
+    """Get radio station list."""
+    device = get_device_from_request(request)
+    page = int(request.GET.get('p', 0))
+    per_page = 50
+
+    radios = Channel.objects.filter(is_active=True, is_radio=True).order_by('number')
+
+    # Filter by user's packages if authenticated
+    if device and device.user.tariff:
+        package_ids = device.user.tariff.channel_packages.values_list('id', flat=True)
+        from django.db.models import Q
+        radios = radios.filter(
+            Q(packages__id__in=package_ids) | Q(packages__isnull=True)
+        ).distinct()
+
+    total = radios.count()
+    radios = radios[page * per_page:(page + 1) * per_page]
+
+    data = []
+    for radio in radios:
+        data.append({
+            'id': str(radio.id),
+            'name': radio.name,
+            'number': radio.number,
+            'cmd': radio.stream_url,
+            'logo': radio.logo_display_url,
+            'censored': radio.is_adult,
+            'hd': 0,
+            'fav': 0,
+            'archive': 0,
+            'cur_playing': '',
+        })
+
+    return stalker_response({
+        'total_items': total,
+        'max_page_items': per_page,
+        'data': data,
+    })
 
 
 # ============== VOD Handlers ==============

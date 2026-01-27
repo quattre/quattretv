@@ -541,10 +541,22 @@ def channels_import(request):
                         }
                     )
 
-                # Check if channel exists (by name or epg_id)
+                # Detect if radio
+                is_radio = ch_data.get('group', '').lower() == 'radio'
+
+                # Check if channel exists (by number, epg_id, or name)
                 existing = None
-                if ch_data.get('tvg_id'):
+                ch_number = ch_data.get('number')
+
+                # First try by channel number (most reliable)
+                if ch_number:
+                    existing = Channel.objects.filter(number=ch_number).first()
+
+                # Then try by epg_id
+                if not existing and ch_data.get('tvg_id'):
                     existing = Channel.objects.filter(epg_id=ch_data['tvg_id']).first()
+
+                # Finally try by name (exact match)
                 if not existing:
                     existing = Channel.objects.filter(name__iexact=ch_data['name']).first()
 
@@ -559,6 +571,7 @@ def channels_import(request):
                         existing.epg_id = ch_data['tvg_id']
                     existing.is_hd = 'HD' in ch_data['name'].upper() or '1080' in ch_data['name']
                     existing.is_4k = '4K' in ch_data['name'].upper() or 'UHD' in ch_data['name'].upper()
+                    existing.is_radio = is_radio
                     existing.save()
 
                     # Update or create stream
@@ -575,17 +588,23 @@ def channels_import(request):
                         )
                     updated += 1
                 else:
-                    # Create new channel
-                    max_number += 1
+                    # Create new channel - use provided number or next available
+                    if ch_number:
+                        new_number = ch_number
+                    else:
+                        max_number += 1
+                        new_number = max_number
+
                     channel = Channel.objects.create(
                         name=ch_data['name'],
-                        number=max_number,
+                        number=new_number,
                         stream_url=ch_data['url'],
                         logo_url=ch_data.get('logo', ''),
                         category=category,
                         epg_id=ch_data.get('tvg_id', ''),
                         is_hd='HD' in ch_data['name'].upper() or '1080' in ch_data['name'],
                         is_4k='4K' in ch_data['name'].upper() or 'UHD' in ch_data['name'].upper(),
+                        is_radio=is_radio,
                         is_active=True
                     )
                     # Create stream
@@ -599,9 +618,6 @@ def channels_import(request):
 
             except Exception as e:
                 errors += 1
-                import traceback
-                print(f"Error importing channel {ch_data.get('name')}: {e}")
-                traceback.print_exc()
 
         messages.success(request, f'Importación completada: {len(channels_data)} parseados, {created} creados, {updated} actualizados, {errors} errores')
         return redirect('portal:channels')
@@ -639,6 +655,14 @@ def parse_m3u(content):
             tvg_id_match = re.search(r'tvg-id="([^"]*)"', line)
             if tvg_id_match:
                 current_channel['tvg_id'] = tvg_id_match.group(1)
+
+            # tvg-chno (channel number)
+            tvg_chno_match = re.search(r'tvg-chno="([^"]*)"', line)
+            if tvg_chno_match:
+                try:
+                    current_channel['number'] = int(tvg_chno_match.group(1))
+                except ValueError:
+                    pass
 
             # tvg-name
             tvg_name_match = re.search(r'tvg-name="([^"]*)"', line)

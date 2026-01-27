@@ -89,6 +89,7 @@ class Channel(TimeStampedModel, ActivableModel):
     is_hd = models.BooleanField(default=False)
     is_4k = models.BooleanField(default=False)
     is_adult = models.BooleanField(default=False)
+    is_radio = models.BooleanField(default=False, help_text='Radio station instead of TV channel')
 
     # EPG mapping
     epg_id = models.CharField(
