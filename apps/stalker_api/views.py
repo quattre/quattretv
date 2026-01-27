@@ -269,7 +269,6 @@ def stb_portal_app(request):
     window.onerror = function(msg, url, line) {
         document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">JS Error: ' + msg + ' (linea ' + line + ')</div>';
     };
-    window.onload = init;
     </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -317,8 +316,8 @@ def stb_portal_app(request):
         #content { height: 100vh; }
     </style>
 </head>
-<body>
-    <div id="content" style="padding:40px;">Cargando QuattreTV... (Si ves esto, la página carga OK)</div>
+<body onload="init()">
+    <div id="content" style="padding:40px;">Cargando QuattreTV...</div>
     <div id="osd"></div>
     <div id="volume"></div>
 </body>
