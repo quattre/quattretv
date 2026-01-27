@@ -173,6 +173,8 @@ def stb_portal_app(request):
                         stbAPI.Play(url);
                         isPlaying = true;
                         viewMode = 'fullscreen';
+                        document.body.style.background = 'transparent';
+                        document.getElementById('osd').className = 'playing';
                         showOSD();
                     } catch(e) { console.log('Play error:', e); }
                 } else {
@@ -188,6 +190,8 @@ def stb_portal_app(request):
             isPlaying = false;
         }
         viewMode = 'menu';
+        document.body.style.background = '#0a0f1e';
+        document.getElementById('osd').className = '';
         render();
     }
 
@@ -246,9 +250,10 @@ def stb_portal_app(request):
     </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: transparent; color: #fff; font-family: Arial, sans-serif; overflow: hidden; }
+        body { background: #0a0f1e; color: #fff; font-family: Arial, sans-serif; overflow: hidden; }
 
-        #osd { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 15, 30, 0.95); }
+        #osd { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #0a0f1e; }
+        #osd.playing { background: transparent; }
 
         .header { padding: 20px 40px; background: linear-gradient(90deg, #e94560 0%, #1a1a2e 100%); }
         .header .logo { font-size: 28px; font-weight: bold; }
