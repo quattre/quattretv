@@ -37,78 +37,111 @@ def stb_portal_app(request):
     var viewMode = 'menu'; // menu, channels, fullscreen
 
     function initSTB() {
-        showMessage('Iniciando...');
+        debug('initSTB llamado');
 
         // Detect STB API
-        if (typeof(gSTB) !== 'undefined') {
+        if (typeof(gSTB) != 'undefined') {
             stbAPI = gSTB;
-        } else if (typeof(stb) !== 'undefined') {
+            debug('gSTB detectado');
+        } else if (typeof(stb) != 'undefined') {
             stbAPI = stb;
+            debug('stb detectado');
+        } else {
+            debug('Sin API STB');
         }
 
         if (stbAPI) {
             try {
                 stbAPI.InitPlayer();
-                stbAPI.SetViewport(0, 0, 1920, 1080);
-                stbAPI.SetWinMode(1, 1);
-                stbAPI.SetTopWin(1);
-            } catch(e) {}
+                debug('Player iniciado');
+            } catch(e) { debug('Error player: ' + e); }
         }
 
+        debug('Llamando loadCategories...');
         loadCategories();
     }
 
+    function debug(msg) {
+        var d = document.getElementById('debug');
+        if (d) d.innerHTML += msg + '<br>';
+    }
+
     function showMessage(msg) {
-        document.getElementById('osd').innerHTML = '<div class="loading"><h1>QuattreTV</h1><p>' + msg + '</p></div>';
+        document.getElementById('msg').innerHTML = msg;
     }
 
     function loadCategories() {
         showMessage('Cargando categorias...');
-        ajax('?type=itv&action=get_genres', function(data) {
-            if (data && data.js) {
-                categories = [{id: '*', title: 'Todos'}].concat(data.js);
+        debug('loadCategories llamado');
+
+        var xhr = new XMLHttpRequest();
+        debug('XHR creado');
+        xhr.open('GET', '?type=itv&action=get_genres', true);
+        debug('XHR abierto');
+        xhr.onload = function() {
+            debug('XHR onload, status=' + xhr.status);
+            if (xhr.status == 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    debug('Categorias: ' + (data.js ? data.js.length : 0));
+                    if (data && data.js) {
+                        categories = [{id: '*', title: 'Todos'}].concat(data.js);
+                    } else {
+                        categories = [{id: '*', title: 'Todos'}];
+                    }
+                } catch(e) {
+                    debug('Error parse: ' + e);
+                    categories = [{id: '*', title: 'Todos'}];
+                }
             } else {
+                debug('Error HTTP: ' + xhr.status);
                 categories = [{id: '*', title: 'Todos'}];
             }
             loadChannels();
-        }, function() {
+        };
+        xhr.onerror = function() {
+            debug('XHR error');
             categories = [{id: '*', title: 'Todos'}];
             loadChannels();
-        });
+        };
+        xhr.send();
+        debug('XHR enviado');
     }
 
     function loadChannels() {
         showMessage('Cargando canales...');
+        debug('loadChannels llamado');
         var catId = categories[currentCategory] ? categories[currentCategory].id : '*';
-        ajax('?type=itv&action=get_ordered_list&genre=' + catId + '&p=0', function(data) {
-            if (data && data.js && data.js.data) {
-                channels = data.js.data;
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '?type=itv&action=get_ordered_list&genre=' + catId + '&p=0', true);
+        xhr.onload = function() {
+            debug('Canales onload, status=' + xhr.status);
+            if (xhr.status == 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    debug('Canales: ' + (data.js && data.js.data ? data.js.data.length : 0));
+                    if (data && data.js && data.js.data) {
+                        channels = data.js.data;
+                    } else {
+                        channels = [];
+                    }
+                } catch(e) {
+                    debug('Error parse canales: ' + e);
+                    channels = [];
+                }
             } else {
                 channels = [];
             }
             currentChannel = 0;
+            debug('Llamando render...');
             render();
-        }, function() {
+        };
+        xhr.onerror = function() {
+            debug('Canales XHR error');
             channels = [];
             render();
-        });
-    }
-
-    function ajax(url, callback, errorCallback) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.timeout = 10000;
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState == 4) {
-                if (xhr.status == 200) {
-                    try { callback(JSON.parse(xhr.responseText)); } catch(e) { if(errorCallback) errorCallback(); }
-                } else {
-                    if(errorCallback) errorCallback();
-                }
-            }
         };
-        xhr.ontimeout = function() { if(errorCallback) errorCallback(); };
-        xhr.onerror = function() { if(errorCallback) errorCallback(); };
         xhr.send();
     }
 
@@ -319,10 +352,12 @@ def stb_portal_app(request):
         .loading h1 { color: #e94560; font-size: 48px; margin-bottom: 20px; }
         .loading p { color: #888; font-size: 18px; }
         .empty { padding: 100px; text-align: center; color: #888; font-size: 20px; }
+        #debug { position: fixed; top: 10px; right: 10px; width: 400px; background: rgba(0,0,0,0.9); color: #0f0; font-size: 12px; padding: 10px; max-height: 300px; overflow: auto; font-family: monospace; z-index: 9999; }
     </style>
 </head>
 <body>
-    <div id="osd"><div class="loading"><h1>QuattreTV</h1><p>Iniciando...</p></div></div>
+    <div id="osd"><div class="loading"><h1>QuattreTV</h1><p id="msg">Iniciando...</p></div></div>
+    <div id="debug">DEBUG:<br></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
