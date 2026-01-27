@@ -306,7 +306,7 @@ def stb_portal_app(request):
     </style>
 </head>
 <body>
-    <div id="content">Cargando QuattreTV...</div>
+    <div id="content" style="padding:40px;">Cargando QuattreTV... (Si ves esto, la página carga OK)</div>
     <div id="osd"></div>
     <div id="volume"></div>
 </body>
