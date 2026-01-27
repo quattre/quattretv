@@ -150,6 +150,17 @@ def stb_portal_app(request):
         location.reload();
     }
 
+    function ajax(url, callback) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.onload = function() {
+            if (xhr.status == 200) {
+                try { callback(JSON.parse(xhr.responseText)); } catch(e) {}
+            }
+        };
+        xhr.send();
+    }
+
     function render() {
         if (viewMode == 'fullscreen') {
             renderOSD();
