@@ -447,10 +447,13 @@ def channel_edit(request, channel_id):
         channel.is_adult = 'is_adult' in request.POST
         channel.has_archive = 'has_archive' in request.POST
         channel.is_active = 'is_active' in request.POST
+
+        # Update stream URL (both in Channel and ChannelStream)
+        stream_url = request.POST.get('stream_url')
+        if stream_url:
+            channel.stream_url = stream_url
         channel.save()
 
-        # Update stream
-        stream_url = request.POST.get('stream_url')
         if stream_url:
             # Get or create the primary stream (highest priority)
             stream = channel.streams.order_by('-priority').first()

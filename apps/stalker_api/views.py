@@ -108,15 +108,19 @@ def stb_portal_app(request):
         if (!ch) return;
         log("Play: " + ch.name);
         var url = ch.cmd;
+        log("URL: " + url);
+        if (!url) {
+            log("ERROR: Sin URL!");
+            return;
+        }
         if (stbAPI) {
             try {
                 stbAPI.Play(url);
                 isPlaying = true;
                 document.body.style.background = "transparent";
                 document.getElementById("content").style.display = "none";
-                document.getElementById("log").style.display = "none";
                 document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
+                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name + "<br><small style='font-size:12px;color:#888'>" + url.substring(0,50) + "...</small>";
             } catch(err) {
                 log("Error play: " + err);
             }
@@ -130,7 +134,6 @@ def stb_portal_app(request):
         isPlaying = false;
         document.body.style.background = "#111";
         document.getElementById("content").style.display = "block";
-        document.getElementById("log").style.display = "block";
         document.getElementById("osd").style.display = "none";
         showChannels();
     }
