@@ -23,71 +23,164 @@ def stb_portal_app(request):
     html = '''<!DOCTYPE html>
 <html>
 <head>
-<title>QuattreTV</title>
-<style>
-body{background:#111;color:#fff;font-family:Arial;margin:0;padding:20px}
-.t{color:#e94560;font-size:28px;margin-bottom:20px}
-.c{padding:10px 15px;margin:3px 0;background:#222}
-.s{background:#e94560}
-.h{margin-top:20px;color:#666}
-#o{display:none;position:fixed;bottom:50px;left:50px;background:rgba(0,0,0,0.8);padding:15px 25px;font-size:24px;border-left:4px solid #e94560}
-#v{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.9);padding:20px 40px;font-size:24px;border-radius:10px}
-</style>
+    <title>QuattreTV</title>
+    <script type="text/javascript">
+    var stbAPI = null;
+    var channels = [];
+    var categories = [];
+    var currentChannel = 0;
+    var currentCategory = 0;
+    var isPlaying = false;
+
+    function init() {
+        log("Inicio");
+
+        if (typeof gSTB !== "undefined") {
+            stbAPI = gSTB;
+            log("gSTB OK");
+            try {
+                stbAPI.InitPlayer();
+                stbAPI.SetViewport(0, 0, 1920, 1080);
+                stbAPI.SetWinMode(0, 1);
+                stbAPI.SetTopWin(1);
+                stbAPI.SetTransparentColor(0x000000);
+                log("Player listo");
+            } catch(err) {
+                log("Error STB: " + err);
+            }
+        } else if (typeof stb !== "undefined") {
+            stbAPI = stb;
+            log("stb OK");
+        } else {
+            log("Sin STB API");
+        }
+
+        loadData();
+    }
+
+    function log(t) {
+        var el = document.getElementById("log");
+        if (el) el.innerHTML = el.innerHTML + t + "<br>";
+    }
+
+    function loadData() {
+        log("Cargando...");
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                log("Status: " + xhr.status);
+                if (xhr.status === 200) {
+                    try {
+                        var r = JSON.parse(xhr.responseText);
+                        if (r.js && r.js.data) {
+                            channels = r.js.data;
+                            log("Canales: " + channels.length);
+                            showChannels();
+                        } else {
+                            log("Sin datos");
+                        }
+                    } catch(err) {
+                        log("Error JSON: " + err);
+                    }
+                } else {
+                    log("Error HTTP");
+                }
+            }
+        };
+        xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
+        xhr.send();
+    }
+
+    function showChannels() {
+        var h = "<div class='title'>QuattreTV - " + channels.length + " canales</div>";
+        var start = Math.max(0, currentChannel - 5);
+        var end = Math.min(channels.length, start + 11);
+        for (var i = start; i < end; i++) {
+            var c = channels[i];
+            var cls = (i === currentChannel) ? "ch sel" : "ch";
+            h = h + "<div class='" + cls + "'>" + c.number + ". " + c.name + "</div>";
+        }
+        h = h + "<div class='help'>OK=Ver  Flechas=Navegar</div>";
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function play(ch) {
+        if (!ch) return;
+        log("Play: " + ch.name);
+        var url = ch.cmd;
+        log("URL: " + url);
+        if (!url) {
+            log("ERROR: Sin URL!");
+            return;
+        }
+        if (stbAPI) {
+            try {
+                stbAPI.Play(url);
+                isPlaying = true;
+                document.body.style.background = "transparent";
+                document.getElementById("content").style.display = "none";
+                document.getElementById("osd").style.display = "block";
+                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name + "<br><small style='font-size:12px;color:#888'>" + url.substring(0,50) + "...</small>";
+            } catch(err) {
+                log("Error play: " + err);
+            }
+        }
+    }
+
+    function stopPlay() {
+        if (stbAPI) {
+            try { stbAPI.Stop(); } catch(err) {}
+        }
+        isPlaying = false;
+        document.body.style.background = "#111";
+        document.getElementById("content").style.display = "block";
+        document.getElementById("osd").style.display = "none";
+        showChannels();
+    }
+
+    function handleKey(e) {
+        var k = e.keyCode;
+        log("Key: " + k);
+
+        if (isPlaying) {
+            if (k === 38 || k === 33) {
+                if (currentChannel > 0) { currentChannel--; play(channels[currentChannel]); }
+            } else if (k === 40 || k === 34) {
+                if (currentChannel < channels.length - 1) { currentChannel++; play(channels[currentChannel]); }
+            } else if (k === 8 || k === 27 || k === 13) {
+                stopPlay();
+            }
+        } else {
+            if (k === 38 && currentChannel > 0) {
+                currentChannel--;
+                showChannels();
+            } else if (k === 40 && currentChannel < channels.length - 1) {
+                currentChannel++;
+                showChannels();
+            } else if (k === 13 && channels.length > 0) {
+                play(channels[currentChannel]);
+            }
+        }
+        return false;
+    }
+
+    document.onkeydown = handleKey;
+    window.onload = init;
+    </script>
+    <style>
+        body { background: #111; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
+        .title { color: #e94560; font-size: 28px; margin-bottom: 20px; }
+        .ch { padding: 10px 15px; margin: 3px 0; background: #222; }
+        .sel { background: #e94560; }
+        .help { margin-top: 20px; color: #666; }
+        #log { position: fixed; bottom: 10px; right: 10px; width: 300px; max-height: 200px; overflow: auto; background: #000; color: #0f0; font-size: 11px; padding: 5px; font-family: monospace; }
+        #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
+    </style>
 </head>
 <body>
-<div id="m">Cargando...</div>
-<div id="o"></div>
-<div id="v"></div>
-<script>
-var A=null,L=[],I=0,P=false,V=50,vt=null;
-function init(){
-if(typeof gSTB!="undefined"){A=gSTB;try{A.InitPlayer();A.SetViewport(0,0,1920,1080);A.SetWinMode(0,1);A.SetTopWin(1);A.SetTransparentColor(0x000000);V=A.GetVolume?A.GetVolume():50}catch(e){}}
-else if(typeof stb!="undefined"){A=stb;try{V=A.GetVolume?A.GetVolume():50}catch(e){}}
-load();
-}
-function load(){
-var x=new XMLHttpRequest();
-x.onreadystatechange=function(){if(x.readyState==4&&x.status==200){try{var r=JSON.parse(x.responseText);if(r.js&&r.js.data){L=r.js.data;show()}}catch(e){}}};
-x.open("GET","?type=itv&action=get_ordered_list&p=0",true);x.send();
-}
-function show(){
-var h="<div class='t'>QuattreTV - "+L.length+" canales</div>";
-var a=Math.max(0,I-5),b=Math.min(L.length,a+11);
-for(var i=a;i<b;i++){var c=L[i];h+="<div class='"+(i==I?"c s":"c")+"'>"+c.number+". "+c.name+"</div>"}
-h+="<div class='h'>OK=Ver Flechas=Navegar Vol+/-</div>";
-document.getElementById("m").innerHTML=h;
-}
-function play(c){
-if(!c||!c.cmd)return;
-if(A){try{A.Play(c.cmd);P=true;document.body.style.background="transparent";document.getElementById("m").style.display="none";document.getElementById("o").innerHTML=c.number+". "+c.name;document.getElementById("o").style.display="block"}catch(e){}}
-}
-function stop(){
-if(A){try{A.Stop()}catch(e){}}
-P=false;document.body.style.background="#111";document.getElementById("m").style.display="block";document.getElementById("o").style.display="none";show();
-}
-function vol(d){
-V=Math.max(0,Math.min(100,V+d));
-if(A&&A.SetVolume){try{A.SetVolume(V)}catch(e){}}
-var e=document.getElementById("v");e.innerHTML="Vol: "+V;e.style.display="block";
-clearTimeout(vt);vt=setTimeout(function(){e.style.display="none"},2000);
-}
-document.onkeydown=function(e){
-var k=e.keyCode;
-if(k==175||k==259){vol(5);return false}
-if(k==174||k==260){vol(-5);return false}
-if(P){
-if(k==38||k==33){if(I>0){I--;play(L[I])}}
-else if(k==40||k==34){if(I<L.length-1){I++;play(L[I])}}
-else if(k==8||k==27||k==13){stop()}
-}else{
-if(k==38&&I>0){I--;show()}
-else if(k==40&&I<L.length-1){I++;show()}
-else if(k==13&&L.length>0){play(L[I])}
-}
-return false;
-};
-window.onload=init;
-</script>
+    <div id="content">Cargando QuattreTV...</div>
+    <div id="osd"></div>
+    <div id="log"></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
@@ -284,7 +377,6 @@ def portal_handler(request):
     handlers = {
         'stb': handle_stb,
         'itv': handle_itv,
-        'radio': handle_radio,
         'vod': handle_vod,
         'series': handle_series,
         'epg': handle_epg,
@@ -494,13 +586,13 @@ def handle_get_all_channels(request):
 
 
 def handle_get_ordered_list(request):
-    """Get ordered channel list (TV only, no radio)."""
+    """Get ordered channel list."""
     device = get_device_from_request(request)
     genre_id = request.GET.get('genre', '*')
     page = int(request.GET.get('p', 0))
     per_page = 50
 
-    channels = Channel.objects.filter(is_active=True, is_radio=False).order_by('number')
+    channels = Channel.objects.filter(is_active=True).order_by('number')
 
     if genre_id and genre_id != '*':
         channels = channels.filter(category_id=genre_id)
@@ -629,59 +721,6 @@ def handle_set_favorite(request):
         ).delete()
 
     return stalker_response({'result': True})
-
-
-# ============== Radio Handlers ==============
-
-def handle_radio(request, action):
-    """Handle Radio actions."""
-    if action == 'get_ordered_list':
-        return handle_radio_list(request)
-    elif action == 'get_genres':
-        return handle_get_genres(request)
-
-    return stalker_response({'error': 'Unknown action'})
-
-
-def handle_radio_list(request):
-    """Get radio station list."""
-    device = get_device_from_request(request)
-    page = int(request.GET.get('p', 0))
-    per_page = 50
-
-    radios = Channel.objects.filter(is_active=True, is_radio=True).order_by('number')
-
-    # Filter by user's packages if authenticated
-    if device and device.user.tariff:
-        package_ids = device.user.tariff.channel_packages.values_list('id', flat=True)
-        from django.db.models import Q
-        radios = radios.filter(
-            Q(packages__id__in=package_ids) | Q(packages__isnull=True)
-        ).distinct()
-
-    total = radios.count()
-    radios = radios[page * per_page:(page + 1) * per_page]
-
-    data = []
-    for radio in radios:
-        data.append({
-            'id': str(radio.id),
-            'name': radio.name,
-            'number': radio.number,
-            'cmd': radio.stream_url,
-            'logo': radio.logo_display_url,
-            'censored': radio.is_adult,
-            'hd': 0,
-            'fav': 0,
-            'archive': 0,
-            'cur_playing': '',
-        })
-
-    return stalker_response({
-        'total_items': total,
-        'max_page_items': per_page,
-        'data': data,
-    })
 
 
 # ============== VOD Handlers ==============
