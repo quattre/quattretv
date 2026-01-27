@@ -58,17 +58,25 @@ def stb_portal_app(request):
     function loadChannels() {
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                try {
-                    var r = JSON.parse(xhr.responseText);
-                    if (r.js && r.js.data) {
-                        channels = r.js.data;
-                        if (mode === 'tv') {
-                            currentList = channels;
-                            showList();
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var r = JSON.parse(xhr.responseText);
+                        if (r.js && r.js.data) {
+                            channels = r.js.data;
+                            if (mode === 'tv') {
+                                currentList = channels;
+                                showList();
+                            }
+                        } else {
+                            document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error: No hay datos de canales</div>';
                         }
+                    } catch(err) {
+                        document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error JSON: ' + err.message + '</div>';
                     }
-                } catch(err) {}
+                } else {
+                    document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error HTTP: ' + xhr.status + '</div>';
+                }
             }
         };
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
