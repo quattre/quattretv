@@ -15,6 +15,153 @@ from apps.vod.models import Movie, Series, VodCategory
 from .authentication import MACAuthentication
 
 
+def stb_portal_app(request):
+    """
+    Serve the main STB portal application.
+    This is loaded after successful authentication.
+    """
+    html = '''<!DOCTYPE html>
+<html>
+<head>
+    <title>QuattreTV</title>
+    <script>
+    var currentMenu = 0;
+    var currentChannel = 0;
+    var channels = [];
+    var menuItems = ['TV en Vivo', 'Peliculas', 'Series', 'Configuracion'];
+
+    function init() {
+        loadChannels();
+        render();
+    }
+
+    function loadChannels() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '?type=itv&action=get_ordered_list&p=0', true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data.js && data.js.data) {
+                        channels = data.js.data;
+                        render();
+                    }
+                } catch(e) {}
+            }
+        };
+        xhr.send();
+    }
+
+    function render() {
+        var html = '<div class="menu">';
+        for (var i = 0; i < menuItems.length; i++) {
+            html += '<div class="menu-item' + (i == currentMenu ? ' active' : '') + '">' + menuItems[i] + '</div>';
+        }
+        html += '</div>';
+
+        if (currentMenu == 0 && channels.length > 0) {
+            html += '<div class="channels">';
+            var start = Math.max(0, currentChannel - 5);
+            var end = Math.min(channels.length, start + 11);
+            for (var i = start; i < end; i++) {
+                var ch = channels[i];
+                html += '<div class="channel' + (i == currentChannel ? ' active' : '') + '">';
+                html += '<span class="num">' + ch.number + '</span>';
+                html += '<span class="name">' + ch.name + '</span>';
+                if (ch.cur_playing) html += '<span class="epg">' + ch.cur_playing + '</span>';
+                html += '</div>';
+            }
+            html += '</div>';
+            html += '<div class="info">Pulsa OK para ver - Total: ' + channels.length + ' canales</div>';
+        }
+
+        document.getElementById('content').innerHTML = html;
+    }
+
+    function playChannel(ch) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '?type=itv&action=get_url&cmd=' + encodeURIComponent(ch.cmd), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data.js && data.js.cmd) {
+                        playStream(data.js.cmd);
+                    }
+                } catch(e) {}
+            }
+        };
+        xhr.send();
+    }
+
+    function playStream(url) {
+        try {
+            if (typeof(gSTB) !== 'undefined') {
+                gSTB.Play(url);
+            } else if (typeof(stb) !== 'undefined') {
+                stb.Play(url);
+            } else {
+                document.getElementById('content').innerHTML = '<div class="playing">Reproduciendo: ' + url + '</div>';
+            }
+        } catch(e) {
+            alert('Error: ' + e);
+        }
+    }
+
+    document.onkeydown = function(e) {
+        var key = e.keyCode;
+
+        if (key == 37) { // Left
+            if (currentMenu > 0) currentMenu--;
+            render();
+        } else if (key == 39) { // Right
+            if (currentMenu < menuItems.length - 1) currentMenu++;
+            render();
+        } else if (key == 38) { // Up
+            if (currentMenu == 0 && currentChannel > 0) currentChannel--;
+            render();
+        } else if (key == 40) { // Down
+            if (currentMenu == 0 && currentChannel < channels.length - 1) currentChannel++;
+            render();
+        } else if (key == 13) { // OK
+            if (currentMenu == 0 && channels.length > 0) {
+                playChannel(channels[currentChannel]);
+            }
+        } else if (key == 8 || key == 27) { // Back / ESC
+            render();
+        }
+
+        e.preventDefault();
+        return false;
+    };
+
+    window.onload = init;
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        body { background: #1a1a2e; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
+        .menu { display: flex; gap: 10px; margin-bottom: 20px; padding: 10px; background: #16213e; border-radius: 8px; }
+        .menu-item { padding: 15px 30px; border-radius: 5px; cursor: pointer; }
+        .menu-item.active { background: #e94560; }
+        .channels { background: #16213e; border-radius: 8px; padding: 10px; }
+        .channel { display: flex; align-items: center; padding: 12px 15px; border-radius: 5px; margin: 2px 0; }
+        .channel.active { background: #e94560; }
+        .channel .num { width: 50px; font-weight: bold; color: #888; }
+        .channel.active .num { color: #fff; }
+        .channel .name { flex: 1; font-size: 18px; }
+        .channel .epg { color: #888; font-size: 14px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .channel.active .epg { color: #ffd; }
+        .info { margin-top: 15px; color: #888; text-align: center; }
+        .playing { padding: 50px; text-align: center; font-size: 20px; }
+    </style>
+</head>
+<body>
+    <div id="content">Cargando...</div>
+</body>
+</html>'''
+    return HttpResponse(html, content_type='text/html')
+
+
 def stb_loader_page(request):
     """
     Serve initial loader page for MAG boxes.
@@ -177,9 +324,12 @@ def portal_handler(request):
     request_type = request.GET.get('type', request.POST.get('type', ''))
     action = request.GET.get('action', request.POST.get('action', ''))
 
-    # If no params and no MAC cookie, serve loader page for MAG boxes
-    if not request_type and not action and not request.COOKIES.get('mac'):
-        return stb_loader_page(request)
+    # If no params, serve appropriate page
+    if not request_type and not action:
+        if not request.COOKIES.get('mac'):
+            return stb_loader_page(request)
+        else:
+            return stb_portal_app(request)
 
     # Route to appropriate handler
     handlers = {
