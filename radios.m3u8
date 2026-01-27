@@ -1,0 +1,40 @@
+#EXTM3U
+
+#EXTINF:-1 tvg-name="Cadena Ser" group-title="Generalistas",Cadena Ser
+http://cdn10.quattre.com:1500/hls/radio_ser/index.m3u8
+#EXTINF:-1 tvg-name="Onda Cero" group-title="Generalistas",Onda Cero
+http://cdn10.quattre.com:1500/hls/radio_ondacero/index.m3u8
+#EXTINF:-1 tvg-name="Cope" group-title="Generalistas",Cope
+http://cdn10.quattre.com:1500/hls/radio_cope/index.m3u8
+#EXTINF:-1 tvg-name="Es Radio" group-title="Generalistas",Es Radio
+http://cdn10.quattre.com:1500/hls/radio_esradio/index.m3u8
+#EXTINF:-1 tvg-name="RNE Exterior" group-title="Generalistas",RNE Exterior
+http://cdn10.quattre.com:1500/hls/radio_rneexterior/index.m3u8
+
+#EXTINF:-1 tvg-name="Los 40" group-title="Musicales",Los 40
+http://cdn10.quattre.com:1500/hls/radio_los40/index.m3u8
+#EXTINF:-1 tvg-name="Cadena 100" group-title="Musicales",Cadena 100
+http://cdn10.quattre.com:1500/hls/radio_cadena100/index.m3u8
+#EXTINF:-1 tvg-name="Cadena Dial" group-title="Musicales",Cadena Dial
+http://cdn10.quattre.com:1500/hls/radio_dial/index.m3u8
+#EXTINF:-1 tvg-name="Europa FM" group-title="Musicales",Europa FM
+http://cdn10.quattre.com:1500/hls/radio_europafm/index.m3u8
+#EXTINF:-1 tvg-name="Kiss FM" group-title="Musicales",Kiss FM
+http://cdn10.quattre.com:1500/hls/radio_kissfm/index.m3u8
+#EXTINF:-1 tvg-name="Hit FM" group-title="Musicales",Hit FM
+http://cdn10.quattre.com:1500/hls/radio_hit/index.m3u8
+#EXTINF:-1 tvg-name="Melodia FM" group-title="Musicales",Melodia FM
+http://cdn10.quattre.com:1500/hls/radio_melodiafm/index.m3u8
+
+#EXTINF:-1 tvg-name="Radio Clasica" group-title="Tematicas",Radio Clasica
+http://cdn10.quattre.com:1500/hls/radio_clasica/index.m3u8
+#EXTINF:-1 tvg-name="RNE 3" group-title="Tematicas",RNE 3
+http://cdn10.quattre.com:1500/hls/radio_rne3/index.m3u8
+#EXTINF:-1 tvg-name="Radio Marca" group-title="Tematicas",Radio Marca
+http://cdn10.quattre.com:1500/hls/radio_marca/index.m3u8
+#EXTINF:-1 tvg-name="Radio Maria" group-title="Tematicas",Radio Maria
+http://cdn10.quattre.com:1500/hls/radio_maria/index.m3u8
+#EXTINF:-1 tvg-name="Vaughan Radio" group-title="Tematicas",Vaughan Radio
+http://cdn10.quattre.com:1500/hls/vaughan/index.m3u8
+#EXTINF:-1 tvg-name="97.7 La Radio" group-title="Tematicas",97.7 La Radio
+http://cdn10.quattre.com:1500/play/hls/97laradio/index.m3u8
