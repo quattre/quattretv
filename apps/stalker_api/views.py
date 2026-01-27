@@ -26,7 +26,7 @@ def stb_loader_page(request):
     <title>QuattreTV</title>
     <script>
     function log(msg) {
-        document.getElementById('status').innerHTML = msg;
+        document.getElementById('msg').innerHTML = msg;
     }
 
     function setMacAndReload(mac) {
@@ -60,7 +60,6 @@ def stb_loader_page(request):
     function showLogin() {
         document.getElementById('auto').style.display = 'none';
         document.getElementById('login').style.display = 'block';
-        document.getElementById('username').focus();
     }
 
     function doLogin() {
@@ -69,16 +68,27 @@ def stb_loader_page(request):
         if (!user) { log('Introduce usuario'); return; }
 
         log('Verificando...');
-        fetch('?type=stb&action=login&login=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass))
-        .then(r => r.json())
-        .then(data => {
-            if (data.js && data.js.mac) {
-                setMacAndReload(data.js.mac);
-            } else {
-                log(data.js && data.js.error ? data.js.error : 'Usuario o contraseña incorrectos');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '?type=stb&action=login&login=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.js && data.js.mac) {
+                            setMacAndReload(data.js.mac);
+                        } else {
+                            log(data.js && data.js.error ? data.js.error : 'Usuario incorrecto');
+                        }
+                    } catch(e) {
+                        log('Error de respuesta');
+                    }
+                } else {
+                    log('Error de conexion');
+                }
             }
-        })
-        .catch(e => { log('Error de conexión'); });
+        };
+        xhr.send();
     }
 
     window.onload = function() { setTimeout(initApp, 100); };
@@ -88,7 +98,7 @@ def stb_loader_page(request):
         .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
         h1 { color: #e94560; font-size: 42px; margin-bottom: 5px; }
         h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
-        #status { color: #e94560; font-size: 16px; margin: 15px; min-height: 20px; }
+        #msg { color: #e94560; font-size: 16px; margin: 15px; min-height: 20px; }
         #login { display: none; text-align: center; }
         input { font-size: 20px; padding: 12px 20px; width: 280px; margin: 8px 0; border: 2px solid #333; border-radius: 8px;
                 background: #0f0f23; color: #fff; }
@@ -104,16 +114,16 @@ def stb_loader_page(request):
         <h2>IPTV Middleware</h2>
 
         <div id="auto">
-            <div id="status">Conectando...</div>
+            <p style="color:#888">Conectando...</p>
         </div>
 
         <div id="login">
             <input type="text" id="username" placeholder="Usuario" onkeypress="if(event.keyCode==13)document.getElementById('password').focus()">
             <br>
-            <input type="password" id="password" placeholder="Contraseña" onkeypress="if(event.keyCode==13)doLogin()">
+            <input type="password" id="password" placeholder="Contrasena" onkeypress="if(event.keyCode==13)doLogin()">
             <br>
             <button onclick="doLogin()">Entrar</button>
-            <div id="status"></div>
+            <div id="msg"></div>
         </div>
     </div>
 </body>
