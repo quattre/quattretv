@@ -29,6 +29,8 @@ def stb_portal_app(request):
     var channels = [];
     var currentChannel = 0;
     var isPlaying = false;
+    var volume = 50;
+    var volTimeout = null;
 
     function init() {
         if (typeof gSTB !== "undefined") {
@@ -39,9 +41,11 @@ def stb_portal_app(request):
                 stbAPI.SetWinMode(0, 1);
                 stbAPI.SetTopWin(1);
                 stbAPI.SetTransparentColor(0x000000);
+                volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50;
             } catch(err) {}
         } else if (typeof stb !== "undefined") {
             stbAPI = stb;
+            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
         }
         loadData();
     }
@@ -72,7 +76,7 @@ def stb_portal_app(request):
             var cls = (i === currentChannel) ? "ch sel" : "ch";
             h = h + "<div class='" + cls + "'>" + c.number + ". " + c.name + "</div>";
         }
-        h = h + "<div class='help'>OK=Ver  Flechas=Navegar</div>";
+        h = h + "<div class='help'>OK=Ver  Flechas=Navegar  Vol+/-</div>";
         document.getElementById("content").innerHTML = h;
     }
 
@@ -101,8 +105,26 @@ def stb_portal_app(request):
         showChannels();
     }
 
+    function showVolume() {
+        var v = document.getElementById("vol");
+        v.innerHTML = "Vol: " + volume;
+        v.style.display = "block";
+        clearTimeout(volTimeout);
+        volTimeout = setTimeout(function() { v.style.display = "none"; }, 2000);
+    }
+
+    function adjustVolume(delta) {
+        volume = Math.max(0, Math.min(100, volume + delta));
+        if (stbAPI && stbAPI.SetVolume) {
+            try { stbAPI.SetVolume(volume); } catch(err) {}
+        }
+        showVolume();
+    }
+
     function handleKey(e) {
         var k = e.keyCode;
+        if (k === 107) { adjustVolume(5); return false; }
+        if (k === 109) { adjustVolume(-5); return false; }
         if (isPlaying) {
             if (k === 38 || k === 33) {
                 if (currentChannel > 0) { currentChannel--; play(channels[currentChannel]); }
@@ -135,11 +157,13 @@ def stb_portal_app(request):
         .sel { background: #e94560; }
         .help { margin-top: 20px; color: #666; }
         #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
+        #vol { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.9); padding: 20px 40px; font-size: 24px; border-radius: 10px; }
     </style>
 </head>
 <body>
     <div id="content">Cargando QuattreTV...</div>
     <div id="osd"></div>
+    <div id="vol"></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
