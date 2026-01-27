@@ -31,14 +31,13 @@ def stb_portal_app(request):
     var isPlaying = false;
     var volume = 50;
     var volTimeout = null;
-    var previewTimeout = null;
 
     function init() {
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
             try {
                 stbAPI.InitPlayer();
-                stbAPI.SetViewport(1380, 100, 500, 280);
+                stbAPI.SetViewport(1350, 80, 530, 300);
                 stbAPI.SetWinMode(0, 1);
                 stbAPI.SetTopWin(1);
                 stbAPI.SetTransparentColor(0x000000);
@@ -46,7 +45,6 @@ def stb_portal_app(request):
             } catch(err) {}
         } else if (typeof stb !== "undefined") {
             stbAPI = stb;
-            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
         }
         loadData();
     }
@@ -60,9 +58,11 @@ def stb_portal_app(request):
                     if (r.js && r.js.data) {
                         channels = r.js.data;
                         showChannels();
-                        startPreview();
+                        playPreview();
                     }
-                } catch(err) {}
+                } catch(err) {
+                    document.getElementById("content").innerHTML = "Error cargando";
+                }
             }
         };
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0", true);
@@ -70,37 +70,25 @@ def stb_portal_app(request):
     }
 
     function showChannels() {
-        var h = "<div class='header'><div class='logo'>QuattreTV</div><div class='count'>" + channels.length + " canales</div></div>";
-        h += "<div class='list'>";
-        var start = Math.max(0, currentChannel - 4);
-        var end = Math.min(channels.length, start + 9);
+        var h = "<div class='title'>QuattreTV - " + channels.length + " canales</div>";
+        var start = Math.max(0, currentChannel - 5);
+        var end = Math.min(channels.length, start + 11);
         for (var i = start; i < end; i++) {
             var c = channels[i];
             var cls = (i === currentChannel) ? "ch sel" : "ch";
-            var logo = c.logo ? "<img src='" + c.logo + "' onerror=\"this.style.display='none'\">" : "";
-            h += "<div class='" + cls + "'><span class='num'>" + c.number + "</span><span class='logo'>" + logo + "</span><span class='name'>" + c.name + "</span></div>";
+            h = h + "<div class='" + cls + "'>" + c.number + ". " + c.name + "</div>";
         }
-        h += "</div>";
-        h += "<div class='help'>OK=Ver | Flechas=Navegar | Vol+/-=Volumen</div>";
+        h = h + "<div class='help'>OK=Ver  Flechas=Navegar  Vol+/-</div>";
         document.getElementById("content").innerHTML = h;
     }
 
-    function startPreview() {
-        if (channels.length > 0 && stbAPI && !isPlaying) {
+    function playPreview() {
+        if (stbAPI && channels.length > 0 && !isPlaying) {
             try {
                 stbAPI.SetViewport(1350, 80, 530, 300);
                 stbAPI.Play(channels[currentChannel].cmd);
             } catch(err) {}
         }
-    }
-
-    function updatePreview() {
-        clearTimeout(previewTimeout);
-        previewTimeout = setTimeout(function() {
-            if (!isPlaying && stbAPI && channels.length > 0) {
-                try { stbAPI.Play(channels[currentChannel].cmd); } catch(err) {}
-            }
-        }, 300);
     }
 
     function play(ch) {
@@ -121,16 +109,11 @@ def stb_portal_app(request):
 
     function stopPlay() {
         isPlaying = false;
-        document.body.style.background = "#0a0a1a";
+        document.body.style.background = "#111";
         document.getElementById("content").style.display = "block";
         document.getElementById("osd").style.display = "none";
         showChannels();
-        if (stbAPI) {
-            try {
-                stbAPI.SetViewport(1350, 80, 530, 300);
-                stbAPI.Play(channels[currentChannel].cmd);
-            } catch(err) {}
-        }
+        playPreview();
     }
 
     function showVolume() {
@@ -166,11 +149,11 @@ def stb_portal_app(request):
             if (k === 38 && currentChannel > 0) {
                 currentChannel--;
                 showChannels();
-                updatePreview();
+                playPreview();
             } else if (k === 40 && currentChannel < channels.length - 1) {
                 currentChannel++;
                 showChannels();
-                updatePreview();
+                playPreview();
             } else if (k === 13 && channels.length > 0) {
                 play(channels[currentChannel]);
             }
@@ -182,30 +165,19 @@ def stb_portal_app(request):
     window.onload = init;
     </script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0a1a; color: #fff; font-family: Arial, sans-serif; height: 100vh; overflow: hidden; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; }
-        .logo { font-size: 32px; font-weight: bold; color: #e94560; }
-        .count { color: #666; }
-        .list { padding: 0 40px; max-width: 800px; }
-        .ch { display: flex; align-items: center; padding: 12px 20px; margin: 4px 0; background: #16162a; border-radius: 8px; }
-        .ch.sel { background: linear-gradient(90deg, #e94560, #c73e54); }
-        .num { width: 50px; color: #888; }
-        .sel .num { color: rgba(255,255,255,0.8); }
-        .logo { width: 60px; height: 35px; margin-right: 15px; display: flex; align-items: center; justify-content: center; }
-        .logo img { max-width: 100%; max-height: 100%; }
-        .name { flex: 1; font-size: 18px; }
-        .help { position: fixed; bottom: 20px; left: 40px; color: #444; font-size: 14px; }
-        #osd { display: none; position: fixed; bottom: 80px; left: 80px; background: rgba(0,0,0,0.85); padding: 20px 35px; font-size: 28px; border-left: 5px solid #e94560; border-radius: 8px; }
-        #vol { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.9); padding: 20px 50px; font-size: 24px; border-radius: 10px; }
-        #preview { position: fixed; top: 80px; right: 40px; width: 530px; height: 300px; background: #000; border: 3px solid #333; border-radius: 10px; overflow: hidden; }
+        body { background: #111; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
+        .title { color: #e94560; font-size: 28px; margin-bottom: 20px; }
+        .ch { padding: 10px 15px; margin: 3px 0; background: #222; max-width: 700px; }
+        .sel { background: #e94560; }
+        .help { margin-top: 20px; color: #666; }
+        #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
+        #vol { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.9); padding: 15px 40px; font-size: 22px; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div id="content">Cargando QuattreTV...</div>
     <div id="osd"></div>
     <div id="vol"></div>
-    <div id="preview"></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
