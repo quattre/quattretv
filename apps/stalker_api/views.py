@@ -87,7 +87,7 @@ def stb_portal_app(request):
                 }
             }
         };
-        xhr.open("GET", "?type=itv&action=get_ordered_list&p=0", true);
+        xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
         xhr.send();
     }
 
