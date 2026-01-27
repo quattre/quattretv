@@ -525,8 +525,15 @@ def channels_import(request):
         updated = 0
         errors = 0
 
-        # Get max channel number
-        max_number = Channel.objects.order_by('-number').values_list('number', flat=True).first() or 0
+        # Separate TV and Radio, then assign correlative numbers
+        # Get current max numbers for TV and Radio
+        max_tv_number = Channel.objects.filter(is_radio=False).order_by('-number').values_list('number', flat=True).first() or 0
+        max_radio_number = Channel.objects.filter(is_radio=True).order_by('-number').values_list('number', flat=True).first() or 0
+
+        # Radio keywords for detection
+        radio_keywords = ['radio', 'rne', 'kiss fm', 'hit fm', 'onda cero', 'europa fm',
+                          'melodia fm', 'cope', 'cadena 100', 'cadena ser', 'los 40',
+                          'cadena dial', 'vaughan', 'es radio', 'radio maria', 'marca']
 
         for ch_data in channels_data:
             try:
@@ -541,22 +548,26 @@ def channels_import(request):
                         }
                     )
 
-                # Detect if radio
-                is_radio = ch_data.get('group', '').lower() == 'radio'
+                # Detect if radio by group-title, name, or URL
+                name_lower = ch_data.get('name', '').lower()
+                url_lower = ch_data.get('url', '').lower()
+                group_lower = ch_data.get('group', '').lower()
 
-                # Check if channel exists (by number, epg_id, or name)
+                is_radio = group_lower == 'radio'
+                if not is_radio:
+                    for keyword in radio_keywords:
+                        if keyword in name_lower or keyword in url_lower:
+                            is_radio = True
+                            break
+
+                # Check if channel exists (by epg_id or name)
                 existing = None
-                ch_number = ch_data.get('number')
 
-                # First try by channel number (most reliable)
-                if ch_number:
-                    existing = Channel.objects.filter(number=ch_number).first()
-
-                # Then try by epg_id
-                if not existing and ch_data.get('tvg_id'):
+                # Try by epg_id first
+                if ch_data.get('tvg_id'):
                     existing = Channel.objects.filter(epg_id=ch_data['tvg_id']).first()
 
-                # Finally try by name (exact match)
+                # Then try by name (exact match)
                 if not existing:
                     existing = Channel.objects.filter(name__iexact=ch_data['name']).first()
 
@@ -588,12 +599,13 @@ def channels_import(request):
                         )
                     updated += 1
                 else:
-                    # Create new channel - use provided number or next available
-                    if ch_number:
-                        new_number = ch_number
+                    # Create new channel with correlative number
+                    if is_radio:
+                        max_radio_number += 1
+                        new_number = max_radio_number
                     else:
-                        max_number += 1
-                        new_number = max_number
+                        max_tv_number += 1
+                        new_number = max_tv_number
 
                     channel = Channel.objects.create(
                         name=ch_data['name'],
