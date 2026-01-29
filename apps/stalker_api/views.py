@@ -70,15 +70,20 @@ def stb_portal_app(request):
     function loadChannels() {
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                try {
-                    var r = JSON.parse(xhr.responseText);
-                    if (r.js && r.js.data) {
-                        channels = r.js.data;
-                        showHome();
-                        playBackground();
-                    }
-                } catch(err) {}
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var r = JSON.parse(xhr.responseText);
+                        if (r.js && r.js.data) {
+                            channels = r.js.data;
+                        }
+                    } catch(err) {}
+                }
+                // Mostrar home siempre, aunque no haya canales
+                showHome();
+                if (channels.length > 0) {
+                    playBackground();
+                }
             }
         };
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
@@ -329,16 +334,26 @@ def stb_portal_app(request):
     }
 
     document.onkeydown = handleKey;
+    window.onerror = function(msg, url, line) {
+        document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error JS: ' + msg + '</div>';
+        document.getElementById("content").style.display = "block";
+    };
     window.onload = init;
     </script>
     <style>
         * { box-sizing: border-box; }
         body { background: transparent; color: #fff; font-family: 'Arial', sans-serif; margin: 0; padding: 0; overflow: hidden; }
 
+        #content {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 100;
+        }
+
         .overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(135deg, rgba(10,10,30,0.85) 0%, rgba(20,20,50,0.75) 100%);
             display: flex; align-items: center; justify-content: center;
+            z-index: 100;
         }
 
         .home-container { text-align: center; }
