@@ -33,7 +33,6 @@ def stb_portal_app(request):
     var isFullscreen = false;
     var volume = 50;
     var volTimeout = null;
-    var previewTimeout = null;
 
     function init() {
         if (typeof gSTB !== "undefined") {
@@ -110,24 +109,19 @@ def stb_portal_app(request):
     }
 
     function startPreview() {
-        if (channels.length === 0) return;
+        if (channels.length === 0 || isFullscreen) return;
         var ch = channels[currentChannel];
         if (!ch || !ch.cmd) return;
 
-        clearTimeout(previewTimeout);
-        previewTimeout = setTimeout(function() {
-            if (!isFullscreen) {
-                // Si ya está reproduciendo el mismo canal, solo cambiar viewport
-                if (playingChannelIdx === currentChannel) {
-                    setViewportPreview();
-                } else {
-                    // Cambiar de canal
-                    setViewportPreview();
-                    playChannel(ch);
-                    playingChannelIdx = currentChannel;
-                }
-            }
-        }, 300);
+        // Si ya está reproduciendo el mismo canal, solo cambiar viewport
+        if (playingChannelIdx === currentChannel) {
+            setViewportPreview();
+        } else {
+            // Cambiar de canal
+            setViewportPreview();
+            playChannel(ch);
+            playingChannelIdx = currentChannel;
+        }
     }
 
     function showChannels() {
@@ -146,8 +140,6 @@ def stb_portal_app(request):
     function goFullscreen() {
         var ch = channels[currentChannel];
         if (!ch || !ch.cmd) return;
-
-        clearTimeout(previewTimeout);
 
         // Si ya está reproduciendo este canal, solo cambiar viewport
         if (playingChannelIdx === currentChannel) {
