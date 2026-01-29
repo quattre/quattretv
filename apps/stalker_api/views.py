@@ -125,15 +125,37 @@ def stb_portal_app(request):
     }
 
     function showChannels() {
-        var h = "<div class='title'>QuattreTV - " + channels.length + " canales</div>";
-        var start = Math.max(0, currentChannel - 5);
-        var end = Math.min(channels.length, start + 11);
+        var ch = channels[currentChannel];
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">Quattre<span>TV</span></div>';
+        h += '<div class="counter">' + channels.length + ' canales</div></div>';
+
+        h += '<div class="list">';
+        var start = Math.max(0, currentChannel - 3);
+        var end = Math.min(channels.length, start + 7);
         for (var i = start; i < end; i++) {
             var c = channels[i];
-            var cls = (i === currentChannel) ? "ch sel" : "ch";
-            h = h + "<div class='" + cls + "'>" + c.number + ". " + c.name + "</div>";
+            var cls = (i === currentChannel) ? "item sel" : "item";
+            h += '<div class="' + cls + '">';
+            h += '<div class="num">' + c.number + '</div>';
+            h += '<div class="info"><div class="name">' + c.name;
+            if (c.hd) h += ' <span class="hd">HD</span>';
+            h += '</div>';
+            if (c.cur_playing) h += '<div class="epg">' + c.cur_playing + '</div>';
+            h += '</div></div>';
         }
-        h = h + "<div class='help'>OK=Ver  Flechas=Navegar  Vol+/-</div>";
+        h += '</div>';
+
+        // Info del canal seleccionado
+        if (ch) {
+            h += '<div class="now-info">';
+            h += '<div class="now-channel">' + ch.number + '. ' + ch.name + '</div>';
+            if (ch.cur_playing) h += '<div class="now-epg">' + ch.cur_playing + '</div>';
+            h += '</div>';
+        }
+
+        h += '<div class="help"><span>OK</span> Ver <span>▲▼</span> Navegar <span>VOL</span> Volumen</div>';
+        h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
 
@@ -154,7 +176,9 @@ def stb_portal_app(request):
         isFullscreen = true;
         document.getElementById("content").style.display = "none";
         document.getElementById("osd").style.display = "block";
-        document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
+        var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
+        if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
+        document.getElementById("osd").innerHTML = osdHtml;
     }
 
     function showMenu() {
@@ -194,7 +218,9 @@ def stb_portal_app(request):
                     var ch = channels[currentChannel];
                     playChannel(ch);
                     playingChannelIdx = currentChannel;
-                    document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
+                    var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
+                    if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
+                    document.getElementById("osd").innerHTML = osdHtml;
                 }
             } else if (k === 40 || k === 34) {
                 if (currentChannel < channels.length - 1) {
@@ -202,7 +228,9 @@ def stb_portal_app(request):
                     var ch = channels[currentChannel];
                     playChannel(ch);
                     playingChannelIdx = currentChannel;
-                    document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
+                    var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
+                    if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
+                    document.getElementById("osd").innerHTML = osdHtml;
                 }
             } else if (k === 8 || k === 27 || k === 13) {
                 showMenu();
@@ -227,17 +255,59 @@ def stb_portal_app(request):
     window.onload = init;
     </script>
     <style>
-        body { background: #111; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
-        .title { color: #e94560; font-size: 28px; margin-bottom: 20px; }
-        .ch { padding: 10px 15px; margin: 3px 0; background: #222; width: 400px; }
-        .sel { background: #e94560; }
-        .help { margin-top: 20px; color: #666; }
-        #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
-        #vol { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.9); padding: 20px 40px; font-size: 24px; border-radius: 10px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
+
+        .panel {
+            position: fixed; top: 40px; left: 40px; width: 520px;
+            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
+            border-radius: 16px; padding: 25px; border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .logo { font-size: 32px; font-weight: 300; color: #fff; }
+        .logo span { color: #e94560; font-weight: 700; }
+        .counter { background: rgba(233,69,96,0.2); color: #e94560; padding: 6px 14px; border-radius: 20px; font-size: 14px; }
+
+        .list { margin-bottom: 15px; }
+        .item { display: flex; align-items: center; padding: 12px 15px; margin: 4px 0; border-radius: 10px; background: rgba(255,255,255,0.03); border: 2px solid transparent; transition: all 0.15s; }
+        .item.sel { background: linear-gradient(90deg, rgba(233,69,96,0.3) 0%, rgba(233,69,96,0.1) 100%); border-color: #e94560; }
+        .num { width: 45px; font-size: 18px; color: #666; font-weight: 600; }
+        .item.sel .num { color: #e94560; }
+        .info { flex: 1; overflow: hidden; }
+        .name { font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hd { background: #3498db; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
+        .epg { font-size: 13px; color: #888; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .now-info { background: rgba(233,69,96,0.1); border-radius: 10px; padding: 15px; margin-bottom: 15px; border-left: 3px solid #e94560; }
+        .now-channel { font-size: 20px; font-weight: 600; margin-bottom: 5px; }
+        .now-epg { font-size: 14px; color: #aaa; }
+
+        .help { text-align: center; color: #555; font-size: 13px; }
+        .help span { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 5px; margin: 0 5px; color: #888; }
+
+        #osd {
+            display: none; position: fixed; bottom: 60px; left: 60px;
+            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
+            padding: 20px 30px; border-radius: 12px;
+            border-left: 4px solid #e94560; min-width: 350px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .osd-ch { font-size: 26px; font-weight: 600; }
+        .osd-epg { font-size: 16px; color: #aaa; margin-top: 8px; }
+
+        #vol {
+            display: none; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
+            padding: 25px 50px; font-size: 28px; border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body>
-    <div id="content">Cargando QuattreTV...</div>
+    <div id="content"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
     <div id="osd"></div>
     <div id="vol"></div>
 </body>
