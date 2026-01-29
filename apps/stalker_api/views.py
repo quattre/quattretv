@@ -28,22 +28,11 @@ def stb_portal_app(request):
     var stbAPI = null;
     var player = null;
     var channels = [];
-    var radios = [];
-    var currentList = [];
-    var currentIdx = 0;
-    var menuIdx = 0;
-    var playingIdx = -1;
-    var playingType = '';
+    var currentChannel = 0;
+    var playingChannelIdx = -1; // canal que está reproduciéndose
+    var isFullscreen = false;
     var volume = 50;
     var volTimeout = null;
-    var screen = 'home'; // home, tv, radio, settings, fullscreen
-    var keyLock = false; // bloqueo temporal de teclas
-
-    var menuItems = [
-        {id: 'tv', name: 'Television', icon: 'TV'},
-        {id: 'radio', name: 'Radio', icon: 'FM'},
-        {id: 'settings', name: 'Ajustes', icon: '..'}
-    ];
 
     function init() {
         if (typeof gSTB !== "undefined") {
@@ -60,175 +49,121 @@ def stb_portal_app(request):
             stbAPI = stb;
             try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
         }
+
+        // Try to get stbPlayerManager
         if (typeof stbPlayerManager !== "undefined" && stbPlayerManager.list && stbPlayerManager.list[0]) {
             player = stbPlayerManager.list[0];
         }
-        loadChannels();
-        loadRadios();
+
+        loadData();
     }
 
-    function loadChannels() {
+    function loadData() {
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try {
-                        var r = JSON.parse(xhr.responseText);
-                        if (r.js && r.js.data) {
-                            channels = r.js.data;
-                        }
-                    } catch(err) {}
-                }
-                // Mostrar home siempre, aunque no haya canales
-                showHome();
-                if (channels.length > 0) {
-                    playBackground();
-                }
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                try {
+                    var r = JSON.parse(xhr.responseText);
+                    if (r.js && r.js.data) {
+                        channels = r.js.data;
+                        showChannels();
+                        startPreview();
+                    }
+                } catch(err) {}
             }
         };
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
         xhr.send();
     }
 
-    function loadRadios() {
-        var xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                try {
-                    var r = JSON.parse(xhr.responseText);
-                    if (r.js && r.js.data) { radios = r.js.data; }
-                } catch(err) {}
-            }
-        };
-        xhr.open("GET", "?type=radio&action=get_ordered_list&p=0&_t=" + Date.now(), true);
-        xhr.send();
+    function setViewportPreview() {
+        if (player) {
+            try {
+                player.fullscreen = false;
+                player.aspectConversion = 1;
+                player.setViewport({x: 980, y: 80, width: 880, height: 495});
+            } catch(err) {}
+        } else if (stbAPI) {
+            try { stbAPI.SetPIG(0, 128, 980, 80); } catch(err) {}
+        }
     }
 
-    function playBackground() {
-        if (channels.length === 0) return;
-        var ch = channels[0];
-        if (!ch || !ch.cmd) return;
+    function setViewportFullscreen() {
         if (player) {
             try {
                 player.fullscreen = true;
                 player.setViewport({x: 0, y: 0, width: 1920, height: 1080});
-                player.play({uri: ch.cmd});
             } catch(err) {}
         } else if (stbAPI) {
-            try {
-                stbAPI.SetPIG(1, 256, 0, 0);
-                stbAPI.Play(ch.cmd);
-            } catch(err) {}
+            try { stbAPI.SetPIG(1, 256, 0, 0); } catch(err) {}
         }
-        playingIdx = 0;
-        playingType = 'tv';
-        document.body.style.background = "transparent";
     }
 
-    function playItem(item, type) {
-        if (!item || !item.cmd) return;
+    function playChannel(ch) {
         if (player) {
-            try { player.play({uri: item.cmd}); } catch(err) {}
+            try { player.play({uri: ch.cmd}); } catch(err) {}
         } else if (stbAPI) {
-            try { stbAPI.Play(item.cmd); } catch(err) {}
+            try { stbAPI.Play(ch.cmd); } catch(err) {}
         }
-        playingType = type;
         document.body.style.background = "transparent";
     }
 
-    function showHome() {
-        screen = 'home';
-        var h = '<div class="overlay">';
-        h += '<div class="home-container">';
-        h += '<div class="logo">QuattreTV</div>';
-        h += '<div class="menu-grid">';
-        for (var i = 0; i < menuItems.length; i++) {
-            var m = menuItems[i];
-            var cls = (i === menuIdx) ? 'menu-item sel' : 'menu-item';
-            h += '<div class="' + cls + '">';
-            h += '<div class="menu-icon">' + m.icon + '</div>';
-            h += '<div class="menu-name">' + m.name + '</div>';
-            h += '</div>';
+    function startPreview() {
+        if (channels.length === 0 || isFullscreen) return;
+        var ch = channels[currentChannel];
+        if (!ch || !ch.cmd) return;
+
+        // Si ya está reproduciendo el mismo canal, solo cambiar viewport
+        if (playingChannelIdx === currentChannel) {
+            setViewportPreview();
+        } else {
+            // Cambiar de canal
+            setViewportPreview();
+            playChannel(ch);
+            playingChannelIdx = currentChannel;
         }
-        h += '</div>';
-        h += '<div class="home-info">';
-        h += '<span>Canales: ' + channels.length + '</span>';
-        h += '<span>Radio: ' + radios.length + '</span>';
-        h += '</div>';
-        h += '<div class="help">OK=Seleccionar  Flechas=Navegar</div>';
-        h += '</div></div>';
-        document.getElementById("content").innerHTML = h;
-        document.getElementById("content").style.display = "block";
     }
 
-    function showTV() {
-        screen = 'tv';
-        currentList = channels;
-        showList('Television', 'tv');
-    }
-
-    function showRadio() {
-        screen = 'radio';
-        currentList = radios;
-        showList('Radio', 'radio');
-    }
-
-    function showList(title, type) {
-        var h = '<div class="overlay">';
-        h += '<div class="list-container">';
-        h += '<div class="list-header">';
-        h += '<span class="back-arrow">&#9664;</span>';
-        h += '<span class="list-title">' + title + '</span>';
-        h += '<span class="list-count">' + currentList.length + '</span>';
-        h += '</div>';
-        h += '<div class="list-items">';
-        var start = Math.max(0, currentIdx - 4);
-        var end = Math.min(currentList.length, start + 9);
+    function showChannels() {
+        var h = "<div class='title'>QuattreTV - " + channels.length + " canales</div>";
+        var start = Math.max(0, currentChannel - 5);
+        var end = Math.min(channels.length, start + 11);
         for (var i = start; i < end; i++) {
-            var c = currentList[i];
-            var cls = (i === currentIdx) ? 'list-item sel' : 'list-item';
-            var playing = (playingIdx === i && playingType === type) ? ' playing' : '';
-            h += '<div class="' + cls + playing + '">';
-            h += '<span class="item-num">' + c.number + '</span>';
-            h += '<span class="item-name">' + c.name + '</span>';
-            if (c.hd) h += '<span class="badge">HD</span>';
-            if (playingIdx === i && playingType === type) h += '<span class="now-playing">&#9654;</span>';
-            h += '</div>';
+            var c = channels[i];
+            var cls = (i === currentChannel) ? "ch sel" : "ch";
+            h = h + "<div class='" + cls + "'>" + c.number + ". " + c.name + "</div>";
         }
-        h += '</div>';
-        h += '<div class="help">OK=Ver  Back=Menu  Flechas=Navegar</div>';
-        h += '</div></div>';
-        document.getElementById("content").innerHTML = h;
-    }
-
-    function showSettings() {
-        screen = 'settings';
-        var h = '<div class="overlay">';
-        h += '<div class="settings-container">';
-        h += '<div class="list-header">';
-        h += '<span class="back-arrow">&#9664;</span>';
-        h += '<span class="list-title">Ajustes</span>';
-        h += '</div>';
-        h += '<div class="settings-info">';
-        h += '<div class="setting-row"><span>Version:</span><span>QuattreTV 1.0</span></div>';
-        h += '<div class="setting-row"><span>Canales:</span><span>' + channels.length + '</span></div>';
-        h += '<div class="setting-row"><span>Radio:</span><span>' + radios.length + '</span></div>';
-        h += '<div class="setting-row"><span>Volumen:</span><span>' + volume + '%</span></div>';
-        h += '</div>';
-        h += '<div class="help">Back=Menu</div>';
-        h += '</div></div>';
+        h = h + "<div class='help'>OK=Ver  Flechas=Navegar  Vol+/-</div>";
         document.getElementById("content").innerHTML = h;
     }
 
     function goFullscreen() {
-        screen = 'fullscreen';
-        document.getElementById("content").style.display = "none";
-        var item = currentList[currentIdx];
-        if (item) {
-            document.getElementById("osd").innerHTML = item.number + '. ' + item.name;
-            document.getElementById("osd").style.display = "block";
-            setTimeout(function() { document.getElementById("osd").style.display = "none"; }, 3000);
+        var ch = channels[currentChannel];
+        if (!ch || !ch.cmd) return;
+
+        // Si ya está reproduciendo este canal, solo cambiar viewport
+        if (playingChannelIdx === currentChannel) {
+            setViewportFullscreen();
+        } else {
+            // Nuevo canal, reproducir
+            setViewportFullscreen();
+            playChannel(ch);
+            playingChannelIdx = currentChannel;
         }
+
+        isFullscreen = true;
+        document.getElementById("content").style.display = "none";
+        document.getElementById("osd").style.display = "block";
+        document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
+    }
+
+    function showMenu() {
+        // Volver al menu sin parar reproduccion, solo cambiar viewport
+        setViewportPreview();
+        isFullscreen = false;
+        document.getElementById("content").style.display = "block";
+        document.getElementById("osd").style.display = "none";
+        showChannels();
     }
 
     function showVolume() {
@@ -247,173 +182,62 @@ def stb_portal_app(request):
         showVolume();
     }
 
-    function lockKeys() {
-        keyLock = true;
-        setTimeout(function() { keyLock = false; }, 300);
-    }
-
     function handleKey(e) {
         var k = e.keyCode;
-        e.preventDefault();
-
-        // Volumen siempre disponible
         if (k === 107) { adjustVolume(5); return false; }
         if (k === 109) { adjustVolume(-5); return false; }
-
-        // Ignorar teclas si están bloqueadas
-        if (keyLock) return false;
-
-        if (screen === 'fullscreen') {
-            if (k === 38 || k === 33) { // Up - canal anterior
-                if (currentIdx > 0) {
-                    currentIdx--;
-                    playingIdx = currentIdx;
-                    playItem(currentList[currentIdx], playingType);
-                    document.getElementById("osd").innerHTML = currentList[currentIdx].number + '. ' + currentList[currentIdx].name;
-                    document.getElementById("osd").style.display = "block";
-                    setTimeout(function() { document.getElementById("osd").style.display = "none"; }, 3000);
+        if (isFullscreen) {
+            if (k === 38 || k === 33) {
+                // Cambiar canal en fullscreen
+                if (currentChannel > 0) {
+                    currentChannel--;
+                    var ch = channels[currentChannel];
+                    playChannel(ch);
+                    playingChannelIdx = currentChannel;
+                    document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
                 }
-            } else if (k === 40 || k === 34) { // Down - canal siguiente
-                if (currentIdx < currentList.length - 1) {
-                    currentIdx++;
-                    playingIdx = currentIdx;
-                    playItem(currentList[currentIdx], playingType);
-                    document.getElementById("osd").innerHTML = currentList[currentIdx].number + '. ' + currentList[currentIdx].name;
-                    document.getElementById("osd").style.display = "block";
-                    setTimeout(function() { document.getElementById("osd").style.display = "none"; }, 3000);
+            } else if (k === 40 || k === 34) {
+                if (currentChannel < channels.length - 1) {
+                    currentChannel++;
+                    var ch = channels[currentChannel];
+                    playChannel(ch);
+                    playingChannelIdx = currentChannel;
+                    document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
                 }
-            } else if (k === 8 || k === 27) { // Back - volver a lista (sin OK)
-                lockKeys();
-                document.getElementById("content").style.display = "block";
-                document.getElementById("osd").style.display = "none";
-                if (playingType === 'tv') showTV();
-                else if (playingType === 'radio') showRadio();
-                else showHome();
+            } else if (k === 8 || k === 27 || k === 13) {
+                showMenu();
             }
-        } else if (screen === 'home') {
-            if (k === 37 && menuIdx > 0) { // Left
-                menuIdx--;
-                showHome();
-            } else if (k === 39 && menuIdx < menuItems.length - 1) { // Right
-                menuIdx++;
-                showHome();
-            } else if (k === 13) { // OK
-                lockKeys();
-                var sel = menuItems[menuIdx].id;
-                if (sel === 'tv') showTV();
-                else if (sel === 'radio') showRadio();
-                else if (sel === 'settings') showSettings();
-            }
-        } else if (screen === 'tv' || screen === 'radio') {
-            var type = screen;
-            if (k === 38 && currentIdx > 0) { // Up
-                currentIdx--;
-                playingIdx = currentIdx;
-                playItem(currentList[currentIdx], type);
-                showList(type === 'tv' ? 'Television' : 'Radio', type);
-            } else if (k === 40 && currentIdx < currentList.length - 1) { // Down
-                currentIdx++;
-                playingIdx = currentIdx;
-                playItem(currentList[currentIdx], type);
-                showList(type === 'tv' ? 'Television' : 'Radio', type);
-            } else if (k === 13) { // OK - fullscreen
-                lockKeys();
+        } else {
+            if (k === 38 && currentChannel > 0) {
+                currentChannel--;
+                showChannels();
+                startPreview();
+            } else if (k === 40 && currentChannel < channels.length - 1) {
+                currentChannel++;
+                showChannels();
+                startPreview();
+            } else if (k === 13 && channels.length > 0) {
                 goFullscreen();
-            } else if (k === 8 || k === 27) { // Back
-                lockKeys();
-                currentIdx = 0;
-                showHome();
-            }
-        } else if (screen === 'settings') {
-            if (k === 8 || k === 27) { // Back
-                lockKeys();
-                showHome();
             }
         }
         return false;
     }
 
     document.onkeydown = handleKey;
-    window.onerror = function(msg, url, line) {
-        document.getElementById("content").innerHTML = '<div style="padding:40px;color:#f66">Error JS: ' + msg + '</div>';
-        document.getElementById("content").style.display = "block";
-    };
     window.onload = init;
     </script>
     <style>
-        * { box-sizing: border-box; }
-        body { background: transparent; color: #fff; font-family: 'Arial', sans-serif; margin: 0; padding: 0; overflow: hidden; }
-
-        #content {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 100;
-        }
-
-        .overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(135deg, rgba(10,10,30,0.85) 0%, rgba(20,20,50,0.75) 100%);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 100;
-        }
-
-        .home-container { text-align: center; }
-        .logo { font-size: 72px; font-weight: bold; color: #e94560; margin-bottom: 60px; text-shadow: 0 0 30px rgba(233,69,96,0.5); }
-
-        .menu-grid { display: flex; gap: 40px; justify-content: center; margin-bottom: 60px; }
-        .menu-item {
-            width: 200px; height: 180px; background: rgba(255,255,255,0.1);
-            border-radius: 20px; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; cursor: pointer;
-            border: 3px solid transparent; transition: all 0.2s;
-        }
-        .menu-item.sel { background: rgba(233,69,96,0.3); border-color: #e94560; transform: scale(1.1); }
-        .menu-icon { font-size: 48px; margin-bottom: 15px; }
-        .menu-name { font-size: 24px; }
-
-        .home-info { color: #888; font-size: 18px; margin-bottom: 30px; }
-        .home-info span { margin: 0 20px; }
-
-        .list-container { width: 600px; }
-        .list-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(255,255,255,0.2); }
-        .back-arrow { font-size: 24px; margin-right: 15px; color: #e94560; }
-        .list-title { font-size: 32px; font-weight: bold; flex: 1; }
-        .list-count { background: #e94560; padding: 5px 15px; border-radius: 20px; font-size: 18px; }
-
-        .list-items { max-height: 600px; }
-        .list-item {
-            display: flex; align-items: center; padding: 15px 20px;
-            background: rgba(255,255,255,0.05); margin: 5px 0; border-radius: 10px;
-            border: 2px solid transparent;
-        }
-        .list-item.sel { background: rgba(233,69,96,0.3); border-color: #e94560; }
-        .list-item.playing { background: rgba(46,204,113,0.2); }
-        .item-num { width: 50px; color: #888; font-size: 18px; }
-        .item-name { flex: 1; font-size: 22px; }
-        .badge { background: #3498db; padding: 3px 8px; border-radius: 5px; font-size: 12px; margin-left: 10px; }
-        .now-playing { color: #2ecc71; margin-left: 10px; }
-
-        .settings-container { width: 500px; }
-        .settings-info { background: rgba(255,255,255,0.05); border-radius: 15px; padding: 30px; }
-        .setting-row { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 22px; }
-        .setting-row:last-child { border: none; }
-
-        .help { color: #666; font-size: 16px; margin-top: 30px; text-align: center; }
-
-        #osd {
-            display: none; position: fixed; bottom: 80px; left: 80px;
-            background: rgba(0,0,0,0.85); padding: 20px 40px;
-            font-size: 28px; border-radius: 10px;
-            border-left: 5px solid #e94560;
-        }
-        #vol {
-            display: none; position: fixed; top: 50%; left: 50%;
-            transform: translate(-50%,-50%); background: rgba(0,0,0,0.9);
-            padding: 25px 50px; font-size: 28px; border-radius: 15px;
-        }
+        body { background: #111; color: #fff; font-family: Arial; margin: 0; padding: 20px; }
+        .title { color: #e94560; font-size: 28px; margin-bottom: 20px; }
+        .ch { padding: 10px 15px; margin: 3px 0; background: #222; width: 400px; }
+        .sel { background: #e94560; }
+        .help { margin-top: 20px; color: #666; }
+        #osd { display: none; position: fixed; bottom: 50px; left: 50px; background: rgba(0,0,0,0.8); padding: 15px 25px; font-size: 24px; border-left: 4px solid #e94560; }
+        #vol { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.9); padding: 20px 40px; font-size: 24px; border-radius: 10px; }
     </style>
 </head>
 <body>
-    <div id="content"></div>
+    <div id="content">Cargando QuattreTV...</div>
     <div id="osd"></div>
     <div id="vol"></div>
 </body>
