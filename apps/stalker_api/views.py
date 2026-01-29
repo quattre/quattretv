@@ -29,8 +29,8 @@ def stb_portal_app(request):
     var player = null;
     var channels = [];
     var currentChannel = 0;
-    var isPlaying = false;
-    var isPreviewing = false;
+    var playingChannelIdx = -1; // canal que está reproduciéndose
+    var isFullscreen = false;
     var volume = 50;
     var volTimeout = null;
     var previewTimeout = null;
@@ -77,6 +77,38 @@ def stb_portal_app(request):
         xhr.send();
     }
 
+    function setViewportPreview() {
+        if (player) {
+            try {
+                player.fullscreen = false;
+                player.aspectConversion = 1;
+                player.setViewport({x: 980, y: 80, width: 880, height: 495});
+            } catch(err) {}
+        } else if (stbAPI) {
+            try { stbAPI.SetPIG(0, 128, 980, 80); } catch(err) {}
+        }
+    }
+
+    function setViewportFullscreen() {
+        if (player) {
+            try {
+                player.fullscreen = true;
+                player.setViewport({x: 0, y: 0, width: 1920, height: 1080});
+            } catch(err) {}
+        } else if (stbAPI) {
+            try { stbAPI.SetPIG(1, 256, 0, 0); } catch(err) {}
+        }
+    }
+
+    function playChannel(ch) {
+        if (player) {
+            try { player.play({uri: ch.cmd}); } catch(err) {}
+        } else if (stbAPI) {
+            try { stbAPI.Play(ch.cmd); } catch(err) {}
+        }
+        document.body.style.background = "transparent";
+    }
+
     function startPreview() {
         if (channels.length === 0) return;
         var ch = channels[currentChannel];
@@ -84,38 +116,18 @@ def stb_portal_app(request):
 
         clearTimeout(previewTimeout);
         previewTimeout = setTimeout(function() {
-            if (!isPlaying && player) {
-                try {
-                    player.stop();
-                    player.fullscreen = false;
-                    player.aspectConversion = 1; // letterbox - mantiene proporcion
-                    player.setViewport({x: 980, y: 80, width: 880, height: 495}); // 16:9
-                    player.play({uri: ch.cmd});
-                    isPreviewing = true;
-                    document.body.style.background = "transparent";
-                } catch(err) {}
-            } else if (!isPlaying && stbAPI) {
-                // Fallback a gSTB si stbPlayerManager no funciona
-                try {
-                    stbAPI.SetPIG(0, 128, 980, 80); // windowed, half size, right side
-                    stbAPI.Play(ch.cmd);
-                    isPreviewing = true;
-                    document.body.style.background = "transparent";
-                } catch(err) {}
+            if (!isFullscreen) {
+                // Si ya está reproduciendo el mismo canal, solo cambiar viewport
+                if (playingChannelIdx === currentChannel) {
+                    setViewportPreview();
+                } else {
+                    // Cambiar de canal
+                    setViewportPreview();
+                    playChannel(ch);
+                    playingChannelIdx = currentChannel;
+                }
             }
         }, 300);
-    }
-
-    function stopPreview() {
-        clearTimeout(previewTimeout);
-        if (isPreviewing) {
-            if (player) {
-                try { player.stop(); } catch(err) {}
-            } else if (stbAPI) {
-                try { stbAPI.Stop(); } catch(err) {}
-            }
-            isPreviewing = false;
-        }
     }
 
     function showChannels() {
@@ -131,46 +143,35 @@ def stb_portal_app(request):
         document.getElementById("content").innerHTML = h;
     }
 
-    function play(ch) {
+    function goFullscreen() {
+        var ch = channels[currentChannel];
         if (!ch || !ch.cmd) return;
-        stopPreview();
 
-        if (player) {
-            try {
-                player.fullscreen = true;
-                player.setViewport({x: 0, y: 0, width: 1920, height: 1080});
-                player.play({uri: ch.cmd});
-                isPlaying = true;
-                document.body.style.background = "transparent";
-                document.getElementById("content").style.display = "none";
-                document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
-            } catch(err) {}
-        } else if (stbAPI) {
-            try {
-                stbAPI.SetPIG(1, 256, 0, 0); // fullscreen
-                stbAPI.Play(ch.cmd);
-                isPlaying = true;
-                document.body.style.background = "transparent";
-                document.getElementById("content").style.display = "none";
-                document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
-            } catch(err) {}
+        clearTimeout(previewTimeout);
+
+        // Si ya está reproduciendo este canal, solo cambiar viewport
+        if (playingChannelIdx === currentChannel) {
+            setViewportFullscreen();
+        } else {
+            // Nuevo canal, reproducir
+            setViewportFullscreen();
+            playChannel(ch);
+            playingChannelIdx = currentChannel;
         }
+
+        isFullscreen = true;
+        document.getElementById("content").style.display = "none";
+        document.getElementById("osd").style.display = "block";
+        document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
     }
 
-    function stopPlay() {
-        if (player) {
-            try { player.stop(); } catch(err) {}
-        } else if (stbAPI) {
-            try { stbAPI.Stop(); } catch(err) {}
-        }
-        isPlaying = false;
-        document.body.style.background = "#111";
+    function showMenu() {
+        // Volver al menu sin parar reproduccion, solo cambiar viewport
+        setViewportPreview();
+        isFullscreen = false;
         document.getElementById("content").style.display = "block";
         document.getElementById("osd").style.display = "none";
         showChannels();
-        startPreview();
     }
 
     function showVolume() {
@@ -193,13 +194,26 @@ def stb_portal_app(request):
         var k = e.keyCode;
         if (k === 107) { adjustVolume(5); return false; }
         if (k === 109) { adjustVolume(-5); return false; }
-        if (isPlaying) {
+        if (isFullscreen) {
             if (k === 38 || k === 33) {
-                if (currentChannel > 0) { currentChannel--; play(channels[currentChannel]); }
+                // Cambiar canal en fullscreen
+                if (currentChannel > 0) {
+                    currentChannel--;
+                    var ch = channels[currentChannel];
+                    playChannel(ch);
+                    playingChannelIdx = currentChannel;
+                    document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
+                }
             } else if (k === 40 || k === 34) {
-                if (currentChannel < channels.length - 1) { currentChannel++; play(channels[currentChannel]); }
+                if (currentChannel < channels.length - 1) {
+                    currentChannel++;
+                    var ch = channels[currentChannel];
+                    playChannel(ch);
+                    playingChannelIdx = currentChannel;
+                    document.getElementById("osd").innerHTML = ch.number + ". " + ch.name;
+                }
             } else if (k === 8 || k === 27 || k === 13) {
-                stopPlay();
+                showMenu();
             }
         } else {
             if (k === 38 && currentChannel > 0) {
@@ -211,7 +225,7 @@ def stb_portal_app(request):
                 showChannels();
                 startPreview();
             } else if (k === 13 && channels.length > 0) {
-                play(channels[currentChannel]);
+                goFullscreen();
             }
         }
         return false;
