@@ -146,14 +146,6 @@ def stb_portal_app(request):
         }
         h += '</div>';
 
-        // Info del canal seleccionado
-        if (ch) {
-            h += '<div class="now-info">';
-            h += '<div class="now-channel">' + ch.number + '. ' + ch.name + '</div>';
-            if (ch.cur_playing) h += '<div class="now-epg">' + ch.cur_playing + '</div>';
-            h += '</div>';
-        }
-
         h += '<div class="help"><span>OK</span> Ver <span>▲▼</span> Navegar <span>VOL</span> Volumen</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
@@ -267,22 +259,18 @@ def stb_portal_app(request):
 
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
         .logo { font-size: 32px; font-weight: 300; color: #fff; }
-        .logo span { color: #e94560; font-weight: 700; }
-        .counter { background: rgba(233,69,96,0.2); color: #e94560; padding: 6px 14px; border-radius: 20px; font-size: 14px; }
+        .logo span { color: #00a651; font-weight: 700; }
+        .counter { background: rgba(0,166,81,0.2); color: #00a651; padding: 6px 14px; border-radius: 20px; font-size: 14px; }
 
         .list { margin-bottom: 15px; }
         .item { display: flex; align-items: center; padding: 12px 15px; margin: 4px 0; border-radius: 10px; background: rgba(255,255,255,0.03); border: 2px solid transparent; transition: all 0.15s; }
-        .item.sel { background: linear-gradient(90deg, rgba(233,69,96,0.3) 0%, rgba(233,69,96,0.1) 100%); border-color: #e94560; }
+        .item.sel { background: linear-gradient(90deg, rgba(0,166,81,0.3) 0%, rgba(0,166,81,0.1) 100%); border-color: #00a651; }
         .num { width: 45px; font-size: 18px; color: #666; font-weight: 600; }
-        .item.sel .num { color: #e94560; }
+        .item.sel .num { color: #00a651; }
         .info { flex: 1; overflow: hidden; }
         .name { font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .hd { background: #3498db; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
         .epg { font-size: 13px; color: #888; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .now-info { background: rgba(233,69,96,0.1); border-radius: 10px; padding: 15px; margin-bottom: 15px; border-left: 3px solid #e94560; }
-        .now-channel { font-size: 20px; font-weight: 600; margin-bottom: 5px; }
-        .now-epg { font-size: 14px; color: #aaa; }
 
         .help { text-align: center; color: #555; font-size: 13px; }
         .help span { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 5px; margin: 0 5px; color: #888; }
@@ -291,7 +279,7 @@ def stb_portal_app(request):
             display: none; position: fixed; bottom: 60px; left: 60px;
             background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
             padding: 20px 30px; border-radius: 12px;
-            border-left: 4px solid #e94560; min-width: 350px;
+            border-left: 4px solid #00a651; min-width: 350px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
         .osd-ch { font-size: 26px; font-weight: 600; }
@@ -431,14 +419,14 @@ def stb_loader_page(request):
     <style>
         body { background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%); margin: 0; padding: 0; font-family: Arial; min-height: 100vh; }
         .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        h1 { color: #e94560; font-size: 42px; margin-bottom: 5px; }
+        h1 { color: #00a651; font-size: 42px; margin-bottom: 5px; }
         h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
-        #msg { color: #e94560; font-size: 16px; margin: 15px; min-height: 20px; }
+        #msg { color: #00a651; font-size: 16px; margin: 15px; min-height: 20px; }
         #login { display: none; text-align: center; }
         input { font-size: 20px; padding: 12px 20px; width: 280px; margin: 8px 0; border: 2px solid #333; border-radius: 8px;
                 background: #0f0f23; color: #fff; }
-        input:focus { outline: none; border-color: #e94560; }
-        button { font-size: 18px; padding: 12px 50px; margin-top: 15px; background: #e94560; color: #fff;
+        input:focus { outline: none; border-color: #00a651; }
+        button { font-size: 18px; padding: 12px 50px; margin-top: 15px; background: #00a651; color: #fff;
                  border: none; border-radius: 8px; cursor: pointer; }
         button:hover, button:focus { background: #ff6b8a; }
     </style>
