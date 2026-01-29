@@ -37,6 +37,7 @@ def stb_portal_app(request):
     var volume = 50;
     var volTimeout = null;
     var screen = 'home'; // home, tv, radio, settings, fullscreen
+    var keyLock = false; // bloqueo temporal de teclas
 
     var menuItems = [
         {id: 'tv', name: 'Television', icon: 'TV'},
@@ -241,6 +242,11 @@ def stb_portal_app(request):
         showVolume();
     }
 
+    function lockKeys() {
+        keyLock = true;
+        setTimeout(function() { keyLock = false; }, 300);
+    }
+
     function handleKey(e) {
         var k = e.keyCode;
         e.preventDefault();
@@ -248,6 +254,9 @@ def stb_portal_app(request):
         // Volumen siempre disponible
         if (k === 107) { adjustVolume(5); return false; }
         if (k === 109) { adjustVolume(-5); return false; }
+
+        // Ignorar teclas si están bloqueadas
+        if (keyLock) return false;
 
         if (screen === 'fullscreen') {
             if (k === 38 || k === 33) { // Up - canal anterior
@@ -268,7 +277,8 @@ def stb_portal_app(request):
                     document.getElementById("osd").style.display = "block";
                     setTimeout(function() { document.getElementById("osd").style.display = "none"; }, 3000);
                 }
-            } else if (k === 8 || k === 27 || k === 13) { // Back/OK - volver a lista
+            } else if (k === 8 || k === 27) { // Back - volver a lista (sin OK)
+                lockKeys();
                 document.getElementById("content").style.display = "block";
                 document.getElementById("osd").style.display = "none";
                 if (playingType === 'tv') showTV();
@@ -283,6 +293,7 @@ def stb_portal_app(request):
                 menuIdx++;
                 showHome();
             } else if (k === 13) { // OK
+                lockKeys();
                 var sel = menuItems[menuIdx].id;
                 if (sel === 'tv') showTV();
                 else if (sel === 'radio') showRadio();
@@ -301,13 +312,16 @@ def stb_portal_app(request):
                 playItem(currentList[currentIdx], type);
                 showList(type === 'tv' ? 'Television' : 'Radio', type);
             } else if (k === 13) { // OK - fullscreen
+                lockKeys();
                 goFullscreen();
             } else if (k === 8 || k === 27) { // Back
+                lockKeys();
                 currentIdx = 0;
                 showHome();
             }
         } else if (screen === 'settings') {
             if (k === 8 || k === 27) { // Back
+                lockKeys();
                 showHome();
             }
         }
