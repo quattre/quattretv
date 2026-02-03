@@ -415,7 +415,7 @@ function refreshToken(deviceId) {
 function deleteDevice(deviceId) {
     if (confirm('Eliminar este dispositivo?')) {
         var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
-        fetch(`/portal/devices/${deviceId}/delete/`, {
+        fetch(`/devices/${deviceId}/delete/`, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': csrfToken,
