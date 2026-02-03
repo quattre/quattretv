@@ -571,9 +571,9 @@ def handle_login(request):
     # Get user's first active device, or create one
     device = user.devices.filter(is_active=True).first()
     if not device:
-        # Generate a unique MAC for this device
+        # Generate a unique MAC for this device (AA = LG prefix)
         import random
-        mac = 'LG:%02X:%02X:%02X:%02X:%02X' % (
+        mac = 'AA:%02X:%02X:%02X:%02X:%02X' % (
             random.randint(0, 255), random.randint(0, 255),
             random.randint(0, 255), random.randint(0, 255),
             random.randint(0, 255)
