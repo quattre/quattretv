@@ -26,48 +26,195 @@ def stb_portal_app(request):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1920, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>QuattreTV</title>
-    <script type="text/javascript">
-    var stbAPI = null;
-    var player = null;
-    var htmlPlayer = null; // video HTML5 para LG/navegadores
-    var channels = [];
-    var currentChannel = 0;
-    var playingChannelIdx = -1;
-    var isFullscreen = false;
-    var volume = 50;
-    var volTimeout = null;
-    var useHTML5 = false;
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0d0d1a; color: #fff; font-family: 'Segoe UI', Tahoma, Arial, sans-serif; width: 1920px; height: 1080px; overflow: hidden; }
+
+        /* Layout principal: sidebar izquierda + video derecha */
+        .app { display: flex; width: 1920px; height: 1080px; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 480px; height: 1080px;
+            background: linear-gradient(180deg, #111122 0%, #0a0a18 100%);
+            display: flex; flex-direction: column;
+            border-right: 1px solid rgba(255,255,255,0.06);
+            position: relative; z-index: 10;
+        }
+
+        /* Header con logo y reloj */
+        .sidebar-header {
+            padding: 28px 30px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-brand { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 28px; font-weight: 300; letter-spacing: 1px; }
+        .logo b { color: #00a651; font-weight: 800; }
+        .clock { color: rgba(255,255,255,0.4); font-size: 16px; font-weight: 300; }
+
+        /* Info del canal seleccionado */
+        .now-info {
+            padding: 18px 30px;
+            background: linear-gradient(90deg, rgba(0,166,81,0.12) 0%, transparent 100%);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .now-channel { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+        .now-channel .ch-num { color: #00a651; margin-right: 8px; }
+        .now-epg { color: rgba(255,255,255,0.5); font-size: 14px; }
+        .now-badge { display: inline-block; background: #00a651; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 10px; vertical-align: middle; }
+
+        /* Lista de canales */
+        .channel-list { flex: 1; overflow: hidden; padding: 8px 0; }
+        .ch-item {
+            display: flex; align-items: center; padding: 11px 30px; margin: 2px 12px;
+            border-radius: 8px; cursor: pointer; transition: all 0.12s;
+            border: 1px solid transparent;
+        }
+        .ch-item:hover { background: rgba(255,255,255,0.04); }
+        .ch-item.active {
+            background: linear-gradient(90deg, rgba(0,166,81,0.25) 0%, rgba(0,166,81,0.08) 100%);
+            border-color: rgba(0,166,81,0.4);
+        }
+        .ch-item .ch-number {
+            width: 36px; font-size: 15px; color: rgba(255,255,255,0.3);
+            font-weight: 600; text-align: right; margin-right: 16px;
+        }
+        .ch-item.active .ch-number { color: #00a651; }
+        .ch-logo {
+            width: 40px; height: 40px; border-radius: 8px; margin-right: 14px;
+            background: rgba(255,255,255,0.06); display: flex; align-items: center;
+            justify-content: center; overflow: hidden; flex-shrink: 0;
+        }
+        .ch-logo img { width: 100%; height: 100%; object-fit: contain; }
+        .ch-logo-text { font-size: 11px; color: rgba(255,255,255,0.3); text-align: center; line-height: 1.1; }
+        .ch-details { flex: 1; overflow: hidden; }
+        .ch-name {
+            font-size: 16px; font-weight: 500; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .ch-item.active .ch-name { color: #fff; }
+        .ch-program {
+            font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ch-badges { display: flex; gap: 6px; margin-left: 10px; flex-shrink: 0; }
+        .badge-hd { background: #2980b9; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; }
+        .badge-live { background: #e74c3c; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; }
+
+        /* Footer sidebar */
+        .sidebar-footer {
+            padding: 16px 30px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            display: flex; justify-content: center; gap: 24px;
+        }
+        .sidebar-footer .key {
+            display: inline-flex; align-items: center; gap: 6px;
+            color: rgba(255,255,255,0.3); font-size: 12px;
+        }
+        .sidebar-footer .key kbd {
+            background: rgba(255,255,255,0.08); padding: 3px 10px;
+            border-radius: 5px; font-family: inherit; font-size: 11px;
+            color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Area de video */
+        .video-area {
+            flex: 1; height: 1080px; position: relative; background: #000;
+        }
+        #html5video {
+            width: 100%; height: 100%; object-fit: contain; background: #000;
+        }
+
+        /* Overlay de info sobre video (esquina superior) */
+        .video-overlay {
+            position: absolute; top: 24px; left: 24px; right: 24px;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            pointer-events: none; z-index: 5;
+        }
+        .video-tag {
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+            padding: 8px 16px; border-radius: 8px; font-size: 13px;
+            color: rgba(255,255,255,0.7);
+        }
+        .video-tag b { color: #00a651; }
+        .video-live {
+            background: #e74c3c; padding: 6px 14px; border-radius: 6px;
+            font-size: 12px; font-weight: 700; letter-spacing: 1px;
+        }
+
+        /* OSD fullscreen */
+        #osd {
+            display: none; position: fixed; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, transparent 100%);
+            padding: 40px 60px; z-index: 20;
+        }
+        .osd-inner { max-width: 800px; }
+        .osd-ch { font-size: 32px; font-weight: 600; margin-bottom: 6px; }
+        .osd-ch .osd-num { color: #00a651; margin-right: 10px; }
+        .osd-epg { font-size: 18px; color: rgba(255,255,255,0.5); }
+        .osd-hint { margin-top: 12px; font-size: 13px; color: rgba(255,255,255,0.25); }
+
+        /* Volumen */
+        #vol {
+            display: none; position: fixed; top: 50%; right: 60px;
+            transform: translateY(-50%); z-index: 30;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+            padding: 20px 24px; border-radius: 12px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .vol-icon { font-size: 24px; margin-bottom: 10px; }
+        .vol-bar { width: 6px; height: 150px; background: rgba(255,255,255,0.1); border-radius: 3px; margin: 0 auto; position: relative; }
+        .vol-fill { position: absolute; bottom: 0; width: 100%; background: #00a651; border-radius: 3px; transition: height 0.15s; }
+        .vol-num { margin-top: 10px; font-size: 16px; font-weight: 600; }
+
+        /* Loading */
+        .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; }
+        .loading-spinner { width: 40px; height: 40px; border: 3px solid rgba(0,166,81,0.2); border-top-color: #00a651; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: rgba(255,255,255,0.4); font-size: 14px; margin-top: 16px; }
+
+        /* Scrollbar oculto */
+        .channel-list::-webkit-scrollbar { display: none; }
+    </style>
+    <script>
+    var stbAPI = null, player = null, htmlPlayer = null;
+    var channels = [], currentChannel = 0, playingChannelIdx = -1;
+    var isFullscreen = false, volume = 50, volTimeout = null, osdTimeout = null;
+    var useHTML5 = false, VISIBLE_ITEMS = 12;
 
     function init() {
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
             try {
-                stbAPI.InitPlayer();
-                stbAPI.SetViewport(0, 0, 1920, 1080);
-                stbAPI.SetWinMode(0, 1);
-                stbAPI.SetTopWin(1);
+                stbAPI.InitPlayer(); stbAPI.SetViewport(0,0,1920,1080);
+                stbAPI.SetWinMode(0,1); stbAPI.SetTopWin(1);
                 stbAPI.SetTransparentColor(0x000000);
                 volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50;
-            } catch(err) {}
+            } catch(e) {}
         } else if (typeof stb !== "undefined") {
             stbAPI = stb;
-            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
+            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(e) {}
         }
-
-        // Try to get stbPlayerManager
         if (typeof stbPlayerManager !== "undefined" && stbPlayerManager.list && stbPlayerManager.list[0]) {
             player = stbPlayerManager.list[0];
         }
-
-        // Si no hay API de STB, usar video HTML5
         if (!stbAPI && !player) {
             useHTML5 = true;
             htmlPlayer = document.getElementById('html5video');
-            htmlPlayer.style.display = 'block';
             htmlPlayer.volume = volume / 100;
         }
-
+        updateClock();
+        setInterval(updateClock, 30000);
         loadData();
+    }
+
+    function updateClock() {
+        var el = document.getElementById('clock');
+        if (!el) return;
+        var d = new Date();
+        var h = d.getHours().toString().padStart(2,'0');
+        var m = d.getMinutes().toString().padStart(2,'0');
+        el.textContent = h + ':' + m;
     }
 
     function loadData() {
@@ -78,250 +225,262 @@ def stb_portal_app(request):
                     var r = JSON.parse(xhr.responseText);
                     if (r.js && r.js.data) {
                         channels = r.js.data;
-                        showChannels();
+                        renderList();
+                        updateNowInfo();
                         startPreview();
                     }
-                } catch(err) {}
+                } catch(e) {}
             }
         };
         xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
         xhr.send();
     }
 
+    // === Video control ===
+    function playChannel(ch) {
+        if (useHTML5) {
+            var url = ch.cmd.replace('ffmpeg ','').replace('ffrt ','');
+            htmlPlayer.src = url;
+            htmlPlayer.play().catch(function(e){});
+        } else if (player) {
+            try { player.play({uri: ch.cmd}); } catch(e) {}
+        } else if (stbAPI) {
+            try { stbAPI.Play(ch.cmd); } catch(e) {}
+        }
+    }
+
     function setViewportPreview() {
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:80px;left:980px;width:880px;height:495px;z-index:0;background:#000;';
+            htmlPlayer.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;';
         } else if (player) {
-            try {
-                player.fullscreen = false;
-                player.aspectConversion = 1;
-                player.setViewport({x: 980, y: 80, width: 880, height: 495});
-            } catch(err) {}
+            try { player.fullscreen=false; player.setViewport({x:480,y:0,width:1440,height:1080}); } catch(e) {}
         } else if (stbAPI) {
-            try { stbAPI.SetPIG(0, 128, 980, 80); } catch(err) {}
+            try { stbAPI.SetPIG(0,128,480,0); } catch(e) {}
         }
     }
 
     function setViewportFullscreen() {
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:1920px;height:1080px;z-index:0;background:#000;';
+            var v = document.getElementById('html5video');
+            v.style.cssText = 'position:fixed;top:0;left:0;width:1920px;height:1080px;z-index:0;background:#000;';
         } else if (player) {
-            try {
-                player.fullscreen = true;
-                player.setViewport({x: 0, y: 0, width: 1920, height: 1080});
-            } catch(err) {}
+            try { player.fullscreen=true; player.setViewport({x:0,y:0,width:1920,height:1080}); } catch(e) {}
         } else if (stbAPI) {
-            try { stbAPI.SetPIG(1, 256, 0, 0); } catch(err) {}
+            try { stbAPI.SetPIG(1,256,0,0); } catch(e) {}
         }
-    }
-
-    function playChannel(ch) {
-        if (useHTML5) {
-            var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
-            htmlPlayer.src = url;
-            htmlPlayer.play().catch(function(e) { console.log('Play error:', e); });
-        } else if (player) {
-            try { player.play({uri: ch.cmd}); } catch(err) {}
-        } else if (stbAPI) {
-            try { stbAPI.Play(ch.cmd); } catch(err) {}
-        }
-        document.body.style.background = "transparent";
     }
 
     function startPreview() {
         if (channels.length === 0 || isFullscreen) return;
         var ch = channels[currentChannel];
         if (!ch || !ch.cmd) return;
-
-        // Si ya está reproduciendo el mismo canal, solo cambiar viewport
         if (playingChannelIdx === currentChannel) {
             setViewportPreview();
         } else {
-            // Cambiar de canal
             setViewportPreview();
             playChannel(ch);
             playingChannelIdx = currentChannel;
         }
     }
 
-    function showChannels() {
-        var ch = channels[currentChannel];
-        var h = '<div class="panel">';
-        h += '<div class="header"><div class="logo">Quattre<span>TV</span></div>';
-        h += '<div class="counter">' + channels.length + ' canales</div></div>';
+    // === UI rendering ===
+    function renderList() {
+        var list = document.getElementById('channelList');
+        var start = Math.max(0, currentChannel - Math.floor(VISIBLE_ITEMS/2));
+        var end = Math.min(channels.length, start + VISIBLE_ITEMS);
+        if (end - start < VISIBLE_ITEMS) start = Math.max(0, end - VISIBLE_ITEMS);
 
-        h += '<div class="list">';
-        var start = Math.max(0, currentChannel - 3);
-        var end = Math.min(channels.length, start + 7);
+        var h = '';
         for (var i = start; i < end; i++) {
             var c = channels[i];
-            var cls = (i === currentChannel) ? "item sel" : "item";
+            var cls = (i === currentChannel) ? 'ch-item active' : 'ch-item';
             h += '<div class="' + cls + '">';
-            h += '<div class="num">' + c.number + '</div>';
-            h += '<div class="info"><div class="name">' + c.name;
-            if (c.hd) h += ' <span class="hd">HD</span>';
+            h += '<div class="ch-number">' + c.number + '</div>';
+            h += '<div class="ch-logo">';
+            if (c.logo) {
+                h += '<img src="' + c.logo + '" onerror="this.style.display=\\'none\\';this.nextSibling.style.display=\\'block\\'">';
+                h += '<span class="ch-logo-text" style="display:none">' + c.name.substring(0,3) + '</span>';
+            } else {
+                h += '<span class="ch-logo-text">' + c.name.substring(0,3) + '</span>';
+            }
             h += '</div>';
-            if (c.cur_playing) h += '<div class="epg">' + c.cur_playing + '</div>';
-            h += '</div></div>';
+            h += '<div class="ch-details">';
+            h += '<div class="ch-name">' + c.name + '</div>';
+            if (c.cur_playing) h += '<div class="ch-program">' + c.cur_playing + '</div>';
+            h += '</div>';
+            h += '<div class="ch-badges">';
+            if (c.hd) h += '<span class="badge-hd">HD</span>';
+            h += '</div>';
+            h += '</div>';
         }
-        h += '</div>';
-
-        h += '<div class="help"><span>OK</span> Ver <span>▲▼</span> Navegar <span>VOL</span> Volumen</div>';
-        h += '</div>';
-        document.getElementById("content").innerHTML = h;
+        list.innerHTML = h;
     }
 
+    function updateNowInfo() {
+        var ch = channels[currentChannel];
+        if (!ch) return;
+        var info = document.getElementById('nowInfo');
+        var numHtml = '<span class="ch-num">' + ch.number + '</span>' + ch.name;
+        if (ch.hd) numHtml += '<span class="now-badge">HD</span>';
+        document.getElementById('nowChannel').innerHTML = numHtml;
+        document.getElementById('nowEpg').textContent = ch.cur_playing || '';
+        // Video overlay
+        document.getElementById('videoChName').innerHTML = '<b>' + ch.number + '</b> ' + ch.name;
+    }
+
+    // === Fullscreen ===
     function goFullscreen() {
         var ch = channels[currentChannel];
         if (!ch || !ch.cmd) return;
-
-        // Si ya está reproduciendo este canal, solo cambiar viewport
-        if (playingChannelIdx === currentChannel) {
-            setViewportFullscreen();
-        } else {
-            // Nuevo canal, reproducir
-            setViewportFullscreen();
-            playChannel(ch);
-            playingChannelIdx = currentChannel;
-        }
-
+        if (playingChannelIdx !== currentChannel) { playChannel(ch); playingChannelIdx = currentChannel; }
+        setViewportFullscreen();
         isFullscreen = true;
-        document.getElementById("content").style.display = "none";
-        document.getElementById("osd").style.display = "block";
-        var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
-        if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
-        document.getElementById("osd").innerHTML = osdHtml;
+        document.getElementById('appContainer').style.display = 'none';
+        showOSD();
+    }
+
+    function showOSD() {
+        var ch = channels[currentChannel];
+        if (!ch) return;
+        var osd = document.getElementById('osd');
+        var numHtml = '<span class="osd-num">' + ch.number + '</span>' + ch.name;
+        document.querySelector('.osd-ch').innerHTML = numHtml;
+        document.querySelector('.osd-epg').textContent = ch.cur_playing || '';
+        osd.style.display = 'block';
+        clearTimeout(osdTimeout);
+        osdTimeout = setTimeout(function() { osd.style.display = 'none'; }, 4000);
     }
 
     function showMenu() {
-        // Volver al menu sin parar reproduccion, solo cambiar viewport
-        setViewportPreview();
         isFullscreen = false;
-        document.getElementById("content").style.display = "block";
-        document.getElementById("osd").style.display = "none";
-        showChannels();
+        document.getElementById('appContainer').style.display = 'flex';
+        document.getElementById('osd').style.display = 'none';
+        if (useHTML5) {
+            var v = document.getElementById('html5video');
+            v.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;';
+            document.getElementById('videoArea').appendChild(v);
+        }
+        setViewportPreview();
+        renderList();
+        updateNowInfo();
     }
 
+    // === Volume ===
     function showVolume() {
-        var v = document.getElementById("vol");
-        v.innerHTML = "Vol: " + volume;
-        v.style.display = "block";
+        var v = document.getElementById('vol');
+        document.querySelector('.vol-fill').style.height = volume + '%';
+        document.querySelector('.vol-num').textContent = volume;
+        v.style.display = 'block';
         clearTimeout(volTimeout);
-        volTimeout = setTimeout(function() { v.style.display = "none"; }, 2000);
+        volTimeout = setTimeout(function() { v.style.display = 'none'; }, 2000);
     }
 
     function adjustVolume(delta) {
         volume = Math.max(0, Math.min(100, volume + delta));
-        if (useHTML5 && htmlPlayer) {
-            htmlPlayer.volume = volume / 100;
-        } else if (stbAPI && stbAPI.SetVolume) {
-            try { stbAPI.SetVolume(volume); } catch(err) {}
-        }
+        if (useHTML5 && htmlPlayer) htmlPlayer.volume = volume / 100;
+        else if (stbAPI && stbAPI.SetVolume) { try { stbAPI.SetVolume(volume); } catch(e) {} }
         showVolume();
     }
 
+    // === Keys ===
     function handleKey(e) {
         var k = e.keyCode;
-        if (k === 107) { adjustVolume(5); return false; }
-        if (k === 109) { adjustVolume(-5); return false; }
+        // Volume: + / -
+        if (k === 107 || k === 175) { adjustVolume(5); e.preventDefault(); return false; }
+        if (k === 109 || k === 174) { adjustVolume(-5); e.preventDefault(); return false; }
+
         if (isFullscreen) {
-            if (k === 38 || k === 33) {
-                // Cambiar canal en fullscreen
+            if (k === 38 || k === 33) { // Up / PageUp
                 if (currentChannel > 0) {
                     currentChannel--;
-                    var ch = channels[currentChannel];
-                    playChannel(ch);
+                    playChannel(channels[currentChannel]);
                     playingChannelIdx = currentChannel;
-                    var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
-                    if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
-                    document.getElementById("osd").innerHTML = osdHtml;
+                    showOSD();
                 }
-            } else if (k === 40 || k === 34) {
+            } else if (k === 40 || k === 34) { // Down / PageDown
                 if (currentChannel < channels.length - 1) {
                     currentChannel++;
-                    var ch = channels[currentChannel];
-                    playChannel(ch);
+                    playChannel(channels[currentChannel]);
                     playingChannelIdx = currentChannel;
-                    var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
-                    if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
-                    document.getElementById("osd").innerHTML = osdHtml;
+                    showOSD();
                 }
-            } else if (k === 8 || k === 27 || k === 13) {
+            } else if (k === 8 || k === 27 || k === 461) { // Back
                 showMenu();
+            } else if (k === 13) { // OK - show/hide OSD
+                var osd = document.getElementById('osd');
+                if (osd.style.display === 'none' || !osd.style.display) showOSD();
+                else osd.style.display = 'none';
             }
         } else {
             if (k === 38 && currentChannel > 0) {
                 currentChannel--;
-                showChannels();
-                startPreview();
+                renderList(); updateNowInfo(); startPreview();
             } else if (k === 40 && currentChannel < channels.length - 1) {
                 currentChannel++;
-                showChannels();
-                startPreview();
+                renderList(); updateNowInfo(); startPreview();
             } else if (k === 13 && channels.length > 0) {
                 goFullscreen();
             }
         }
+        e.preventDefault();
         return false;
     }
 
     document.onkeydown = handleKey;
     window.onload = init;
     </script>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; width: 1920px; height: 1080px; overflow: hidden; }
-
-        .panel {
-            position: fixed; top: 40px; left: 40px; width: 520px;
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            border-radius: 16px; padding: 25px; border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        }
-
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .logo { font-size: 32px; font-weight: 300; color: #fff; }
-        .logo span { color: #00a651; font-weight: 700; }
-        .counter { background: rgba(0,166,81,0.2); color: #00a651; padding: 6px 14px; border-radius: 20px; font-size: 14px; }
-
-        .list { margin-bottom: 15px; }
-        .item { display: flex; align-items: center; padding: 12px 15px; margin: 4px 0; border-radius: 10px; background: rgba(255,255,255,0.03); border: 2px solid transparent; transition: all 0.15s; }
-        .item.sel { background: linear-gradient(90deg, rgba(0,166,81,0.3) 0%, rgba(0,166,81,0.1) 100%); border-color: #00a651; }
-        .num { width: 45px; font-size: 18px; color: #666; font-weight: 600; }
-        .item.sel .num { color: #00a651; }
-        .info { flex: 1; overflow: hidden; }
-        .name { font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .hd { background: #3498db; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .epg { font-size: 13px; color: #888; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .help { text-align: center; color: #555; font-size: 13px; }
-        .help span { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 5px; margin: 0 5px; color: #888; }
-
-        #osd {
-            display: none; position: fixed; bottom: 60px; left: 60px;
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            padding: 20px 30px; border-radius: 12px;
-            border-left: 4px solid #00a651; min-width: 350px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-        .osd-ch { font-size: 26px; font-weight: 600; }
-        .osd-epg { font-size: 16px; color: #aaa; margin-top: 8px; }
-
-        #vol {
-            display: none; position: fixed; top: 50%; left: 50%;
-            transform: translate(-50%,-50%);
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            padding: 25px 50px; font-size: 28px; border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-    </style>
 </head>
 <body>
-    <video id="html5video" autoplay playsinline style="position:fixed;top:80px;left:980px;width:880px;height:495px;z-index:0;background:#000;display:none;"></video>
-    <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
-    <div id="osd" style="position:relative;z-index:10;"></div>
-    <div id="vol" style="z-index:20;"></div>
+    <div class="app" id="appContainer">
+        <!-- Sidebar izquierda -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="logo"><b>Quattre</b>TV</div>
+                    <div class="clock" id="clock">--:--</div>
+                </div>
+            </div>
+            <div class="now-info" id="nowInfo">
+                <div class="now-channel" id="nowChannel">Cargando...</div>
+                <div class="now-epg" id="nowEpg"></div>
+            </div>
+            <div class="channel-list" id="channelList">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Cargando canales...</div>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <div class="key"><kbd>OK</kbd> Ver</div>
+                <div class="key"><kbd>&#9650;&#9660;</kbd> Navegar</div>
+                <div class="key"><kbd>VOL</kbd> Volumen</div>
+            </div>
+        </div>
+        <!-- Area de video -->
+        <div class="video-area" id="videoArea">
+            <video id="html5video" autoplay playsinline></video>
+            <div class="video-overlay">
+                <div class="video-tag" id="videoChName"></div>
+                <div class="video-live">EN DIRECTO</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OSD fullscreen -->
+    <div id="osd">
+        <div class="osd-inner">
+            <div class="osd-ch"></div>
+            <div class="osd-epg"></div>
+            <div class="osd-hint">OK info &middot; &#9650;&#9660; cambiar canal &middot; BACK volver</div>
+        </div>
+    </div>
+
+    <!-- Volumen -->
+    <div id="vol">
+        <div class="vol-icon">&#128266;</div>
+        <div class="vol-bar"><div class="vol-fill" style="height:50%"></div></div>
+        <div class="vol-num">50</div>
+    </div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
