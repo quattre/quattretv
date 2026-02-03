@@ -583,6 +583,7 @@ def handle_login(request):
             mac_address=mac,
             is_active=True,
             name='LG TV - ' + user.username,
+            device_type='lg',
         )
 
     return stalker_response({

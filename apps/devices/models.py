@@ -11,6 +11,8 @@ class DeviceType(models.TextChoices):
     MAG = 'mag', 'MAG STB'
     ANDROID = 'android', 'Android'
     IOS = 'ios', 'iOS'
+    LG = 'lg', 'LG TV'
+    SAMSUNG = 'samsung', 'Samsung TV'
     SMART_TV = 'smart_tv', 'Smart TV'
     WEB = 'web', 'Web Browser'
     OTHER = 'other', 'Other'
