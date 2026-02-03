@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head><title>Generar iconos QuattreTV</title></head>
+<body style="background:#333; color:#fff; font-family:Arial; padding:40px;">
+<h2>Generar iconos para la app LG webOS</h2>
+<p>Haz clic en cada botón para descargar el icono correspondiente.</p>
+
+<canvas id="icon80" width="80" height="80" style="border:1px solid #555; margin:10px;"></canvas>
+<button onclick="download('icon80', 'icon.png')">Descargar icon.png (80x80)</button>
+<br><br>
+
+<canvas id="icon130" width="130" height="130" style="border:1px solid #555; margin:10px;"></canvas>
+<button onclick="download('icon130', 'largeIcon.png')">Descargar largeIcon.png (130x130)</button>
+<br><br>
+
+<canvas id="splash" width="1920" height="1080" style="border:1px solid #555; margin:10px; width:480px; height:270px;"></canvas>
+<button onclick="download('splash', 'splash.png')">Descargar splash.png (1920x1080)</button>
+
+<script>
+function drawIcon(canvasId, size) {
+    var c = document.getElementById(canvasId);
+    var ctx = c.getContext('2d');
+    var w = c.width, h = c.height;
+
+    // Background
+    var grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#1a1a2e');
+    grad.addColorStop(1, '#0f3460');
+    ctx.fillStyle = grad;
+
+    // Rounded rect
+    var r = w * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(w - r, 0);
+    ctx.quadraticCurveTo(w, 0, w, r);
+    ctx.lineTo(w, h - r);
+    ctx.quadraticCurveTo(w, h, w - r, h);
+    ctx.lineTo(r, h);
+    ctx.quadraticCurveTo(0, h, 0, h - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Text
+    var fontSize = w * 0.28;
+    ctx.font = '800 ' + fontSize + 'px Arial';
+    ctx.fillStyle = '#00a651';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Q', w * 0.35, h * 0.48);
+
+    ctx.font = '300 ' + fontSize + 'px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('TV', w * 0.7, h * 0.48);
+
+    // Underline accent
+    ctx.fillStyle = '#00a651';
+    ctx.fillRect(w * 0.15, h * 0.72, w * 0.7, h * 0.04);
+}
+
+function drawSplash() {
+    var c = document.getElementById('splash');
+    var ctx = c.getContext('2d');
+    var w = 1920, h = 1080;
+
+    // Background
+    var grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, '#1a1a2e');
+    grad.addColorStop(0.5, '#16213e');
+    grad.addColorStop(1, '#0f3460');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Logo
+    ctx.font = '800 120px Arial';
+    ctx.fillStyle = '#00a651';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Quattre', w / 2 - 60, h / 2 - 20);
+
+    ctx.font = '300 120px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('TV', w / 2 + 230, h / 2 - 20);
+
+    // Subtitle
+    ctx.font = '300 28px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.letterSpacing = '6px';
+    ctx.fillText('QUATTRE INTERNET SL', w / 2, h / 2 + 60);
+
+    // Accent line
+    ctx.fillStyle = '#00a651';
+    ctx.fillRect(w / 2 - 100, h / 2 + 100, 200, 3);
+}
+
+drawIcon('icon80', 80);
+drawIcon('icon130', 130);
+drawSplash();
+
+function download(canvasId, filename) {
+    var c = document.getElementById(canvasId);
+    var a = document.createElement('a');
+    a.download = filename;
+    a.href = c.toDataURL('image/png');
+    a.click();
+}
+</script>
+</body>
+</html>

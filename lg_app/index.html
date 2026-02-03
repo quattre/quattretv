@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0">
+    <title>QuattreTV</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            overflow: hidden;
+            width: 1920px;
+            height: 1080px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .splash-logo {
+            font-size: 72px;
+            font-weight: 800;
+            color: #00a651;
+            text-shadow: 0 0 30px rgba(0, 166, 81, 0.5);
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        .splash-logo span {
+            color: #ffffff;
+            font-weight: 300;
+        }
+
+        .splash-subtitle {
+            font-size: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 40px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .splash-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 166, 81, 0.2);
+            border-top-color: #00a651;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .splash-status {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 16px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="splash-logo">Quattre<span>TV</span></div>
+    <div class="splash-subtitle">Quattre Internet SL</div>
+    <div class="splash-spinner"></div>
+    <div class="splash-status" id="splash-status">Conectando...</div>
+
+    <script>
+        // URL del portal
+        var PORTAL_URL = 'http://iptv1.quattre.com:8000/quattretv/stb/';
+
+        window.onload = function () {
+            document.getElementById('splash-status').textContent = 'Cargando QuattreTV...';
+            // Mostrar splash 1.5 segundos y redirigir al portal
+            setTimeout(function () {
+                window.location.href = PORTAL_URL;
+            }, 1500);
+        };
+    </script>
+</body>
+</html>

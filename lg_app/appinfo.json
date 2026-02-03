@@ -1,0 +1,18 @@
+{
+  "id": "com.quattre.tv",
+  "version": "1.0.0",
+  "vendor": "Quattre Internet SL",
+  "type": "web",
+  "main": "index.html",
+  "title": "QuattreTV",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "black",
+  "resolution": "1920x1080",
+  "transparent": false,
+  "handlesRelaunch": false,
+  "disableBackHistoryAPI": true,
+  "requiredPermissions": [
+    "all"
+  ]
+}
