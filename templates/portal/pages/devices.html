@@ -85,6 +85,8 @@
                 <option value="mag" {% if request.GET.type == 'mag' %}selected{% endif %}>MAG STB</option>
                 <option value="android" {% if request.GET.type == 'android' %}selected{% endif %}>Android</option>
                 <option value="ios" {% if request.GET.type == 'ios' %}selected{% endif %}>iOS</option>
+                <option value="lg" {% if request.GET.type == 'lg' %}selected{% endif %}>LG TV</option>
+                <option value="samsung" {% if request.GET.type == 'samsung' %}selected{% endif %}>Samsung TV</option>
                 <option value="smart_tv" {% if request.GET.type == 'smart_tv' %}selected{% endif %}>Smart TV</option>
             </select>
         </div>
@@ -145,6 +147,14 @@
                         {% elif device.device_type == 'ios' %}
                             <span class="px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700 inline-flex items-center gap-1">
                                 <i class="bi bi-apple"></i> iOS
+                            </span>
+                        {% elif device.device_type == 'lg' %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-red-100 text-red-700 inline-flex items-center gap-1">
+                                <i class="bi bi-tv"></i> LG TV
+                            </span>
+                        {% elif device.device_type == 'samsung' %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-blue-100 text-blue-700 inline-flex items-center gap-1">
+                                <i class="bi bi-tv"></i> Samsung TV
                             </span>
                         {% elif device.device_type == 'smart_tv' %}
                             <span class="px-3 py-1 text-xs rounded-full bg-cyan-100 text-cyan-700 inline-flex items-center gap-1">
@@ -272,6 +282,8 @@
                             <option value="mag">MAG STB</option>
                             <option value="android">Android</option>
                             <option value="ios">iOS</option>
+                            <option value="lg">LG TV</option>
+                            <option value="samsung">Samsung TV</option>
                             <option value="smart_tv">Smart TV</option>
                             <option value="web">Web Browser</option>
                             <option value="other">Otro</option>
@@ -402,13 +414,22 @@ function refreshToken(deviceId) {
 
 function deleteDevice(deviceId) {
     if (confirm('Eliminar este dispositivo?')) {
+        var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
         fetch(`/portal/devices/${deviceId}/delete/`, {
             method: 'POST',
-            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            credentials: 'same-origin'
         }).then(response => {
             if (response.ok) {
                 location.reload();
+            } else {
+                alert('Error al eliminar: ' + response.status);
             }
+        }).catch(err => {
+            alert('Error de conexión: ' + err);
         });
     }
 }

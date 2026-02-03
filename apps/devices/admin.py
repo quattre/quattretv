@@ -2,13 +2,6 @@ from django.contrib import admin
 from .models import Device, DeviceMessage
 
 
-def delete_selected_devices(modeladmin, request, queryset):
-    count = queryset.count()
-    queryset.delete()
-    modeladmin.message_user(request, f'{count} dispositivo(s) eliminado(s).')
-delete_selected_devices.short_description = 'Eliminar dispositivos seleccionados'
-
-
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
     list_display = (
@@ -18,7 +11,6 @@ class DeviceAdmin(admin.ModelAdmin):
     list_filter = ('device_type', 'is_active', 'last_seen')
     search_fields = ('mac_address', 'serial_number', 'user__username', 'name')
     readonly_fields = ('token', 'token_expires', 'last_seen', 'created_at', 'updated_at')
-    actions = [delete_selected_devices, 'delete_selected']
 
     fieldsets = (
         ('Device Info', {
@@ -38,6 +30,9 @@ class DeviceAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+    def has_delete_permission(self, request, obj=None):
+        return True
 
 
 @admin.register(DeviceMessage)
