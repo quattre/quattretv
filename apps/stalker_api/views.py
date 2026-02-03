@@ -23,6 +23,8 @@ def stb_portal_app(request):
     html = '''<!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>QuattreTV</title>
     <script type="text/javascript">
     var stbAPI = null;
@@ -248,7 +250,8 @@ def stb_portal_app(request):
     </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; width: 1920px; height: 1080px; overflow: hidden; }
 
         .panel {
             position: fixed; top: 40px; left: 40px; width: 520px;
