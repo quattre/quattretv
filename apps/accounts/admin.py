@@ -1,6 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, Tariff, UserSession
+from apps.devices.models import Device
+
+
+class DeviceInline(admin.TabularInline):
+    model = Device
+    extra = 0
+    fields = ('mac_address', 'name', 'device_type', 'is_active', 'last_seen', 'last_ip')
+    readonly_fields = ('last_seen', 'last_ip')
 
 
 @admin.register(User)
@@ -26,6 +34,7 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('parental_password',)
         }),
     )
+    inlines = [DeviceInline]
 
 
 @admin.register(Tariff)
