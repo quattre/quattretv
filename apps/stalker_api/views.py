@@ -29,12 +29,14 @@ def stb_portal_app(request):
     <script type="text/javascript">
     var stbAPI = null;
     var player = null;
+    var htmlPlayer = null; // video HTML5 para LG/navegadores
     var channels = [];
     var currentChannel = 0;
-    var playingChannelIdx = -1; // canal que está reproduciéndose
+    var playingChannelIdx = -1;
     var isFullscreen = false;
     var volume = 50;
     var volTimeout = null;
+    var useHTML5 = false;
 
     function init() {
         if (typeof gSTB !== "undefined") {
@@ -55,6 +57,14 @@ def stb_portal_app(request):
         // Try to get stbPlayerManager
         if (typeof stbPlayerManager !== "undefined" && stbPlayerManager.list && stbPlayerManager.list[0]) {
             player = stbPlayerManager.list[0];
+        }
+
+        // Si no hay API de STB, usar video HTML5
+        if (!stbAPI && !player) {
+            useHTML5 = true;
+            htmlPlayer = document.getElementById('html5video');
+            htmlPlayer.style.display = 'block';
+            htmlPlayer.volume = volume / 100;
         }
 
         loadData();
@@ -79,7 +89,9 @@ def stb_portal_app(request):
     }
 
     function setViewportPreview() {
-        if (player) {
+        if (useHTML5) {
+            htmlPlayer.style.cssText = 'position:fixed;top:80px;left:980px;width:880px;height:495px;z-index:0;background:#000;';
+        } else if (player) {
             try {
                 player.fullscreen = false;
                 player.aspectConversion = 1;
@@ -91,7 +103,9 @@ def stb_portal_app(request):
     }
 
     function setViewportFullscreen() {
-        if (player) {
+        if (useHTML5) {
+            htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:1920px;height:1080px;z-index:0;background:#000;';
+        } else if (player) {
             try {
                 player.fullscreen = true;
                 player.setViewport({x: 0, y: 0, width: 1920, height: 1080});
@@ -102,7 +116,11 @@ def stb_portal_app(request):
     }
 
     function playChannel(ch) {
-        if (player) {
+        if (useHTML5) {
+            var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
+            htmlPlayer.src = url;
+            htmlPlayer.play().catch(function(e) { console.log('Play error:', e); });
+        } else if (player) {
             try { player.play({uri: ch.cmd}); } catch(err) {}
         } else if (stbAPI) {
             try { stbAPI.Play(ch.cmd); } catch(err) {}
@@ -194,7 +212,9 @@ def stb_portal_app(request):
 
     function adjustVolume(delta) {
         volume = Math.max(0, Math.min(100, volume + delta));
-        if (stbAPI && stbAPI.SetVolume) {
+        if (useHTML5 && htmlPlayer) {
+            htmlPlayer.volume = volume / 100;
+        } else if (stbAPI && stbAPI.SetVolume) {
             try { stbAPI.SetVolume(volume); } catch(err) {}
         }
         showVolume();
@@ -298,9 +318,10 @@ def stb_portal_app(request):
     </style>
 </head>
 <body>
-    <div id="content"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
-    <div id="osd"></div>
-    <div id="vol"></div>
+    <video id="html5video" autoplay playsinline style="position:fixed;top:80px;left:980px;width:880px;height:495px;z-index:0;background:#000;display:none;"></video>
+    <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
+    <div id="osd" style="position:relative;z-index:10;"></div>
+    <div id="vol" style="z-index:20;"></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
