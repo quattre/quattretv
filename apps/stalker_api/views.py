@@ -212,8 +212,8 @@ def stb_portal_app(request):
         var el = document.getElementById('clock');
         if (!el) return;
         var d = new Date();
-        var h = d.getHours().toString().padStart(2,'0');
-        var m = d.getMinutes().toString().padStart(2,'0');
+        var h = d.getHours(); h = (h < 10 ? '0' : '') + h;
+        var m = d.getMinutes(); m = (m < 10 ? '0' : '') + m;
         el.textContent = h + ':' + m;
     }
 
@@ -298,8 +298,7 @@ def stb_portal_app(request):
             h += '<div class="ch-number">' + c.number + '</div>';
             h += '<div class="ch-logo">';
             if (c.logo) {
-                h += '<img src="' + c.logo + '" onerror="this.style.display=\\'none\\';this.nextSibling.style.display=\\'block\\'">';
-                h += '<span class="ch-logo-text" style="display:none">' + c.name.substring(0,3) + '</span>';
+                h += '<img src="' + c.logo + '">';
             } else {
                 h += '<span class="ch-logo-text">' + c.name.substring(0,3) + '</span>';
             }
@@ -333,8 +332,12 @@ def stb_portal_app(request):
         var ch = channels[currentChannel];
         if (!ch || !ch.cmd) return;
         if (playingChannelIdx !== currentChannel) { playChannel(ch); playingChannelIdx = currentChannel; }
-        setViewportFullscreen();
         isFullscreen = true;
+        // Mover video fuera del contenedor antes de ocultarlo
+        if (useHTML5) {
+            document.body.appendChild(htmlPlayer);
+        }
+        setViewportFullscreen();
         document.getElementById('appContainer').style.display = 'none';
         showOSD();
     }
@@ -356,9 +359,8 @@ def stb_portal_app(request):
         document.getElementById('appContainer').style.display = 'flex';
         document.getElementById('osd').style.display = 'none';
         if (useHTML5) {
-            var v = document.getElementById('html5video');
-            v.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;';
-            document.getElementById('videoArea').appendChild(v);
+            document.getElementById('videoArea').appendChild(htmlPlayer);
+            htmlPlayer.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;';
         }
         setViewportPreview();
         renderList();
