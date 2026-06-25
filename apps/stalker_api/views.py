@@ -97,7 +97,7 @@ def stb_portal_app(request):
 
     function setViewportPreview() {
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;background:#000;border-radius:18px;';
+            htmlPlayer.style.cssText = 'position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;border-radius:18px;';
         } else if (player) {
             try {
                 player.fullscreen = false;
@@ -111,7 +111,7 @@ def stb_portal_app(request):
 
     function setViewportFullscreen() {
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:1920px;height:1080px;z-index:0;background:#000;';
+            htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:1920px;height:1080px;z-index:0;';
         } else if (player) {
             try {
                 player.fullscreen = true;
@@ -295,7 +295,6 @@ def stb_portal_app(request):
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; }
         body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
-        #app { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; }
 
         .panel {
             position: fixed; top: 36px; left: 36px; width: 640px; height: 1008px;
@@ -351,14 +350,12 @@ def stb_portal_app(request):
     </style>
 </head>
 <body>
-    <div id="app">
-    <video id="html5video" autoplay playsinline style="position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;background:#000;border-radius:18px;display:none;"></video>
+    <video id="html5video" autoplay playsinline style="position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;border-radius:18px;display:none;"></video>
     <div id="preview">Vista previa</div>
     <div id="preview-cap"></div>
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
     <div id="osd" style="position:relative;z-index:10;"></div>
     <div id="vol" style="z-index:20;"></div>
-    </div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
