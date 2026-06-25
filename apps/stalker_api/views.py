@@ -24,7 +24,7 @@ def stb_portal_app(request):
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1920, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>QuattreTV</title>
     <script type="text/javascript">
     var stbAPI = null;
@@ -38,7 +38,17 @@ def stb_portal_app(request):
     var volTimeout = null;
     var useHTML5 = false;
 
+    function fitScreen() {
+        // Escala el lienzo fijo de 1920x1080 para llenar la pantalla real del TV
+        var w = window.innerWidth || 1920;
+        var h = window.innerHeight || 1080;
+        var s = Math.min(w / 1920, h / 1080);
+        var app = document.getElementById('app');
+        if (app) app.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+    }
+
     function init() {
+        fitScreen();
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
             try {
@@ -266,12 +276,14 @@ def stb_portal_app(request):
     }
 
     document.onkeydown = handleKey;
+    window.onresize = fitScreen;
     window.onload = init;
     </script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; width: 1920px; height: 1080px; overflow: hidden; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
+        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
+        #app { position: absolute; top: 50%; left: 50%; width: 1920px; height: 1080px; transform-origin: center center; transform: translate(-50%, -50%); }
 
         .panel {
             position: fixed; top: 40px; left: 40px; width: 520px;
@@ -318,10 +330,12 @@ def stb_portal_app(request):
     </style>
 </head>
 <body>
+    <div id="app">
     <video id="html5video" autoplay playsinline style="position:fixed;top:80px;left:980px;width:880px;height:495px;z-index:0;background:#000;display:none;"></video>
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
     <div id="osd" style="position:relative;z-index:10;"></div>
     <div id="vol" style="z-index:20;"></div>
+    </div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
