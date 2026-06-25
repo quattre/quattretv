@@ -6,7 +6,7 @@ import time
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny
 from apps.devices.models import Device
 from apps.channels.models import Channel, Category
@@ -480,6 +480,7 @@ def stb_loader_page(request):
 
 @csrf_exempt
 @api_view(['GET', 'POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def portal_handler(request):
     """
