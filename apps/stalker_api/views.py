@@ -39,12 +39,9 @@ def stb_portal_app(request):
     var useHTML5 = false;
 
     function fitScreen() {
-        // Escala el lienzo fijo de 1920x1080 para llenar la pantalla real del TV
-        var w = window.innerWidth || 1920;
-        var h = window.innerHeight || 1080;
-        var s = Math.min(w / 1920, h / 1080);
-        var app = document.getElementById('app');
-        if (app) app.style.transform = 'translate(-50%, -50%) scale(' + s + ')';
+        // El surface de la app webOS ya es 1920x1080, no hace falta escalar.
+        // Un transform CSS en un ancestro rompe el plano de video por hardware
+        // del TV (la vista previa desaparece), por eso NO se aplica transform.
     }
 
     function init() {
@@ -298,7 +295,7 @@ def stb_portal_app(request):
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; }
         body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
-        #app { position: absolute; top: 50%; left: 50%; width: 1920px; height: 1080px; transform-origin: center center; transform: translate(-50%, -50%); }
+        #app { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; }
 
         .panel {
             position: fixed; top: 36px; left: 36px; width: 640px; height: 1008px;
@@ -327,8 +324,8 @@ def stb_portal_app(request):
         .help span { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 6px; margin: 0 5px; color: #888; }
 
         #preview { position: fixed; top: 120px; left: 730px; width: 1120px; height: 630px;
-            border-radius: 18px; border: 2px solid rgba(0,166,81,0.4); background: #000;
-            box-shadow: 0 24px 70px rgba(0,0,0,0.6); z-index: 1; overflow: hidden;
+            border-radius: 18px; border: 2px solid rgba(0,166,81,0.4); background: transparent;
+            z-index: 1; overflow: hidden;
             display: flex; align-items: center; justify-content: center; color: #444; font-size: 28px; }
         #preview-cap { position: fixed; top: 772px; left: 730px; width: 1120px; z-index: 2; }
         #preview-cap .t { font-size: 34px; font-weight: 600; }
