@@ -100,15 +100,15 @@ def stb_portal_app(request):
 
     function setViewportPreview() {
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:80px;left:980px;width:880px;height:495px;z-index:0;background:#000;';
+            htmlPlayer.style.cssText = 'position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;background:#000;border-radius:18px;';
         } else if (player) {
             try {
                 player.fullscreen = false;
                 player.aspectConversion = 1;
-                player.setViewport({x: 980, y: 80, width: 880, height: 495});
+                player.setViewport({x: 730, y: 120, width: 1120, height: 630});
             } catch(err) {}
         } else if (stbAPI) {
-            try { stbAPI.SetPIG(0, 128, 980, 80); } catch(err) {}
+            try { stbAPI.SetPIG(0, 128, 730, 120); } catch(err) {}
         }
     }
 
@@ -161,8 +161,10 @@ def stb_portal_app(request):
         h += '<div class="counter">' + channels.length + ' canales</div></div>';
 
         h += '<div class="list">';
-        var start = Math.max(0, currentChannel - 3);
-        var end = Math.min(channels.length, start + 7);
+        var visible = 12;
+        var start = Math.max(0, currentChannel - 5);
+        var end = Math.min(channels.length, start + visible);
+        if (end - start < visible) start = Math.max(0, end - visible);
         for (var i = start; i < end; i++) {
             var c = channels[i];
             var cls = (i === currentChannel) ? "item sel" : "item";
@@ -179,6 +181,15 @@ def stb_portal_app(request):
         h += '<div class="help"><span>OK</span> Ver <span>▲▼</span> Navegar <span>VOL</span> Volumen</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+        updatePreviewCap(ch);
+    }
+
+    function updatePreviewCap(ch) {
+        var cap = document.getElementById("preview-cap");
+        if (!cap || !ch) return;
+        var html = '<div class="t">' + ch.number + '. ' + ch.name + '</div>';
+        if (ch.cur_playing) html += '<div class="e">' + ch.cur_playing + '</div>';
+        cap.innerHTML = html;
     }
 
     function goFullscreen() {
@@ -197,6 +208,8 @@ def stb_portal_app(request):
 
         isFullscreen = true;
         document.getElementById("content").style.display = "none";
+        document.getElementById("preview").style.display = "none";
+        document.getElementById("preview-cap").style.display = "none";
         document.getElementById("osd").style.display = "block";
         var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
         if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
@@ -208,6 +221,8 @@ def stb_portal_app(request):
         setViewportPreview();
         isFullscreen = false;
         document.getElementById("content").style.display = "block";
+        document.getElementById("preview").style.display = "flex";
+        document.getElementById("preview-cap").style.display = "block";
         document.getElementById("osd").style.display = "none";
         showChannels();
     }
@@ -286,29 +301,38 @@ def stb_portal_app(request):
         #app { position: absolute; top: 50%; left: 50%; width: 1920px; height: 1080px; transform-origin: center center; transform: translate(-50%, -50%); }
 
         .panel {
-            position: fixed; top: 40px; left: 40px; width: 520px;
+            position: fixed; top: 36px; left: 36px; width: 640px; height: 1008px;
+            display: flex; flex-direction: column;
             background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            border-radius: 16px; padding: 25px; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px; padding: 30px; border: 1px solid rgba(255,255,255,0.1);
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
 
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .logo { font-size: 32px; font-weight: 300; color: #fff; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .logo { font-size: 40px; font-weight: 300; color: #fff; }
         .logo span { color: #00a651; font-weight: 700; }
-        .counter { background: rgba(0,166,81,0.2); color: #00a651; padding: 6px 14px; border-radius: 20px; font-size: 14px; }
+        .counter { background: rgba(0,166,81,0.2); color: #00a651; padding: 8px 16px; border-radius: 20px; font-size: 18px; }
 
-        .list { margin-bottom: 15px; }
-        .item { display: flex; align-items: center; padding: 12px 15px; margin: 4px 0; border-radius: 10px; background: rgba(255,255,255,0.03); border: 2px solid transparent; transition: all 0.15s; }
+        .list { flex: 1; overflow: hidden; margin-bottom: 16px; }
+        .item { display: flex; align-items: center; padding: 15px 18px; margin: 6px 0; border-radius: 12px; background: rgba(255,255,255,0.03); border: 2px solid transparent; transition: all 0.15s; }
         .item.sel { background: linear-gradient(90deg, rgba(0,166,81,0.3) 0%, rgba(0,166,81,0.1) 100%); border-color: #00a651; }
-        .num { width: 45px; font-size: 18px; color: #666; font-weight: 600; }
+        .num { width: 58px; font-size: 24px; color: #666; font-weight: 600; }
         .item.sel .num { color: #00a651; }
         .info { flex: 1; overflow: hidden; }
-        .name { font-size: 18px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .hd { background: #3498db; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .epg { font-size: 13px; color: #888; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .name { font-size: 24px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hd { background: #3498db; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
+        .epg { font-size: 16px; color: #888; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .help { text-align: center; color: #555; font-size: 13px; }
-        .help span { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 5px; margin: 0 5px; color: #888; }
+        .help { text-align: center; color: #555; font-size: 15px; }
+        .help span { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 6px; margin: 0 5px; color: #888; }
+
+        #preview { position: fixed; top: 120px; left: 730px; width: 1120px; height: 630px;
+            border-radius: 18px; border: 2px solid rgba(0,166,81,0.4); background: #000;
+            box-shadow: 0 24px 70px rgba(0,0,0,0.6); z-index: 1; overflow: hidden;
+            display: flex; align-items: center; justify-content: center; color: #444; font-size: 28px; }
+        #preview-cap { position: fixed; top: 772px; left: 730px; width: 1120px; z-index: 2; }
+        #preview-cap .t { font-size: 34px; font-weight: 600; }
+        #preview-cap .e { font-size: 20px; color: #9aa; margin-top: 8px; }
 
         #osd {
             display: none; position: fixed; bottom: 60px; left: 60px;
@@ -331,7 +355,9 @@ def stb_portal_app(request):
 </head>
 <body>
     <div id="app">
-    <video id="html5video" autoplay playsinline style="position:fixed;top:80px;left:980px;width:880px;height:495px;z-index:0;background:#000;display:none;"></video>
+    <video id="html5video" autoplay playsinline style="position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;background:#000;border-radius:18px;display:none;"></video>
+    <div id="preview">Vista previa</div>
+    <div id="preview-cap"></div>
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
     <div id="osd" style="position:relative;z-index:10;"></div>
     <div id="vol" style="z-index:20;"></div>
