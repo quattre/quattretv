@@ -1,0 +1,11 @@
+[Unit]
+# Retencion del archivo. El muxer 'segment' no borra nada por si mismo, asi que
+# la ventana se mantiene por antiguedad de fichero.
+Description=Limpieza del archivo HLS
+
+[Service]
+Type=oneshot
+User=quattre
+# 168 h = una semana. Ajustar si se cambia timeshift_hours de los canales.
+Environment=RETENTION_HOURS=168
+ExecStart=/bin/sh -c 'find /srv/archive_hls -type f -name "*.ts" -mmin +$((RETENTION_HOURS*60)) -delete'

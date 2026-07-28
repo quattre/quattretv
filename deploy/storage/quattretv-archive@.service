@@ -1,0 +1,40 @@
+[Unit]
+# Archivo (catchup) de un canal en HLS. La instancia es el id del canal en el
+# middleware: quattretv-archive@12.service archiva el canal 12.
+#
+# Mismo patron que los ffmpeg-hls@ de cdn10/cdn11, cambiando el destino: disco
+# con retencion larga en vez de /dev/shm con ventana de segundos.
+Description=Archivo HLS del canal %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=quattre
+Group=quattre
+
+# Un fichero por canal con: SRC=udp://239.0.0.1:1234
+EnvironmentFile=/home/quattre/archivo/%i
+
+ExecStartPre=/bin/mkdir -p /srv/archive_hls/%i
+
+# -c copy: NO recodifica, solo reempaqueta (~2 %% de un core por canal).
+# Se usa el muxer 'segment' y no 'hls' a proposito: asi no se escribe ninguna
+# playlist. El middleware construye la playlist del catchup a partir del
+# listado del directorio, y una playlist de una semana serian ~100.000 lineas
+# reescritas cada 6 segundos.
+# -segment_atclocktime alinea los cortes con el reloj.
+# Los %% son escapes de systemd: ffmpeg recibe %Y%m%d-%H%M%S.
+ExecStart=/usr/bin/ffmpeg -hide_banner -loglevel warning -nostdin \
+    -fflags +genpts \
+    -i ${SRC} \
+    -map 0 -c copy \
+    -f segment -segment_time 6 -segment_atclocktime 1 \
+    -segment_format mpegts -strftime 1 \
+    /srv/archive_hls/%i/%%Y%%m%%d-%%H%%M%%S.ts
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

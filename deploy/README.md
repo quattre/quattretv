@@ -109,8 +109,32 @@ sigue sirviendo del archivo viejo hasta que caduca solo.
 
 ### En el servidor de archivo
 
-Un ffmpeg por canal, el mismo patrón que ya corren cdn10/cdn11 pero escribiendo
-a disco en vez de a `/dev/shm`:
+Todo lo que hay que copiar está en `deploy/storage/`:
+
+```bash
+sudo cp deploy/storage/quattretv-archive@.service \
+        deploy/storage/quattretv-archive-cleanup.{service,timer} /etc/systemd/system/
+sudo cp deploy/storage/nginx-archive.conf /etc/nginx/conf.d/   # o incluirlo en el server{}
+sudo systemctl daemon-reload
+sudo systemctl enable --now quattretv-archive-cleanup.timer
+
+# Un fichero por canal, igual que los EnvironmentFile del CDN:
+echo 'SRC=udp://239.0.0.1:1234' > /home/quattre/archivo/12   # 12 = id del canal
+sudo systemctl enable --now quattretv-archive@12
+```
+
+Para comprobar que el enganche está bien, desde el middleware:
+
+```bash
+python manage.py comprobar_grabadores
+```
+
+Dice si el grabador pide sus tareas, si responde por HTTP y si el archivo de
+cada canal migrado tiene segmentos recientes.
+
+El detalle de lo que hace la unidad, por si hay que tocarla a mano — un ffmpeg
+por canal, el mismo patrón que ya corren cdn10/cdn11 pero escribiendo a disco
+en vez de a `/dev/shm`:
 
 ```bash
 ffmpeg -hide_banner -loglevel warning \
