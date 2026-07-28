@@ -6,10 +6,15 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from apps.core.health import health
 from apps.stalker_api import storage_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Salud del servicio (para monitorizacion)
+    path('health', health, name='health'),
+    path('health/', health),
 
     # API v1
     path('api/v1/', include('apps.core.urls')),

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QuattreTV</title>
+    <script>
+    function log(msg) {
+        document.getElementById('msg').innerHTML = msg;
+    }
+
+    function setMacAndReload(mac) {
+        mac = mac.replace(/%3A/g, ':').replace(/-/g, ':').toUpperCase().trim();
+        document.cookie = 'mac=' + mac + '; path=/; max-age=31536000';
+        setTimeout(function() { location.reload(); }, 200);
+    }
+
+    function initApp() {
+        var mac = '';
+        try {
+            if (typeof(Android) !== 'undefined') {
+                if (Android.getMac) mac = Android.getMac();
+                else if (Android.getMAC) mac = Android.getMAC();
+            }
+            if (!mac && typeof(stb) !== 'undefined' && stb.GetDeviceMAC) {
+                mac = stb.GetDeviceMAC();
+            }
+            if (!mac && typeof(gSTB) !== 'undefined' && gSTB.GetDeviceMAC) {
+                mac = gSTB.GetDeviceMAC();
+            }
+        } catch(e) {}
+
+        if (mac) {
+            setMacAndReload(mac);
+        } else {
+            showLogin();
+        }
+    }
+
+    function showLogin() {
+        document.getElementById('auto').style.display = 'none';
+        document.getElementById('login').style.display = 'block';
+        document.getElementById('username').focus();
+    }
+
+    function showKeyboard(inputId) {
+        var input = document.getElementById(inputId);
+        input.focus();
+        try {
+            if (typeof(gSTB) !== 'undefined' && gSTB.ShowVirtualKeyboard) {
+                gSTB.ShowVirtualKeyboard();
+            } else if (typeof(stb) !== 'undefined' && stb.ShowVirtualKeyboard) {
+                stb.ShowVirtualKeyboard();
+            }
+        } catch(e) {}
+    }
+
+    function doLogin() {
+        var user = document.getElementById('username').value;
+        var pass = document.getElementById('password').value;
+        if (!user) { log('Introduce usuario'); return; }
+
+        log('Verificando...');
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '?type=stb&action=login&login=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.js && data.js.mac) {
+                            setMacAndReload(data.js.mac);
+                        } else {
+                            log(data.js && data.js.error ? data.js.error : 'Usuario incorrecto');
+                        }
+                    } catch(e) {
+                        log('Error de respuesta');
+                    }
+                } else {
+                    log('Error de conexion');
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    // Handle remote control navigation
+    document.onkeydown = function(e) {
+        var key = e.keyCode;
+        var focused = document.activeElement;
+
+        if (key == 13) { // OK button
+            if (focused.id == 'username') {
+                document.getElementById('password').focus();
+            } else if (focused.id == 'password') {
+                doLogin();
+            } else if (focused.tagName == 'BUTTON') {
+                focused.click();
+            }
+        } else if (key == 38) { // Up
+            if (focused.id == 'password') document.getElementById('username').focus();
+            else if (focused.id == 'loginBtn') document.getElementById('password').focus();
+        } else if (key == 40) { // Down
+            if (focused.id == 'username') document.getElementById('password').focus();
+            else if (focused.id == 'password') document.getElementById('loginBtn').focus();
+        }
+    };
+
+    window.onload = function() { setTimeout(initApp, 100); };
+    </script>
+    <style>
+        body { background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%); margin: 0; padding: 0; font-family: Arial; min-height: 100vh; }
+        .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        h1 { color: #00a651; font-size: 42px; margin-bottom: 5px; }
+        h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
+        #msg { color: #00a651; font-size: 16px; margin: 15px; min-height: 20px; }
+        #login { display: none; text-align: center; }
+        input { font-size: 20px; padding: 12px 20px; width: 280px; margin: 8px 0; border: 2px solid #333; border-radius: 8px;
+                background: #0f0f23; color: #fff; }
+        input:focus { outline: none; border-color: #00a651; }
+        button { font-size: 18px; padding: 12px 50px; margin-top: 15px; background: #00a651; color: #fff;
+                 border: none; border-radius: 8px; cursor: pointer; }
+        button:hover, button:focus { background: #ff6b8a; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QuattreTV</h1>
+        <h2>IPTV Middleware</h2>
+
+        <div id="auto">
+            <p style="color:#888">Conectando...</p>
+        </div>
+
+        <div id="login">
+            <input type="text" id="username" placeholder="Usuario" onclick="showKeyboard('username')" onfocus="showKeyboard('username')">
+            <br>
+            <input type="password" id="password" placeholder="Contrasena" onclick="showKeyboard('password')" onfocus="showKeyboard('password')">
+            <br>
+            <button id="loginBtn" onclick="doLogin()">Entrar</button>
+            <div id="msg"></div>
+        </div>
+    </div>
+</body>
+</html>

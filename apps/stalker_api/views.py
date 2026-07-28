@@ -3,7 +3,9 @@ Stalker Portal compatible API views.
 """
 import hashlib
 import time
-from django.http import JsonResponse, HttpResponse
+from django.core.cache import cache
+from django.http import JsonResponse
+from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
@@ -20,689 +22,7 @@ def stb_portal_app(request):
     Serve the main STB portal application.
     This is loaded after successful authentication.
     """
-    html = '''<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>QuattreTV</title>
-    <script type="text/javascript">
-    var stbAPI = null;
-    var player = null;
-    var htmlPlayer = null; // video HTML5 para LG/navegadores
-    var channels = [];
-    var currentChannel = 0;
-    var playingChannelIdx = -1;
-    var isFullscreen = false;
-    var volume = 50;
-    var volTimeout = null;
-    var useHTML5 = false;
-    var view = "list";          // list | guide | recordings
-    var guide = [];
-    var guideIdx = 0;
-    var guideChannel = null;
-    var recordings = [];
-    var recIdx = 0;
-    var toastTimeout = null;
-
-    function fitScreen() {
-        // El surface de la app webOS ya es 1920x1080, no hace falta escalar.
-        // Un transform CSS en un ancestro rompe el plano de video por hardware
-        // del TV (la vista previa desaparece), por eso NO se aplica transform.
-    }
-
-    function init() {
-        fitScreen();
-        if (typeof gSTB !== "undefined") {
-            stbAPI = gSTB;
-            try {
-                stbAPI.InitPlayer();
-                stbAPI.SetViewport(0, 0, 1920, 1080);
-                stbAPI.SetWinMode(0, 1);
-                stbAPI.SetTopWin(1);
-                stbAPI.SetTransparentColor(0x000000);
-                volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50;
-            } catch(err) {}
-        } else if (typeof stb !== "undefined") {
-            stbAPI = stb;
-            try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
-        }
-
-        // Try to get stbPlayerManager
-        if (typeof stbPlayerManager !== "undefined" && stbPlayerManager.list && stbPlayerManager.list[0]) {
-            player = stbPlayerManager.list[0];
-        }
-
-        // Si no hay API de STB, usar video HTML5
-        if (!stbAPI && !player) {
-            useHTML5 = true;
-            htmlPlayer = document.getElementById('html5video');
-            htmlPlayer.style.display = 'block';
-            htmlPlayer.volume = volume / 100;
-            // El archivo y las grabaciones se sirven como MPEG-TS crudo: el
-            // deco lo reproduce, pero el <video> de LG no. Avisar en vez de
-            // quedarse en negro.
-            htmlPlayer.onerror = function() {
-                toast('Este contenido no se puede reproducir en este dispositivo');
-            };
-        }
-
-        loadData();
-    }
-
-    function api(query, cb) {
-        var xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try {
-                        var r = JSON.parse(xhr.responseText);
-                        cb(r.js || {});
-                        return;
-                    } catch(err) {}
-                }
-                cb(null);
-            }
-        };
-        xhr.open("GET", "?" + query + "&_t=" + Date.now(), true);
-        xhr.send();
-    }
-
-    function loadData() {
-        loadPage(0);
-    }
-
-    // El listado va paginado de 50 en 50: antes solo se pedia la primera
-    // pagina, asi que en la tele solo se veian 50 canales.
-    function loadPage(page) {
-        api("type=itv&action=get_ordered_list&p=" + page, function(js) {
-            if (!js || !js.data) return;
-            channels = channels.concat(js.data);
-            if (page === 0) {
-                showChannels();
-                startPreview();
-            } else {
-                if (view === "list") showChannels();
-            }
-            var perPage = js.max_page_items || 50;
-            if (channels.length < (js.total_items || 0) && js.data.length >= perPage) {
-                loadPage(page + 1);
-            }
-        });
-    }
-
-    function setViewportPreview() {
-        if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;border-radius:18px;';
-        } else if (player) {
-            try {
-                player.fullscreen = false;
-                player.aspectConversion = 1;
-                player.setViewport({x: 730, y: 120, width: 1120, height: 630});
-            } catch(err) {}
-        } else if (stbAPI) {
-            try { stbAPI.SetPIG(0, 128, 730, 120); } catch(err) {}
-        }
-    }
-
-    function setViewportFullscreen() {
-        if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:1920px;height:1080px;z-index:0;';
-        } else if (player) {
-            try {
-                player.fullscreen = true;
-                player.setViewport({x: 0, y: 0, width: 1920, height: 1080});
-            } catch(err) {}
-        } else if (stbAPI) {
-            try { stbAPI.SetPIG(1, 256, 0, 0); } catch(err) {}
-        }
-    }
-
-    function playChannel(ch) {
-        if (useHTML5) {
-            var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
-            htmlPlayer.src = url;
-            htmlPlayer.play().catch(function(e) { console.log('Play error:', e); });
-        } else if (player) {
-            try { player.play({uri: ch.cmd}); } catch(err) {}
-        } else if (stbAPI) {
-            try { stbAPI.Play(ch.cmd); } catch(err) {}
-        }
-        document.body.style.background = "transparent";
-    }
-
-    function startPreview() {
-        if (channels.length === 0 || isFullscreen) return;
-        var ch = channels[currentChannel];
-        if (!ch || !ch.cmd) return;
-
-        // Si ya está reproduciendo el mismo canal, solo cambiar viewport
-        if (playingChannelIdx === currentChannel) {
-            setViewportPreview();
-        } else {
-            // Cambiar de canal
-            setViewportPreview();
-            playChannel(ch);
-            playingChannelIdx = currentChannel;
-        }
-    }
-
-    function esc(s) {
-        if (s === undefined || s === null) return '';
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    function showChannels() {
-        view = "list";
-        var ch = channels[currentChannel];
-        var h = '<div class="panel">';
-        h += '<div class="header"><div class="logo">Quattre<span>TV</span></div>';
-        h += '<div class="counter">' + channels.length + ' canales</div></div>';
-
-        h += '<div class="list">';
-        var visible = 11;
-        var start = Math.max(0, currentChannel - 5);
-        var end = Math.min(channels.length, start + visible);
-        if (end - start < visible) start = Math.max(0, end - visible);
-        for (var i = start; i < end; i++) {
-            var c = channels[i];
-            var cls = (i === currentChannel) ? "item sel" : "item";
-            h += '<div class="' + cls + '">';
-            h += '<div class="num">' + c.number + '</div>';
-            h += '<div class="info"><div class="name">' + esc(c.name);
-            if (c.hd) h += ' <span class="hd">HD</span>';
-            if (c.fav) h += ' <span class="fav">★</span>';
-            if (c.archive) h += ' <span class="arch">⟲</span>';
-            h += '</div>';
-            if (c.cur_playing) {
-                h += '<div class="epg">' + esc(c.cur_playing);
-                if (c.epg_cur_end) h += ' <span class="t">hasta ' + esc(c.epg_cur_end) + '</span>';
-                h += '</div>';
-                h += '<div class="bar"><i style="width:' + (c.epg_progress || 0) + '%"></i></div>';
-            }
-            h += '</div></div>';
-        }
-        h += '</div>';
-
-        h += '<div class="help"><span>OK</span> Ver <span>▶</span> Guia <span>REC</span> Grabar <span>VERDE</span> Grabaciones</div>';
-        h += '</div>';
-        document.getElementById("content").innerHTML = h;
-        updatePreviewCap(ch);
-    }
-
-    function toast(msg) {
-        var t = document.getElementById("toast");
-        t.innerHTML = esc(msg);
-        t.style.display = "block";
-        clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(function() { t.style.display = "none"; }, 2500);
-    }
-
-    // ---------- Guia de programacion ----------
-
-    function openGuide() {
-        var ch = channels[currentChannel];
-        if (!ch) return;
-        guideChannel = ch;
-        guide = [];
-        guideIdx = 0;
-        view = "guide";
-        document.getElementById("content").innerHTML =
-            '<div class="panel"><div class="header"><div class="logo">Guia</div></div>' +
-            '<div style="color:#666;padding:20px;">Cargando programacion...</div></div>';
-        api("type=epg&action=get_simple_data_table&ch_id=" + ch.id, function(js) {
-            if (view !== "guide") return;
-            guide = (js && js.data) ? js.data : [];
-            for (var i = 0; i < guide.length; i++) {
-                if (guide[i].current) { guideIdx = i; break; }
-            }
-            renderGuide();
-        });
-    }
-
-    function renderGuide() {
-        var h = '<div class="panel">';
-        h += '<div class="header"><div class="logo">' + esc(guideChannel.name) + '</div>';
-        h += '<div class="counter">Guia</div></div>';
-
-        if (guide.length === 0) {
-            h += '<div class="list"><div style="color:#666;padding:20px;">Sin datos de EPG para este canal</div></div>';
-        } else {
-            h += '<div class="list">';
-            var visible = 9;
-            var start = Math.max(0, guideIdx - 4);
-            var end = Math.min(guide.length, start + visible);
-            if (end - start < visible) start = Math.max(0, end - visible);
-            for (var i = start; i < end; i++) {
-                var p = guide[i];
-                var cls = (i === guideIdx) ? "item sel" : "item";
-                if (p.past) cls += " past";
-                h += '<div class="' + cls + '">';
-                h += '<div class="num sm">' + esc(p.t_time) + '</div>';
-                h += '<div class="info"><div class="name">' + esc(p.name);
-                if (p.rec) h += ' <span class="rec">REC</span>';
-                if (p.current) h += ' <span class="live">AHORA</span>';
-                h += '</div>';
-                if (p.current) h += '<div class="bar"><i style="width:' + (p.progress || 0) + '%"></i></div>';
-                h += '</div></div>';
-            }
-            h += '</div>';
-
-            var sel = guide[guideIdx];
-            if (sel && sel.descr) {
-                h += '<div class="descr">' + esc(sel.descr.substring(0, 220)) + '</div>';
-            }
-        }
-
-        var hint = guide.length && guide[guideIdx] && guide[guideIdx].past
-            ? '<span>OK</span> Ver desde el archivo' : '<span>REC</span> Grabar';
-        h += '<div class="help">' + hint + ' <span>◀</span> Volver</div>';
-        h += '</div>';
-        document.getElementById("content").innerHTML = h;
-    }
-
-    function guideAction() {
-        var p = guide[guideIdx];
-        if (!p) return;
-        if (p.past) {
-            playCatchup(p);
-        } else {
-            recordProgram(p);
-        }
-    }
-
-    function recordProgram(p) {
-        if (!p) return;
-        api("type=pvr&action=create_task&program_id=" + p.id, function(js) {
-            if (js && js.result) {
-                p.rec = 1;
-                toast('Grabacion programada: ' + p.name);
-                if (view === "guide") renderGuide();
-            } else {
-                toast((js && js.error) ? js.error : 'No se pudo programar');
-            }
-        });
-    }
-
-    function playCatchup(p) {
-        if (!guideChannel.archive) { toast('Este canal no tiene archivo'); return; }
-        api("type=tv_archive&action=create_link&ch_id=" + guideChannel.id +
-            "&utc=" + p.start_timestamp + "&lutc=" + p.stop_timestamp, function(js) {
-            if (js && js.cmd) {
-                playChannel({cmd: js.cmd});
-                playingChannelIdx = -1;
-                setViewportFullscreen();
-                isFullscreen = true;
-                document.getElementById("content").style.display = "none";
-                document.getElementById("preview").style.display = "none";
-                document.getElementById("preview-cap").style.display = "none";
-                document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML =
-                    '<div class="osd-ch">' + esc(guideChannel.name) + ' · archivo</div>' +
-                    '<div class="osd-epg">' + esc(p.name) + '</div>';
-            } else {
-                toast((js && js.error) ? js.error : 'Archivo no disponible');
-            }
-        });
-    }
-
-    // ---------- Grabaciones ----------
-
-    function openRecordings() {
-        view = "recordings";
-        recIdx = 0;
-        document.getElementById("content").innerHTML =
-            '<div class="panel"><div class="header"><div class="logo">Grabaciones</div></div>' +
-            '<div style="color:#666;padding:20px;">Cargando...</div></div>';
-        api("type=pvr&action=get_ordered_list", function(js) {
-            if (view !== "recordings") return;
-            recordings = (js && js.data) ? js.data : [];
-            renderRecordings((js && js.error) ? js.error : null);
-        });
-    }
-
-    function renderRecordings(error) {
-        var h = '<div class="panel">';
-        h += '<div class="header"><div class="logo">Grabaciones</div>';
-        h += '<div class="counter">' + recordings.length + '</div></div>';
-        h += '<div class="list">';
-        if (error) {
-            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
-        } else if (recordings.length === 0) {
-            h += '<div style="color:#666;padding:20px;">Todavia no hay grabaciones</div>';
-        } else {
-            var visible = 11;
-            var start = Math.max(0, recIdx - 5);
-            var end = Math.min(recordings.length, start + visible);
-            if (end - start < visible) start = Math.max(0, end - visible);
-            for (var i = start; i < end; i++) {
-                var r = recordings[i];
-                var cls = (i === recIdx) ? "item sel" : "item";
-                h += '<div class="' + cls + '">';
-                h += '<div class="num sm">' + esc(r.start_time.substring(11)) + '</div>';
-                h += '<div class="info"><div class="name">' + esc(r.name);
-                h += ' <span class="st ' + esc(r.status) + '">' + esc(statusLabel(r.status)) + '</span></div>';
-                h += '<div class="epg">' + esc(r.ch_name) + ' · ' + esc(r.start_time) + '</div>';
-                h += '</div></div>';
-            }
-        }
-        h += '</div>';
-        h += '<div class="help"><span>OK</span> Ver <span>REC</span> Borrar <span>◀</span> Volver</div>';
-        h += '</div>';
-        document.getElementById("content").innerHTML = h;
-    }
-
-    function statusLabel(s) {
-        if (s === 'completed') return 'LISTA';
-        if (s === 'recording') return 'GRABANDO';
-        if (s === 'scheduled') return 'PROGRAMADA';
-        if (s === 'failed') return 'ERROR';
-        return s;
-    }
-
-    function playRecording() {
-        var r = recordings[recIdx];
-        if (!r) return;
-        if (r.status !== 'completed') { toast('La grabacion aun no esta lista'); return; }
-        api("type=pvr&action=create_link&cmd=" + r.id, function(js) {
-            if (js && js.cmd) {
-                playChannel({cmd: js.cmd});
-                playingChannelIdx = -1;
-                setViewportFullscreen();
-                isFullscreen = true;
-                document.getElementById("content").style.display = "none";
-                document.getElementById("preview").style.display = "none";
-                document.getElementById("preview-cap").style.display = "none";
-                document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML =
-                    '<div class="osd-ch">Grabacion</div>' +
-                    '<div class="osd-epg">' + esc(r.name) + '</div>';
-            } else {
-                toast((js && js.error) ? js.error : 'No se pudo reproducir');
-            }
-        });
-    }
-
-    function deleteRecording() {
-        var r = recordings[recIdx];
-        if (!r) return;
-        api("type=pvr&action=delete_task&id=" + r.id, function(js) {
-            if (js && js.result) {
-                recordings.splice(recIdx, 1);
-                if (recIdx >= recordings.length) recIdx = Math.max(0, recordings.length - 1);
-                toast('Grabacion borrada');
-                renderRecordings(null);
-            } else {
-                toast((js && js.error) ? js.error : 'No se pudo borrar');
-            }
-        });
-    }
-
-    function recordCurrent() {
-        var ch = channels[currentChannel];
-        if (!ch) return;
-        api("type=itv&action=get_short_epg&ch_id=" + ch.id, function(js) {
-            var list = (js && js.data) ? js.data : [];
-            if (list.length === 0) { toast('Sin EPG para grabar este canal'); return; }
-            recordProgram(list[0]);
-        });
-    }
-
-    function updatePreviewCap(ch) {
-        var cap = document.getElementById("preview-cap");
-        if (!cap || !ch) return;
-        var html = '<div class="t">' + ch.number + '. ' + esc(ch.name) + '</div>';
-        if (ch.cur_playing) {
-            html += '<div class="e">' + esc(ch.epg_cur_start) + ' - ' + esc(ch.epg_cur_end) +
-                    '  ' + esc(ch.cur_playing) + '</div>';
-            html += '<div class="bar" style="width:520px;"><i style="width:' +
-                    (ch.epg_progress || 0) + '%"></i></div>';
-        }
-        if (ch.epg_next) {
-            html += '<div class="e">Despues: ' + esc(ch.epg_next_start) + ' ' + esc(ch.epg_next) + '</div>';
-        }
-        cap.innerHTML = html;
-    }
-
-    function osdFor(ch) {
-        var html = '<div class="osd-ch">' + ch.number + '. ' + esc(ch.name) + '</div>';
-        if (ch.cur_playing) {
-            html += '<div class="osd-epg">' + esc(ch.epg_cur_start) + ' - ' + esc(ch.epg_cur_end) +
-                    '  ' + esc(ch.cur_playing) + '</div>';
-            html += '<div class="bar"><i style="width:' + (ch.epg_progress || 0) + '%"></i></div>';
-        }
-        if (ch.epg_next) {
-            html += '<div class="osd-epg">Despues: ' + esc(ch.epg_next_start) + ' ' + esc(ch.epg_next) + '</div>';
-        }
-        return html;
-    }
-
-    function goFullscreen() {
-        var ch = channels[currentChannel];
-        if (!ch || !ch.cmd) return;
-
-        // Si ya está reproduciendo este canal, solo cambiar viewport
-        if (playingChannelIdx === currentChannel) {
-            setViewportFullscreen();
-        } else {
-            // Nuevo canal, reproducir
-            setViewportFullscreen();
-            playChannel(ch);
-            playingChannelIdx = currentChannel;
-        }
-
-        isFullscreen = true;
-        document.getElementById("content").style.display = "none";
-        document.getElementById("preview").style.display = "none";
-        document.getElementById("preview-cap").style.display = "none";
-        document.getElementById("osd").style.display = "block";
-        document.getElementById("osd").innerHTML = osdFor(ch);
-    }
-
-    function showMenu() {
-        // Volver al menu sin parar reproduccion, solo cambiar viewport
-        setViewportPreview();
-        isFullscreen = false;
-        document.getElementById("content").style.display = "block";
-        document.getElementById("preview").style.display = "flex";
-        document.getElementById("preview-cap").style.display = "block";
-        document.getElementById("osd").style.display = "none";
-        showChannels();
-        // Si veniamos del archivo o de una grabacion, el canal ya no suena.
-        if (playingChannelIdx === -1) startPreview();
-    }
-
-    function showVolume() {
-        var v = document.getElementById("vol");
-        v.innerHTML = "Vol: " + volume;
-        v.style.display = "block";
-        clearTimeout(volTimeout);
-        volTimeout = setTimeout(function() { v.style.display = "none"; }, 2000);
-    }
-
-    function adjustVolume(delta) {
-        volume = Math.max(0, Math.min(100, volume + delta));
-        if (useHTML5 && htmlPlayer) {
-            htmlPlayer.volume = volume / 100;
-        } else if (stbAPI && stbAPI.SetVolume) {
-            try { stbAPI.SetVolume(volume); } catch(err) {}
-        }
-        showVolume();
-    }
-
-    function handleKey(e) {
-        var k = e.keyCode;
-        if (k === 107) { adjustVolume(5); return false; }
-        if (k === 109) { adjustVolume(-5); return false; }
-        if (isFullscreen) {
-            if (k === 38 || k === 33) {
-                // Cambiar canal en fullscreen
-                if (currentChannel > 0) {
-                    currentChannel--;
-                    var ch = channels[currentChannel];
-                    playChannel(ch);
-                    playingChannelIdx = currentChannel;
-                    document.getElementById("osd").innerHTML = osdFor(ch);
-                }
-            } else if (k === 40 || k === 34) {
-                if (currentChannel < channels.length - 1) {
-                    currentChannel++;
-                    var ch = channels[currentChannel];
-                    playChannel(ch);
-                    playingChannelIdx = currentChannel;
-                    document.getElementById("osd").innerHTML = osdFor(ch);
-                }
-            } else if (k === 8 || k === 27 || k === 13) {
-                showMenu();
-            }
-        } else if (view === "guide") {
-            if (k === 38 && guideIdx > 0) {
-                guideIdx--;
-                renderGuide();
-            } else if (k === 40 && guideIdx < guide.length - 1) {
-                guideIdx++;
-                renderGuide();
-            } else if (k === 13) {
-                guideAction();
-            } else if (k === 82 || k === 112) {
-                recordProgram(guide[guideIdx]);
-            } else if (k === 37 || k === 8 || k === 27) {
-                showChannels();
-            }
-        } else if (view === "recordings") {
-            if (k === 38 && recIdx > 0) {
-                recIdx--;
-                renderRecordings(null);
-            } else if (k === 40 && recIdx < recordings.length - 1) {
-                recIdx++;
-                renderRecordings(null);
-            } else if (k === 13) {
-                playRecording();
-            } else if (k === 82 || k === 112) {
-                deleteRecording();
-            } else if (k === 37 || k === 8 || k === 27) {
-                showChannels();
-            }
-        } else {
-            if (k === 38 && currentChannel > 0) {
-                currentChannel--;
-                showChannels();
-                startPreview();
-            } else if (k === 40 && currentChannel < channels.length - 1) {
-                currentChannel++;
-                showChannels();
-                startPreview();
-            } else if (k === 13 && channels.length > 0) {
-                goFullscreen();
-            } else if (k === 39 && channels.length > 0) {
-                openGuide();
-            } else if (k === 82 || k === 112) {
-                recordCurrent();
-            } else if (k === 113 || k === 83) {
-                openRecordings();
-            }
-        }
-        return false;
-    }
-
-    document.onkeydown = handleKey;
-    window.onresize = fitScreen;
-    window.onload = init;
-    </script>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 100%; height: 100%; overflow: hidden; }
-        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
-
-        .panel {
-            position: fixed; top: 36px; left: 36px; width: 640px; height: 1008px;
-            display: flex; flex-direction: column;
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            border-radius: 18px; padding: 30px; border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        }
-
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .logo { font-size: 40px; font-weight: 300; color: #fff; }
-        .logo span { color: #00a651; font-weight: 700; }
-        .counter { background: rgba(0,166,81,0.2); color: #00a651; padding: 8px 16px; border-radius: 20px; font-size: 18px; }
-
-        .list { flex: 1; overflow: hidden; margin-bottom: 16px; }
-        .item { display: flex; align-items: center; padding: 15px 18px; margin: 6px 0; border-radius: 12px; background: rgba(255,255,255,0.03); border: 2px solid transparent; transition: all 0.15s; }
-        .item.sel { background: linear-gradient(90deg, rgba(0,166,81,0.3) 0%, rgba(0,166,81,0.1) 100%); border-color: #00a651; }
-        .num { width: 58px; font-size: 24px; color: #666; font-weight: 600; }
-        .item.sel .num { color: #00a651; }
-        .info { flex: 1; overflow: hidden; }
-        .name { font-size: 24px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .hd { background: #3498db; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .epg { font-size: 16px; color: #888; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .num.sm { font-size: 20px; width: 78px; color: #7a8; }
-        .fav { color: #f1c40f; font-size: 18px; margin-left: 6px; }
-        .arch { color: #3498db; font-size: 18px; margin-left: 6px; }
-        .rec { background: #e74c3c; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .live { background: #00a651; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .item.past { opacity: 0.55; }
-        .epg .t { color: #667; }
-        .bar { height: 4px; background: rgba(255,255,255,0.12); border-radius: 2px; margin-top: 8px; overflow: hidden; }
-        .bar i { display: block; height: 100%; background: #00a651; }
-        .descr { color: #99a; font-size: 17px; line-height: 1.45; padding: 14px 4px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
-        .st { font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; background: #555; color: #fff; }
-        .st.completed { background: #00a651; }
-        .st.recording { background: #e74c3c; }
-        .st.scheduled { background: #3498db; }
-        .st.failed { background: #7f8c8d; }
-
-        #toast {
-            display: none; position: fixed; bottom: 60px; left: 50%;
-            transform: translateX(-50%); z-index: 30;
-            background: linear-gradient(180deg, rgba(15,15,35,0.97) 0%, rgba(10,10,25,0.95) 100%);
-            padding: 18px 34px; font-size: 22px; border-radius: 12px;
-            border-left: 4px solid #00a651;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-
-        .help { text-align: center; color: #555; font-size: 15px; }
-        .help span { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 6px; margin: 0 5px; color: #888; }
-
-        #preview { position: fixed; top: 120px; left: 730px; width: 1120px; height: 630px;
-            border-radius: 18px; border: 2px solid rgba(0,166,81,0.4); background: transparent;
-            z-index: 1; overflow: hidden;
-            display: flex; align-items: center; justify-content: center; color: #444; font-size: 28px; }
-        #preview-cap { position: fixed; top: 772px; left: 730px; width: 1120px; z-index: 2; }
-        #preview-cap .t { font-size: 34px; font-weight: 600; }
-        #preview-cap .e { font-size: 20px; color: #9aa; margin-top: 8px; }
-
-        #osd {
-            display: none; position: fixed; bottom: 60px; left: 60px;
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            padding: 20px 30px; border-radius: 12px;
-            border-left: 4px solid #00a651; min-width: 350px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-        .osd-ch { font-size: 26px; font-weight: 600; }
-        .osd-epg { font-size: 16px; color: #aaa; margin-top: 8px; }
-
-        #vol {
-            display: none; position: fixed; top: 50%; left: 50%;
-            transform: translate(-50%,-50%);
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            padding: 25px 50px; font-size: 28px; border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-    </style>
-</head>
-<body>
-    <video id="html5video" autoplay playsinline style="position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;border-radius:18px;display:none;"></video>
-    <div id="preview">Vista previa</div>
-    <div id="preview-cap"></div>
-    <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
-    <div id="osd" style="position:relative;z-index:10;"></div>
-    <div id="vol" style="z-index:20;"></div>
-    <div id="toast"></div>
-</body>
-</html>'''
-    return HttpResponse(html, content_type='text/html')
+    return render(request, 'stb/portal.html')
 
 
 def stb_loader_page(request):
@@ -710,150 +30,7 @@ def stb_loader_page(request):
     Serve initial loader page for MAG boxes.
     This page extracts the MAC or shows login form.
     """
-    html = '''<!DOCTYPE html>
-<html>
-<head>
-    <title>QuattreTV</title>
-    <script>
-    function log(msg) {
-        document.getElementById('msg').innerHTML = msg;
-    }
-
-    function setMacAndReload(mac) {
-        mac = mac.replace(/%3A/g, ':').replace(/-/g, ':').toUpperCase().trim();
-        document.cookie = 'mac=' + mac + '; path=/; max-age=31536000';
-        setTimeout(function() { location.reload(); }, 200);
-    }
-
-    function initApp() {
-        var mac = '';
-        try {
-            if (typeof(Android) !== 'undefined') {
-                if (Android.getMac) mac = Android.getMac();
-                else if (Android.getMAC) mac = Android.getMAC();
-            }
-            if (!mac && typeof(stb) !== 'undefined' && stb.GetDeviceMAC) {
-                mac = stb.GetDeviceMAC();
-            }
-            if (!mac && typeof(gSTB) !== 'undefined' && gSTB.GetDeviceMAC) {
-                mac = gSTB.GetDeviceMAC();
-            }
-        } catch(e) {}
-
-        if (mac) {
-            setMacAndReload(mac);
-        } else {
-            showLogin();
-        }
-    }
-
-    function showLogin() {
-        document.getElementById('auto').style.display = 'none';
-        document.getElementById('login').style.display = 'block';
-        document.getElementById('username').focus();
-    }
-
-    function showKeyboard(inputId) {
-        var input = document.getElementById(inputId);
-        input.focus();
-        try {
-            if (typeof(gSTB) !== 'undefined' && gSTB.ShowVirtualKeyboard) {
-                gSTB.ShowVirtualKeyboard();
-            } else if (typeof(stb) !== 'undefined' && stb.ShowVirtualKeyboard) {
-                stb.ShowVirtualKeyboard();
-            }
-        } catch(e) {}
-    }
-
-    function doLogin() {
-        var user = document.getElementById('username').value;
-        var pass = document.getElementById('password').value;
-        if (!user) { log('Introduce usuario'); return; }
-
-        log('Verificando...');
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '?type=stb&action=login&login=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass), true);
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState == 4) {
-                if (xhr.status == 200) {
-                    try {
-                        var data = JSON.parse(xhr.responseText);
-                        if (data.js && data.js.mac) {
-                            setMacAndReload(data.js.mac);
-                        } else {
-                            log(data.js && data.js.error ? data.js.error : 'Usuario incorrecto');
-                        }
-                    } catch(e) {
-                        log('Error de respuesta');
-                    }
-                } else {
-                    log('Error de conexion');
-                }
-            }
-        };
-        xhr.send();
-    }
-
-    // Handle remote control navigation
-    document.onkeydown = function(e) {
-        var key = e.keyCode;
-        var focused = document.activeElement;
-
-        if (key == 13) { // OK button
-            if (focused.id == 'username') {
-                document.getElementById('password').focus();
-            } else if (focused.id == 'password') {
-                doLogin();
-            } else if (focused.tagName == 'BUTTON') {
-                focused.click();
-            }
-        } else if (key == 38) { // Up
-            if (focused.id == 'password') document.getElementById('username').focus();
-            else if (focused.id == 'loginBtn') document.getElementById('password').focus();
-        } else if (key == 40) { // Down
-            if (focused.id == 'username') document.getElementById('password').focus();
-            else if (focused.id == 'password') document.getElementById('loginBtn').focus();
-        }
-    };
-
-    window.onload = function() { setTimeout(initApp, 100); };
-    </script>
-    <style>
-        body { background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%); margin: 0; padding: 0; font-family: Arial; min-height: 100vh; }
-        .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        h1 { color: #00a651; font-size: 42px; margin-bottom: 5px; }
-        h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
-        #msg { color: #00a651; font-size: 16px; margin: 15px; min-height: 20px; }
-        #login { display: none; text-align: center; }
-        input { font-size: 20px; padding: 12px 20px; width: 280px; margin: 8px 0; border: 2px solid #333; border-radius: 8px;
-                background: #0f0f23; color: #fff; }
-        input:focus { outline: none; border-color: #00a651; }
-        button { font-size: 18px; padding: 12px 50px; margin-top: 15px; background: #00a651; color: #fff;
-                 border: none; border-radius: 8px; cursor: pointer; }
-        button:hover, button:focus { background: #ff6b8a; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>QuattreTV</h1>
-        <h2>IPTV Middleware</h2>
-
-        <div id="auto">
-            <p style="color:#888">Conectando...</p>
-        </div>
-
-        <div id="login">
-            <input type="text" id="username" placeholder="Usuario" onclick="showKeyboard('username')" onfocus="showKeyboard('username')">
-            <br>
-            <input type="password" id="password" placeholder="Contrasena" onclick="showKeyboard('password')" onfocus="showKeyboard('password')">
-            <br>
-            <button id="loginBtn" onclick="doLogin()">Entrar</button>
-            <div id="msg"></div>
-        </div>
-    </div>
-</body>
-</html>'''
-    return HttpResponse(html, content_type='text/html')
+    return render(request, 'stb/loader.html')
 
 
 @csrf_exempt
@@ -956,12 +133,16 @@ def handle_stb(request, action):
 def handle_login(request):
     """Handle login with username/password, return device MAC."""
     from django.contrib.auth import authenticate
+    from .throttle import reset_attempts, too_many_attempts
 
     username = request.GET.get('login', request.POST.get('login', ''))
     password = request.GET.get('password', request.POST.get('password', ''))
 
     if not username:
         return stalker_response({'error': 'Usuario requerido'})
+
+    if too_many_attempts(request):
+        return stalker_response({'error': 'Demasiados intentos, espera unos minutos'})
 
     # Authenticate user
     user = authenticate(username=username, password=password)
@@ -999,6 +180,8 @@ def handle_login(request):
             name='LG TV - ' + user.username,
             device_type='lg',
         )
+
+    reset_attempts(request)
 
     return stalker_response({
         'status': 1,
@@ -1129,6 +312,82 @@ def handle_get_all_channels(request):
     return handle_get_ordered_list(request)
 
 
+EMPTY_EPG = {
+    'cur_playing': '',
+    'epg_start': '',
+    'epg_end': '',
+    'epg_progress': 0,
+    'epg_next': '',
+    'epg_next_start': '',
+    'epg_cur_start': '',
+    'epg_cur_end': '',
+}
+
+EPG_CACHE_SECONDS = 60
+
+
+def epg_now_next(channel_ids):
+    """
+    Ahora/despues de un grupo de canales, ya en el formato que espera el deco.
+
+    Es identico para todos los usuarios, y get_ordered_list es lo que piden
+    todos los aparatos al arrancar, asi que se cachea: era la parte mas cara de
+    la respuesta. El progreso puede quedarse hasta un minuto desfasado, que en
+    una barra no se nota.
+    """
+    if not channel_ids:
+        return {}
+
+    key = 'epg_nownext:' + hashlib.md5(
+        ','.join(str(c) for c in sorted(channel_ids)).encode()
+    ).hexdigest()
+    try:
+        cached = cache.get(key)
+    except Exception:
+        cached = None
+    if cached is not None:
+        return cached
+
+    now = timezone.now()
+    result = {}
+
+    for p in Program.objects.filter(
+        channel_id__in=channel_ids, start_time__lte=now, end_time__gte=now
+    ):
+        result[p.channel_id] = dict(
+            EMPTY_EPG,
+            cur_playing=p.title,
+            epg_start=p.start_time.isoformat(),
+            epg_end=p.end_time.isoformat(),
+            epg_progress=p.progress_percent,
+            epg_cur_start=timezone.localtime(p.start_time).strftime('%H:%M'),
+            epg_cur_end=timezone.localtime(p.end_time).strftime('%H:%M'),
+        )
+
+    # Acotado a las proximas horas: sin el limite superior esta consulta traia
+    # todos los programas futuros (dias) de 50 canales para quedarse con uno
+    # por canal.
+    seen = set()
+    for p in Program.objects.filter(
+        channel_id__in=channel_ids,
+        start_time__gt=now,
+        start_time__lte=now + timezone.timedelta(hours=6),
+    ).order_by('channel_id', 'start_time'):
+        if p.channel_id in seen:
+            continue
+        seen.add(p.channel_id)
+        entry = result.setdefault(p.channel_id, dict(EMPTY_EPG))
+        entry['epg_next'] = p.title
+        entry['epg_next_start'] = timezone.localtime(p.start_time).strftime('%H:%M')
+
+    try:
+        cache.set(key, result, EPG_CACHE_SECONDS)
+    except Exception:
+        pass
+
+    return result
+
+
 def handle_get_ordered_list(request):
     """Get ordered channel list."""
     device = get_device_from_request(request)
@@ -1152,25 +411,7 @@ def handle_get_ordered_list(request):
     total = channels.count()
     channels = channels[page * per_page:(page + 1) * per_page]
 
-    # Get current programs for EPG
-    now = timezone.now()
-    current_programs = {
-        p.channel_id: p for p in Program.objects.filter(
-            channel__in=channels,
-            start_time__lte=now,
-            end_time__gte=now
-        )
-    }
-    # Acotado a las proximas horas: sin el limite superior esta consulta traia
-    # todos los programas futuros (dias) de 50 canales para quedarse con uno
-    # por canal.
-    next_programs = {}
-    for p in Program.objects.filter(
-        channel__in=channels,
-        start_time__gt=now,
-        start_time__lte=now + timezone.timedelta(hours=6),
-    ).order_by('channel_id', 'start_time'):
-        next_programs.setdefault(p.channel_id, p)
+    epg = epg_now_next([ch.id for ch in channels])
 
     favorites = set()
     if device:
@@ -1181,12 +422,10 @@ def handle_get_ordered_list(request):
 
     data = []
     for ch in channels:
-        current = current_programs.get(ch.id)
-        upcoming = next_programs.get(ch.id)
         # Only advertise archive when a recorder can actually serve it: it needs
         # catchup enabled and a multicast source being archived.
         has_archive = bool(ch.has_catchup and ch.multicast_url)
-        data.append({
+        entry = {
             'id': str(ch.id),
             'name': ch.name,
             'number': ch.number,
@@ -1197,15 +436,10 @@ def handle_get_ordered_list(request):
             'fav': 1 if ch.id in favorites else 0,
             'archive': 1 if has_archive else 0,
             'archive_range': ch.timeshift_hours if has_archive else 0,
-            'cur_playing': current.title if current else '',
-            'epg_start': current.start_time.isoformat() if current else '',
-            'epg_end': current.end_time.isoformat() if current else '',
-            'epg_progress': current.progress_percent if current else 0,
-            'epg_next': upcoming.title if upcoming else '',
-            'epg_next_start': timezone.localtime(upcoming.start_time).strftime('%H:%M') if upcoming else '',
-            'epg_cur_start': timezone.localtime(current.start_time).strftime('%H:%M') if current else '',
-            'epg_cur_end': timezone.localtime(current.end_time).strftime('%H:%M') if current else '',
-        })
+            'genre_id': str(ch.category_id) if ch.category_id else '',
+        }
+        entry.update(epg.get(ch.id, EMPTY_EPG))
+        data.append(entry)
 
     return stalker_response({
         'total_items': total,
@@ -1780,12 +1014,14 @@ def handle_pvr_link(request):
 # ============== Other Handlers ==============
 
 def handle_watchdog(request, action):
-    """Handle watchdog/keepalive."""
-    device = get_device_from_request(request)
-    if device:
-        device.update_activity(
-            ip_address=MACAuthentication.get_client_ip(request)
-        )
+    """
+    Handle watchdog/keepalive.
+
+    La actividad ya se anota (agrupada) al autenticar, que es por donde pasan
+    todas las peticiones del aparato, asi que aqui no hace falta escribir otra
+    vez.
+    """
+    get_device_from_request(request)
     return stalker_response({'result': True})
 
 

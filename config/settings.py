@@ -94,6 +94,12 @@ CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
         'LOCATION': os.getenv('REDIS_URL', 'redis://localhost:6379/0'),
+        'OPTIONS': {
+            # Si Redis no responde hay que fallar rapido: la cache es un extra
+            # y no puede quedarse colgando las peticiones de los decos.
+            'socket_connect_timeout': 1,
+            'socket_timeout': 1,
+        },
     }
 }
 
@@ -107,6 +113,12 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Custom user model
 AUTH_USER_MODEL = 'accounts.User'
+
+# Cabeceras de seguridad. No se activan aquí las de HTTPS (redirección, cookies
+# secure, HSTS) porque el portal se sirve hoy por HTTP y romperían los decos;
+# van en la lista de deudas junto con el propio paso a HTTPS.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
 
 # Internationalization
 LANGUAGE_CODE = 'es-es'

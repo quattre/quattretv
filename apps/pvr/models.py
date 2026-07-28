@@ -162,6 +162,10 @@ class Recording(TimeStampedModel):
         verbose_name = 'Recording'
         verbose_name_plural = 'Recordings'
         ordering = ['-start_time']
+        indexes = [
+            # dispatch_due_recordings recorre las pendientes cada minuto.
+            models.Index(fields=['status', 'start_time']),
+        ]
 
     def __str__(self):
         return f"{self.title} ({self.status})"

@@ -1,5 +1,31 @@
 # Puesta en marcha de EPG y grabaciones
 
+## 0. Comprobar que el .env de producción está bien
+
+`manage.py check` avisa al desplegar si `DEBUG` está activado, si
+`ALLOWED_HOSTS` acepta cualquier dominio o si la `SECRET_KEY` es la de ejemplo.
+Los tres hay que corregirlos en el `.env` del servidor: con `DEBUG=True`
+cualquier error muestra la traza completa con la configuración.
+
+Para vigilar el servicio en marcha hay un **`/health`**: responde 503 si la base
+de datos falla, si el EPG lleva más de 6 h sin actualizarse (señal de que Celery
+está parado) o si un grabador lleva más de 15 min sin pedir sus tareas.
+
+### Mando a distancia en el portal de TV
+
+| Tecla | Hace |
+|---|---|
+| OK | Ver a pantalla completa |
+| ▲ ▼ | Moverse por la lista / cambiar de canal |
+| ▶ | Guía del canal |
+| ◀ | Categorías |
+| REC o ROJO | Grabar |
+| VERDE | Mis grabaciones |
+| AMARILLO | Ver solo favoritos |
+| AZUL | Marcar/desmarcar favorito |
+| 0-9 | Ir directo a un número de canal |
+
+
 Nada de esto reinventa el grabador: seguimos usando `dumpstream` de Ministra en
 record1 y storage1. Lo único que cambia es quién les dice qué grabar.
 

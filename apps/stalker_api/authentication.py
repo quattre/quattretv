@@ -2,9 +2,16 @@
 MAC-based authentication for STB devices.
 """
 import re
+
+from django.core.cache import cache
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from apps.devices.models import Device
+
+# Cada aparato encadena muchas peticiones seguidas (lista, EPG, guia, latido) y
+# hasta ahora cada una escribia en la base de datos. Se agrupa a una por minuto
+# y por aparato.
+ACTIVITY_THROTTLE_SECONDS = 60
 
 
 class MACAuthentication(BaseAuthentication):
@@ -32,12 +39,27 @@ class MACAuthentication(BaseAuthentication):
         if not device.user.is_subscription_active:
             raise AuthenticationFailed('Subscription expired')
 
-        # Update device activity
-        device.update_activity(
-            ip_address=self.get_client_ip(request)
-        )
+        self.touch(device, self.get_client_ip(request))
 
         return (device.user, device)
+
+    @staticmethod
+    def touch(device, ip_address=None):
+        """Anotar que el aparato sigue vivo, sin escribir en cada peticion."""
+        key = f'device_seen:{device.id}'
+        try:
+            if cache.get(key):
+                return
+        except Exception:
+            # Sin cache se comporta como antes: escribir siempre.
+            device.update_activity(ip_address=ip_address)
+            return
+
+        device.update_activity(ip_address=ip_address)
+        try:
+            cache.set(key, 1, ACTIVITY_THROTTLE_SECONDS)
+        except Exception:
+            pass
 
     def get_mac_from_request(self, request):
         """Extract MAC address from request."""
