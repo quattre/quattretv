@@ -13,6 +13,22 @@
     </button>
 </div>
 
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-5">
+        <p class="text-sm text-gray-500">Programas en base de datos</p>
+        <p class="text-2xl font-bold text-gray-900">{{ programs_count }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5">
+        <p class="text-sm text-gray-500">Canales con EPG mapeado</p>
+        <p class="text-2xl font-bold text-gray-900">{{ mapped_channels }}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-5">
+        <p class="text-sm text-gray-500">Canales sin mapear</p>
+        <p class="text-2xl font-bold {% if unmapped_channels %}text-amber-600{% else %}text-gray-900{% endif %}">{{ unmapped_channels }}</p>
+        <p class="text-xs text-gray-400 mt-1">Necesitan EPG Channel ID (tvg-id) para recibir programacion</p>
+    </div>
+</div>
+
 <div class="bg-white rounded-xl shadow-sm overflow-hidden">
     <table class="w-full">
         <thead class="bg-gray-50">
@@ -38,9 +54,20 @@
                     {% endif %}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                    <button class="p-2 text-green-500 hover:bg-green-50 rounded-lg transition" title="Actualizar ahora"><i class="bi bi-arrow-clockwise"></i></button>
-                    <button class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition"><i class="bi bi-pencil"></i></button>
-                    <button class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"><i class="bi bi-trash"></i></button>
+                    <div class="flex items-center gap-1">
+                        <form method="post" action="{% url 'portal:epg_source_update' source.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="p-2 text-green-500 hover:bg-green-50 rounded-lg transition" title="Actualizar ahora"><i class="bi bi-arrow-clockwise"></i></button>
+                        </form>
+                        <form method="post" action="{% url 'portal:epg_source_toggle' source.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Activar/desactivar"><i class="bi bi-power"></i></button>
+                        </form>
+                        <form method="post" action="{% url 'portal:epg_source_delete' source.id %}" onsubmit="return confirm('¿Eliminar esta fuente EPG?');">
+                            {% csrf_token %}
+                            <button type="submit" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" title="Eliminar"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             {% empty %}

@@ -37,6 +37,13 @@ def stb_portal_app(request):
     var volume = 50;
     var volTimeout = null;
     var useHTML5 = false;
+    var view = "list";          // list | guide | recordings
+    var guide = [];
+    var guideIdx = 0;
+    var guideChannel = null;
+    var recordings = [];
+    var recIdx = 0;
+    var toastTimeout = null;
 
     function fitScreen() {
         // El surface de la app webOS ya es 1920x1080, no hace falta escalar.
@@ -72,27 +79,56 @@ def stb_portal_app(request):
             htmlPlayer = document.getElementById('html5video');
             htmlPlayer.style.display = 'block';
             htmlPlayer.volume = volume / 100;
+            // El archivo y las grabaciones se sirven como MPEG-TS crudo: el
+            // deco lo reproduce, pero el <video> de LG no. Avisar en vez de
+            // quedarse en negro.
+            htmlPlayer.onerror = function() {
+                toast('Este contenido no se puede reproducir en este dispositivo');
+            };
         }
 
         loadData();
     }
 
-    function loadData() {
+    function api(query, cb) {
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                try {
-                    var r = JSON.parse(xhr.responseText);
-                    if (r.js && r.js.data) {
-                        channels = r.js.data;
-                        showChannels();
-                        startPreview();
-                    }
-                } catch(err) {}
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var r = JSON.parse(xhr.responseText);
+                        cb(r.js || {});
+                        return;
+                    } catch(err) {}
+                }
+                cb(null);
             }
         };
-        xhr.open("GET", "?type=itv&action=get_ordered_list&p=0&_t=" + Date.now(), true);
+        xhr.open("GET", "?" + query + "&_t=" + Date.now(), true);
         xhr.send();
+    }
+
+    function loadData() {
+        loadPage(0);
+    }
+
+    // El listado va paginado de 50 en 50: antes solo se pedia la primera
+    // pagina, asi que en la tele solo se veian 50 canales.
+    function loadPage(page) {
+        api("type=itv&action=get_ordered_list&p=" + page, function(js) {
+            if (!js || !js.data) return;
+            channels = channels.concat(js.data);
+            if (page === 0) {
+                showChannels();
+                startPreview();
+            } else {
+                if (view === "list") showChannels();
+            }
+            var perPage = js.max_page_items || 50;
+            if (channels.length < (js.total_items || 0) && js.data.length >= perPage) {
+                loadPage(page + 1);
+            }
+        });
     }
 
     function setViewportPreview() {
@@ -151,14 +187,20 @@ def stb_portal_app(request):
         }
     }
 
+    function esc(s) {
+        if (s === undefined || s === null) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     function showChannels() {
+        view = "list";
         var ch = channels[currentChannel];
         var h = '<div class="panel">';
         h += '<div class="header"><div class="logo">Quattre<span>TV</span></div>';
         h += '<div class="counter">' + channels.length + ' canales</div></div>';
 
         h += '<div class="list">';
-        var visible = 12;
+        var visible = 11;
         var start = Math.max(0, currentChannel - 5);
         var end = Math.min(channels.length, start + visible);
         if (end - start < visible) start = Math.max(0, end - visible);
@@ -167,26 +209,272 @@ def stb_portal_app(request):
             var cls = (i === currentChannel) ? "item sel" : "item";
             h += '<div class="' + cls + '">';
             h += '<div class="num">' + c.number + '</div>';
-            h += '<div class="info"><div class="name">' + c.name;
+            h += '<div class="info"><div class="name">' + esc(c.name);
             if (c.hd) h += ' <span class="hd">HD</span>';
+            if (c.fav) h += ' <span class="fav">★</span>';
+            if (c.archive) h += ' <span class="arch">⟲</span>';
             h += '</div>';
-            if (c.cur_playing) h += '<div class="epg">' + c.cur_playing + '</div>';
+            if (c.cur_playing) {
+                h += '<div class="epg">' + esc(c.cur_playing);
+                if (c.epg_cur_end) h += ' <span class="t">hasta ' + esc(c.epg_cur_end) + '</span>';
+                h += '</div>';
+                h += '<div class="bar"><i style="width:' + (c.epg_progress || 0) + '%"></i></div>';
+            }
             h += '</div></div>';
         }
         h += '</div>';
 
-        h += '<div class="help"><span>OK</span> Ver <span>▲▼</span> Navegar <span>VOL</span> Volumen</div>';
+        h += '<div class="help"><span>OK</span> Ver <span>▶</span> Guia <span>REC</span> Grabar <span>VERDE</span> Grabaciones</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
         updatePreviewCap(ch);
     }
 
+    function toast(msg) {
+        var t = document.getElementById("toast");
+        t.innerHTML = esc(msg);
+        t.style.display = "block";
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(function() { t.style.display = "none"; }, 2500);
+    }
+
+    // ---------- Guia de programacion ----------
+
+    function openGuide() {
+        var ch = channels[currentChannel];
+        if (!ch) return;
+        guideChannel = ch;
+        guide = [];
+        guideIdx = 0;
+        view = "guide";
+        document.getElementById("content").innerHTML =
+            '<div class="panel"><div class="header"><div class="logo">Guia</div></div>' +
+            '<div style="color:#666;padding:20px;">Cargando programacion...</div></div>';
+        api("type=epg&action=get_simple_data_table&ch_id=" + ch.id, function(js) {
+            if (view !== "guide") return;
+            guide = (js && js.data) ? js.data : [];
+            for (var i = 0; i < guide.length; i++) {
+                if (guide[i].current) { guideIdx = i; break; }
+            }
+            renderGuide();
+        });
+    }
+
+    function renderGuide() {
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">' + esc(guideChannel.name) + '</div>';
+        h += '<div class="counter">Guia</div></div>';
+
+        if (guide.length === 0) {
+            h += '<div class="list"><div style="color:#666;padding:20px;">Sin datos de EPG para este canal</div></div>';
+        } else {
+            h += '<div class="list">';
+            var visible = 9;
+            var start = Math.max(0, guideIdx - 4);
+            var end = Math.min(guide.length, start + visible);
+            if (end - start < visible) start = Math.max(0, end - visible);
+            for (var i = start; i < end; i++) {
+                var p = guide[i];
+                var cls = (i === guideIdx) ? "item sel" : "item";
+                if (p.past) cls += " past";
+                h += '<div class="' + cls + '">';
+                h += '<div class="num sm">' + esc(p.t_time) + '</div>';
+                h += '<div class="info"><div class="name">' + esc(p.name);
+                if (p.rec) h += ' <span class="rec">REC</span>';
+                if (p.current) h += ' <span class="live">AHORA</span>';
+                h += '</div>';
+                if (p.current) h += '<div class="bar"><i style="width:' + (p.progress || 0) + '%"></i></div>';
+                h += '</div></div>';
+            }
+            h += '</div>';
+
+            var sel = guide[guideIdx];
+            if (sel && sel.descr) {
+                h += '<div class="descr">' + esc(sel.descr.substring(0, 220)) + '</div>';
+            }
+        }
+
+        var hint = guide.length && guide[guideIdx] && guide[guideIdx].past
+            ? '<span>OK</span> Ver desde el archivo' : '<span>REC</span> Grabar';
+        h += '<div class="help">' + hint + ' <span>◀</span> Volver</div>';
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function guideAction() {
+        var p = guide[guideIdx];
+        if (!p) return;
+        if (p.past) {
+            playCatchup(p);
+        } else {
+            recordProgram(p);
+        }
+    }
+
+    function recordProgram(p) {
+        if (!p) return;
+        api("type=pvr&action=create_task&program_id=" + p.id, function(js) {
+            if (js && js.result) {
+                p.rec = 1;
+                toast('Grabacion programada: ' + p.name);
+                if (view === "guide") renderGuide();
+            } else {
+                toast((js && js.error) ? js.error : 'No se pudo programar');
+            }
+        });
+    }
+
+    function playCatchup(p) {
+        if (!guideChannel.archive) { toast('Este canal no tiene archivo'); return; }
+        api("type=tv_archive&action=create_link&ch_id=" + guideChannel.id +
+            "&utc=" + p.start_timestamp + "&lutc=" + p.stop_timestamp, function(js) {
+            if (js && js.cmd) {
+                playChannel({cmd: js.cmd});
+                playingChannelIdx = -1;
+                setViewportFullscreen();
+                isFullscreen = true;
+                document.getElementById("content").style.display = "none";
+                document.getElementById("preview").style.display = "none";
+                document.getElementById("preview-cap").style.display = "none";
+                document.getElementById("osd").style.display = "block";
+                document.getElementById("osd").innerHTML =
+                    '<div class="osd-ch">' + esc(guideChannel.name) + ' · archivo</div>' +
+                    '<div class="osd-epg">' + esc(p.name) + '</div>';
+            } else {
+                toast((js && js.error) ? js.error : 'Archivo no disponible');
+            }
+        });
+    }
+
+    // ---------- Grabaciones ----------
+
+    function openRecordings() {
+        view = "recordings";
+        recIdx = 0;
+        document.getElementById("content").innerHTML =
+            '<div class="panel"><div class="header"><div class="logo">Grabaciones</div></div>' +
+            '<div style="color:#666;padding:20px;">Cargando...</div></div>';
+        api("type=pvr&action=get_ordered_list", function(js) {
+            if (view !== "recordings") return;
+            recordings = (js && js.data) ? js.data : [];
+            renderRecordings((js && js.error) ? js.error : null);
+        });
+    }
+
+    function renderRecordings(error) {
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">Grabaciones</div>';
+        h += '<div class="counter">' + recordings.length + '</div></div>';
+        h += '<div class="list">';
+        if (error) {
+            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
+        } else if (recordings.length === 0) {
+            h += '<div style="color:#666;padding:20px;">Todavia no hay grabaciones</div>';
+        } else {
+            var visible = 11;
+            var start = Math.max(0, recIdx - 5);
+            var end = Math.min(recordings.length, start + visible);
+            if (end - start < visible) start = Math.max(0, end - visible);
+            for (var i = start; i < end; i++) {
+                var r = recordings[i];
+                var cls = (i === recIdx) ? "item sel" : "item";
+                h += '<div class="' + cls + '">';
+                h += '<div class="num sm">' + esc(r.start_time.substring(11)) + '</div>';
+                h += '<div class="info"><div class="name">' + esc(r.name);
+                h += ' <span class="st ' + esc(r.status) + '">' + esc(statusLabel(r.status)) + '</span></div>';
+                h += '<div class="epg">' + esc(r.ch_name) + ' · ' + esc(r.start_time) + '</div>';
+                h += '</div></div>';
+            }
+        }
+        h += '</div>';
+        h += '<div class="help"><span>OK</span> Ver <span>REC</span> Borrar <span>◀</span> Volver</div>';
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function statusLabel(s) {
+        if (s === 'completed') return 'LISTA';
+        if (s === 'recording') return 'GRABANDO';
+        if (s === 'scheduled') return 'PROGRAMADA';
+        if (s === 'failed') return 'ERROR';
+        return s;
+    }
+
+    function playRecording() {
+        var r = recordings[recIdx];
+        if (!r) return;
+        if (r.status !== 'completed') { toast('La grabacion aun no esta lista'); return; }
+        api("type=pvr&action=create_link&cmd=" + r.id, function(js) {
+            if (js && js.cmd) {
+                playChannel({cmd: js.cmd});
+                playingChannelIdx = -1;
+                setViewportFullscreen();
+                isFullscreen = true;
+                document.getElementById("content").style.display = "none";
+                document.getElementById("preview").style.display = "none";
+                document.getElementById("preview-cap").style.display = "none";
+                document.getElementById("osd").style.display = "block";
+                document.getElementById("osd").innerHTML =
+                    '<div class="osd-ch">Grabacion</div>' +
+                    '<div class="osd-epg">' + esc(r.name) + '</div>';
+            } else {
+                toast((js && js.error) ? js.error : 'No se pudo reproducir');
+            }
+        });
+    }
+
+    function deleteRecording() {
+        var r = recordings[recIdx];
+        if (!r) return;
+        api("type=pvr&action=delete_task&id=" + r.id, function(js) {
+            if (js && js.result) {
+                recordings.splice(recIdx, 1);
+                if (recIdx >= recordings.length) recIdx = Math.max(0, recordings.length - 1);
+                toast('Grabacion borrada');
+                renderRecordings(null);
+            } else {
+                toast((js && js.error) ? js.error : 'No se pudo borrar');
+            }
+        });
+    }
+
+    function recordCurrent() {
+        var ch = channels[currentChannel];
+        if (!ch) return;
+        api("type=itv&action=get_short_epg&ch_id=" + ch.id, function(js) {
+            var list = (js && js.data) ? js.data : [];
+            if (list.length === 0) { toast('Sin EPG para grabar este canal'); return; }
+            recordProgram(list[0]);
+        });
+    }
+
     function updatePreviewCap(ch) {
         var cap = document.getElementById("preview-cap");
         if (!cap || !ch) return;
-        var html = '<div class="t">' + ch.number + '. ' + ch.name + '</div>';
-        if (ch.cur_playing) html += '<div class="e">' + ch.cur_playing + '</div>';
+        var html = '<div class="t">' + ch.number + '. ' + esc(ch.name) + '</div>';
+        if (ch.cur_playing) {
+            html += '<div class="e">' + esc(ch.epg_cur_start) + ' - ' + esc(ch.epg_cur_end) +
+                    '  ' + esc(ch.cur_playing) + '</div>';
+            html += '<div class="bar" style="width:520px;"><i style="width:' +
+                    (ch.epg_progress || 0) + '%"></i></div>';
+        }
+        if (ch.epg_next) {
+            html += '<div class="e">Despues: ' + esc(ch.epg_next_start) + ' ' + esc(ch.epg_next) + '</div>';
+        }
         cap.innerHTML = html;
+    }
+
+    function osdFor(ch) {
+        var html = '<div class="osd-ch">' + ch.number + '. ' + esc(ch.name) + '</div>';
+        if (ch.cur_playing) {
+            html += '<div class="osd-epg">' + esc(ch.epg_cur_start) + ' - ' + esc(ch.epg_cur_end) +
+                    '  ' + esc(ch.cur_playing) + '</div>';
+            html += '<div class="bar"><i style="width:' + (ch.epg_progress || 0) + '%"></i></div>';
+        }
+        if (ch.epg_next) {
+            html += '<div class="osd-epg">Despues: ' + esc(ch.epg_next_start) + ' ' + esc(ch.epg_next) + '</div>';
+        }
+        return html;
     }
 
     function goFullscreen() {
@@ -208,9 +496,7 @@ def stb_portal_app(request):
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
         document.getElementById("osd").style.display = "block";
-        var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
-        if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
-        document.getElementById("osd").innerHTML = osdHtml;
+        document.getElementById("osd").innerHTML = osdFor(ch);
     }
 
     function showMenu() {
@@ -222,6 +508,8 @@ def stb_portal_app(request):
         document.getElementById("preview-cap").style.display = "block";
         document.getElementById("osd").style.display = "none";
         showChannels();
+        // Si veniamos del archivo o de una grabacion, el canal ya no suena.
+        if (playingChannelIdx === -1) startPreview();
     }
 
     function showVolume() {
@@ -254,9 +542,7 @@ def stb_portal_app(request):
                     var ch = channels[currentChannel];
                     playChannel(ch);
                     playingChannelIdx = currentChannel;
-                    var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
-                    if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
-                    document.getElementById("osd").innerHTML = osdHtml;
+                    document.getElementById("osd").innerHTML = osdFor(ch);
                 }
             } else if (k === 40 || k === 34) {
                 if (currentChannel < channels.length - 1) {
@@ -264,12 +550,38 @@ def stb_portal_app(request):
                     var ch = channels[currentChannel];
                     playChannel(ch);
                     playingChannelIdx = currentChannel;
-                    var osdHtml = '<div class="osd-ch">' + ch.number + '. ' + ch.name + '</div>';
-                    if (ch.cur_playing) osdHtml += '<div class="osd-epg">' + ch.cur_playing + '</div>';
-                    document.getElementById("osd").innerHTML = osdHtml;
+                    document.getElementById("osd").innerHTML = osdFor(ch);
                 }
             } else if (k === 8 || k === 27 || k === 13) {
                 showMenu();
+            }
+        } else if (view === "guide") {
+            if (k === 38 && guideIdx > 0) {
+                guideIdx--;
+                renderGuide();
+            } else if (k === 40 && guideIdx < guide.length - 1) {
+                guideIdx++;
+                renderGuide();
+            } else if (k === 13) {
+                guideAction();
+            } else if (k === 82 || k === 112) {
+                recordProgram(guide[guideIdx]);
+            } else if (k === 37 || k === 8 || k === 27) {
+                showChannels();
+            }
+        } else if (view === "recordings") {
+            if (k === 38 && recIdx > 0) {
+                recIdx--;
+                renderRecordings(null);
+            } else if (k === 40 && recIdx < recordings.length - 1) {
+                recIdx++;
+                renderRecordings(null);
+            } else if (k === 13) {
+                playRecording();
+            } else if (k === 82 || k === 112) {
+                deleteRecording();
+            } else if (k === 37 || k === 8 || k === 27) {
+                showChannels();
             }
         } else {
             if (k === 38 && currentChannel > 0) {
@@ -282,6 +594,12 @@ def stb_portal_app(request):
                 startPreview();
             } else if (k === 13 && channels.length > 0) {
                 goFullscreen();
+            } else if (k === 39 && channels.length > 0) {
+                openGuide();
+            } else if (k === 82 || k === 112) {
+                recordCurrent();
+            } else if (k === 113 || k === 83) {
+                openRecordings();
             }
         }
         return false;
@@ -318,6 +636,31 @@ def stb_portal_app(request):
         .name { font-size: 24px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .hd { background: #3498db; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
         .epg { font-size: 16px; color: #888; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .num.sm { font-size: 20px; width: 78px; color: #7a8; }
+        .fav { color: #f1c40f; font-size: 18px; margin-left: 6px; }
+        .arch { color: #3498db; font-size: 18px; margin-left: 6px; }
+        .rec { background: #e74c3c; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
+        .live { background: #00a651; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
+        .item.past { opacity: 0.55; }
+        .epg .t { color: #667; }
+        .bar { height: 4px; background: rgba(255,255,255,0.12); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+        .bar i { display: block; height: 100%; background: #00a651; }
+        .descr { color: #99a; font-size: 17px; line-height: 1.45; padding: 14px 4px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .st { font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; background: #555; color: #fff; }
+        .st.completed { background: #00a651; }
+        .st.recording { background: #e74c3c; }
+        .st.scheduled { background: #3498db; }
+        .st.failed { background: #7f8c8d; }
+
+        #toast {
+            display: none; position: fixed; bottom: 60px; left: 50%;
+            transform: translateX(-50%); z-index: 30;
+            background: linear-gradient(180deg, rgba(15,15,35,0.97) 0%, rgba(10,10,25,0.95) 100%);
+            padding: 18px 34px; font-size: 22px; border-radius: 12px;
+            border-left: 4px solid #00a651;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
 
         .help { text-align: center; color: #555; font-size: 15px; }
         .help span { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 6px; margin: 0 5px; color: #888; }
@@ -356,6 +699,7 @@ def stb_portal_app(request):
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
     <div id="osd" style="position:relative;z-index:10;"></div>
     <div id="vol" style="z-index:20;"></div>
+    <div id="toast"></div>
 </body>
 </html>'''
     return HttpResponse(html, content_type='text/html')
@@ -557,6 +901,8 @@ def portal_handler(request):
         'series': handle_series,
         'epg': handle_epg,
         'tv_archive': handle_tv_archive,
+        'pvr': handle_pvr,
+        'records': handle_pvr,
         'watchdog': handle_watchdog,
         'account_info': handle_account_info,
     }
@@ -724,7 +1070,7 @@ def handle_get_modules(request):
     """Get available modules."""
     return stalker_response({
         'result': {
-            'all_modules': ['tv', 'vod', 'epg', 'settings'],
+            'all_modules': ['tv', 'vod', 'epg', 'records', 'settings'],
             'disabled_modules': [],
         }
     })
@@ -806,10 +1152,26 @@ def handle_get_ordered_list(request):
             end_time__gte=now
         )
     }
+    next_programs = {}
+    for p in Program.objects.filter(
+        channel__in=channels, start_time__gt=now
+    ).order_by('channel_id', 'start_time'):
+        next_programs.setdefault(p.channel_id, p)
+
+    favorites = set()
+    if device:
+        from apps.channels.models import Favorite
+        favorites = set(
+            Favorite.objects.filter(user=device.user).values_list('channel_id', flat=True)
+        )
 
     data = []
     for ch in channels:
         current = current_programs.get(ch.id)
+        upcoming = next_programs.get(ch.id)
+        # Only advertise archive when a recorder can actually serve it: it needs
+        # catchup enabled and a multicast source being archived.
+        has_archive = bool(ch.has_catchup and ch.multicast_url)
         data.append({
             'id': str(ch.id),
             'name': ch.name,
@@ -818,12 +1180,17 @@ def handle_get_ordered_list(request):
             'logo': ch.logo_display_url,
             'censored': ch.is_adult,
             'hd': 1 if ch.is_hd else 0,
-            'fav': 0,  # TODO: Check favorites
-            'archive': 1 if ch.has_timeshift else 0,
-            'archive_range': ch.timeshift_hours,
+            'fav': 1 if ch.id in favorites else 0,
+            'archive': 1 if has_archive else 0,
+            'archive_range': ch.timeshift_hours if has_archive else 0,
             'cur_playing': current.title if current else '',
             'epg_start': current.start_time.isoformat() if current else '',
             'epg_end': current.end_time.isoformat() if current else '',
+            'epg_progress': current.progress_percent if current else 0,
+            'epg_next': upcoming.title if upcoming else '',
+            'epg_next_start': timezone.localtime(upcoming.start_time).strftime('%H:%M') if upcoming else '',
+            'epg_cur_start': timezone.localtime(current.start_time).strftime('%H:%M') if current else '',
+            'epg_cur_end': timezone.localtime(current.end_time).strftime('%H:%M') if current else '',
         })
 
     return stalker_response({
@@ -850,7 +1217,8 @@ def handle_get_url(request):
 
     # Add authentication token if needed
     if device:
-        stream_url = f"{stream_url}?token={device.token}"
+        separator = '&' if '?' in stream_url else '?'
+        stream_url = f"{stream_url}{separator}token={device.token}"
 
     return stalker_response({
         'cmd': stream_url,
@@ -878,10 +1246,13 @@ def handle_get_short_epg(request):
     for prog in programs:
         data.append({
             'id': str(prog.id),
-            't_time': prog.start_time.strftime('%H:%M'),
-            't_time_end': prog.end_time.strftime('%H:%M'),
+            't_time': timezone.localtime(prog.start_time).strftime('%H:%M'),
+            't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
             'name': prog.title,
             'descr': prog.description[:200] if prog.description else '',
+            'start_timestamp': int(prog.start_time.timestamp()),
+            'stop_timestamp': int(prog.end_time.timestamp()),
+            'progress': prog.progress_percent,
         })
 
     return stalker_response({'data': data})
@@ -995,7 +1366,8 @@ def handle_vod_link(request):
         stream_url = cmd
 
     if device:
-        stream_url = f"{stream_url}?token={device.token}"
+        separator = '&' if '?' in stream_url else '?'
+        stream_url = f"{stream_url}{separator}token={device.token}"
 
     return stalker_response({'cmd': stream_url})
 
@@ -1082,15 +1454,33 @@ def handle_epg_table(request):
         start_time__date=day
     ).order_by('start_time')
 
+    device = get_device_from_request(request)
+    scheduled = set()
+    if device:
+        from apps.pvr.models import Recording
+        scheduled = set(
+            Recording.objects.filter(
+                user=device.user, program__in=programs
+            ).values_list('program_id', flat=True)
+        )
+
+    now = timezone.now()
     data = []
     for prog in programs:
         data.append({
             'id': str(prog.id),
-            't_time': prog.start_time.strftime('%H:%M'),
-            't_time_end': prog.end_time.strftime('%H:%M'),
+            't_time': timezone.localtime(prog.start_time).strftime('%H:%M'),
+            't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
             'name': prog.title,
             'descr': prog.description or '',
             'category': prog.category or '',
+            # Extras used by our portal (MAG ignores unknown keys)
+            'start_timestamp': int(prog.start_time.timestamp()),
+            'stop_timestamp': int(prog.end_time.timestamp()),
+            'progress': prog.progress_percent,
+            'past': 1 if prog.end_time < now else 0,
+            'current': 1 if prog.start_time <= now <= prog.end_time else 0,
+            'rec': 1 if prog.id in scheduled else 0,
         })
 
     return stalker_response({'data': data})
@@ -1114,14 +1504,14 @@ def handle_epg_week(request):
 
     data = {}
     for prog in programs:
-        day_key = prog.start_time.strftime('%Y-%m-%d')
+        day_key = timezone.localtime(prog.start_time).strftime('%Y-%m-%d')
         if day_key not in data:
             data[day_key] = []
 
         data[day_key].append({
             'id': str(prog.id),
-            't_time': prog.start_time.strftime('%H:%M'),
-            't_time_end': prog.end_time.strftime('%H:%M'),
+            't_time': timezone.localtime(prog.start_time).strftime('%H:%M'),
+            't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
             'name': prog.title,
             'descr': prog.description[:200] if prog.description else '',
         })
@@ -1140,14 +1530,21 @@ def handle_tv_archive(request, action):
 
 
 def handle_archive_link(request):
-    """Create timeshift/archive link."""
-    cmd = request.GET.get('cmd', '')
+    """
+    Create a timeshift/archive link.
+
+    The archive lives on the storage server as hourly MPEG-TS pieces, served by
+    its get.php. Pointing at the CDN's live HLS with an ?utc= parameter never
+    worked: that server has no archive, it only holds seconds of stream in RAM.
+    """
+    from datetime import datetime, timezone as dt_timezone
+    from .storage_views import build_catchup_url
+
     device = get_device_from_request(request)
 
-    # Parse the command - format: "auto /ch/CHANNEL_ID?utc=TIMESTAMP"
-    # or just channel_id with utc parameter
     channel_id = request.GET.get('ch_id')
     utc = request.GET.get('utc')
+    lutc = request.GET.get('lutc')
 
     if not channel_id:
         return stalker_response({'error': 'Channel ID required'})
@@ -1157,18 +1554,213 @@ def handle_archive_link(request):
     except Channel.DoesNotExist:
         return stalker_response({'error': 'Channel not found'})
 
-    if not channel.has_timeshift:
-        return stalker_response({'error': 'Timeshift not available'})
+    if not channel.has_catchup or not channel.multicast_url:
+        return stalker_response({'error': 'Archivo no disponible para este canal'})
 
-    stream_url = channel.stream_url
-    if utc:
-        stream_url = f"{stream_url}?utc={utc}"
+    if device and device.user.tariff and not device.user.tariff.has_catchup:
+        return stalker_response({'error': 'Archivo no incluido en tu tarifa'})
 
-    if device:
-        separator = '&' if '?' in stream_url else '?'
-        stream_url = f"{stream_url}{separator}token={device.token}"
+    if not utc:
+        return stalker_response({'error': 'utc required'})
 
-    return stalker_response({'cmd': stream_url})
+    try:
+        start = datetime.fromtimestamp(int(utc), tz=dt_timezone.utc)
+    except (TypeError, ValueError):
+        return stalker_response({'error': 'utc invalid'})
+
+    # Do not serve beyond what the recorder keeps.
+    oldest = timezone.now() - timezone.timedelta(hours=channel.timeshift_hours)
+    if start < oldest:
+        return stalker_response({'error': 'El programa ya no está en el archivo'})
+
+    duration = 3600
+    if lutc:
+        try:
+            duration = max(60, int(lutc) - int(utc))
+        except (TypeError, ValueError):
+            pass
+
+    url = build_catchup_url(channel, start, duration, device)
+    if not url:
+        return stalker_response({'error': 'No hay servidor de archivo configurado'})
+
+    return stalker_response({'cmd': url})
+
+
+# ============== PVR (Recordings) Handlers ==============
+
+def handle_pvr(request, action):
+    """Handle recording actions coming from MAG boxes."""
+    if action in ('get_ordered_list', 'get_recordings', 'get_list'):
+        return handle_pvr_list(request)
+    elif action in ('create_task', 'add_task', 'record'):
+        return handle_pvr_create(request)
+    elif action in ('delete_task', 'stop_task', 'remove'):
+        return handle_pvr_delete(request)
+    elif action == 'create_link':
+        return handle_pvr_link(request)
+
+    return stalker_response({'error': 'Unknown action'})
+
+
+def _pvr_device(request):
+    device = get_device_from_request(request)
+    if not device:
+        return None, stalker_response({'error': 'Not authenticated'})
+    if device.user.tariff and not device.user.tariff.has_pvr:
+        return None, stalker_response({'error': 'Grabaciones no incluidas en tu tarifa'})
+    return device, None
+
+
+def handle_pvr_list(request):
+    """List the user's recordings."""
+    from apps.pvr.models import Recording
+
+    device, error = _pvr_device(request)
+    if error:
+        return error
+
+    recordings = Recording.objects.filter(
+        user=device.user
+    ).select_related('channel').order_by('-start_time')
+
+    data = []
+    for rec in recordings:
+        data.append({
+            'id': str(rec.id),
+            'name': rec.title,
+            'ch_id': str(rec.channel_id),
+            'ch_name': rec.channel.name,
+            'start_time': timezone.localtime(rec.start_time).strftime('%Y-%m-%d %H:%M'),
+            'end_time': timezone.localtime(rec.end_time).strftime('%Y-%m-%d %H:%M'),
+            'status': rec.status,
+            'ready': 1 if rec.status == 'completed' else 0,
+            'length': rec.duration or 0,
+            'cmd': str(rec.id),
+        })
+
+    return stalker_response({
+        'total_items': len(data),
+        'max_page_items': len(data),
+        'data': data,
+    })
+
+
+def handle_pvr_create(request):
+    """Schedule a recording, either from an EPG program or a raw time range."""
+    from datetime import datetime, timezone as dt_timezone
+    from apps.pvr.models import Recording
+
+    device, error = _pvr_device(request)
+    if error:
+        return error
+
+    program_id = request.GET.get('program_id') or request.GET.get('epg_id')
+    channel_id = request.GET.get('ch_id')
+
+    if program_id:
+        try:
+            program = Program.objects.select_related('channel').get(id=program_id)
+        except Program.DoesNotExist:
+            return stalker_response({'error': 'Programa no encontrado'})
+
+        if Recording.objects.filter(user=device.user, program=program).exists():
+            return stalker_response({'error': 'Ya está programada'})
+
+        recording = Recording.objects.create(
+            user=device.user,
+            channel=program.channel,
+            program=program,
+            title=program.title,
+            description=program.description,
+            start_time=program.start_time,
+            end_time=program.end_time,
+        )
+        return stalker_response({'id': recording.id, 'result': True})
+
+    if not channel_id:
+        return stalker_response({'error': 'ch_id o program_id requerido'})
+
+    try:
+        channel = Channel.objects.get(id=channel_id, is_active=True)
+    except Channel.DoesNotExist:
+        return stalker_response({'error': 'Canal no encontrado'})
+
+    try:
+        start = datetime.fromtimestamp(int(request.GET.get('start', 0)), tz=dt_timezone.utc)
+        end = datetime.fromtimestamp(int(request.GET.get('end', 0)), tz=dt_timezone.utc)
+    except (TypeError, ValueError):
+        return stalker_response({'error': 'start/end inválidos'})
+
+    if end <= start:
+        return stalker_response({'error': 'Rango de tiempo inválido'})
+
+    recording = Recording.objects.create(
+        user=device.user,
+        channel=channel,
+        title=request.GET.get('name', channel.name),
+        start_time=start,
+        end_time=end,
+    )
+    return stalker_response({'id': recording.id, 'result': True})
+
+
+def handle_pvr_delete(request):
+    """Cancel a scheduled recording or delete a finished one."""
+    from apps.pvr.models import Recording, RecordingStatus
+    from apps.pvr import storage_client
+
+    device, error = _pvr_device(request)
+    if error:
+        return error
+
+    rec_id = request.GET.get('id') or request.GET.get('cmd')
+    try:
+        recording = Recording.objects.get(id=rec_id, user=device.user)
+    except (Recording.DoesNotExist, ValueError):
+        return stalker_response({'error': 'Grabación no encontrada'})
+
+    if recording.status == RecordingStatus.RECORDING and recording.storage:
+        try:
+            storage_client.stop_recording(recording.storage, recording.id)
+        except storage_client.StorageError:
+            pass
+
+    if recording.storage and recording.filename:
+        try:
+            storage_client.delete_recording_file(recording.storage, recording.filename)
+        except storage_client.StorageError:
+            pass
+
+    recording.delete()
+    return stalker_response({'result': True})
+
+
+def handle_pvr_link(request):
+    """Return the playback URL of a finished recording."""
+    from apps.pvr.models import Recording, RecordingStatus
+
+    device, error = _pvr_device(request)
+    if error:
+        return error
+
+    rec_id = request.GET.get('cmd') or request.GET.get('id')
+    try:
+        recording = Recording.objects.get(id=rec_id, user=device.user)
+    except (Recording.DoesNotExist, ValueError):
+        return stalker_response({'error': 'Grabación no encontrada'})
+
+    if recording.status != RecordingStatus.COMPLETED:
+        return stalker_response({'error': 'La grabación aún no está lista'})
+
+    url = recording.stream_url
+    if not url and recording.storage and recording.filename:
+        url = recording.storage.build_url(recording.filename, public=True)
+
+    if not url:
+        return stalker_response({'error': 'Grabación sin fichero'})
+
+    return stalker_response({'cmd': url})
 
 
 # ============== Other Handlers ==============

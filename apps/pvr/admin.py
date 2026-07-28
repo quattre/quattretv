@@ -1,5 +1,13 @@
 from django.contrib import admin
-from .models import Recording, RecordingRule
+from .models import Recording, RecordingRule, StorageServer
+
+
+@admin.register(StorageServer)
+class StorageServerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'role', 'api_url', 'is_active', 'last_sync')
+    list_filter = ('role', 'is_active')
+    search_fields = ('name', 'api_url')
+    readonly_fields = ('last_sync',)
 
 
 @admin.register(Recording)

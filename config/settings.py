@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -167,6 +168,31 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+# DatabaseScheduler syncs these into the DB on start, so the periodic jobs exist
+# without anyone having to create them by hand in the admin.
+CELERY_BEAT_SCHEDULE = {
+    'epg-actualizar-fuentes': {
+        'task': 'apps.epg.tasks.update_all_epg_sources',
+        'schedule': crontab(minute=15),
+    },
+    'epg-limpiar-programas-antiguos': {
+        'task': 'apps.epg.tasks.cleanup_old_programs',
+        'schedule': crontab(hour=4, minute=30),
+    },
+    'pvr-enviar-grabaciones': {
+        'task': 'apps.pvr.tasks.dispatch_due_recordings',
+        'schedule': 60.0,
+    },
+    'pvr-aplicar-reglas': {
+        'task': 'apps.pvr.tasks.apply_recording_rules',
+        'schedule': crontab(minute=25),
+    },
+    'pvr-reconciliar-grabaciones': {
+        'task': 'apps.pvr.tasks.reconcile_recordings',
+        'schedule': 300.0,
+    },
+}
 
 # QuattreTV Settings
 QUATTRETV = {

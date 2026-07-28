@@ -404,19 +404,25 @@ def channel_create(request):
         stream_url = request.POST.get('stream_url')
         logo = request.POST.get('logo', '')
         epg_channel_id = request.POST.get('epg_channel_id', '')
+        multicast_url = request.POST.get('multicast_url', '')
         is_hd = 'is_hd' in request.POST
         is_adult = 'is_adult' in request.POST
         has_archive = 'has_archive' in request.POST
 
+        # Los campos del modelo son epg_id / has_catchup / logo_url: pasar
+        # epg_channel_id o has_archive a create() reventaba con TypeError.
         channel = Channel.objects.create(
             name=name,
             number=number,
             category_id=category_id,
-            logo=logo,
-            epg_channel_id=epg_channel_id,
+            logo_url=logo,
+            stream_url=stream_url or '',
+            epg_id=epg_channel_id,
+            multicast_url=multicast_url,
             is_hd=is_hd,
             is_adult=is_adult,
-            has_archive=has_archive,
+            has_catchup=has_archive,
+            has_timeshift=has_archive,
         )
 
         if stream_url:
@@ -441,11 +447,16 @@ def channel_edit(request, channel_id):
         channel.name = request.POST.get('name')
         channel.number = int(request.POST.get('number', 0))
         channel.category_id = request.POST.get('category') or None
-        channel.logo = request.POST.get('logo', '')
-        channel.epg_channel_id = request.POST.get('epg_channel_id', '')
+        channel.logo_url = request.POST.get('logo', '')
+        # epg_channel_id / has_archive no existen en el modelo: asignarlos era
+        # crear atributos fantasma que se perdian al guardar, y por eso no habia
+        # forma de mapear el EPG a mano desde el portal.
+        channel.epg_id = request.POST.get('epg_channel_id', '')
+        channel.multicast_url = request.POST.get('multicast_url', '')
         channel.is_hd = 'is_hd' in request.POST
         channel.is_adult = 'is_adult' in request.POST
-        channel.has_archive = 'has_archive' in request.POST
+        channel.has_catchup = 'has_archive' in request.POST
+        channel.has_timeshift = 'has_archive' in request.POST
         channel.is_active = 'is_active' in request.POST
 
         # Update stream URL (both in Channel and ChannelStream)
@@ -827,18 +838,94 @@ def tariff_delete(request, tariff_id):
 # EPG
 @staff_member_required
 def epg_list(request):
-    """EPG sources list."""
-    from apps.epg.models import EpgSource
+    """EPG sources list and creation."""
+    from apps.epg.models import EpgSource, Program
 
-    sources = EpgSource.objects.all()
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        url = request.POST.get('url', '').strip()
+        try:
+            # El formulario pide horas; el modelo guarda segundos.
+            interval = int(request.POST.get('update_interval', 24)) * 3600
+        except ValueError:
+            interval = 24 * 3600
+
+        if not name or not url:
+            messages.error(request, 'Nombre y URL son obligatorios')
+        else:
+            EpgSource.objects.create(
+                name=name,
+                url=url,
+                update_interval=interval,
+                is_active=True,
+                auto_update=True,
+            )
+            messages.success(request, f'Fuente EPG {name} creada')
+        return redirect('portal:epg')
+
+    mapped = Channel.objects.filter(is_active=True).exclude(epg_id='').count()
+    unmapped = Channel.objects.filter(is_active=True, epg_id='').count()
 
     context = {
         'active_page': 'epg',
         'stats': get_base_stats(),
-        'sources': sources,
+        'sources': EpgSource.objects.all(),
+        'programs_count': Program.objects.count(),
+        'mapped_channels': mapped,
+        'unmapped_channels': unmapped,
     }
 
     return render(request, 'portal/pages/epg.html', context)
+
+
+@staff_member_required
+def epg_source_update(request, source_id):
+    """Trigger an EPG refresh for one source."""
+    from apps.epg.models import EpgSource
+    from apps.epg.tasks import update_epg_source
+
+    source = get_object_or_404(EpgSource, id=source_id)
+
+    try:
+        update_epg_source.delay(source.id)
+        messages.success(request, f'Actualizacion de {source.name} encolada')
+    except Exception as exc:
+        # Sin worker de Celery no hay quien la ejecute: decirlo claramente en
+        # vez de fingir que se ha encolado.
+        messages.error(
+            request,
+            f'No se pudo encolar la actualizacion ({exc}). '
+            'Revisa que el worker de Celery este arrancado.'
+        )
+
+    return redirect('portal:epg')
+
+
+@staff_member_required
+def epg_source_delete(request, source_id):
+    """Delete an EPG source."""
+    from apps.epg.models import EpgSource
+
+    source = get_object_or_404(EpgSource, id=source_id)
+    name = source.name
+    source.delete()
+    messages.success(request, f'Fuente EPG {name} eliminada')
+    return redirect('portal:epg')
+
+
+@staff_member_required
+def epg_source_toggle(request, source_id):
+    """Enable/disable an EPG source."""
+    from apps.epg.models import EpgSource
+
+    source = get_object_or_404(EpgSource, id=source_id)
+    source.is_active = not source.is_active
+    source.save(update_fields=['is_active'])
+    messages.success(
+        request,
+        f'Fuente {source.name} {"activada" if source.is_active else "desactivada"}'
+    )
+    return redirect('portal:epg')
 
 
 # VOD

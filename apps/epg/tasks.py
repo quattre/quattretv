@@ -26,16 +26,17 @@ def update_epg_source(source_id):
     logger.info(f"Updating EPG from: {source.name}")
 
     try:
-        response = requests.get(source.url, timeout=60)
+        response = requests.get(source.url, timeout=120)
         response.raise_for_status()
 
         # Parse XMLTV
         data = xmltodict.parse(response.content)
         tv_data = data.get('tv', {})
 
-        # Get channel mapping
+        # Get channel mapping. epg_id is blank (not null) when unmapped, so an
+        # isnull filter would map every channel to the empty key.
         channels_map = {
-            c.epg_id: c for c in Channel.objects.filter(epg_id__isnull=False)
+            c.epg_id: c for c in Channel.objects.exclude(epg_id='')
         }
 
         # Process programs
@@ -59,49 +60,19 @@ def update_epg_source(source_id):
             if not start or not stop:
                 continue
 
-            # Get title
-            title_data = prog.get('title', {})
-            if isinstance(title_data, dict):
-                title = title_data.get('#text', '')
-            else:
-                title = str(title_data)
-
-            # Get description
-            desc_data = prog.get('desc', {})
-            if isinstance(desc_data, dict):
-                description = desc_data.get('#text', '')
-            else:
-                description = str(desc_data) if desc_data else ''
-
-            # Get category
-            cat_data = prog.get('category', {})
-            if isinstance(cat_data, dict):
-                category = cat_data.get('#text', '')
-            elif isinstance(cat_data, list):
-                category = cat_data[0].get('#text', '') if cat_data else ''
-            else:
-                category = str(cat_data) if cat_data else ''
-
             programs_to_create.append(Program(
                 channel=channel,
                 epg_id=channel_id,
-                title=title,
-                description=description,
+                title=xmltv_text(prog.get('title')),
+                description=xmltv_text(prog.get('desc')),
                 start_time=start,
                 end_time=stop,
-                category=category,
+                category=xmltv_text(prog.get('category')),
+                episode_title=xmltv_text(prog.get('sub-title')),
             ))
 
-        # Delete old programs and insert new ones
         if programs_to_create:
-            # Delete programs for updated channels from now onwards
-            channel_ids = list(channels_map.values())
-            Program.objects.filter(
-                channel__in=channel_ids,
-                start_time__gte=timezone.now()
-            ).delete()
-
-            Program.objects.bulk_create(programs_to_create, batch_size=1000)
+            _replace_programs(programs_to_create)
             logger.info(f"Created {len(programs_to_create)} programs")
 
         source.last_update = timezone.now()
@@ -110,6 +81,34 @@ def update_epg_source(source_id):
     except Exception as e:
         logger.error(f"Error updating EPG from {source.name}: {e}")
         raise
+
+
+def _replace_programs(programs):
+    """
+    Replace the programs covered by this feed.
+
+    Deleting only the future (and re-inserting the whole file) duplicated every
+    past program on each run, so instead we clear exactly the window each
+    channel brings and re-insert it.
+    """
+    from .models import Program
+
+    windows = {}
+    for prog in programs:
+        start, end = windows.get(prog.channel_id, (prog.start_time, prog.end_time))
+        windows[prog.channel_id] = (
+            min(start, prog.start_time),
+            max(end, prog.end_time),
+        )
+
+    for channel_id, (start, end) in windows.items():
+        Program.objects.filter(
+            channel_id=channel_id,
+            start_time__gte=start,
+            start_time__lte=end,
+        ).delete()
+
+    Program.objects.bulk_create(programs, batch_size=1000)
 
 
 @shared_task
@@ -124,24 +123,63 @@ def update_all_epg_sources():
 
 @shared_task
 def cleanup_old_programs():
-    """Delete programs older than 7 days."""
+    """Delete programs older than the longest catchup window we serve."""
     from .models import Program
+    from apps.channels.models import Channel
     from datetime import timedelta
+    from django.db.models import Max
 
-    cutoff = timezone.now() - timedelta(days=7)
+    max_hours = Channel.objects.filter(is_active=True).aggregate(
+        h=Max('timeshift_hours')
+    )['h'] or 0
+    # Keep at least a week so the archive always has its guide.
+    keep_hours = max(max_hours, 24 * 7)
+
+    cutoff = timezone.now() - timedelta(hours=keep_hours)
     deleted, _ = Program.objects.filter(end_time__lt=cutoff).delete()
     logger.info(f"Deleted {deleted} old programs")
 
 
+def xmltv_text(node):
+    """XMLTV nodes can be a string, a dict with #text, or a list of either."""
+    if node is None:
+        return ''
+    if isinstance(node, list):
+        node = node[0] if node else None
+        if node is None:
+            return ''
+    if isinstance(node, dict):
+        return node.get('#text', '') or ''
+    return str(node)
+
+
 def parse_xmltv_time(time_str):
-    """Parse XMLTV time format (YYYYMMDDHHmmss +0000)."""
+    """
+    Parse XMLTV time format: 'YYYYMMDDHHmmss +0200'.
+
+    The offset matters: dropping it and localising to the server timezone
+    shifted the whole guide by one or two hours.
+    """
     if not time_str:
         return None
 
-    try:
-        # Remove timezone info for simplicity
-        time_str = time_str.split()[0]
-        dt = datetime.strptime(time_str, '%Y%m%d%H%M%S')
-        return timezone.make_aware(dt)
-    except (ValueError, IndexError):
+    parts = str(time_str).strip().split()
+    if not parts:
         return None
+
+    try:
+        dt = datetime.strptime(parts[0][:14], '%Y%m%d%H%M%S')
+    except ValueError:
+        return None
+
+    if len(parts) > 1:
+        offset = parts[1]
+        try:
+            sign = -1 if offset[0] == '-' else 1
+            minutes = int(offset[1:3]) * 60 + int(offset[3:5])
+            return dt.replace(tzinfo=timezone.get_fixed_timezone(sign * minutes))
+        except (ValueError, IndexError):
+            pass
+
+    # No offset in the feed: assume it is already in the portal timezone.
+    return timezone.make_aware(dt)

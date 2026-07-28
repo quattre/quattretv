@@ -43,6 +43,9 @@ urlpatterns = [
 
     # EPG
     path('epg/', views.epg_list, name='epg'),
+    path('epg/<int:source_id>/update/', views.epg_source_update, name='epg_source_update'),
+    path('epg/<int:source_id>/toggle/', views.epg_source_toggle, name='epg_source_toggle'),
+    path('epg/<int:source_id>/delete/', views.epg_source_delete, name='epg_source_delete'),
 
     # VOD
     path('vod/', views.vod_list, name='vod'),

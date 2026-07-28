@@ -80,6 +80,13 @@ class Channel(TimeStampedModel, ActivableModel):
         default=StreamType.HLS
     )
     backup_stream_url = models.URLField(max_length=500, blank=True)
+    multicast_url = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='Origen multicast para archivo/grabación, ej. udp://239.0.0.1:1234. '
+                  'Es el mismo SRC del EnvironmentFile del CDN; los grabadores '
+                  '(dumpstream) leen de aquí, no del HLS.'
+    )
 
     # Features
     has_epg = models.BooleanField(default=True)
