@@ -16,6 +16,8 @@
     var favOnly = false;
     var numBuffer = '';
     var numTimeout = null;
+    var pinBuffer = '';
+    var pinPendiente = null;
     var currentChannel = 0;
     var playingChannelIdx = -1;
     var isFullscreen = false;
@@ -161,7 +163,13 @@
     function startPreview() {
         if (channels.length === 0 || isFullscreen) return;
         var ch = channels[currentChannel];
+        if (ch && ch.locked) {
+            // No se previsualiza un canal bloqueado: seria enseñarlo igual.
+            document.getElementById("preview").innerHTML = 'Canal bloqueado - pulsa OK e introduce el PIN';
+            return;
+        }
         if (!ch || !ch.cmd) return;
+        document.getElementById("preview").innerHTML = 'Vista previa';
 
         // Si ya está reproduciendo el mismo canal, solo cambiar viewport
         if (playingChannelIdx === currentChannel) {
@@ -288,6 +296,53 @@
         });
     }
 
+    // ---------- Control parental ----------
+
+    function pedirPin(despues) {
+        pinBuffer = '';
+        pinPendiente = despues;
+        view = "pin";
+        renderPin('');
+    }
+
+    function renderPin(aviso) {
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">Canal bloqueado</div></div>';
+        h += '<div class="list"><div style="padding:30px 10px;">';
+        h += '<div style="color:#99a;font-size:20px;margin-bottom:24px;">Introduce el PIN con el mando</div>';
+        h += '<div class="pinbox">' + (pinBuffer.replace(/./g, '* ') || '_') + '</div>';
+        if (aviso) h += '<div style="color:#e74c3c;margin-top:20px;">' + esc(aviso) + '</div>';
+        h += '</div></div>';
+        h += '<div class="help"><span>0-9</span> PIN <span>OK</span> Aceptar <span>◀</span> Cancelar</div>';
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function comprobarPin() {
+        if (!pinBuffer) return;
+        api("type=stb&action=check_pin&pin=" + encodeURIComponent(pinBuffer), function(js) {
+            if (js && js.result) {
+                var siguiente = pinPendiente;
+                pinPendiente = null;
+                pinBuffer = '';
+                // Volver a pedir la lista: los canales bloqueados venian sin
+                // URL y ahora el servidor ya la manda.
+                allChannels = [];
+                api("type=itv&action=get_ordered_list&p=0", function(js2) {
+                    if (js2 && js2.data) {
+                        allChannels = js2.data;
+                        applyFilters();
+                    }
+                    showChannels();
+                    if (siguiente) siguiente();
+                });
+            } else {
+                pinBuffer = '';
+                renderPin((js && js.error) ? js.error : 'PIN incorrecto');
+            }
+        });
+    }
+
     // ---------- Salto por numero de canal ----------
 
     function pushDigit(d) {
@@ -347,6 +402,7 @@
             if (c.hd) h += ' <span class="hd">HD</span>';
             if (c.fav) h += ' <span class="fav">★</span>';
             if (c.archive) h += ' <span class="arch">⟲</span>';
+            if (c.locked) h += ' <span class="lock">🔒</span>';
             h += '</div>';
             if (c.cur_playing) {
                 h += '<div class="epg">' + esc(c.cur_playing);
@@ -614,7 +670,9 @@
 
     function goFullscreen() {
         var ch = channels[currentChannel];
-        if (!ch || !ch.cmd) return;
+        if (!ch) return;
+        if (ch.locked) { pedirPin(goFullscreen); return; }
+        if (!ch.cmd) return;
 
         // Si ya está reproduciendo este canal, solo cambiar viewport
         if (playingChannelIdx === currentChannel) {
@@ -670,10 +728,29 @@
         if (k === 107) { adjustVolume(5); return false; }
         if (k === 109) { adjustVolume(-5); return false; }
 
-        // Teclas numericas del mando: marcar el numero de canal. Funciona
-        // igual en la lista y a pantalla completa.
-        if (k >= 48 && k <= 57) { pushDigit(String(k - 48)); return false; }
-        if (k >= 96 && k <= 105) { pushDigit(String(k - 96)); return false; }
+        // Teclas numericas: en la pantalla del PIN componen el PIN, y en el
+        // resto saltan a un numero de canal.
+        var digito = null;
+        if (k >= 48 && k <= 57) digito = String(k - 48);
+        else if (k >= 96 && k <= 105) digito = String(k - 96);
+
+        if (digito !== null) {
+            if (view === "pin") {
+                if (pinBuffer.length < 10) {
+                    pinBuffer += digito;
+                    renderPin('');
+                }
+            } else {
+                pushDigit(digito);
+            }
+            return false;
+        }
+
+        if (view === "pin") {
+            if (k === 13) comprobarPin();
+            else if (k === 37 || k === 8 || k === 27) { pinBuffer = ''; pinPendiente = null; showChannels(); }
+            return false;
+        }
 
         if (isFullscreen) {
             if (k === 38 || k === 33) {
@@ -811,6 +888,13 @@
         .st.recording { background: #e74c3c; }
         .st.scheduled { background: #3498db; }
         .st.failed { background: #7f8c8d; }
+
+        .pinbox {
+            font-size: 54px; letter-spacing: 10px; color: #00a651; font-weight: 600;
+            background: rgba(255,255,255,0.05); border-radius: 12px;
+            padding: 20px 30px; display: inline-block; min-width: 260px;
+        }
+        .lock { color: #e74c3c; font-size: 18px; margin-left: 8px; }
 
         #numjump {
             display: none; position: fixed; top: 60px; right: 70px; z-index: 30;

@@ -173,6 +173,8 @@ def user_edit(request, user_id):
         user.tariff_id = request.POST.get('tariff') or None
         user.max_devices = int(request.POST.get('max_devices', 5))
         user.is_active = 'is_active' in request.POST
+        # PIN parental: vacio = los canales de adultos no se bloquean.
+        user.parental_password = request.POST.get('parental_password', '').strip()
 
         # Handle password change
         new_password = request.POST.get('new_password', '').strip()

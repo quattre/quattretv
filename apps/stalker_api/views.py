@@ -96,6 +96,69 @@ def stalker_response(data, js_callback=True):
     return JsonResponse(response_data)
 
 
+# ============== Control parental ==============
+
+PARENTAL_UNLOCK_SECONDS = 1800
+
+
+def parental_unlocked(device):
+    """
+    True si este aparato ha metido el PIN hace poco.
+
+    Si la cache no responde se responde que no: un control parental que se
+    desactiva solo cuando se cae Redis no es un control parental. El precio es
+    que mientras la cache este caida los canales de adultos no se ven.
+    """
+    if not device:
+        return False
+    try:
+        return bool(cache.get(f'parental:{device.id}'))
+    except Exception:
+        return False
+
+
+def parental_blocked(device, channel):
+    """
+    Un canal marcado como adulto pide PIN.
+
+    Si el usuario no tiene PIN configurado no se bloquea nada: el control se
+    activa poniendo la contrasena parental en su ficha.
+    """
+    if not channel.is_adult:
+        return False
+    if not device:
+        return True
+    if not device.user.parental_password:
+        return False
+    return not parental_unlocked(device)
+
+
+def handle_check_pin(request):
+    """Comprobar el PIN parental. El PIN nunca viaja al aparato."""
+    from .throttle import too_many_attempts
+
+    device = get_device_from_request(request)
+    if not device:
+        return stalker_response({'error': 'Not authenticated'})
+
+    if too_many_attempts(request, scope='pin'):
+        return stalker_response({'error': 'Demasiados intentos, espera unos minutos'})
+
+    esperado = device.user.parental_password
+    if not esperado:
+        return stalker_response({'result': True, 'sin_pin': True})
+
+    if request.GET.get('pin', '') != esperado:
+        return stalker_response({'result': False, 'error': 'PIN incorrecto'})
+
+    try:
+        cache.set(f'parental:{device.id}', 1, PARENTAL_UNLOCK_SECONDS)
+    except Exception:
+        return stalker_response({'result': False, 'error': 'No se pudo desbloquear'})
+
+    return stalker_response({'result': True})
+
+
 def get_device_from_request(request):
     """Get authenticated device from request."""
     auth = MACAuthentication()
@@ -124,6 +187,8 @@ def handle_stb(request, action):
         return handle_get_localization(request)
     elif action == 'get_modules':
         return handle_get_modules(request)
+    elif action == 'check_pin':
+        return handle_check_pin(request)
     elif action == 'log':
         return stalker_response({'result': True})
 
@@ -420,16 +485,25 @@ def handle_get_ordered_list(request):
             Favorite.objects.filter(user=device.user).values_list('channel_id', flat=True)
         )
 
+    # Se resuelve una vez y no por canal: mirar la cache 50 veces por peticion
+    # no tiene sentido.
+    tiene_pin = bool(device and device.user.parental_password)
+    desbloqueado = parental_unlocked(device) if tiene_pin else True
+
     data = []
     for ch in channels:
         # Only advertise archive when a recorder can actually serve it: it needs
         # catchup enabled and a multicast source being archived.
         has_archive = bool(ch.has_catchup and ch.multicast_url)
+        # Un canal de adultos bloqueado no viaja con su URL: si se mandara,
+        # pedir el PIN en pantalla seria un adorno que cualquiera se salta.
+        bloqueado = bool(ch.is_adult and tiene_pin and not desbloqueado)
         entry = {
             'id': str(ch.id),
             'name': ch.name,
             'number': ch.number,
-            'cmd': ch.stream_url,
+            'cmd': '' if bloqueado else ch.stream_url,
+            'locked': 1 if bloqueado else 0,
             'logo': ch.logo_display_url,
             'censored': ch.is_adult,
             'hd': 1 if ch.is_hd else 0,
@@ -457,9 +531,13 @@ def handle_get_url(request):
     if cmd.isdigit():
         try:
             channel = Channel.objects.get(id=cmd, is_active=True)
-            stream_url = channel.stream_url
         except Channel.DoesNotExist:
             return stalker_response({'error': 'Channel not found'})
+
+        if parental_blocked(device, channel):
+            return stalker_response({'error': 'Canal bloqueado, introduce el PIN'})
+
+        stream_url = channel.stream_url
     else:
         stream_url = cmd
 
@@ -801,6 +879,9 @@ def handle_archive_link(request):
         channel = Channel.objects.get(id=channel_id, is_active=True)
     except Channel.DoesNotExist:
         return stalker_response({'error': 'Channel not found'})
+
+    if parental_blocked(device, channel):
+        return stalker_response({'error': 'Canal bloqueado, introduce el PIN'})
 
     if not channel.has_catchup or not channel.multicast_url:
         return stalker_response({'error': 'Archivo no disponible para este canal'})
