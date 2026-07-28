@@ -111,6 +111,14 @@ class Channel(TimeStampedModel, ActivableModel):
         default=24,
         help_text='Hours of timeshift/catchup available'
     )
+    archive_hls_since = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Momento en que este canal empezo a archivarse en HLS. Lo '
+                  'anterior a esta fecha sigue sirviendose del archivo antiguo '
+                  'en MPEG-TS, asi que la migracion no deja huecos. Vacio = '
+                  'todavia se archiva en MPEG-TS.'
+    )
 
     # Metadata
     description = models.TextField(blank=True)

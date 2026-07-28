@@ -966,12 +966,21 @@ def handle_login(request):
     # Authenticate user
     user = authenticate(username=username, password=password)
     if not user:
-        # Try without password (some setups don't use password)
+        # Antes se aceptaba cualquier usuario existente sin comprobar la
+        # contrasena, asi que conocer un nombre de usuario bastaba para entrar
+        # y llevarse su MAC (que es la credencial de todo lo demas). Se sigue
+        # permitiendo el acceso sin contrasena solo a las cuentas que
+        # realmente no tienen ninguna puesta.
         from apps.accounts.models import User
         try:
-            user = User.objects.get(username=username, is_active=True)
+            candidate = User.objects.get(username=username, is_active=True)
         except User.DoesNotExist:
             return stalker_response({'error': 'Usuario no encontrado'})
+
+        if candidate.has_usable_password():
+            return stalker_response({'error': 'Contrasena incorrecta'})
+
+        user = candidate
 
     # Get user's first active device, or create one
     device = user.devices.filter(is_active=True).first()
@@ -1152,9 +1161,14 @@ def handle_get_ordered_list(request):
             end_time__gte=now
         )
     }
+    # Acotado a las proximas horas: sin el limite superior esta consulta traia
+    # todos los programas futuros (dias) de 50 canales para quedarse con uno
+    # por canal.
     next_programs = {}
     for p in Program.objects.filter(
-        channel__in=channels, start_time__gt=now
+        channel__in=channels,
+        start_time__gt=now,
+        start_time__lte=now + timezone.timedelta(hours=6),
     ).order_by('channel_id', 'start_time'):
         next_programs.setdefault(p.channel_id, p)
 

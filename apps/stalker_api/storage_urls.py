@@ -16,6 +16,11 @@ urlpatterns = [
         storage_views.stream_recorder_callback,
         name='stream_recorder_callback',
     ),
+    re_path(
+        r'^catchup/(?P<channel_id>\d+)/(?P<start_ts>\d+)/(?P<duration>\d+)\.m3u8$',
+        storage_views.catchup_playlist,
+        name='catchup_playlist',
+    ),
 ]
 
 portal_api_urlpatterns = [

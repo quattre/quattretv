@@ -72,3 +72,65 @@ con archivo a los decos y sus grabaciones fallan con un mensaje claro.
 
 `parts_number` (horas de archivo que guarda storage1) sale de
 `timeshift_hours` del canal.
+
+## 5. Migrar el archivo de MPEG-TS a HLS sin cortar servicio
+
+El archivo se graba hoy como MPEG-TS crudo, que el deco reproduce pero la TV LG
+no. La migración se hace **canal a canal**, sin parar nada y sin perder lo ya
+grabado, porque los dos formatos conviven: cada canal guarda en
+`archive_hls_since` el momento del cambio, y el catchup anterior a esa fecha se
+sigue sirviendo del archivo viejo hasta que caduca solo.
+
+### En el servidor de archivo
+
+Un ffmpeg por canal, el mismo patrón que ya corren cdn10/cdn11 pero escribiendo
+a disco en vez de a `/dev/shm`:
+
+```bash
+ffmpeg -hide_banner -loglevel warning \
+  -i 'udp://239.0.0.1:1234?fifo_size=1000000&overrun_nonfatal=1' \
+  -c copy -f hls \
+  -hls_time 6 -hls_list_size 0 -hls_flags append_list+program_date_time \
+  -strftime 1 \
+  -hls_segment_filename '/srv/archive_hls/<ch_id>/%Y%m%d-%H%M%S.ts' \
+  /srv/archive_hls/<ch_id>/index.m3u8
+```
+
+`-c copy`: no recodifica, solo reempaqueta (~2 % de un core por canal). La
+retención se hace por antigüedad de fichero, no con `delete_segments`:
+
+```bash
+find /srv/archive_hls -name '*.ts' -mmin +$((168*60)) -delete
+```
+
+nginx solo tiene que servir el directorio y **listarlo en JSON**, que es de
+donde el middleware saca el índice (no hay fichero de índice que mantener):
+
+```nginx
+location /archive_hls/ {
+    alias /srv/archive_hls/;
+    autoindex on;
+    autoindex_format json;
+}
+```
+
+### El cambio, canal a canal
+
+```bash
+# 1. Arrancar el ffmpeg nuevo del canal (arriba). Durante unos minutos graban
+#    los dos: es lo que evita que quede un hueco.
+# 2. Ver qué haría, sin tocar nada:
+python manage.py migrar_archivo_hls 101 --simular
+# 3. Hacerlo: marca el canal y para el dumpstream antiguo.
+python manage.py migrar_archivo_hls 101
+# 4. Comprobar el catchup en una LG y en un deco.
+# 5. Si algo va mal:
+python manage.py migrar_archivo_hls 101 --revertir
+```
+
+Al revertir, el canal vuelve a aparecer en la lista de tareas y el grabador
+antiguo lo recoge solo en su siguiente ciclo (5 min). Las grabaciones de cliente
+llevan su propio campo `container`, así que las hechas en TS se siguen
+reproduciendo después de activar `records_hls` en el servidor.
+
+**Los CDN no se tocan en ningún momento**: siguen dando el directo igual.

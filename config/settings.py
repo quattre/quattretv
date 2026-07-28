@@ -196,6 +196,9 @@ CELERY_BEAT_SCHEDULE = {
 
 # QuattreTV Settings
 QUATTRETV = {
+    # URL publica de este middleware: los decos y las TV la usan para pedir las
+    # playlists de catchup que generamos.
+    'PUBLIC_URL': os.getenv('PUBLIC_URL', 'http://localhost:8000'),
     'STREAMING_SERVER_URL': os.getenv('STREAMING_SERVER_URL', 'http://localhost:8080'),
     'TIMESHIFT_ENABLED': os.getenv('TIMESHIFT_ENABLED', 'True').lower() in ('true', '1', 'yes'),
     'TIMESHIFT_HOURS': int(os.getenv('TIMESHIFT_HOURS', '24')),

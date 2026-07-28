@@ -44,6 +44,18 @@ class StorageServer(TimeStampedModel):
         blank=True,
         help_text='Token compartido: se envía como Bearer y se valida en chk_storage_token.php'
     )
+    archive_path = models.CharField(
+        max_length=100,
+        default='archive_hls',
+        help_text='Subdirectorio (servido por nginx con autoindex json) donde el '
+                  'grabador deja los segmentos HLS del archivo'
+    )
+    records_hls = models.BooleanField(
+        default=False,
+        help_text='El grabador de este servidor ya escribe HLS en vez de MPEG-TS. '
+                  'Se activa canal a canal; mientras esté desactivado todo sigue '
+                  'como hasta ahora.'
+    )
     is_active = models.BooleanField(default=True)
     last_sync = models.DateTimeField(
         null=True,
@@ -125,7 +137,15 @@ class Recording(TimeStampedModel):
     filename = models.CharField(
         max_length=300,
         blank=True,
-        help_text='Fichero .mpg devuelto por el grabador'
+        help_text='Fichero devuelto por el grabador'
+    )
+    container = models.CharField(
+        max_length=4,
+        choices=[('ts', 'MPEG-TS'), ('hls', 'HLS')],
+        default='ts',
+        help_text='Formato con el que se grabo. Se fija al enviarla al '
+                  'grabador, para que las grabaciones antiguas se sigan '
+                  'reproduciendo despues de migrar.'
     )
 
     # File info (for completed recordings)

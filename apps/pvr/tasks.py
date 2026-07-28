@@ -86,8 +86,11 @@ def dispatch_due_recordings():
         recording.filename = filename if isinstance(filename, str) else ''
         recording.status = RecordingStatus.RECORDING
         recording.duration = duration
+        # Se anota con qué formato quedó grabada: al migrar el grabador a HLS,
+        # las grabaciones anteriores tienen que seguir reproduciéndose.
+        recording.container = 'hls' if storage.records_hls else 'ts'
         recording.save(update_fields=[
-            'storage', 'filename', 'status', 'duration'
+            'storage', 'filename', 'status', 'duration', 'container'
         ])
         sent += 1
 
@@ -151,11 +154,18 @@ def enforce_rule_quota(rule):
     if not rule.keep_recordings:
         return
 
+    # Filtrar por `channel_id or None` buscaba grabaciones sin canal, que no
+    # existen (Recording.channel es obligatorio), asi que la cuota no se
+    # aplicaba nunca en las reglas que no fijan canal.
     completed = Recording.objects.filter(
         user_id=rule.user_id,
-        channel_id=rule.channel_id or None,
         status=RecordingStatus.COMPLETED,
     ).order_by('-start_time')
+
+    if rule.channel_id:
+        completed = completed.filter(channel_id=rule.channel_id)
+    if rule.title_contains:
+        completed = completed.filter(title__icontains=rule.title_contains)
 
     for old in completed[rule.keep_recordings:]:
         if old.storage and old.filename:
