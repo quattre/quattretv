@@ -1,0 +1,150 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}CDNs - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900"><i class="bi bi-hdd-network"></i> CDNs</h1>
+        <p class="text-gray-500">Servidores de emisión y estado de cada canal</p>
+    </div>
+    <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition" data-bs-toggle="modal" data-bs-target="#addModal">
+        <i class="bi bi-plus-lg"></i> Añadir CDN
+    </button>
+</div>
+
+{% if sin_cdn %}
+<div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 mb-6">
+    <i class="bi bi-exclamation-triangle"></i>
+    Hay <strong>{{ sin_cdn }}</strong> canales activos sin CDN asignado: no se puede ver si están emitiendo ni reiniciarlos.
+    Usa <em>Detectar canales</em> en el CDN correspondiente.
+</div>
+{% endif %}
+
+{% for s in servidores %}
+<div class="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
+    <div class="flex flex-wrap justify-between items-center gap-3 px-6 py-4 border-b border-gray-200">
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900">{{ s.cdn.name }}</h2>
+            <code class="text-xs text-gray-500">{{ s.cdn.hls_base_url }}</code>
+            {% if not s.cdn.puede_reiniciar %}
+                <span class="ml-2 px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">solo lectura (sin SSH)</span>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1 text-sm rounded-full bg-green-100 text-green-700">{{ s.resumen.emitiendo }} emitiendo</span>
+            {% if s.resumen.parado %}<span class="px-3 py-1 text-sm rounded-full bg-red-100 text-red-700">{{ s.resumen.parado }} parados</span>{% endif %}
+            {% if s.resumen.error %}<span class="px-3 py-1 text-sm rounded-full bg-amber-100 text-amber-700">{{ s.resumen.error }} sin respuesta</span>{% endif %}
+            <form method="post" action="{% url 'portal:cdn_detect' s.cdn.id %}">
+                {% csrf_token %}
+                <button type="submit" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition" title="Asignar los canales cuya URL apunta a este CDN">
+                    <i class="bi bi-magic"></i> Detectar canales
+                </button>
+            </form>
+            <form method="post" action="{% url 'portal:cdn_delete' s.cdn.id %}" onsubmit="return confirm('¿Quitar este CDN? Los canales quedan sin asignar.');">
+                {% csrf_token %}
+                <button type="submit" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"><i class="bi bi-trash"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Canal</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre en el CDN</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for canal in s.canales %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-3 text-gray-500">{{ canal.number }}</td>
+                    <td class="px-6 py-3"><strong class="text-gray-900">{{ canal.name }}</strong></td>
+                    <td class="px-6 py-3"><code class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">{{ canal.estado.nombre_cdn|default:"-" }}</code></td>
+                    <td class="px-6 py-3">
+                        {% if canal.estado.estado == 'emitiendo' %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">Emitiendo</span>
+                        {% elif canal.estado.estado == 'parado' %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-red-100 text-red-700">Parado</span>
+                        {% elif canal.estado.estado == 'sin_cdn' %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-600">Sin datos</span>
+                        {% else %}
+                            <span class="px-3 py-1 text-xs rounded-full bg-amber-100 text-amber-700">Sin respuesta</span>
+                        {% endif %}
+                        <div class="text-xs text-gray-400 mt-1">{{ canal.estado.detalle }}</div>
+                    </td>
+                    <td class="px-6 py-3">
+                        {% if s.cdn.puede_reiniciar %}
+                        <form method="post" action="{% url 'portal:cdn_channel_restart' canal.id %}" onsubmit="return confirm('¿Reiniciar la emisión de {{ canal.name|escapejs }}?');">
+                            {% csrf_token %}
+                            <button type="submit" class="px-3 py-1 text-sm bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition">
+                                <i class="bi bi-arrow-clockwise"></i> Reiniciar
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-xs text-gray-400">Configura el SSH del CDN</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Este CDN no tiene canales asignados todavía</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% empty %}
+<div class="bg-white rounded-xl shadow-sm px-6 py-12 text-center text-gray-500">
+    <i class="bi bi-hdd-network text-6xl text-gray-300"></i>
+    <p class="mt-4">No hay ningún CDN dado de alta</p>
+    <p class="text-sm text-gray-400 mt-1">Añade cdn10 y cdn11 para ver qué canales emiten y poder reiniciarlos</p>
+</div>
+{% endfor %}
+
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-white rounded-xl shadow-lg">
+            <div class="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+                <h5 class="text-lg font-semibold text-gray-900">Añadir CDN</h5>
+                <button type="button" class="text-gray-400 hover:text-gray-600 transition" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="px-6 py-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                        <input type="text" name="name" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="cdn10" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">URL base del HLS</label>
+                        <input type="url" name="hls_base_url" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="http://cdn10.quattre.com:1500/hls/" required>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Host SSH</label>
+                            <input type="text" name="ssh_host" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="185.25.27.53">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Puerto</label>
+                            <input type="number" name="ssh_port" value="22" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Usuario SSH</label>
+                        <input type="text" name="ssh_user" value="quattre" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-500 mt-1">Sin SSH el panel funciona igual, pero solo para mirar: no se puede reiniciar.</p>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+                    <button type="button" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Añadir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

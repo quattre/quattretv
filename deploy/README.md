@@ -29,6 +29,27 @@ está parado) o si un grabador lleva más de 15 min sin pedir sus tareas.
 Nada de esto reinventa el grabador: seguimos usando `dumpstream` de Ministra en
 record1 y storage1. Lo único que cambia es quién les dice qué grabar.
 
+## 0.5 Panel de CDNs
+
+En **Portal → CDNs** se dan de alta los servidores de emisión (cdn10, cdn11) y
+se ve, canal a canal, si están emitiendo. La comprobación **no necesita acceso
+a la máquina**: se mira la playlist HLS que el CDN ya publica, y si lleva más
+de un minuto sin cambiar es que ffmpeg no está escribiendo.
+
+Con *Detectar canales* se asignan de golpe los canales cuya URL apunta a ese
+CDN, sin emparejarlos a mano.
+
+Para poder **reiniciar** un canal desde el panel hacen falta dos cosas en el
+CDN: que el usuario de Django pueda entrar por SSH con clave, y esta regla de
+sudoers (igual que la que ya existe para `quattretv.service`):
+
+```
+# /etc/sudoers.d/quattre-cdn
+quattre ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ffmpeg-hls@*
+```
+
+Sin eso el panel sigue funcionando, pero solo para mirar.
+
 ## 1. Celery (obligatorio)
 
 Sin worker ni beat no se descarga el EPG ni se envía ninguna grabación: hoy en

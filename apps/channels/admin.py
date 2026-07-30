@@ -1,4 +1,13 @@
 from django.contrib import admin
+
+from .models import CdnServer
+
+
+@admin.register(CdnServer)
+class CdnServerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'hls_base_url', 'ssh_host', 'ssh_port', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'hls_base_url', 'ssh_host')
 from .models import Category, Channel, ChannelPackage, ChannelStream, Favorite
 
 

@@ -41,6 +41,13 @@ urlpatterns = [
     path('tariffs/<int:tariff_id>/', views.tariff_edit, name='tariff_edit'),
     path('tariffs/<int:tariff_id>/delete/', views.tariff_delete, name='tariff_delete'),
 
+    # CDNs
+    path('cdns/', views.cdns_list, name='cdns'),
+    path('cdns/<int:cdn_id>/delete/', views.cdn_delete, name='cdn_delete'),
+    path('cdns/<int:cdn_id>/detect/', views.cdn_detect, name='cdn_detect'),
+    path('cdns/channel/<int:channel_id>/restart/', views.cdn_channel_restart,
+         name='cdn_channel_restart'),
+
     # EPG
     path('epg/', views.epg_list, name='epg'),
     path('epg/<int:source_id>/update/', views.epg_source_update, name='epg_source_update'),

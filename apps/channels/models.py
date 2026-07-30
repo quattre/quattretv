@@ -13,6 +13,50 @@ class StreamType(models.TextChoices):
     UDP = 'udp', 'UDP Multicast'
 
 
+class CdnServer(TimeStampedModel, ActivableModel):
+    """
+    Un servidor de emisión (cdn10, cdn11...).
+
+    Cada canal se emite desde uno: ffmpeg coge el multicast y escribe HLS, con
+    una unidad systemd por canal (`ffmpeg-hls@<nombre>`). Aquí solo guardamos
+    cómo llegar a él para poder ver qué está en marcha y reiniciar lo que se
+    haya caído.
+    """
+    name = models.CharField(max_length=50, unique=True, help_text='cdn10, cdn11...')
+    hls_base_url = models.URLField(
+        max_length=300,
+        help_text='Base del HLS, ej. http://cdn10.quattre.com:1500/hls/'
+    )
+
+    # Acceso para reiniciar canales. Sin esto el panel es solo de lectura.
+    ssh_host = models.CharField(max_length=100, blank=True)
+    ssh_port = models.PositiveIntegerField(default=22)
+    ssh_user = models.CharField(max_length=50, default='quattre')
+
+    systemd_unit = models.CharField(
+        max_length=100,
+        default='ffmpeg-hls@',
+        help_text='Plantilla systemd; se le añade el nombre del canal en el CDN'
+    )
+
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'CDN'
+        verbose_name_plural = 'CDNs'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def puede_reiniciar(self):
+        return bool(self.ssh_host)
+
+    def playlist_url(self, cdn_name):
+        return f"{self.hls_base_url.rstrip('/')}/{cdn_name}/index.m3u8"
+
+
 class Category(TimeStampedModel, ActivableModel):
     """Channel category/genre."""
     name = models.CharField(max_length=100)
@@ -80,6 +124,21 @@ class Channel(TimeStampedModel, ActivableModel):
         default=StreamType.HLS
     )
     backup_stream_url = models.URLField(max_length=500, blank=True)
+    # Emisión: en qué CDN vive este canal y con qué nombre
+    cdn = models.ForeignKey(
+        CdnServer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='channels'
+    )
+    cdn_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Nombre del canal en el CDN (el de ffmpeg-hls@<nombre> y el '
+                  'del directorio HLS). Si se deja vacío se deduce de la URL.'
+    )
+
     multicast_url = models.CharField(
         max_length=200,
         blank=True,

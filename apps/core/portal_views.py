@@ -837,6 +837,109 @@ def tariff_delete(request, tariff_id):
     return JsonResponse({'status': 'error'}, status=400)
 
 
+# CDNs
+@staff_member_required
+def cdns_list(request):
+    """Panel de CDNs: qué canales lleva cada uno y cuáles están emitiendo."""
+    from apps.channels.models import CdnServer
+    from apps.channels import cdn as cdn_tools
+
+    if request.method == 'POST':
+        nombre = request.POST.get('name', '').strip()
+        hls = request.POST.get('hls_base_url', '').strip()
+        if not nombre or not hls:
+            messages.error(request, 'Nombre y URL base del HLS son obligatorios')
+        else:
+            CdnServer.objects.create(
+                name=nombre,
+                hls_base_url=hls,
+                ssh_host=request.POST.get('ssh_host', '').strip(),
+                ssh_port=int(request.POST.get('ssh_port') or 22),
+                ssh_user=request.POST.get('ssh_user', '').strip() or 'quattre',
+            )
+            messages.success(request, f'CDN {nombre} añadido')
+        return redirect('portal:cdns')
+
+    servidores = []
+    for servidor in CdnServer.objects.all():
+        canales = list(servidor.channels.filter(is_active=True).order_by('number'))
+        estados = cdn_tools.estados_de(canales)
+        for canal in canales:
+            canal.estado = estados.get(canal.id, {})
+        servidores.append({
+            'cdn': servidor,
+            'canales': canales,
+            'resumen': cdn_tools.resumen_cdn(servidor, estados),
+        })
+
+    context = {
+        'active_page': 'cdns',
+        'stats': get_base_stats(),
+        'servidores': servidores,
+        'sin_cdn': Channel.objects.filter(is_active=True, cdn__isnull=True).count(),
+    }
+    return render(request, 'portal/pages/cdns.html', context)
+
+
+@staff_member_required
+def cdn_delete(request, cdn_id):
+    """Quitar un CDN. Los canales se quedan sin asignar, no se borran."""
+    from apps.channels.models import CdnServer
+
+    servidor = get_object_or_404(CdnServer, id=cdn_id)
+    nombre = servidor.name
+    servidor.delete()
+    messages.success(request, f'CDN {nombre} eliminado. Sus canales quedan sin asignar.')
+    return redirect('portal:cdns')
+
+
+@staff_member_required
+def cdn_detect(request, cdn_id):
+    """
+    Asignar a este CDN los canales cuya URL apunta a él.
+
+    Evita tener que emparejar 50 canales a mano: el dato ya está en la URL del
+    stream.
+    """
+    from urllib.parse import urlparse
+
+    from apps.channels.models import CdnServer
+    from apps.channels import cdn as cdn_tools
+
+    servidor = get_object_or_404(CdnServer, id=cdn_id)
+    host = urlparse(servidor.hls_base_url).hostname or ''
+    if not host:
+        messages.error(request, 'La URL base del CDN no tiene un host válido')
+        return redirect('portal:cdns')
+
+    asignados = 0
+    for canal in Channel.objects.filter(is_active=True):
+        if host not in (canal.stream_url or ''):
+            continue
+        canal.cdn = servidor
+        if not canal.cdn_name:
+            canal.cdn_name = cdn_tools.nombre_en_cdn(canal)
+        canal.save(update_fields=['cdn', 'cdn_name'])
+        asignados += 1
+
+    messages.success(request, f'{asignados} canales asignados a {servidor.name}')
+    return redirect('portal:cdns')
+
+
+@staff_member_required
+def cdn_channel_restart(request, channel_id):
+    """Reiniciar la emisión de un canal en su CDN."""
+    from apps.channels import cdn as cdn_tools
+
+    canal = get_object_or_404(Channel, id=channel_id)
+    ok, mensaje = cdn_tools.reiniciar_canal(canal)
+    if ok:
+        messages.success(request, mensaje)
+    else:
+        messages.error(request, mensaje)
+    return redirect('portal:cdns')
+
+
 # EPG
 @staff_member_required
 def epg_list(request):
