@@ -114,11 +114,29 @@ AUTH_PASSWORD_VALIDATORS = [
 # Custom user model
 AUTH_USER_MODEL = 'accounts.User'
 
-# Cabeceras de seguridad. No se activan aquí las de HTTPS (redirección, cookies
-# secure, HSTS) porque el portal se sirve hoy por HTTP y romperían los decos;
-# van en la lista de deudas junto con el propio paso a HTTPS.
+# Cabeceras de seguridad
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
+
+# HTTPS. Se activa con BEHIND_TLS_PROXY=True cuando hay un nginx delante
+# terminando TLS. Va detrás de una variable a propósito: encenderlo mientras el
+# portal se sirve por HTTP dejaría a los decos sin poder entrar.
+BEHIND_TLS_PROXY = os.getenv('BEHIND_TLS_PROXY', 'False').lower() in ('true', '1', 'yes')
+
+if BEHIND_TLS_PROXY:
+    # nginx nos dice por qué esquema entró la petición.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv('HSTS_SECONDS', '0'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+
+    # La redirección la hace nginx, que es más barato que darle la vuelta aquí.
+    SECURE_SSL_REDIRECT = False
+
+CSRF_TRUSTED_ORIGINS = [
+    origen for origen in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if origen
+]
 
 # Internationalization
 LANGUAGE_CODE = 'es-es'

@@ -1,5 +1,36 @@
 # Puesta en marcha de EPG y grabaciones
 
+## HTTPS y la plataforma de pruebas (iptv2.quattre.com)
+
+Las dos plataformas están en **la misma IP**, así que lo que las separa es el
+puerto, no el nombre: Ministra atiende el **80** y la nueva escucha en el
+**8000**. Para probar ya, sin tocar nada, vale
+`http://iptv2.quattre.com:8000/quattretv/stb/`.
+
+Para dejarlo bien y con HTTPS —que además es **requisito para publicar la app
+en las tiendas de LG y Samsung**— el plan es:
+
+1. **El 443 público está libre** (comprobado). Que el router lo mande a la
+   máquina nueva, `192.168.100.11:443`. El 80 no se toca.
+2. En la máquina nueva: `apt install nginx certbot`, y copiar
+   `deploy/nginx/iptv2.quattre.com.conf`.
+3. Para emitir el certificado, el reto de Let's Encrypt llega por el puerto 80,
+   que atiende la máquina vieja. Se resuelve con `deploy/nginx/acme-en-ministra.conf`,
+   un `server{}` **nuevo** que solo responde a `iptv2.quattre.com` y solo pasa
+   el reto — no toca nada de lo que ya hay. Si se prefiere no tocar esa máquina,
+   emitir con reto DNS: `certbot certonly --preferred-challenges dns -d iptv2.quattre.com`.
+4. En el `.env` de la nueva: `BEHIND_TLS_PROXY=True` y
+   `CSRF_TRUSTED_ORIGINS=https://iptv2.quattre.com`. Sin esa variable Django
+   sigue funcionando por HTTP igual que hasta ahora, así que se puede desplegar
+   antes de tener el certificado.
+5. Cuando esté probado, apuntar la app y los decos a `https://iptv2.quattre.com/quattretv/stb/`.
+
+**El cambio definitivo no es de DNS.** Como las dos comparten IP, mover
+`iptv1.quattre.com` seguiría llevando al mismo sitio. El cambio real es quién
+atiende el puerto 80/443: o se pasa la nueva al 80, o se lleva a su propia IP.
+
+
+
 ## 0. Comprobar que el .env de producción está bien
 
 `manage.py check` avisa al desplegar si `DEBUG` está activado, si

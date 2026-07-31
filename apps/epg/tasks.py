@@ -1,7 +1,10 @@
 """
 Celery tasks for EPG updates.
 """
+import gzip
 import logging
+import zlib
+
 import requests
 import xmltodict
 from celery import shared_task
@@ -26,11 +29,11 @@ def update_epg_source(source_id):
     logger.info(f"Updating EPG from: {source.name}")
 
     try:
-        response = requests.get(source.url, timeout=120)
+        response = requests.get(source.url, timeout=180)
         response.raise_for_status()
 
         # Parse XMLTV
-        data = xmltodict.parse(response.content)
+        data = xmltodict.parse(descomprimir(response.content))
         tv_data = data.get('tv', {})
 
         # Get channel mapping. epg_id is blank (not null) when unmapped, so an
@@ -81,6 +84,22 @@ def update_epg_source(source_id):
     except Exception as e:
         logger.error(f"Error updating EPG from {source.name}: {e}")
         raise
+
+
+def descomprimir(contenido):
+    """
+    Casi todas las fuentes buenas sirven el XMLTV comprimido.
+
+    Antes se le pasaba el .gz tal cual al parser y reventaba con 'not
+    well-formed', así que las dos fuentes con más cobertura no se podían usar.
+    Se mira la firma del fichero y no la extensión, porque hay servidores que
+    sirven .gz sin que la URL lo diga.
+    """
+    if contenido[:2] == b'\x1f\x8b':
+        return gzip.decompress(contenido)
+    if contenido[:2] == b'\x78\x9c':  # zlib a secas
+        return zlib.decompress(contenido)
+    return contenido
 
 
 def _replace_programs(programs):
