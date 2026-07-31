@@ -1,33 +1,65 @@
 # Puesta en marcha de EPG y grabaciones
 
-## HTTPS y la plataforma de pruebas (iptv2.quattre.com)
+## Las dos plataformas a la vez, y el cambio final
 
-Las dos plataformas están en **la misma IP**, así que lo que las separa es el
-puerto, no el nombre: Ministra atiende el **80** y la nueva escucha en el
-**8000**. Para probar ya, sin tocar nada, vale
-`http://iptv2.quattre.com:8000/quattretv/stb/`.
+Las dos están en **la misma IP**, así que lo que las separa no es el nombre
+sino quién atiende cada puerto:
 
-Para dejarlo bien y con HTTPS —que además es **requisito para publicar la app
-en las tiendas de LG y Samsung**— el plan es:
+| Puerto público | Va a | Qué es |
+|---|---|---|
+| 80 | 192.168.100.10 (nginx → `127.0.0.1:88`) | Ministra, la de siempre |
+| 8000 | 192.168.100.11 (gunicorn) | la nueva |
+| 443 | — | libre |
 
-1. **El 443 público está libre** (comprobado). Que el router lo mande a la
-   máquina nueva, `192.168.100.11:443`. El 80 no se toca.
-2. En la máquina nueva: `apt install nginx certbot`, y copiar
-   `deploy/nginx/iptv2.quattre.com.conf`.
-3. Para emitir el certificado, el reto de Let's Encrypt llega por el puerto 80,
-   que atiende la máquina vieja. Se resuelve con `deploy/nginx/acme-en-ministra.conf`,
-   un `server{}` **nuevo** que solo responde a `iptv2.quattre.com` y solo pasa
-   el reto — no toca nada de lo que ya hay. Si se prefiere no tocar esa máquina,
-   emitir con reto DNS: `certbot certonly --preferred-challenges dns -d iptv2.quattre.com`.
-4. En el `.env` de la nueva: `BEHIND_TLS_PROXY=True` y
+**Para probar ya, sin tocar absolutamente nada:**
+`http://iptv2.quattre.com:8000/quattretv/stb/` (el 8000 ya está abierto).
+
+### Recomendado: todo por el puerto 80, con un vhost
+
+Mejor que andar con puertos: añadir un `server{}` por nombre en el nginx que ya
+tiene el 80. Copiar `deploy/nginx/zz-iptv2.quattre.com` a la máquina
+`192.168.100.10`. Con eso:
+
+- `http://iptv1.quattre.com/` → Ministra, igual que ahora.
+- `http://iptv2.quattre.com/` → la plataforma nueva.
+- No hace falta tocar el router.
+
+**El nombre del fichero importa.** nginx incluye `conf.d/*.conf` antes que
+`sites-enabled/*`, y el primer `server{}` de un puerto es el que atiende todo lo
+que no case por nombre. El bloque que ya existe se llama `default`, así que el
+nuevo tiene que ir en `sites-enabled` **ordenado después** (de ahí el `zz-`). Si
+se metiera en `conf.d`, pasaría a ser el servidor por defecto y **se llevaría
+todo el tráfico de iptv1 a la plataforma nueva**.
+
+Comprobación después de recargar:
+
+```bash
+curl -I -H 'Host: iptv1.quattre.com' http://127.0.0.1/   # Ministra
+curl -I -H 'Host: iptv2.quattre.com' http://127.0.0.1/   # gunicorn
+```
+
+**Y el cambio definitivo pasa a ser una línea**: en el vhost de iptv1 se cambia
+el `proxy_pass` de `127.0.0.1:88` a `192.168.100.11:8000` y se recarga nginx.
+Vuelta atrás en segundos. Mucho mejor que mover DNS o reglas del router, que
+además no separarían nada al compartir IP.
+
+### HTTPS
+
+Hace falta para publicar la app en las tiendas de LG y Samsung, y para que los
+decos dejen de mandar su MAC en claro.
+
+1. Que el router mande el **443 público a `192.168.100.10`** (la máquina del
+   nginx), y sacar ahí el certificado con certbot para los dos nombres. Así el
+   TLS se termina en un solo sitio.
+2. En el `.env` de la plataforma nueva: `BEHIND_TLS_PROXY=True`,
+   `PUBLIC_URL=https://iptv2.quattre.com` y
    `CSRF_TRUSTED_ORIGINS=https://iptv2.quattre.com`. Sin esa variable Django
-   sigue funcionando por HTTP igual que hasta ahora, así que se puede desplegar
-   antes de tener el certificado.
-5. Cuando esté probado, apuntar la app y los decos a `https://iptv2.quattre.com/quattretv/stb/`.
+   sigue por HTTP igual que hasta ahora, así que se puede desplegar antes de
+   tener certificado.
 
-**El cambio definitivo no es de DNS.** Como las dos comparten IP, mover
-`iptv1.quattre.com` seguiría llevando al mismo sitio. El cambio real es quién
-atiende el puerto 80/443: o se pasa la nueva al 80, o se lleva a su propia IP.
+Si se prefiere no meter la plataforma nueva por detrás de la máquina vieja,
+está la alternativa en `deploy/nginx/iptv2.quattre.com.conf`: nginx propio en
+`192.168.100.11` sirviendo el 443 y el router mandándole el 443 público.
 
 
 
