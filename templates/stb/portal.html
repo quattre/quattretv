@@ -296,6 +296,250 @@
         });
     }
 
+    // ---------- Reproducir algo que no es un canal ----------
+
+    function reproducirPantallaCompleta(url, titulo, subtitulo) {
+        playChannel({cmd: url});
+        playingChannelIdx = -1;   // ya no suena el canal de la lista
+        setViewportFullscreen();
+        isFullscreen = true;
+        document.getElementById("content").style.display = "none";
+        document.getElementById("preview").style.display = "none";
+        document.getElementById("preview-cap").style.display = "none";
+        document.getElementById("osd").style.display = "block";
+        document.getElementById("osd").innerHTML =
+            '<div class="osd-ch">' + esc(titulo) + '</div>' +
+            (subtitulo ? '<div class="osd-epg">' + esc(subtitulo) + '</div>' : '');
+    }
+
+    // ---------- Menu principal ----------
+
+    var MENU = [
+        {id: 'canales',     titulo: 'Canales'},
+        {id: 'categorias',  titulo: 'Categorias'},
+        {id: 'favoritos',   titulo: 'Solo favoritos'},
+        {id: 'peliculas',   titulo: 'Peliculas'},
+        {id: 'series',      titulo: 'Series'},
+        {id: 'grabaciones', titulo: 'Mis grabaciones'}
+    ];
+    var menuIdx = 0;
+
+    function openMenu() {
+        view = "menu";
+        menuIdx = 0;
+        renderMenu();
+    }
+
+    function renderMenu() {
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">Quattre<span>TV</span></div></div>';
+        h += '<div class="list">';
+        for (var i = 0; i < MENU.length; i++) {
+            var cls = (i === menuIdx) ? "item sel" : "item";
+            var extra = '';
+            if (MENU[i].id === 'favoritos' && favOnly) extra = ' <span class="live">ACTIVO</span>';
+            h += '<div class="' + cls + '"><div class="info"><div class="name">' +
+                 esc(MENU[i].titulo) + extra + '</div></div></div>';
+        }
+        h += '</div>';
+        h += '<div class="help"><span>OK</span> Entrar <span>◀</span> Volver</div>';
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function elegirMenu() {
+        var opcion = MENU[menuIdx];
+        if (!opcion) return;
+        if (opcion.id === 'canales') showChannels();
+        else if (opcion.id === 'categorias') openGenres();
+        else if (opcion.id === 'favoritos') toggleFavOnly();
+        else if (opcion.id === 'peliculas') openVod();
+        else if (opcion.id === 'series') openSeries();
+        else if (opcion.id === 'grabaciones') openRecordings();
+    }
+
+    // ---------- Videoclub ----------
+
+    var vod = [];
+    var vodIdx = 0;
+    var series = [];
+    var serieIdx = 0;
+    var capitulos = [];
+    var capIdx = 0;
+    var serieActual = null;
+
+    function cargando(titulo) {
+        document.getElementById("content").innerHTML =
+            '<div class="panel"><div class="header"><div class="logo">' + esc(titulo) +
+            '</div></div><div style="color:#666;padding:20px;">Cargando...</div></div>';
+    }
+
+    function openVod() {
+        view = "vod";
+        vodIdx = 0;
+        cargando('Peliculas');
+        api("type=vod&action=get_ordered_list&p=0", function(js) {
+            if (view !== "vod") return;
+            vod = (js && js.data) ? js.data : [];
+            renderVod((js && js.error) ? js.error : null);
+        });
+    }
+
+    function renderVod(error) {
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">Peliculas</div>';
+        h += '<div class="counter">' + vod.length + '</div></div>';
+        h += '<div class="list">';
+        if (error) {
+            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
+        } else if (vod.length === 0) {
+            h += '<div style="color:#666;padding:20px;">No hay peliculas en el catalogo</div>';
+        } else {
+            var visible = 9;
+            var start = Math.max(0, vodIdx - 4);
+            var end = Math.min(vod.length, start + visible);
+            if (end - start < visible) start = Math.max(0, end - visible);
+            for (var i = start; i < end; i++) {
+                var p = vod[i];
+                var cls = (i === vodIdx) ? "item sel" : "item";
+                h += '<div class="' + cls + '"><div class="info"><div class="name">' + esc(p.name);
+                if (p.hd) h += ' <span class="hd">HD</span>';
+                if (p.locked) h += ' <span class="lock">🔒</span>';
+                h += '</div>';
+                var meta = [];
+                if (p.year) meta.push(p.year);
+                if (p.rating_imdb) meta.push('★ ' + p.rating_imdb);
+                if (p.time) meta.push(p.time + ' min');
+                if (meta.length) h += '<div class="epg">' + esc(meta.join('  ·  ')) + '</div>';
+                h += '</div></div>';
+            }
+            var sel = vod[vodIdx];
+            if (sel && sel.description) {
+                h += '</div><div class="descr">' + esc(sel.description.substring(0, 200)) + '</div><div class="list" style="flex:0">';
+            }
+        }
+        h += '</div>';
+        h += '<div class="help"><span>OK</span> Ver <span>◀</span> Volver</div>';
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function verPelicula() {
+        var p = vod[vodIdx];
+        if (!p) return;
+        if (p.locked) { pedirPin(function() { openVod(); }); return; }
+        api("type=vod&action=create_link&cmd=" + p.id, function(js) {
+            if (js && js.cmd) {
+                var meta = [];
+                if (p.year) meta.push(p.year);
+                if (p.time) meta.push(p.time + ' min');
+                reproducirPantallaCompleta(js.cmd, p.name, meta.join('  ·  '));
+            } else {
+                toast((js && js.error) ? js.error : 'No se pudo reproducir');
+            }
+        });
+    }
+
+    function openSeries() {
+        view = "series";
+        serieIdx = 0;
+        cargando('Series');
+        api("type=series&action=get_ordered_list&p=0", function(js) {
+            if (view !== "series") return;
+            series = (js && js.data) ? js.data : [];
+            renderSeries((js && js.error) ? js.error : null);
+        });
+    }
+
+    function renderSeries(error) {
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">Series</div>';
+        h += '<div class="counter">' + series.length + '</div></div>';
+        h += '<div class="list">';
+        if (error) {
+            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
+        } else if (series.length === 0) {
+            h += '<div style="color:#666;padding:20px;">No hay series en el catalogo</div>';
+        } else {
+            var visible = 10;
+            var start = Math.max(0, serieIdx - 5);
+            var end = Math.min(series.length, start + visible);
+            if (end - start < visible) start = Math.max(0, end - visible);
+            for (var i = start; i < end; i++) {
+                var s = series[i];
+                var cls = (i === serieIdx) ? "item sel" : "item";
+                h += '<div class="' + cls + '"><div class="info"><div class="name">' + esc(s.name);
+                if (s.locked) h += ' <span class="lock">🔒</span>';
+                h += '</div>';
+                var meta = [];
+                if (s.year) meta.push(s.year);
+                if (s.series) meta.push(s.series + ' temporadas');
+                if (meta.length) h += '<div class="epg">' + esc(meta.join('  ·  ')) + '</div>';
+                h += '</div></div>';
+            }
+        }
+        h += '</div>';
+        h += '<div class="help"><span>OK</span> Capitulos <span>◀</span> Volver</div>';
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function openCapitulos() {
+        var s = series[serieIdx];
+        if (!s) return;
+        if (s.locked) { pedirPin(function() { openSeries(); }); return; }
+        serieActual = s;
+        view = "capitulos";
+        capIdx = 0;
+        cargando(s.name);
+        api("type=series&action=get_episodes&series_id=" + s.id, function(js) {
+            if (view !== "capitulos") return;
+            capitulos = (js && js.data) ? js.data : [];
+            renderCapitulos((js && js.error) ? js.error : null);
+        });
+    }
+
+    function renderCapitulos(error) {
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">' + esc(serieActual.name) + '</div>';
+        h += '<div class="counter">' + capitulos.length + ' cap.</div></div>';
+        h += '<div class="list">';
+        if (error) {
+            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
+        } else if (capitulos.length === 0) {
+            h += '<div style="color:#666;padding:20px;">Esta serie no tiene capitulos cargados</div>';
+        } else {
+            var visible = 10;
+            var start = Math.max(0, capIdx - 5);
+            var end = Math.min(capitulos.length, start + visible);
+            if (end - start < visible) start = Math.max(0, end - visible);
+            for (var i = start; i < end; i++) {
+                var cap = capitulos[i];
+                var cls = (i === capIdx) ? "item sel" : "item";
+                h += '<div class="' + cls + '">';
+                h += '<div class="num sm">T' + cap.season + 'E' + cap.episode + '</div>';
+                h += '<div class="info"><div class="name">' + esc(cap.name) + '</div></div></div>';
+            }
+        }
+        h += '</div>';
+        h += '<div class="help"><span>OK</span> Ver <span>◀</span> Volver</div>';
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
+    }
+
+    function verCapitulo() {
+        var cap = capitulos[capIdx];
+        if (!cap) return;
+        if (cap.locked) { pedirPin(function() { openSeries(); }); return; }
+        api("type=series&action=create_link&cmd=" + cap.id, function(js) {
+            if (js && js.cmd) {
+                reproducirPantallaCompleta(js.cmd, serieActual.name, cap.label);
+            } else {
+                toast((js && js.error) ? js.error : 'No se pudo reproducir');
+            }
+        });
+    }
+
     // ---------- Control parental ----------
 
     function pedirPin(despues) {
@@ -414,7 +658,7 @@
         }
         h += '</div>';
 
-        h += '<div class="help"><span>OK</span> Ver <span>▶</span> Guia <span>◀</span> Categorias <span>REC</span> Grabar<br>';
+        h += '<div class="help"><span>OK</span> Ver <span>▶</span> Guia <span>◀</span> Menu <span>REC</span> Grabar<br>';
         h += '<span>VERDE</span> Grabaciones <span>AMARILLO</span> Favoritos <span>AZUL</span> Marcar <span>0-9</span> Ir al canal</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
@@ -520,17 +764,7 @@
         api("type=tv_archive&action=create_link&ch_id=" + guideChannel.id +
             "&utc=" + p.start_timestamp + "&lutc=" + p.stop_timestamp, function(js) {
             if (js && js.cmd) {
-                playChannel({cmd: js.cmd});
-                playingChannelIdx = -1;
-                setViewportFullscreen();
-                isFullscreen = true;
-                document.getElementById("content").style.display = "none";
-                document.getElementById("preview").style.display = "none";
-                document.getElementById("preview-cap").style.display = "none";
-                document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML =
-                    '<div class="osd-ch">' + esc(guideChannel.name) + ' · archivo</div>' +
-                    '<div class="osd-epg">' + esc(p.name) + '</div>';
+                reproducirPantallaCompleta(js.cmd, guideChannel.name + ' · archivo', p.name);
             } else {
                 toast((js && js.error) ? js.error : 'Archivo no disponible');
             }
@@ -597,17 +831,7 @@
         if (r.status !== 'completed') { toast('La grabacion aun no esta lista'); return; }
         api("type=pvr&action=create_link&cmd=" + r.id, function(js) {
             if (js && js.cmd) {
-                playChannel({cmd: js.cmd});
-                playingChannelIdx = -1;
-                setViewportFullscreen();
-                isFullscreen = true;
-                document.getElementById("content").style.display = "none";
-                document.getElementById("preview").style.display = "none";
-                document.getElementById("preview-cap").style.display = "none";
-                document.getElementById("osd").style.display = "block";
-                document.getElementById("osd").innerHTML =
-                    '<div class="osd-ch">Grabacion</div>' +
-                    '<div class="osd-epg">' + esc(r.name) + '</div>';
+                reproducirPantallaCompleta(js.cmd, 'Grabacion', r.name);
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo reproducir');
             }
@@ -773,6 +997,26 @@
             } else if (k === 8 || k === 27 || k === 13) {
                 showMenu();
             }
+        } else if (view === "menu") {
+            if (k === 38 && menuIdx > 0) { menuIdx--; renderMenu(); }
+            else if (k === 40 && menuIdx < MENU.length - 1) { menuIdx++; renderMenu(); }
+            else if (k === 13) elegirMenu();
+            else if (k === 37 || k === 8 || k === 27) showChannels();
+        } else if (view === "vod") {
+            if (k === 38 && vodIdx > 0) { vodIdx--; renderVod(null); }
+            else if (k === 40 && vodIdx < vod.length - 1) { vodIdx++; renderVod(null); }
+            else if (k === 13) verPelicula();
+            else if (k === 37 || k === 8 || k === 27) openMenu();
+        } else if (view === "series") {
+            if (k === 38 && serieIdx > 0) { serieIdx--; renderSeries(null); }
+            else if (k === 40 && serieIdx < series.length - 1) { serieIdx++; renderSeries(null); }
+            else if (k === 13) openCapitulos();
+            else if (k === 37 || k === 8 || k === 27) openMenu();
+        } else if (view === "capitulos") {
+            if (k === 38 && capIdx > 0) { capIdx--; renderCapitulos(null); }
+            else if (k === 40 && capIdx < capitulos.length - 1) { capIdx++; renderCapitulos(null); }
+            else if (k === 13) verCapitulo();
+            else if (k === 37 || k === 8 || k === 27) openSeries();
         } else if (view === "genres") {
             if (k === 38 && genreIdx > 0) {
                 genreIdx--;
@@ -783,7 +1027,7 @@
             } else if (k === 13) {
                 chooseGenre();
             } else if (k === 37 || k === 8 || k === 27) {
-                showChannels();
+                openMenu();
             }
         } else if (view === "guide") {
             if (k === 38 && guideIdx > 0) {
@@ -827,7 +1071,7 @@
             } else if (k === 39 && channels.length > 0) {
                 openGuide();
             } else if (k === 37) {
-                openGenres();
+                openMenu();
             } else if (k === 82 || k === 112) {
                 recordCurrent();
             } else if (k === 113 || k === 83) {

@@ -18,7 +18,7 @@ está parado) o si un grabador lleva más de 15 min sin pedir sus tareas.
 | OK | Ver a pantalla completa |
 | ▲ ▼ | Moverse por la lista / cambiar de canal |
 | ▶ | Guía del canal |
-| ◀ | Categorías |
+| ◀ | Menú (categorías, favoritos, películas, series, grabaciones) |
 | REC o ROJO | Grabar |
 | VERDE | Mis grabaciones |
 | AMARILLO | Ver solo favoritos |

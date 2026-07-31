@@ -623,6 +623,32 @@ def handle_vod(request, action):
     return stalker_response({'error': 'Unknown action'})
 
 
+def vod_disponible(request):
+    """
+    Comprueba que el aparato puede ver VOD.
+
+    Devuelve (device, respuesta_de_error). La tarifa manda: hasta ahora el
+    catalogo se servia sin mirar si estaba incluido.
+    """
+    device = get_device_from_request(request)
+    if not device:
+        return None, stalker_response({'error': 'Not authenticated'})
+    if device.user.tariff and not device.user.tariff.has_vod:
+        return None, stalker_response({'error': 'Videoclub no incluido en tu tarifa'})
+    return device, None
+
+
+def vod_adulto_bloqueado(device, obj):
+    """Las peliculas y series +18 piden el mismo PIN que los canales."""
+    if not getattr(obj, 'is_adult', False):
+        return False
+    if not device:
+        return True
+    if not device.user.parental_password:
+        return False
+    return not parental_unlocked(device)
+
+
 def handle_vod_categories(request):
     """Get VOD categories."""
     categories = VodCategory.objects.filter(is_active=True).order_by('order')
@@ -641,6 +667,10 @@ def handle_vod_categories(request):
 
 def handle_vod_list(request):
     """Get VOD list."""
+    device, error = vod_disponible(request)
+    if error:
+        return error
+
     category_id = request.GET.get('category')
     page = int(request.GET.get('p', 0))
     per_page = 50
@@ -650,12 +680,18 @@ def handle_vod_list(request):
     if category_id and category_id != '*':
         movies = movies.filter(category_id=category_id)
 
+    busqueda = request.GET.get('search', '').strip()
+    if busqueda:
+        movies = movies.filter(title__icontains=busqueda)
+
     total = movies.count()
     movies = movies[page * per_page:(page + 1) * per_page]
 
     data = []
     for movie in movies:
+        bloqueada = vod_adulto_bloqueado(device, movie)
         data.append({
+            'locked': 1 if bloqueada else 0,
             'id': str(movie.id),
             'name': movie.title,
             'o_name': movie.original_title,
@@ -667,7 +703,9 @@ def handle_vod_list(request):
             'time': str(movie.duration) if movie.duration else '',
             'screenshot_uri': movie.poster_url or '',
             'hd': 1 if movie.is_hd else 0,
-            'cmd': movie.stream_url,
+            'genres': movie.genres,
+            # Como en los canales: si esta bloqueada no viaja la URL.
+            'cmd': '' if bloqueada else movie.stream_url,
         })
 
     return stalker_response({
@@ -680,14 +718,20 @@ def handle_vod_list(request):
 def handle_vod_link(request):
     """Get VOD stream link."""
     cmd = request.GET.get('cmd', '')
-    device = get_device_from_request(request)
+    device, error = vod_disponible(request)
+    if error:
+        return error
 
     if cmd.isdigit():
         try:
             movie = Movie.objects.get(id=cmd, is_active=True)
-            stream_url = movie.stream_url
         except Movie.DoesNotExist:
             return stalker_response({'error': 'Movie not found'})
+
+        if vod_adulto_bloqueado(device, movie):
+            return stalker_response({'error': 'Contenido bloqueado, introduce el PIN'})
+
+        stream_url = movie.stream_url
     else:
         stream_url = cmd
 
@@ -706,12 +750,94 @@ def handle_series(request, action):
         return handle_vod_categories(request)
     elif action == 'get_ordered_list':
         return handle_series_list(request)
+    elif action in ('get_episodes', 'get_seasons'):
+        return handle_series_episodes(request)
+    elif action == 'create_link':
+        return handle_series_link(request)
 
     return stalker_response({'error': 'Unknown action'})
 
 
+def handle_series_episodes(request):
+    """
+    Capitulos de una serie, en una sola lista ordenada por temporada.
+
+    Sin esto se podia listar el catalogo de series pero no llegar a ver nada:
+    no habia forma de pedir los capitulos.
+    """
+    from apps.vod.models import Episode
+
+    device, error = vod_disponible(request)
+    if error:
+        return error
+
+    series_id = request.GET.get('series_id') or request.GET.get('cmd')
+    try:
+        serie = Series.objects.get(id=series_id, is_active=True)
+    except (Series.DoesNotExist, ValueError, TypeError):
+        return stalker_response({'error': 'Serie no encontrada'})
+
+    bloqueada = vod_adulto_bloqueado(device, serie)
+
+    episodios = Episode.objects.filter(
+        season__series=serie, is_active=True
+    ).select_related('season').order_by('season__number', 'number')
+
+    data = []
+    for ep in episodios:
+        data.append({
+            'id': str(ep.id),
+            'season': ep.season.number,
+            'episode': ep.number,
+            'name': ep.title,
+            'label': f'T{ep.season.number}E{ep.number:02d} {ep.title}',
+            'description': ep.description[:500] if ep.description else '',
+            'time': str(ep.duration) if ep.duration else '',
+            'screenshot_uri': ep.poster_url or '',
+            'locked': 1 if bloqueada else 0,
+            'cmd': '' if bloqueada else str(ep.id),
+        })
+
+    return stalker_response({
+        'series': serie.title,
+        'total_items': len(data),
+        'data': data,
+    })
+
+
+def handle_series_link(request):
+    """URL de reproduccion de un capitulo."""
+    from apps.vod.models import Episode
+
+    device, error = vod_disponible(request)
+    if error:
+        return error
+
+    cmd = request.GET.get('cmd', '')
+    try:
+        episodio = Episode.objects.select_related('season__series').get(
+            id=cmd, is_active=True
+        )
+    except (Episode.DoesNotExist, ValueError):
+        return stalker_response({'error': 'Capitulo no encontrado'})
+
+    if vod_adulto_bloqueado(device, episodio.season.series):
+        return stalker_response({'error': 'Contenido bloqueado, introduce el PIN'})
+
+    stream_url = episodio.stream_url
+    if device:
+        separator = '&' if '?' in stream_url else '?'
+        stream_url = f"{stream_url}{separator}token={device.token}"
+
+    return stalker_response({'cmd': stream_url})
+
+
 def handle_series_list(request):
     """Get series list."""
+    device, error = vod_disponible(request)
+    if error:
+        return error
+
     category_id = request.GET.get('category')
     page = int(request.GET.get('p', 0))
     per_page = 50
@@ -721,12 +847,17 @@ def handle_series_list(request):
     if category_id and category_id != '*':
         series = series.filter(category_id=category_id)
 
+    busqueda = request.GET.get('search', '').strip()
+    if busqueda:
+        series = series.filter(title__icontains=busqueda)
+
     total = series.count()
     series_list = series[page * per_page:(page + 1) * per_page]
 
     data = []
     for s in series_list:
         data.append({
+            'locked': 1 if vod_adulto_bloqueado(device, s) else 0,
             'id': str(s.id),
             'name': s.title,
             'o_name': s.original_title,
