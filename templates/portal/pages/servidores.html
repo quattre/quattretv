@@ -1,0 +1,110 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Servidores - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900"><i class="bi bi-hdd-rack"></i> Servidores</h1>
+        <p class="text-gray-500">Disco, memoria y carga de las máquinas de la plataforma</p>
+    </div>
+    <a href="?" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+    </a>
+</div>
+
+{% if con_avisos %}
+<div class="bg-red-50 border border-red-200 text-red-800 rounded-xl p-4 mb-6">
+    <i class="bi bi-exclamation-octagon"></i>
+    <strong>{{ con_avisos }}</strong> servidor(es) necesitan atención.
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+{% for s in servidores %}
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden {% if s.avisos or not s.ok %}ring-2 ring-red-200{% endif %}">
+        <div class="flex justify-between items-start px-6 py-4 border-b border-gray-200">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">{{ s.titulo|default:s.nombre }}</h2>
+                <span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">{{ s.etiqueta }}</span>
+                {% if s.uptime_dias %}<span class="text-xs text-gray-400 ml-2">{{ s.uptime_dias }} días encendido</span>{% endif %}
+            </div>
+            {% if s.ok %}
+                {% if s.avisos %}
+                    <span class="px-3 py-1 text-xs rounded-full bg-red-100 text-red-700">Atención</span>
+                {% else %}
+                    <span class="px-3 py-1 text-xs rounded-full bg-green-100 text-green-700">Correcto</span>
+                {% endif %}
+            {% else %}
+                <span class="px-3 py-1 text-xs rounded-full bg-gray-200 text-gray-700">Sin datos</span>
+            {% endif %}
+        </div>
+
+        <div class="px-6 py-4">
+            {% if not s.ok %}
+                <p class="text-gray-500 text-sm"><i class="bi bi-plug"></i> {{ s.error }}</p>
+                <p class="text-xs text-gray-400 mt-2">Configura el acceso SSH del servidor para verlo aquí.</p>
+            {% else %}
+                {% for aviso in s.avisos %}
+                    <div class="text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 mb-2">
+                        <i class="bi bi-exclamation-triangle"></i> {{ aviso }}
+                    </div>
+                {% endfor %}
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase">CPU</p>
+                        <p class="text-lg font-semibold text-gray-900">
+                            {% if s.carga_pct is not None %}{{ s.carga_pct }}%{% else %}-{% endif %}
+                            <span class="text-xs font-normal text-gray-400">de {{ s.cores }} núcleos</span>
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase">Memoria</p>
+                        {% if s.ram %}
+                        <p class="text-lg font-semibold text-gray-900">{{ s.ram.pct }}%
+                            <span class="text-xs font-normal text-gray-400">{{ s.ram.usado_gb }} / {{ s.ram.total_gb }} GB</span>
+                        </p>
+                        {% else %}<p class="text-gray-400">-</p>{% endif %}
+                    </div>
+                </div>
+
+                <p class="text-xs text-gray-500 uppercase mb-2">Discos</p>
+                {% for disco in s.discos %}
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm">
+                        <code class="text-gray-700">{{ disco.montaje }}</code>
+                        <span class="{% if disco.nivel == 'critico' %}text-red-600 font-semibold{% elif disco.nivel == 'aviso' %}text-amber-600{% else %}text-gray-500{% endif %}">
+                            {{ disco.usado_gb }} / {{ disco.total_gb }} GB ({{ disco.pct }}%)
+                        </span>
+                    </div>
+                    <div class="h-2 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                        <div class="h-full {% if disco.nivel == 'critico' %}bg-red-500{% elif disco.nivel == 'aviso' %}bg-amber-400{% else %}bg-green-500{% endif %}" style="width: {{ disco.pct }}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                {% if s.tipo == 'cdn' %}
+                <div class="mt-4 pt-4 border-t border-gray-100 text-sm">
+                    <span class="text-green-600">{{ s.detalle.emitiendo }} canales emitiendo</span>
+                    {% if s.detalle.parado %}<span class="text-red-600 ml-3">{{ s.detalle.parado }} parados</span>{% endif %}
+                    <a href="{% url 'portal:cdns' %}" class="text-blue-500 ml-3">ver canales</a>
+                </div>
+                {% elif s.tipo == 'storage' %}
+                <div class="mt-4 pt-4 border-t border-gray-100 text-sm text-gray-600">
+                    {{ s.detalle.grabando }} grabando ahora ·
+                    {% if s.detalle.ultimo_contacto %}último contacto {{ s.detalle.ultimo_contacto|timesince }}{% else %}nunca ha pedido tareas{% endif %}
+                </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+{% empty %}
+    <div class="bg-white rounded-xl shadow-sm px-6 py-12 text-center text-gray-500 lg:col-span-2">
+        <i class="bi bi-hdd-rack text-6xl text-gray-300"></i>
+        <p class="mt-4">No hay servidores dados de alta</p>
+        <p class="text-sm text-gray-400 mt-1">Añade los CDN en su panel y los grabadores en el admin</p>
+    </div>
+{% endfor %}
+</div>
+{% endblock %}

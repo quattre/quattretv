@@ -63,6 +63,11 @@ class StorageServer(TimeStampedModel):
         help_text='Última vez que el storage pidió sus tareas de archivo'
     )
 
+    # Acceso para vigilar disco, memoria y carga
+    ssh_host = models.CharField(max_length=100, blank=True)
+    ssh_port = models.PositiveIntegerField(default=22)
+    ssh_user = models.CharField(max_length=50, default='quattre')
+
     class Meta:
         verbose_name = 'Storage Server'
         verbose_name_plural = 'Storage Servers'

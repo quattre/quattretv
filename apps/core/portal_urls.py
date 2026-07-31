@@ -41,6 +41,9 @@ urlpatterns = [
     path('tariffs/<int:tariff_id>/', views.tariff_edit, name='tariff_edit'),
     path('tariffs/<int:tariff_id>/delete/', views.tariff_delete, name='tariff_delete'),
 
+    # Servidores
+    path('servidores/', views.servidores_list, name='servidores'),
+
     # CDNs
     path('cdns/', views.cdns_list, name='cdns'),
     path('cdns/<int:cdn_id>/delete/', views.cdn_delete, name='cdn_delete'),

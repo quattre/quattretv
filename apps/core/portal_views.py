@@ -837,6 +837,58 @@ def tariff_delete(request, tariff_id):
     return JsonResponse({'status': 'error'}, status=400)
 
 
+# Servidores
+@staff_member_required
+def servidores_list(request):
+    """Estado de las máquinas: disco, memoria, carga y qué lleva cada una."""
+    from apps.channels.models import CdnServer
+    from apps.channels import cdn as cdn_tools
+    from apps.core import monitoring
+    from apps.pvr.models import Recording, RecordingStatus, StorageServer
+
+    peticiones = []
+    contexto_extra = {}
+
+    for servidor in CdnServer.objects.filter(is_active=True):
+        clave = f'cdn:{servidor.id}'
+        peticiones.append((clave, servidor.ssh_host, servidor.ssh_port,
+                           servidor.ssh_user, 'CDN'))
+        contexto_extra[clave] = {
+            'titulo': servidor.name,
+            'detalle': cdn_tools.resumen_cdn(servidor),
+            'tipo': 'cdn',
+        }
+
+    for servidor in StorageServer.objects.filter(is_active=True):
+        clave = f'sto:{servidor.id}'
+        peticiones.append((clave, servidor.ssh_host, servidor.ssh_port,
+                           servidor.ssh_user, servidor.get_role_display()))
+        contexto_extra[clave] = {
+            'titulo': servidor.name,
+            'detalle': {
+                'ultimo_contacto': servidor.last_sync,
+                'grabando': Recording.objects.filter(
+                    storage=servidor, status=RecordingStatus.RECORDING
+                ).count(),
+            },
+            'tipo': 'storage',
+        }
+
+    metricas = monitoring.estado_de_varios(peticiones)
+    for metrica in metricas:
+        metrica.update(contexto_extra.get(metrica['nombre'], {}))
+
+    con_avisos = sum(1 for m in metricas if m.get('avisos') or not m.get('ok'))
+
+    context = {
+        'active_page': 'servidores',
+        'stats': get_base_stats(),
+        'servidores': metricas,
+        'con_avisos': con_avisos,
+    }
+    return render(request, 'portal/pages/servidores.html', context)
+
+
 # CDNs
 @staff_member_required
 def cdns_list(request):

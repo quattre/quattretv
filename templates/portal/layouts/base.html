@@ -69,6 +69,9 @@
             </a>
 
             <div class="px-5 py-2 text-xs uppercase text-white/40 tracking-wider mt-2">Sistema</div>
+            <a href="{% url 'portal:servidores' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'servidores' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
+                <i class="bi bi-hdd-rack mr-3 text-lg w-6 text-center"></i> Servidores
+            </a>
             <a href="{% url 'portal:cdns' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'cdns' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
                 <i class="bi bi-hdd-network mr-3 text-lg w-6 text-center"></i> CDNs
             </a>
