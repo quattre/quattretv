@@ -6,6 +6,7 @@ import time
 from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
@@ -17,6 +18,7 @@ from apps.vod.models import Movie, Series, VodCategory
 from .authentication import MACAuthentication
 
 
+@never_cache
 def stb_portal_app(request):
     """
     Serve the main STB portal application.
@@ -25,6 +27,7 @@ def stb_portal_app(request):
     return render(request, 'stb/portal.html')
 
 
+@never_cache
 def stb_loader_page(request):
     """
     Serve initial loader page for MAG boxes.
