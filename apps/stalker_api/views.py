@@ -1230,10 +1230,20 @@ def handle_watchdog(request, action):
     Handle watchdog/keepalive.
 
     La actividad ya se anota (agrupada) al autenticar, que es por donde pasan
-    todas las peticiones del aparato, asi que aqui no hace falta escribir otra
-    vez.
+    todas las peticiones del aparato. Aqui solo se guarda el canal que esta
+    viendo, que es lo que hace falta para la pantalla de streams activos: sin
+    esto un aparato que lleva media hora con un canal puesto no vuelve a pedir
+    nada y parece apagado.
     """
-    get_device_from_request(request)
+    device = get_device_from_request(request)
+
+    if device:
+        ch_id = request.GET.get('ch_id', '')
+        if ch_id.isdigit() and str(device.last_channel_id or '') != ch_id:
+            canal = Channel.objects.filter(id=ch_id, is_active=True).first()
+            if canal:
+                device.update_activity(channel=canal)
+
     return stalker_response({'result': True})
 
 

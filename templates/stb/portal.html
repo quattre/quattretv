@@ -98,6 +98,14 @@
     function loadData() {
         loadGenres();
         loadPage(0);
+        // Señal de vida: sin esto, un aparato que lleva rato con un canal
+        // puesto no vuelve a pedir nada y en el panel figura como apagado.
+        setInterval(latido, 60000);
+    }
+
+    function latido() {
+        var ch = channels[playingChannelIdx >= 0 ? playingChannelIdx : currentChannel];
+        api("type=watchdog&action=get_events" + (ch ? "&ch_id=" + ch.id : ""), function() {});
     }
 
     // El listado va paginado de 50 en 50: antes solo se pedia la primera
@@ -158,6 +166,11 @@
             try { stbAPI.Play(ch.cmd); } catch(err) {}
         }
         document.body.style.background = "transparent";
+        // Avisar del cambio de canal sin esperar al siguiente latido, para que
+        // el panel de streams lo refleje al momento.
+        if (ch && ch.id) {
+            api("type=watchdog&action=get_events&ch_id=" + ch.id, function() {});
+        }
     }
 
     function startPreview() {
