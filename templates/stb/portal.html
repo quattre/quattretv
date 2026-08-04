@@ -626,7 +626,7 @@
                 if (isFullscreen) {
                     playChannel(channels[i]);
                     playingChannelIdx = i;
-                    document.getElementById("osd").innerHTML = osdFor(channels[i]);
+                    mostrarOsd(channels[i]);
                 } else {
                     showChannels();
                     startPreview();
@@ -896,16 +896,43 @@
     }
 
     function osdFor(ch) {
-        var html = '<div class="osd-ch">' + ch.number + '. ' + esc(ch.name) + '</div>';
+        var ahora = new Date();
+        var hora = ('0' + ahora.getHours()).slice(-2) + ':' + ('0' + ahora.getMinutes()).slice(-2);
+
+        var h = '<div class="osd-fila">';
+        h += '<div class="osd-num">' + ch.number + '</div>';
+        if (ch.logo) h += '<div class="osd-ico"><img src="' + esc(ch.logo) + '" onerror="this.style.display=0"></div>';
+
+        h += '<div class="osd-datos">';
+        h += '<div class="osd-ch">' + esc(ch.name);
+        if (ch.hd) h += ' <span class="hd">HD</span>';
+        if (ch.archive) h += ' <span class="arch">&#8634;</span>';
+        h += '</div>';
+
         if (ch.cur_playing) {
-            html += '<div class="osd-epg">' + esc(ch.epg_cur_start) + ' - ' + esc(ch.epg_cur_end) +
-                    '  ' + esc(ch.cur_playing) + '</div>';
-            html += '<div class="bar"><i style="width:' + (ch.epg_progress || 0) + '%"></i></div>';
+            h += '<div class="osd-prog"><b>' + esc(ch.epg_cur_start) + ' - ' +
+                 esc(ch.epg_cur_end) + '</b>' + esc(ch.cur_playing) + '</div>';
+            h += '<div class="bar"><i style="width:' + (ch.epg_progress || 0) + '%"></i></div>';
         }
         if (ch.epg_next) {
-            html += '<div class="osd-epg">Despues: ' + esc(ch.epg_next_start) + ' ' + esc(ch.epg_next) + '</div>';
+            h += '<div class="osd-epg">Despues &middot; ' + esc(ch.epg_next_start) +
+                 '  ' + esc(ch.epg_next) + '</div>';
         }
-        return html;
+        h += '</div>';
+
+        h += '<div class="osd-reloj">' + hora + '</div>';
+        h += '</div>';
+        return h;
+    }
+
+    // La barra se retira sola: dejarla fija tapa parte de la imagen.
+    var osdTimeout = null;
+    function mostrarOsd(ch) {
+        var osd = document.getElementById("osd");
+        osd.innerHTML = osdFor(ch);
+        osd.style.display = "block";
+        clearTimeout(osdTimeout);
+        osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 6000);
     }
 
     function goFullscreen() {
@@ -928,8 +955,7 @@
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
-        document.getElementById("osd").style.display = "block";
-        document.getElementById("osd").innerHTML = osdFor(ch);
+        mostrarOsd(ch);
     }
 
     function showMenu() {
@@ -1000,7 +1026,7 @@
                     var ch = channels[currentChannel];
                     playChannel(ch);
                     playingChannelIdx = currentChannel;
-                    document.getElementById("osd").innerHTML = osdFor(ch);
+                    mostrarOsd(ch);
                 }
             } else if (k === 40 || k === 34) {
                 if (currentChannel < channels.length - 1) {
@@ -1008,8 +1034,11 @@
                     var ch = channels[currentChannel];
                     playChannel(ch);
                     playingChannelIdx = currentChannel;
-                    document.getElementById("osd").innerHTML = osdFor(ch);
+                    mostrarOsd(ch);
                 }
+            } else if (k === 39 || k === 73 || k === 89) {
+                // Volver a enseñar la barra sin cambiar de canal.
+                mostrarOsd(channels[currentChannel]);
             } else if (k === 8 || k === 27 || k === 13) {
                 showMenu();
             }
@@ -1243,17 +1272,44 @@
         #preview-cap .e { font-size: 21px; color: var(--gris); margin-top: 9px; }
 
         /* ---------- Superpuestos ---------- */
+        /* Barra inferior a pantalla completa. Se degrada hacia arriba para que
+           el texto se lea sobre cualquier imagen sin tapar el video. */
         #osd {
-            display: none; position: fixed; bottom: 64px; left: 64px;
-            background: rgba(44,49,52,.94); padding: 24px 34px; border-radius: 16px;
-            border-left: 5px solid var(--verde); min-width: 420px;
-            box-shadow: 0 14px 46px rgba(0,0,0,.55);
+            display: none; position: fixed; left: 0; right: 0; bottom: 0;
+            padding: 130px 70px 56px;
+            background: linear-gradient(to top,
+                        rgba(20,23,25,.96) 0%, rgba(20,23,25,.85) 45%, rgba(20,23,25,0) 100%);
         }
+        .osd-fila { display: flex; align-items: flex-end; gap: 26px; }
+        .osd-num {
+            font-family: Antonio, sans-serif;
+            font-size: 78px; font-weight: 700; color: var(--verde);
+            line-height: .9; flex-shrink: 0;
+        }
+        .osd-ico {
+            width: 96px; height: 72px; flex-shrink: 0; border-radius: 10px;
+            background: rgba(255,255,255,.08);
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        .osd-ico img { max-width: 86%; max-height: 86%; }
+        .osd-datos { flex: 1; min-width: 0; }
         .osd-ch {
             font-family: Antonio, sans-serif;
-            font-size: 34px; font-weight: 600; letter-spacing: .5px;
+            font-size: 40px; font-weight: 600; letter-spacing: .5px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .osd-epg { font-size: 18px; color: var(--gris); margin-top: 8px; }
+        .osd-prog {
+            font-size: 25px; margin-top: 10px; color: #fff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .osd-prog b { color: var(--verde); font-weight: 600; margin-right: 14px; }
+        .osd-epg { font-size: 19px; color: var(--gris); margin-top: 8px; }
+        #osd .bar { max-width: 900px; }
+        .osd-reloj {
+            font-family: Antonio, sans-serif;
+            font-size: 52px; font-weight: 600; color: var(--gris-claro);
+            flex-shrink: 0; line-height: 1;
+        }
 
         #vol, #toast, #numjump {
             position: fixed; z-index: 30; display: none;
@@ -1289,7 +1345,7 @@
     <div id="preview">Vista previa</div>
     <div id="preview-cap"></div>
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
-    <div id="osd" style="position:relative;z-index:10;"></div>
+    <div id="osd"></div>
     <div id="vol" style="z-index:20;"></div>
     <div id="toast"></div>
     <div id="numjump"></div>
