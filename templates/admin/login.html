@@ -1,0 +1,94 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{# El acceso al portal salia con la pantalla gris de Django. Esto la sustituye
+   por una con la imagen del portal, sin tocar nada de la logica de login. #}
+
+{% block extrastyle %}
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+<script>
+    tailwind.config = {
+        theme: { extend: { colors: {
+            primary: '#1a1a2e', secondary: '#16213e',
+            accent: '#0f3460', highlight: '#e94560',
+        } } }
+    }
+</script>
+<style>
+    body { margin: 0; }
+    #header, .breadcrumbs, #footer, #nav-sidebar { display: none !important; }
+</style>
+{% endblock %}
+
+{% block bodyclass %}quattretv-login{% endblock %}
+{% block nav-global %}{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block usertools %}{% endblock %}
+{% block branding %}{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4"
+     style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);">
+
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="text-4xl font-bold text-white">
+                Quattre<span class="text-highlight">TV</span>
+            </div>
+            <p class="text-white/50 mt-2 text-sm tracking-widest uppercase">Panel de gestion</p>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-2xl p-8">
+            {% if form.errors and not form.non_field_errors %}
+            <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm">
+                <i class="bi bi-exclamation-triangle"></i>
+                Revisa el usuario y la contrasena.
+            </div>
+            {% endif %}
+
+            {% for error in form.non_field_errors %}
+            <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm">
+                <i class="bi bi-exclamation-triangle"></i> {{ error }}
+            </div>
+            {% endfor %}
+
+            {% if user.is_authenticated %}
+            <div class="mb-4 px-4 py-3 rounded-lg bg-amber-50 text-amber-800 text-sm">
+                Has entrado como <strong>{{ username }}</strong>, pero esa cuenta no
+                tiene permiso para el panel. Entra con otra distinta.
+            </div>
+            {% endif %}
+
+            <form action="{{ app_path }}" method="post" id="login-form">
+                {% csrf_token %}
+
+                <label class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                <input type="text" name="username" autofocus autocapitalize="none"
+                       autocomplete="username" required
+                       class="w-full px-4 py-3 mb-4 border border-gray-200 rounded-lg
+                              focus:outline-none focus:ring-2 focus:ring-highlight">
+
+                <label class="block text-sm font-medium text-gray-700 mb-1">Contrasena</label>
+                <input type="password" name="password" autocomplete="current-password" required
+                       class="w-full px-4 py-3 mb-6 border border-gray-200 rounded-lg
+                              focus:outline-none focus:ring-2 focus:ring-highlight">
+
+                <input type="hidden" name="next" value="{{ next }}">
+
+                <button type="submit"
+                        class="w-full py-3 rounded-lg text-white font-semibold transition"
+                        style="background:#e94560"
+                        onmouseover="this.style.background='#d13850'"
+                        onmouseout="this.style.background='#e94560'">
+                    Entrar
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-white/30 text-xs mt-6">Quattre Internet SL</p>
+    </div>
+</div>
+{% endblock %}
