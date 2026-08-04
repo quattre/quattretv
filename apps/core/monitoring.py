@@ -24,8 +24,14 @@ ORDEN = (
     "cat /proc/uptime"
 )
 
-# Sistemas de ficheros que no interesan (contenedores, snaps, etc.)
-IGNORAR = ('tmpfs', 'devtmpfs', 'overlay', 'squashfs', 'udev')
+# Sistemas de ficheros que no son discos de verdad (memoria, snaps, pseudo-fs
+# del kernel). Sin filtrarlos aparecían cosas como /sys/firmware/efi/efivars,
+# que llega a marcar 73 % y no significa nada.
+IGNORAR = ('tmpfs', 'devtmpfs', 'overlay', 'squashfs', 'udev', 'efivarfs',
+           'none', 'sysfs', 'proc', 'cgroup', 'ramfs')
+
+# Puntos de montaje que tampoco interesan aunque el dispositivo despiste.
+MONTAJES_IGNORADOS = ('/sys', '/proc', '/dev', '/run', '/snap')
 
 AVISO_DISCO = 80
 CRITICO_DISCO = 90
@@ -91,6 +97,8 @@ def _parsear(nombre, salida):
     for linea in partes[0].strip().splitlines():
         campos = linea.split()
         if len(campos) < 6 or campos[0].startswith(IGNORAR):
+            continue
+        if campos[5].startswith(MONTAJES_IGNORADOS):
             continue
         try:
             total_kb, usado_kb = int(campos[1]), int(campos[2])
