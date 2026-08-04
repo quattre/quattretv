@@ -10,6 +10,8 @@ import subprocess
 
 from django.core.cache import cache
 
+from apps.core.ssh import ssh_bin
+
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 15
@@ -57,7 +59,7 @@ def estado_servidor(nombre, host, port=22, user='quattre', usar_cache=True):
         return {'nombre': nombre, 'ok': False, 'error': 'Sin acceso SSH configurado'}
 
     orden = [
-        'ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new',
+        ssh_bin(), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new',
         '-o', 'ConnectTimeout=8', '-p', str(port), f'{user}@{host}', ORDEN,
     ]
 

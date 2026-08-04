@@ -21,6 +21,8 @@ import requests
 from django.core.cache import cache
 from django.utils import timezone
 
+from apps.core.ssh import ssh_bin
+
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 6
@@ -134,7 +136,7 @@ def reiniciar_canal(channel):
 
     unidad = f'{channel.cdn.systemd_unit}{nombre}'
     orden = [
-        'ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new',
+        ssh_bin(), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new',
         '-o', f'ConnectTimeout={TIMEOUT}',
         '-p', str(channel.cdn.ssh_port),
         f'{channel.cdn.ssh_user}@{channel.cdn.ssh_host}',

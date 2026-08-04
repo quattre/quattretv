@@ -15,6 +15,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from apps.channels import cdn as cdn_tools
 from apps.channels.models import CdnServer, Channel
+from apps.core.ssh import ssh_bin
 
 RUTA_CANALES = '/home/quattre/canales'
 TIMEOUT = 30
@@ -100,7 +101,7 @@ class Command(BaseCommand):
     def _leer_del_cdn(self, servidor, ruta):
         """Un solo SSH que vuelca todos los ficheros con su nombre delante."""
         orden = [
-            'ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new',
+            ssh_bin(), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new',
             '-o', 'ConnectTimeout=8', '-p', str(servidor.ssh_port),
             f'{servidor.ssh_user}@{servidor.ssh_host}',
             f'for f in {ruta}/*; do echo "@@$(basename $f)"; grep -h "^SRC=" "$f" 2>/dev/null; done',
