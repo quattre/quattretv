@@ -184,7 +184,7 @@
             return;
         }
         if (!ch || !ch.cmd) return;
-        document.getElementById("preview").innerHTML = 'Vista previa';
+        document.getElementById("preview").innerHTML = '';
 
         // Si ya está reproduciendo el mismo canal, solo cambiar viewport
         if (playingChannelIdx === currentChannel) {
@@ -1342,7 +1342,7 @@
 </head>
 <body>
     <video id="html5video" autoplay playsinline style="position:fixed;top:120px;left:750px;width:1130px;height:636px;z-index:2;border-radius:18px;display:none;"></video>
-    <div id="preview">Vista previa</div>
+    <div id="preview"></div>
     <div id="preview-cap"></div>
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
     <div id="osd"></div>
