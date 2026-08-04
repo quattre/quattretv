@@ -2,7 +2,9 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap" rel="stylesheet">
     <title>QuattreTV</title>
     <script type="text/javascript">
     var stbAPI = null;
@@ -130,15 +132,15 @@
 
     function setViewportPreview() {
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;border-radius:18px;';
+            htmlPlayer.style.cssText = 'position:fixed;top:120px;left:750px;width:1130px;height:636px;z-index:2;border-radius:18px;';
         } else if (player) {
             try {
                 player.fullscreen = false;
                 player.aspectConversion = 1;
-                player.setViewport({x: 730, y: 120, width: 1120, height: 630});
+                player.setViewport({x: 750, y: 120, width: 1130, height: 636});
             } catch(err) {}
         } else if (stbAPI) {
-            try { stbAPI.SetPIG(0, 128, 730, 120); } catch(err) {}
+            try { stbAPI.SetPIG(0, 128, 750, 120); } catch(err) {}
         }
     }
 
@@ -655,6 +657,7 @@
             var cls = (i === currentChannel) ? "item sel" : "item";
             h += '<div class="' + cls + '">';
             h += '<div class="num">' + c.number + '</div>';
+            if (c.logo) h += '<div class="ico"><img src="' + esc(c.logo) + '" onerror="this.style.display=0"></div>';
             h += '<div class="info"><div class="name">' + esc(c.name);
             if (c.hd) h += ' <span class="hd">HD</span>';
             if (c.fav) h += ' <span class="fav">★</span>';
@@ -1103,104 +1106,186 @@
     window.onload = init;
     </script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 100%; height: 100%; overflow: hidden; }
-        body { background: #0a0a1a; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; }
-
-        .panel {
-            position: fixed; top: 36px; left: 36px; width: 640px; height: 1008px;
-            display: flex; flex-direction: column;
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            border-radius: 18px; padding: 30px; border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        /* Identidad de Quattre: verde #81ba26 sobre carbon #2c3134, titulares en
+           Antonio. Antes se usaba un verde y un azul que no eran los de la casa. */
+        :root {
+            --verde: #81ba26;
+            --verde-claro: #9bd63a;
+            --carbon: #2c3134;
+            --carbon-alto: #363c40;
+            --gris: #9ba3a8;
+            --gris-claro: #c9d1cb;
+            --rojo: #e60000;
+            --ambar: #ff7900;
         }
 
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .logo { font-size: 40px; font-weight: 300; color: #fff; }
-        .logo span { color: #00a651; font-weight: 700; }
-        .counter { background: rgba(0,166,81,0.2); color: #00a651; padding: 8px 16px; border-radius: 20px; font-size: 18px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 1920px; height: 1080px; overflow: hidden; }
+        body {
+            background: #1e2225;
+            color: #fff;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .display { font-family: Antonio, 'Segoe UI', Arial, sans-serif; letter-spacing: .5px; }
 
-        .list { flex: 1; overflow: hidden; margin-bottom: 16px; }
-        .item { display: flex; align-items: center; padding: 15px 18px; margin: 6px 0; border-radius: 12px; background: rgba(255,255,255,0.03); border: 2px solid transparent; transition: all 0.15s; }
-        .item.sel { background: linear-gradient(90deg, rgba(0,166,81,0.3) 0%, rgba(0,166,81,0.1) 100%); border-color: #00a651; }
-        .num { width: 58px; font-size: 24px; color: #666; font-weight: 600; }
-        .item.sel .num { color: #00a651; }
+        /* ---------- Panel lateral ---------- */
+        .panel {
+            position: fixed; top: 40px; left: 40px; width: 660px; height: 1000px;
+            display: flex; flex-direction: column;
+            background: rgba(44,49,52,.94);
+            border-radius: 22px; padding: 32px 30px;
+            border: 1px solid rgba(255,255,255,.07);
+            box-shadow: 0 24px 70px rgba(0,0,0,.55);
+        }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 22px; padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,.09);
+        }
+        .logo {
+            font-family: Antonio, 'Segoe UI', Arial, sans-serif;
+            font-size: 46px; font-weight: 700; color: #fff;
+            text-transform: uppercase; letter-spacing: 1px; line-height: 1;
+        }
+        .logo span { color: var(--verde); }
+        .counter {
+            background: rgba(129,186,38,.16); color: var(--verde-claro);
+            padding: 9px 18px; border-radius: 22px; font-size: 19px; font-weight: 600;
+        }
+
+        /* ---------- Lista ---------- */
+        .list { flex: 1; overflow: hidden; margin-bottom: 14px; }
+        .item {
+            display: flex; align-items: center; gap: 16px;
+            padding: 14px 16px; margin: 7px 0; border-radius: 14px;
+            background: rgba(255,255,255,.035);
+            border-left: 4px solid transparent;
+            transition: background .12s, border-color .12s;
+        }
+        .item.sel {
+            background: linear-gradient(90deg, rgba(129,186,38,.26) 0%, rgba(129,186,38,.06) 100%);
+            border-left-color: var(--verde);
+        }
+        .num {
+            font-family: Antonio, sans-serif;
+            width: 62px; font-size: 30px; font-weight: 600; color: #6d7679;
+            text-align: right; flex-shrink: 0;
+        }
+        .item.sel .num { color: var(--verde); }
+        .num.sm { font-size: 22px; width: 84px; color: var(--gris); }
+
+        .ico {
+            width: 54px; height: 40px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,.06); border-radius: 8px; overflow: hidden;
+        }
+        .ico img { max-width: 100%; max-height: 100%; }
+
         .info { flex: 1; overflow: hidden; }
-        .name { font-size: 24px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .hd { background: #3498db; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .epg { font-size: 16px; color: #888; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .name {
+            font-size: 25px; font-weight: 500; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .epg {
+            font-size: 17px; color: var(--gris); margin-top: 5px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .epg .t { color: #6d7679; }
 
-        .num.sm { font-size: 20px; width: 78px; color: #7a8; }
-        .fav { color: #f1c40f; font-size: 18px; margin-left: 6px; }
-        .arch { color: #3498db; font-size: 18px; margin-left: 6px; }
-        .rec { background: #e74c3c; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .live { background: #00a651; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; }
-        .item.past { opacity: 0.55; }
-        .epg .t { color: #667; }
-        .bar { height: 4px; background: rgba(255,255,255,0.12); border-radius: 2px; margin-top: 8px; overflow: hidden; }
-        .bar i { display: block; height: 100%; background: #00a651; }
-        .descr { color: #99a; font-size: 17px; line-height: 1.45; padding: 14px 4px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
-        .st { font-size: 12px; padding: 2px 7px; border-radius: 4px; margin-left: 8px; font-weight: 700; background: #555; color: #fff; }
-        .st.completed { background: #00a651; }
-        .st.recording { background: #e74c3c; }
-        .st.scheduled { background: #3498db; }
-        .st.failed { background: #7f8c8d; }
+        /* Etiquetas */
+        .hd, .rec, .live, .st {
+            font-size: 12px; font-weight: 700; padding: 3px 8px;
+            border-radius: 5px; margin-left: 8px; vertical-align: middle;
+            letter-spacing: .5px;
+        }
+        .hd   { background: rgba(255,255,255,.14); color: #fff; }
+        .rec  { background: var(--rojo); color: #fff; }
+        .live { background: var(--verde); color: #14210a; }
+        .fav  { color: #fdeb00; font-size: 19px; margin-left: 7px; }
+        .arch { color: var(--gris-claro); font-size: 19px; margin-left: 7px; }
+        .lock { color: var(--ambar); font-size: 18px; margin-left: 7px; }
+        .item.past { opacity: .5; }
+
+        .bar { height: 5px; background: rgba(255,255,255,.1); border-radius: 3px; margin-top: 9px; overflow: hidden; }
+        .bar i { display: block; height: 100%; background: var(--verde); border-radius: 3px; }
+
+        .descr {
+            color: var(--gris-claro); font-size: 18px; line-height: 1.5;
+            padding: 16px 6px; border-top: 1px solid rgba(255,255,255,.08);
+        }
+
+        .st.completed { background: var(--verde); color: #14210a; }
+        .st.recording { background: var(--rojo); color: #fff; }
+        .st.scheduled { background: rgba(255,255,255,.16); color: #fff; }
+        .st.failed    { background: #6d7679; color: #fff; }
+
+        .help { text-align: center; color: #6d7679; font-size: 15px; line-height: 2; }
+        .help span {
+            background: rgba(255,255,255,.09); padding: 5px 11px;
+            border-radius: 6px; margin: 0 5px; color: var(--gris-claro); font-weight: 600;
+        }
+
+        /* ---------- Vista previa ---------- */
+        #preview {
+            position: fixed; top: 120px; left: 750px; width: 1130px; height: 636px;
+            border-radius: 18px; border: 1px solid rgba(129,186,38,.35);
+            background: transparent; z-index: 1; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            color: #5a6265; font-size: 26px;
+        }
+        #preview-cap { position: fixed; top: 782px; left: 750px; width: 1130px; z-index: 2; }
+        #preview-cap .t {
+            font-family: Antonio, sans-serif;
+            font-size: 40px; font-weight: 600; letter-spacing: .5px;
+        }
+        #preview-cap .e { font-size: 21px; color: var(--gris); margin-top: 9px; }
+
+        /* ---------- Superpuestos ---------- */
+        #osd {
+            display: none; position: fixed; bottom: 64px; left: 64px;
+            background: rgba(44,49,52,.94); padding: 24px 34px; border-radius: 16px;
+            border-left: 5px solid var(--verde); min-width: 420px;
+            box-shadow: 0 14px 46px rgba(0,0,0,.55);
+        }
+        .osd-ch {
+            font-family: Antonio, sans-serif;
+            font-size: 34px; font-weight: 600; letter-spacing: .5px;
+        }
+        .osd-epg { font-size: 18px; color: var(--gris); margin-top: 8px; }
+
+        #vol, #toast, #numjump {
+            position: fixed; z-index: 30; display: none;
+            background: rgba(44,49,52,.96);
+            box-shadow: 0 14px 46px rgba(0,0,0,.55);
+        }
+        #vol {
+            top: 50%; left: 50%; transform: translate(-50%,-50%);
+            padding: 26px 52px; font-size: 30px; border-radius: 16px;
+        }
+        #toast {
+            bottom: 64px; left: 50%; transform: translateX(-50%);
+            padding: 20px 36px; font-size: 22px; border-radius: 14px;
+            border-left: 5px solid var(--verde);
+        }
+        #numjump {
+            top: 64px; right: 72px; padding: 22px 42px;
+            font-family: Antonio, sans-serif;
+            font-size: 60px; font-weight: 700; letter-spacing: 6px;
+            border-radius: 16px; color: var(--verde);
+        }
 
         .pinbox {
-            font-size: 54px; letter-spacing: 10px; color: #00a651; font-weight: 600;
-            background: rgba(255,255,255,0.05); border-radius: 12px;
-            padding: 20px 30px; display: inline-block; min-width: 260px;
-        }
-        .lock { color: #e74c3c; font-size: 18px; margin-left: 8px; }
-
-        #numjump {
-            display: none; position: fixed; top: 60px; right: 70px; z-index: 30;
-            background: linear-gradient(180deg, rgba(15,15,35,0.97) 0%, rgba(10,10,25,0.95) 100%);
-            padding: 20px 40px; font-size: 56px; font-weight: 600; border-radius: 14px;
-            letter-spacing: 4px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-
-        #toast {
-            display: none; position: fixed; bottom: 60px; left: 50%;
-            transform: translateX(-50%); z-index: 30;
-            background: linear-gradient(180deg, rgba(15,15,35,0.97) 0%, rgba(10,10,25,0.95) 100%);
-            padding: 18px 34px; font-size: 22px; border-radius: 12px;
-            border-left: 4px solid #00a651;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-
-        .help { text-align: center; color: #555; font-size: 15px; }
-        .help span { background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 6px; margin: 0 5px; color: #888; }
-
-        #preview { position: fixed; top: 120px; left: 730px; width: 1120px; height: 630px;
-            border-radius: 18px; border: 2px solid rgba(0,166,81,0.4); background: transparent;
-            z-index: 1; overflow: hidden;
-            display: flex; align-items: center; justify-content: center; color: #444; font-size: 28px; }
-        #preview-cap { position: fixed; top: 772px; left: 730px; width: 1120px; z-index: 2; }
-        #preview-cap .t { font-size: 34px; font-weight: 600; }
-        #preview-cap .e { font-size: 20px; color: #9aa; margin-top: 8px; }
-
-        #osd {
-            display: none; position: fixed; bottom: 60px; left: 60px;
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            padding: 20px 30px; border-radius: 12px;
-            border-left: 4px solid #00a651; min-width: 350px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-        .osd-ch { font-size: 26px; font-weight: 600; }
-        .osd-epg { font-size: 16px; color: #aaa; margin-top: 8px; }
-
-        #vol {
-            display: none; position: fixed; top: 50%; left: 50%;
-            transform: translate(-50%,-50%);
-            background: linear-gradient(180deg, rgba(15,15,35,0.95) 0%, rgba(10,10,25,0.9) 100%);
-            padding: 25px 50px; font-size: 28px; border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            font-family: Antonio, sans-serif;
+            font-size: 56px; letter-spacing: 12px; color: var(--verde); font-weight: 600;
+            background: rgba(255,255,255,.05); border-radius: 14px;
+            padding: 22px 32px; display: inline-block; min-width: 280px;
         }
     </style>
 </head>
 <body>
-    <video id="html5video" autoplay playsinline style="position:fixed;top:120px;left:730px;width:1120px;height:630px;z-index:2;border-radius:18px;display:none;"></video>
+    <video id="html5video" autoplay playsinline style="position:fixed;top:120px;left:750px;width:1130px;height:636px;z-index:2;border-radius:18px;display:none;"></video>
     <div id="preview">Vista previa</div>
     <div id="preview-cap"></div>
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
