@@ -91,8 +91,15 @@ def dashboard(request):
 
 @staff_member_required
 def users_list(request):
-    """Users list view."""
-    users = User.objects.select_related('tariff').prefetch_related('devices')
+    """
+    Listado de CLIENTES.
+
+    Antes salian mezclados los abonados y las cuentas de gestion, con el riesgo
+    de editar o borrar por error la propia cuenta de administrador. Las cuentas
+    de gestion se llevan desde el admin de Django, que es su sitio.
+    """
+    users = User.objects.filter(is_staff=False, is_superuser=False)
+    users = users.select_related('tariff').prefetch_related('devices')
 
     # Filters
     search = request.GET.get('search')
@@ -168,6 +175,14 @@ def user_edit(request, user_id):
     """Edit user view."""
     user = get_object_or_404(User, id=user_id)
 
+    if user.is_staff or user.is_superuser:
+        messages.error(
+            request,
+            f'{user.username} es una cuenta de gestion, no un cliente. '
+            'Se administra desde el admin de Django.'
+        )
+        return redirect('portal:users')
+
     if request.method == 'POST':
         user.email = request.POST.get('email', '')
         user.tariff_id = request.POST.get('tariff') or None
@@ -220,6 +235,19 @@ def user_delete(request, user_id):
     """Delete user."""
     if request.method == 'POST':
         user = get_object_or_404(User, id=user_id)
+
+        # Red de seguridad: desde el panel solo se borran clientes. Sin esto se
+        # podia borrar la propia cuenta de administrador desde la lista.
+        if user.pk == request.user.pk:
+            return JsonResponse(
+                {'status': 'error', 'error': 'No puedes borrar tu propia cuenta'},
+                status=400)
+        if user.is_staff or user.is_superuser:
+            return JsonResponse(
+                {'status': 'error',
+                 'error': 'Es una cuenta de gestion. Se administra desde /admin/'},
+                status=400)
+
         username = user.username
         user.delete()
         messages.success(request, f'Usuario {username} eliminado')
