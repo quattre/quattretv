@@ -191,6 +191,20 @@ def user_edit(request, user_id):
         # PIN parental: vacio = los canales de adultos no se bloquean.
         user.parental_password = request.POST.get('parental_password', '').strip()
 
+        # Caducidad: vacio = no caduca nunca. Antes no habia forma de cambiarla
+        # ni de quitarla desde el panel, solo sumar dias con el boton de renovar.
+        caduca = request.POST.get('subscription_expires', '').strip()
+        if caduca:
+            from datetime import datetime
+            try:
+                dia = datetime.strptime(caduca, '%Y-%m-%d')
+                user.subscription_expires = timezone.make_aware(
+                    dia.replace(hour=23, minute=59, second=59))
+            except ValueError:
+                messages.error(request, 'La fecha de caducidad no es valida')
+        else:
+            user.subscription_expires = None
+
         # Handle password change
         new_password = request.POST.get('new_password', '').strip()
         if new_password:
