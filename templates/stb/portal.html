@@ -1172,17 +1172,6 @@
     <style>
         /* Identidad de Quattre: verde #81ba26 sobre carbon #2c3134, titulares en
            Antonio. Antes se usaba un verde y un azul que no eran los de la casa. */
-        :root {
-            --verde: #81ba26;
-            --verde-claro: #9bd63a;
-            --carbon: #2c3134;
-            --carbon-alto: #363c40;
-            --gris: #9ba3a8;
-            --gris-claro: #c9d1cb;
-            --rojo: #e60000;
-            --ambar: #ff7900;
-        }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; }
         body {
@@ -1195,6 +1184,8 @@
 
         /* ---------- Panel lateral ---------- */
         .panel {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
             position: fixed; top: 3.7vh; left: 2.1vw; width: 34.4vw; height: 92.6vh;
             display: flex; flex-direction: column;
             background: rgba(44,49,52,.94);
@@ -1204,6 +1195,7 @@
         }
 
         .header {
+            display: -webkit-box; -webkit-box-pack: justify; -webkit-box-align: center;
             display: flex; justify-content: space-between; align-items: center;
             margin-bottom: 22px; padding-bottom: 20px;
             border-bottom: 1px solid rgba(255,255,255,.09);
@@ -1213,15 +1205,16 @@
             font-size: 4.3vh; font-weight: 700; color: #fff;
             text-transform: uppercase; letter-spacing: 1px; line-height: 1;
         }
-        .logo span { color: var(--verde); }
+        .logo span { color: #81ba26; }
         .counter {
-            background: rgba(129,186,38,.16); color: var(--verde-claro);
+            background: rgba(129,186,38,.16); color: #9bd63a;
             padding: .8vh 1vw; border-radius: 2vh; font-size: 1.8vh; font-weight: 600;
         }
 
         /* ---------- Lista ---------- */
         .list { flex: 1; overflow: hidden; margin-bottom: 14px; }
         .item {
+            display: -webkit-box; -webkit-box-align: center;
             display: flex; align-items: center; gap: 16px;
             padding: 1.3vh .9vw; margin: .65vh 0; border-radius: .7vw;
             background: rgba(255,255,255,.035);
@@ -1230,15 +1223,15 @@
         }
         .item.sel {
             background: linear-gradient(90deg, rgba(129,186,38,.26) 0%, rgba(129,186,38,.06) 100%);
-            border-left-color: var(--verde);
+            border-left-color: #81ba26;
         }
         .num {
             font-family: Antonio, sans-serif;
             width: 3.2vw; font-size: 2.8vh; font-weight: 600; color: #6d7679;
             text-align: right; flex-shrink: 0;
         }
-        .item.sel .num { color: var(--verde); }
-        .num.sm { font-size: 2vh; width: 4.4vw; color: var(--gris); }
+        .item.sel .num { color: #81ba26; }
+        .num.sm { font-size: 2vh; width: 4.4vw; color: #9ba3a8; }
 
         .ico {
             width: 2.8vw; height: 3.7vh; flex-shrink: 0;
@@ -1247,13 +1240,13 @@
         }
         .ico img { max-width: 100%; max-height: 100%; }
 
-        .info { flex: 1; overflow: hidden; }
+        .info { -webkit-box-flex: 1; flex: 1; overflow: hidden; }
         .name {
             font-size: 2.3vh; font-weight: 500; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis;
         }
         .epg {
-            font-size: 1.6vh; color: var(--gris); margin-top: .5vh;
+            font-size: 1.6vh; color: #9ba3a8; margin-top: .5vh;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .epg .t { color: #6d7679; }
@@ -1265,30 +1258,30 @@
             letter-spacing: .5px;
         }
         .hd   { background: rgba(255,255,255,.14); color: #fff; }
-        .rec  { background: var(--rojo); color: #fff; }
-        .live { background: var(--verde); color: #14210a; }
+        .rec  { background: #e60000; color: #fff; }
+        .live { background: #81ba26; color: #14210a; }
         .fav  { color: #fdeb00; font-size: 19px; margin-left: 7px; }
-        .arch { color: var(--gris-claro); font-size: 19px; margin-left: 7px; }
-        .lock { color: var(--ambar); font-size: 18px; margin-left: 7px; }
+        .arch { color: #c9d1cb; font-size: 19px; margin-left: 7px; }
+        .lock { color: #ff7900; font-size: 18px; margin-left: 7px; }
         .item.past { opacity: .5; }
 
         .bar { height: 5px; background: rgba(255,255,255,.1); border-radius: 3px; margin-top: 9px; overflow: hidden; }
-        .bar i { display: block; height: 100%; background: var(--verde); border-radius: 3px; }
+        .bar i { display: block; height: 100%; background: #81ba26; border-radius: 3px; }
 
         .descr {
-            color: var(--gris-claro); font-size: 1.7vh; line-height: 1.5;
+            color: #c9d1cb; font-size: 1.7vh; line-height: 1.5;
             padding: 1.5vh .3vw; border-top: 1px solid rgba(255,255,255,.08);
         }
 
-        .st.completed { background: var(--verde); color: #14210a; }
-        .st.recording { background: var(--rojo); color: #fff; }
+        .st.completed { background: #81ba26; color: #14210a; }
+        .st.recording { background: #e60000; color: #fff; }
         .st.scheduled { background: rgba(255,255,255,.16); color: #fff; }
         .st.failed    { background: #6d7679; color: #fff; }
 
         .help { text-align: center; color: #6d7679; font-size: 1.4vh; line-height: 2; }
         .help span {
             background: rgba(255,255,255,.09); padding: 5px 11px;
-            border-radius: 6px; margin: 0 5px; color: var(--gris-claro); font-weight: 600;
+            border-radius: 6px; margin: 0 5px; color: #c9d1cb; font-weight: 600;
         }
 
         /* ---------- Vista previa ---------- */
@@ -1304,7 +1297,7 @@
             font-family: Antonio, sans-serif;
             font-size: 3.7vh; font-weight: 600; letter-spacing: .5px;
         }
-        #preview-cap .e { font-size: 2vh; color: var(--gris); margin-top: 9px; }
+        #preview-cap .e { font-size: 2vh; color: #9ba3a8; margin-top: 9px; }
 
         /* ---------- Superpuestos ---------- */
         /* Barra inferior a pantalla completa. Se degrada hacia arriba para que
@@ -1315,10 +1308,11 @@
             background: linear-gradient(to top,
                         rgba(20,23,25,.96) 0%, rgba(20,23,25,.85) 45%, rgba(20,23,25,0) 100%);
         }
-        .osd-fila { display: flex; align-items: flex-end; gap: 1.4vw; }
+        .osd-fila { display: -webkit-box; -webkit-box-align: end;
+                    display: flex; align-items: flex-end; gap: 1.4vw; }
         .osd-num {
             font-family: Antonio, sans-serif;
-            font-size: 7.2vh; font-weight: 700; color: var(--verde);
+            font-size: 7.2vh; font-weight: 700; color: #81ba26;
             line-height: .9; flex-shrink: 0;
         }
         .osd-ico {
@@ -1327,7 +1321,7 @@
             display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
         .osd-ico img { max-width: 86%; max-height: 86%; }
-        .osd-datos { flex: 1; min-width: 0; }
+        .osd-datos { -webkit-box-flex: 1; flex: 1; min-width: 0; }
         .osd-ch {
             font-family: Antonio, sans-serif;
             font-size: 3.7vh; font-weight: 600; letter-spacing: .5px;
@@ -1337,12 +1331,12 @@
             font-size: 2.3vh; margin-top: 1vh; color: #fff;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .osd-prog b { color: var(--verde); font-weight: 600; margin-right: 14px; }
-        .osd-epg { font-size: 1.8vh; color: var(--gris); margin-top: .7vh; }
+        .osd-prog b { color: #81ba26; font-weight: 600; margin-right: 14px; }
+        .osd-epg { font-size: 1.8vh; color: #9ba3a8; margin-top: .7vh; }
         #osd .bar { max-width: 900px; }
         .osd-reloj {
             font-family: Antonio, sans-serif;
-            font-size: 4.8vh; font-weight: 600; color: var(--gris-claro);
+            font-size: 4.8vh; font-weight: 600; color: #c9d1cb;
             flex-shrink: 0; line-height: 1;
         }
 
@@ -1358,18 +1352,18 @@
         #toast {
             bottom: 64px; left: 50%; transform: translateX(-50%);
             padding: 20px 36px; font-size: 22px; border-radius: 14px;
-            border-left: 5px solid var(--verde);
+            border-left: 5px solid #81ba26;
         }
         #numjump {
             top: 64px; right: 72px; padding: 22px 42px;
             font-family: Antonio, sans-serif;
             font-size: 60px; font-weight: 700; letter-spacing: 6px;
-            border-radius: 16px; color: var(--verde);
+            border-radius: 16px; color: #81ba26;
         }
 
         .pinbox {
             font-family: Antonio, sans-serif;
-            font-size: 56px; letter-spacing: 12px; color: var(--verde); font-weight: 600;
+            font-size: 56px; letter-spacing: 12px; color: #81ba26; font-weight: 600;
             background: rgba(255,255,255,.05); border-radius: 14px;
             padding: 22px 32px; display: inline-block; min-width: 280px;
         }
