@@ -53,6 +53,29 @@
         } catch(e) {}
     }
 
+
+    // Identificador propio de esta instalacion. Sin el, dos teles del mismo
+    // usuario compartirian ficha y no habria forma de contar equipos ni de
+    // limitarlos. Se guarda en el aparato y no cambia entre reinicios.
+    function idAparato() {
+        var id = '';
+        try { id = localStorage.getItem('quattretv_uid') || ''; } catch(e) {}
+        if (!id) {
+            id = 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+            try { localStorage.setItem('quattretv_uid', id); } catch(e) {}
+        }
+        return id;
+    }
+
+    function tipoAparato() {
+        var ua = (navigator.userAgent || '').toLowerCase();
+        if (ua.indexOf('web0s') >= 0 || ua.indexOf('webos') >= 0) return 'lg';
+        if (ua.indexOf('tizen') >= 0) return 'samsung';
+        if (ua.indexOf('mag') >= 0 || typeof gSTB !== 'undefined' || typeof stb !== 'undefined') return 'mag';
+        if (ua.indexOf('android') >= 0) return 'android';
+        return 'web';
+    }
+
     function doLogin() {
         var user = document.getElementById('username').value;
         var pass = document.getElementById('password').value;
@@ -60,7 +83,11 @@
 
         log('Verificando...');
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '?type=stb&action=login&login=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass), true);
+        xhr.open('GET', '?type=stb&action=login' +
+                 '&login=' + encodeURIComponent(user) +
+                 '&password=' + encodeURIComponent(pass) +
+                 '&device_uid=' + encodeURIComponent(idAparato()) +
+                 '&device_type=' + encodeURIComponent(tipoAparato()), true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState == 4) {
                 if (xhr.status == 200) {

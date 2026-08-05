@@ -38,6 +38,14 @@ class Device(TimeStampedModel, ActivableModel):
         default=DeviceType.MAG
     )
     name = models.CharField(max_length=100, blank=True)
+    uid = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        help_text='Identificador propio del aparato, para los que no tienen MAC '
+                  '(la app de LG, el navegador). Permite distinguir dos teles del '
+                  'mismo usuario en vez de que compartan ficha.'
+    )
     model = models.CharField(max_length=100, blank=True)
     firmware_version = models.CharField(max_length=50, blank=True)
 

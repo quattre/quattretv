@@ -162,6 +162,30 @@ def handle_check_pin(request):
     return stalker_response({'result': True})
 
 
+def limite_simultaneos_superado(device):
+    """
+    ¿Este aparato se pasa del numero de equipos simultaneos de su tarifa?
+
+    Se cuenta por el latido que manda el portal, asi que un aparato apagado
+    libera su plaza a los tres minutos sin que nadie tenga que hacer nada.
+    Devuelve (superado, mensaje).
+    """
+    if not device:
+        return False, ''
+
+    limite = device.user.limite_simultaneos
+    if not limite:
+        return False, ''
+
+    en_uso = device.user.equipos_en_uso(excluir=device).count()
+    if en_uso >= limite:
+        return True, (
+            f'Ya tienes {en_uso} equipo(s) viendo la tele y tu tarifa permite '
+            f'{limite} a la vez. Cierra uno para seguir aqui.'
+        )
+    return False, ''
+
+
 def get_device_from_request(request):
     """Get authenticated device from request."""
     auth = MACAuthentication()
@@ -231,22 +255,41 @@ def handle_login(request):
 
         user = candidate
 
-    # Get user's first active device, or create one
-    device = user.devices.filter(is_active=True).first()
+    # Cada aparato tiene su propia ficha. Antes se devolvia siempre el primero
+    # del usuario, asi que dos teles distintas compartian ficha y no habia forma
+    # de contar cuantos equipos estaban en marcha ni de limitarlos.
+    uid = request.GET.get('device_uid', request.POST.get('device_uid', '')).strip()[:64]
+    tipo = request.GET.get('device_type', request.POST.get('device_type', '')).strip()[:20]
+
+    device = None
+    if uid:
+        device = user.devices.filter(uid=uid).first()
+    if not device and not uid:
+        # Cliente antiguo que no manda identificador: se reutiliza el primero
+        # para no dejarlo fuera.
+        device = user.devices.filter(is_active=True).first()
+
+    if device and not device.is_active:
+        return stalker_response({'error': 'Este equipo esta desactivado'})
+
     if not device:
-        # Generate a unique MAC for this device (AA = LG prefix)
+        limite = user.limite_equipos
+        registrados = user.devices.filter(is_active=True).count()
+        if limite and registrados >= limite:
+            return stalker_response({
+                'error': f'Has alcanzado el maximo de {limite} equipos. '
+                         'Da de baja uno para poder usar este.'
+            })
+
         import random
-        mac = 'AA:%02X:%02X:%02X:%02X:%02X' % (
-            random.randint(0, 255), random.randint(0, 255),
-            random.randint(0, 255), random.randint(0, 255),
-            random.randint(0, 255)
-        )
+        mac = 'AA:%02X:%02X:%02X:%02X:%02X' % tuple(random.randint(0, 255) for _ in range(5))
         device = Device.objects.create(
             user=user,
             mac_address=mac,
+            uid=uid,
             is_active=True,
-            name='LG TV - ' + user.username,
-            device_type='lg',
+            name=f'{(tipo or "Equipo").upper()} - {user.username}',
+            device_type=tipo if tipo in ('lg', 'samsung', 'mag', 'android', 'ios', 'web') else 'lg',
         )
 
     reset_attempts(request)
@@ -255,6 +298,8 @@ def handle_login(request):
         'status': 1,
         'mac': device.mac_address,
         'user': user.username,
+        'equipos': user.devices.filter(is_active=True).count(),
+        'max_equipos': user.limite_equipos,
     })
 
 
@@ -540,6 +585,10 @@ def handle_get_url(request):
         if parental_blocked(device, channel):
             return stalker_response({'error': 'Canal bloqueado, introduce el PIN'})
 
+        superado, aviso = limite_simultaneos_superado(device)
+        if superado:
+            return stalker_response({'error': aviso})
+
         stream_url = channel.stream_url
     else:
         stream_url = cmd
@@ -734,6 +783,10 @@ def handle_vod_link(request):
         if vod_adulto_bloqueado(device, movie):
             return stalker_response({'error': 'Contenido bloqueado, introduce el PIN'})
 
+        superado, aviso = limite_simultaneos_superado(device)
+        if superado:
+            return stalker_response({'error': aviso})
+
         stream_url = movie.stream_url
     else:
         stream_url = cmd
@@ -826,6 +879,10 @@ def handle_series_link(request):
 
     if vod_adulto_bloqueado(device, episodio.season.series):
         return stalker_response({'error': 'Contenido bloqueado, introduce el PIN'})
+
+    superado, aviso = limite_simultaneos_superado(device)
+    if superado:
+        return stalker_response({'error': aviso})
 
     stream_url = episodio.stream_url
     if device:

@@ -49,6 +49,36 @@ class User(AbstractUser):
     def active_devices_count(self):
         return self.devices.filter(is_active=True).count()
 
+    # Los limites los manda la tarifa: es lo que se factura. Los campos del
+    # usuario quedan como excepcion puntual para cuando no tiene tarifa.
+    @property
+    def limite_equipos(self):
+        if self.tariff:
+            return self.tariff.max_devices
+        return self.max_devices
+
+    @property
+    def limite_simultaneos(self):
+        if self.tariff:
+            return self.tariff.max_concurrent_streams
+        return self.max_concurrent_streams
+
+    def equipos_en_uso(self, minutos=3, excluir=None):
+        """
+        Aparatos de este usuario que estan funcionando ahora mismo.
+
+        Se cuenta por el latido que manda el portal cada minuto; con tres
+        minutos de margen se absorbe un corte de red sin liberar la plaza
+        antes de tiempo.
+        """
+        from django.utils import timezone
+
+        desde = timezone.now() - timezone.timedelta(minutes=minutos)
+        activos = self.devices.filter(is_active=True, last_seen__gte=desde)
+        if excluir is not None:
+            activos = activos.exclude(pk=excluir.pk)
+        return activos
+
 
 class Tariff(TimeStampedModel):
     """Subscription tariff/plan."""
