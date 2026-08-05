@@ -130,27 +130,54 @@
         });
     }
 
+    // El hueco del video se calcula sobre el tamano real de pantalla: la LG
+    // dibuja a 1920x1080 pero el deco no tiene por que, y con coordenadas fijas
+    // el video acababa donde no debia.
+    function huecoPreview() {
+        var an = window.innerWidth || 1920;
+        var al = window.innerHeight || 1080;
+        return {
+            x: Math.round(an * 0.390),
+            y: Math.round(al * 0.111),
+            width: Math.round(an * 0.589),
+            height: Math.round(al * 0.589)
+        };
+    }
+
     function setViewportPreview() {
+        var r = huecoPreview();
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:120px;left:750px;width:1130px;height:636px;z-index:2;border-radius:18px;';
+            htmlPlayer.style.cssText = 'position:fixed;top:' + r.y + 'px;left:' + r.x +
+                'px;width:' + r.width + 'px;height:' + r.height + 'px;z-index:2;border-radius:14px;';
         } else if (player) {
             try {
                 player.fullscreen = false;
                 player.aspectConversion = 1;
-                player.setViewport({x: 750, y: 120, width: 1130, height: 636});
+                player.setViewport({x: r.x, y: r.y, width: r.width, height: r.height});
             } catch(err) {}
         } else if (stbAPI) {
-            try { stbAPI.SetPIG(0, 128, 750, 120); } catch(err) {}
+            try {
+                // El MAG admite el rectangulo explicito; SetPIG con tamano fijo
+                // solo acertaba si la pantalla era de 1920.
+                if (stbAPI.SetPIGViewport) {
+                    stbAPI.SetPIGViewport(r.width, r.height, r.x, r.y);
+                    stbAPI.SetPIG(0, -1, r.x, r.y);
+                } else {
+                    stbAPI.SetPIG(0, 128, r.x, r.y);
+                }
+            } catch(err) {}
         }
     }
 
     function setViewportFullscreen() {
+        var an = window.innerWidth || 1920;
+        var al = window.innerHeight || 1080;
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:1920px;height:1080px;z-index:0;';
+            htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;';
         } else if (player) {
             try {
                 player.fullscreen = true;
-                player.setViewport({x: 0, y: 0, width: 1920, height: 1080});
+                player.setViewport({x: 0, y: 0, width: an, height: al});
             } catch(err) {}
         } else if (stbAPI) {
             try { stbAPI.SetPIG(1, 256, 0, 0); } catch(err) {}
@@ -932,7 +959,7 @@
         osd.innerHTML = osdFor(ch);
         osd.style.display = "block";
         clearTimeout(osdTimeout);
-        osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 6000);
+        osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 12000);
     }
 
     function goFullscreen() {
@@ -1149,7 +1176,7 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 1920px; height: 1080px; overflow: hidden; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
         body {
             background: #1e2225;
             color: #fff;
@@ -1160,10 +1187,10 @@
 
         /* ---------- Panel lateral ---------- */
         .panel {
-            position: fixed; top: 40px; left: 40px; width: 660px; height: 1000px;
+            position: fixed; top: 3.7vh; left: 2.1vw; width: 34.4vw; height: 92.6vh;
             display: flex; flex-direction: column;
             background: rgba(44,49,52,.94);
-            border-radius: 22px; padding: 32px 30px;
+            border-radius: 1.1vw; padding: 3vh 1.6vw;
             border: 1px solid rgba(255,255,255,.07);
             box-shadow: 0 24px 70px rgba(0,0,0,.55);
         }
@@ -1175,20 +1202,20 @@
         }
         .logo {
             font-family: Antonio, 'Segoe UI', Arial, sans-serif;
-            font-size: 46px; font-weight: 700; color: #fff;
+            font-size: 4.3vh; font-weight: 700; color: #fff;
             text-transform: uppercase; letter-spacing: 1px; line-height: 1;
         }
         .logo span { color: var(--verde); }
         .counter {
             background: rgba(129,186,38,.16); color: var(--verde-claro);
-            padding: 9px 18px; border-radius: 22px; font-size: 19px; font-weight: 600;
+            padding: .8vh 1vw; border-radius: 2vh; font-size: 1.8vh; font-weight: 600;
         }
 
         /* ---------- Lista ---------- */
         .list { flex: 1; overflow: hidden; margin-bottom: 14px; }
         .item {
             display: flex; align-items: center; gap: 16px;
-            padding: 14px 16px; margin: 7px 0; border-radius: 14px;
+            padding: 1.3vh .9vw; margin: .65vh 0; border-radius: .7vw;
             background: rgba(255,255,255,.035);
             border-left: 4px solid transparent;
             transition: background .12s, border-color .12s;
@@ -1199,14 +1226,14 @@
         }
         .num {
             font-family: Antonio, sans-serif;
-            width: 62px; font-size: 30px; font-weight: 600; color: #6d7679;
+            width: 3.2vw; font-size: 2.8vh; font-weight: 600; color: #6d7679;
             text-align: right; flex-shrink: 0;
         }
         .item.sel .num { color: var(--verde); }
-        .num.sm { font-size: 22px; width: 84px; color: var(--gris); }
+        .num.sm { font-size: 2vh; width: 4.4vw; color: var(--gris); }
 
         .ico {
-            width: 54px; height: 40px; flex-shrink: 0;
+            width: 2.8vw; height: 3.7vh; flex-shrink: 0;
             display: flex; align-items: center; justify-content: center;
             background: rgba(255,255,255,.06); border-radius: 8px; overflow: hidden;
         }
@@ -1214,18 +1241,18 @@
 
         .info { flex: 1; overflow: hidden; }
         .name {
-            font-size: 25px; font-weight: 500; white-space: nowrap;
+            font-size: 2.3vh; font-weight: 500; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis;
         }
         .epg {
-            font-size: 17px; color: var(--gris); margin-top: 5px;
+            font-size: 1.6vh; color: var(--gris); margin-top: .5vh;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .epg .t { color: #6d7679; }
 
         /* Etiquetas */
         .hd, .rec, .live, .st {
-            font-size: 12px; font-weight: 700; padding: 3px 8px;
+            font-size: 1.1vh; font-weight: 700; padding: .3vh .4vw;
             border-radius: 5px; margin-left: 8px; vertical-align: middle;
             letter-spacing: .5px;
         }
@@ -1241,8 +1268,8 @@
         .bar i { display: block; height: 100%; background: var(--verde); border-radius: 3px; }
 
         .descr {
-            color: var(--gris-claro); font-size: 18px; line-height: 1.5;
-            padding: 16px 6px; border-top: 1px solid rgba(255,255,255,.08);
+            color: var(--gris-claro); font-size: 1.7vh; line-height: 1.5;
+            padding: 1.5vh .3vw; border-top: 1px solid rgba(255,255,255,.08);
         }
 
         .st.completed { background: var(--verde); color: #14210a; }
@@ -1250,7 +1277,7 @@
         .st.scheduled { background: rgba(255,255,255,.16); color: #fff; }
         .st.failed    { background: #6d7679; color: #fff; }
 
-        .help { text-align: center; color: #6d7679; font-size: 15px; line-height: 2; }
+        .help { text-align: center; color: #6d7679; font-size: 1.4vh; line-height: 2; }
         .help span {
             background: rgba(255,255,255,.09); padding: 5px 11px;
             border-radius: 6px; margin: 0 5px; color: var(--gris-claro); font-weight: 600;
@@ -1258,36 +1285,36 @@
 
         /* ---------- Vista previa ---------- */
         #preview {
-            position: fixed; top: 120px; left: 750px; width: 1130px; height: 636px;
-            border-radius: 18px; border: 1px solid rgba(129,186,38,.35);
+            position: fixed; top: 11.1vh; left: 39vw; width: 58.9vw; height: 58.9vh;
+            border-radius: .9vw; border: 1px solid rgba(129,186,38,.35);
             background: transparent; z-index: 1; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
             color: #5a6265; font-size: 26px;
         }
-        #preview-cap { position: fixed; top: 782px; left: 750px; width: 1130px; z-index: 2; }
+        #preview-cap { position: fixed; top: 72.4vh; left: 39vw; width: 58.9vw; z-index: 2; }
         #preview-cap .t {
             font-family: Antonio, sans-serif;
-            font-size: 40px; font-weight: 600; letter-spacing: .5px;
+            font-size: 3.7vh; font-weight: 600; letter-spacing: .5px;
         }
-        #preview-cap .e { font-size: 21px; color: var(--gris); margin-top: 9px; }
+        #preview-cap .e { font-size: 2vh; color: var(--gris); margin-top: 9px; }
 
         /* ---------- Superpuestos ---------- */
         /* Barra inferior a pantalla completa. Se degrada hacia arriba para que
            el texto se lea sobre cualquier imagen sin tapar el video. */
         #osd {
             display: none; position: fixed; left: 0; right: 0; bottom: 0;
-            padding: 130px 70px 56px;
+            padding: 12vh 3.6vw 5.2vh;
             background: linear-gradient(to top,
                         rgba(20,23,25,.96) 0%, rgba(20,23,25,.85) 45%, rgba(20,23,25,0) 100%);
         }
-        .osd-fila { display: flex; align-items: flex-end; gap: 26px; }
+        .osd-fila { display: flex; align-items: flex-end; gap: 1.4vw; }
         .osd-num {
             font-family: Antonio, sans-serif;
-            font-size: 78px; font-weight: 700; color: var(--verde);
+            font-size: 7.2vh; font-weight: 700; color: var(--verde);
             line-height: .9; flex-shrink: 0;
         }
         .osd-ico {
-            width: 96px; height: 72px; flex-shrink: 0; border-radius: 10px;
+            width: 5vw; height: 6.7vh; flex-shrink: 0; border-radius: .5vw;
             background: rgba(255,255,255,.08);
             display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
@@ -1295,19 +1322,19 @@
         .osd-datos { flex: 1; min-width: 0; }
         .osd-ch {
             font-family: Antonio, sans-serif;
-            font-size: 40px; font-weight: 600; letter-spacing: .5px;
+            font-size: 3.7vh; font-weight: 600; letter-spacing: .5px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .osd-prog {
-            font-size: 25px; margin-top: 10px; color: #fff;
+            font-size: 2.3vh; margin-top: 1vh; color: #fff;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .osd-prog b { color: var(--verde); font-weight: 600; margin-right: 14px; }
-        .osd-epg { font-size: 19px; color: var(--gris); margin-top: 8px; }
+        .osd-epg { font-size: 1.8vh; color: var(--gris); margin-top: .7vh; }
         #osd .bar { max-width: 900px; }
         .osd-reloj {
             font-family: Antonio, sans-serif;
-            font-size: 52px; font-weight: 600; color: var(--gris-claro);
+            font-size: 4.8vh; font-weight: 600; color: var(--gris-claro);
             flex-shrink: 0; line-height: 1;
         }
 
@@ -1341,7 +1368,7 @@
     </style>
 </head>
 <body>
-    <video id="html5video" autoplay playsinline style="position:fixed;top:120px;left:750px;width:1130px;height:636px;z-index:2;border-radius:18px;display:none;"></video>
+    <video id="html5video" autoplay playsinline style="position:fixed;top:11.1%;left:39%;width:58.9%;height:58.9%;z-index:2;border-radius:14px;display:none;"></video>
     <div id="preview"></div>
     <div id="preview-cap"></div>
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre<span>TV</span></div><div style="color:#666;margin-top:20px;">Cargando canales...</div></div></div>
