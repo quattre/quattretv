@@ -28,12 +28,19 @@ def stb_portal_app(request):
 
 
 @never_cache
-def stb_loader_page(request):
+def stb_loader_page(request, registrar=False, mac_detectada=''):
     """
-    Serve initial loader page for MAG boxes.
-    This page extracts the MAC or shows login form.
+    Pantalla de acceso.
+
+    `registrar` se activa cuando el aparato ha llegado con una MAC que no
+    tenemos dada de alta: entonces hay que pedir usuario y contrasena en vez de
+    volver a leer la MAC, que es lo que dejaba al deco dando vueltas sin llegar
+    nunca al formulario.
     """
-    return render(request, 'stb/loader.html')
+    return render(request, 'stb/loader.html', {
+        'registrar': registrar,
+        'mac_detectada': mac_detectada,
+    })
 
 
 @csrf_exempt
@@ -68,10 +75,11 @@ def portal_handler(request):
             if device_exists:
                 return stb_portal_app(request)
 
-        # Invalid MAC - clear cookie and show login
-        response = stb_loader_page(request)
-        response.delete_cookie('mac')
-        return response
+        # MAC no registrada: se pide usuario y contrasena para darla de alta.
+        # No se borra la cookie, porque el aparato volveria a mandar la misma
+        # MAC y entraria en bucle sin enseñar nunca el formulario.
+        return stb_loader_page(request, registrar=True,
+                               mac_detectada=normalized_mac or '')
 
     # Route to appropriate handler
     handlers = {
@@ -260,9 +268,18 @@ def handle_login(request):
     # de contar cuantos equipos estaban en marcha ni de limitarlos.
     uid = request.GET.get('device_uid', request.POST.get('device_uid', '')).strip()[:64]
     tipo = request.GET.get('device_type', request.POST.get('device_type', '')).strip()[:20]
+    mac_aparato = MACAuthentication.normalize_mac(
+        request.GET.get('mac', request.POST.get('mac', '')))
 
     device = None
-    if uid:
+    # Si el aparato trae MAC propia (los decos la tienen), esa manda: es su
+    # identidad de fabrica y no cambia.
+    if mac_aparato:
+        device = Device.objects.filter(mac_address=mac_aparato).first()
+        if device and device.user_id != user.id:
+            return stalker_response({
+                'error': 'Este equipo ya esta dado de alta con otro usuario'})
+    if not device and uid:
         device = user.devices.filter(uid=uid).first()
     if not device and not uid:
         # Cliente antiguo que no manda identificador: se reutiliza el primero
@@ -281,8 +298,12 @@ def handle_login(request):
                          'Da de baja uno para poder usar este.'
             })
 
-        import random
-        mac = 'AA:%02X:%02X:%02X:%02X:%02X' % tuple(random.randint(0, 255) for _ in range(5))
+        if mac_aparato:
+            mac = mac_aparato
+        else:
+            # Solo para los que no tienen MAC propia (la app de LG, navegador).
+            import random
+            mac = 'AA:%02X:%02X:%02X:%02X:%02X' % tuple(random.randint(0, 255) for _ in range(5))
         device = Device.objects.create(
             user=user,
             mac_address=mac,

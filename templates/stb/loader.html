@@ -13,7 +13,20 @@
         setTimeout(function() { location.reload(); }, 200);
     }
 
+    // Cuando el servidor nos dice que la MAC no esta dada de alta, hay que pedir
+    // usuario y contrasena. Volver a leer la MAC dejaba al deco en bucle.
+    var HAY_QUE_REGISTRAR = {% if registrar %}true{% else %}false{% endif %};
+    var MAC_DETECTADA = '{{ mac_detectada }}';
+
     function initApp() {
+        if (HAY_QUE_REGISTRAR) {
+            showLogin();
+            if (MAC_DETECTADA) {
+                log('Equipo nuevo (' + MAC_DETECTADA + '). Entra con tu usuario para darlo de alta.');
+            }
+            return;
+        }
+
         var mac = '';
         try {
             if (typeof(Android) !== 'undefined') {
@@ -87,7 +100,8 @@
                  '&login=' + encodeURIComponent(user) +
                  '&password=' + encodeURIComponent(pass) +
                  '&device_uid=' + encodeURIComponent(idAparato()) +
-                 '&device_type=' + encodeURIComponent(tipoAparato()), true);
+                 '&device_type=' + encodeURIComponent(tipoAparato()) +
+                 (MAC_DETECTADA ? '&mac=' + encodeURIComponent(MAC_DETECTADA) : ''), true);
         xhr.onreadystatechange = function() {
             if (xhr.readyState == 4) {
                 if (xhr.status == 200) {
