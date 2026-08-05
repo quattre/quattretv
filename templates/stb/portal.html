@@ -46,7 +46,7 @@
             stbAPI = gSTB;
             try {
                 stbAPI.InitPlayer();
-                stbAPI.SetViewport(0, 0, 1920, 1080);
+                stbAPI.SetViewport(0, 0, PLANO.ancho, PLANO.alto);
                 stbAPI.SetWinMode(0, 1);
                 stbAPI.SetTopWin(1);
                 stbAPI.SetTransparentColor(0x000000);
@@ -130,54 +130,62 @@
         });
     }
 
-    // El hueco del video se calcula sobre el tamano real de pantalla: la LG
-    // dibuja a 1920x1080 pero el deco no tiene por que, y con coordenadas fijas
-    // el video acababa donde no debia.
-    function huecoPreview() {
-        var an = window.innerWidth || 1920;
-        var al = window.innerHeight || 1080;
+    // Dos sistemas de coordenadas distintos, y mezclarlos fue el error:
+    //  - El <video> de la LG es un elemento de la pagina: va en porcentajes y
+    //    encaja solo con el marco del CSS.
+    //  - El plano de video del deco es una capa por hardware que trabaja SIEMPRE
+    //    en coordenadas de 1920x1080, independientemente de lo que mida el
+    //    navegador. Ahi hay que dar pixeles de esa rejilla.
+    // Las proporciones son las mismas (39 %, 11,1 %, 58,9 %), asi que el video
+    // cae dentro del marco en los dos casos.
+    // Proporciones del hueco, las MISMAS que usa el CSS del marco. Es el unico
+    // sitio donde se tocan si se cambia el reparto de la pantalla.
+    var HUECO = { x: 0.390, y: 0.111, ancho: 0.589, alto: 0.589 };
+
+    // Rejilla del plano de video del deco. No es la resolucion del televisor:
+    // es la que declaramos en init() con SetViewport, y el propio deco se
+    // encarga de escalarla a lo que tenga el televisor (720p, 1080i, lo que
+    // sea). Por eso vale para todas las resoluciones.
+    var PLANO = { ancho: 1920, alto: 1080 };
+
+    function huecoDeco() {
         return {
-            x: Math.round(an * 0.390),
-            y: Math.round(al * 0.111),
-            width: Math.round(an * 0.589),
-            height: Math.round(al * 0.589)
+            x: Math.round(PLANO.ancho * HUECO.x),
+            y: Math.round(PLANO.alto * HUECO.y),
+            width: Math.round(PLANO.ancho * HUECO.ancho),
+            height: Math.round(PLANO.alto * HUECO.alto)
         };
     }
 
+    function huecoCss() {
+        return 'top:' + (HUECO.y * 100).toFixed(1) + '%;left:' + (HUECO.x * 100).toFixed(1) +
+               '%;width:' + (HUECO.ancho * 100).toFixed(1) + '%;height:' +
+               (HUECO.alto * 100).toFixed(1) + '%';
+    }
+
     function setViewportPreview() {
-        var r = huecoPreview();
+        var r = huecoDeco();
         if (useHTML5) {
-            htmlPlayer.style.cssText = 'position:fixed;top:' + r.y + 'px;left:' + r.x +
-                'px;width:' + r.width + 'px;height:' + r.height + 'px;z-index:2;border-radius:14px;';
+            htmlPlayer.style.cssText =
+                'position:fixed;' + huecoCss() + ';z-index:2;border-radius:14px;';
         } else if (player) {
             try {
                 player.fullscreen = false;
                 player.aspectConversion = 1;
-                player.setViewport({x: r.x, y: r.y, width: r.width, height: r.height});
+                player.setViewport(r);
             } catch(err) {}
         } else if (stbAPI) {
-            try {
-                // El MAG admite el rectangulo explicito; SetPIG con tamano fijo
-                // solo acertaba si la pantalla era de 1920.
-                if (stbAPI.SetPIGViewport) {
-                    stbAPI.SetPIGViewport(r.width, r.height, r.x, r.y);
-                    stbAPI.SetPIG(0, -1, r.x, r.y);
-                } else {
-                    stbAPI.SetPIG(0, 128, r.x, r.y);
-                }
-            } catch(err) {}
+            try { stbAPI.SetPIG(0, 128, r.x, r.y); } catch(err) {}
         }
     }
 
     function setViewportFullscreen() {
-        var an = window.innerWidth || 1920;
-        var al = window.innerHeight || 1080;
         if (useHTML5) {
             htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;';
         } else if (player) {
             try {
                 player.fullscreen = true;
-                player.setViewport({x: 0, y: 0, width: an, height: al});
+                player.setViewport({x: 0, y: 0, width: PLANO.ancho, height: PLANO.alto});
             } catch(err) {}
         } else if (stbAPI) {
             try { stbAPI.SetPIG(1, 256, 0, 0); } catch(err) {}
