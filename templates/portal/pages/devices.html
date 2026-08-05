@@ -400,7 +400,7 @@
 <script>
 function refreshToken(deviceId) {
     if (confirm('Regenerar token de este dispositivo? El dispositivo debera reconectarse.')) {
-        fetch(`/portal/devices/${deviceId}/refresh-token/`, {
+        fetch(`/devices/${deviceId}/refresh-token/`, {
             method: 'POST',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }
         }).then(response => {

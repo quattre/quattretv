@@ -366,12 +366,12 @@
 {% block extra_js %}
 <script>
 function testStream(channelId) {
-    window.open(`/portal/channels/${channelId}/test/`, '_blank', 'width=800,height=600');
+    window.open(`/channels/${channelId}/test/`, '_blank', 'width=800,height=600');
 }
 
 function deleteChannel(channelId) {
     if (confirm('Eliminar este canal?')) {
-        fetch(`/portal/channels/${channelId}/delete/`, {
+        fetch(`/channels/${channelId}/delete/`, {
             method: 'POST',
             headers: { 'X-CSRFToken': '{{ csrf_token }}' }
         }).then(response => {

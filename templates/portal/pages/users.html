@@ -290,7 +290,7 @@ function generateBoth() {
 
 function renewUser(userId) {
     if (confirm('Renovar suscripcion por 30 dias?')) {
-        fetch(`/portal/users/${userId}/renew/`, {
+        fetch(`/users/${userId}/renew/`, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
@@ -305,7 +305,7 @@ function renewUser(userId) {
 
 function deleteUser(userId) {
     if (confirm('Estas seguro de eliminar este usuario? Esta accion no se puede deshacer.')) {
-        fetch(`/portal/users/${userId}/delete/`, {
+        fetch(`/users/${userId}/delete/`, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
