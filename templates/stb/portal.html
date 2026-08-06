@@ -33,6 +33,7 @@
     var recordings = [];
     var recIdx = 0;
     var toastTimeout = null;
+    var avisoCanal = null;
 
     var LIENZO = { ancho: 1920, alto: 1080 };   // sobre el que esta hecho el diseno
 
@@ -248,10 +249,16 @@
             try { stbAPI.Play(ch.cmd); } catch(err) {}
         }
         document.body.style.background = "transparent";
-        // Avisar del cambio de canal sin esperar al siguiente latido, para que
-        // el panel de streams lo refleje al momento.
+        graficosDelanteInsistiendo();
+
+        // Avisar del cambio de canal, pero no en cada pulsacion: haciendo
+        // zapping serian muchas peticiones seguidas y el deco se atasca. Se
+        // manda cuando se ha quedado quieto un par de segundos.
         if (ch && ch.id) {
-            api("type=watchdog&action=get_events&ch_id=" + ch.id, function() {});
+            clearTimeout(avisoCanal);
+            avisoCanal = setTimeout(function() {
+                api("type=watchdog&action=get_events&ch_id=" + ch.id, function() {});
+            }, 2000);
         }
     }
 
@@ -398,7 +405,7 @@
         playingChannelIdx = -1;   // ya no suena el canal de la lista
         setViewportFullscreen();
         isFullscreen = true;
-        graficosDelante();
+        graficosDelanteInsistiendo();
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
@@ -1055,12 +1062,21 @@
         if (!stbAPI) return;
         try { if (stbAPI.SetTopWin) stbAPI.SetTopWin(1); } catch(err) {}
         try { if (stbAPI.SetAlphaLevel) stbAPI.SetAlphaLevel(255); } catch(err) {}
-        try { if (stbAPI.ShowSubtitle) {} } catch(err) {}
+    }
+
+    // El aparato coloca su video por delante en el momento en que empieza a
+    // pintar imagen, no al pedir la reproduccion. Por eso hay que insistir un
+    // rato despues: si no, la barra se ve un instante y la tapa la imagen.
+    function graficosDelanteInsistiendo() {
+        graficosDelante();
+        [200, 600, 1200, 2500].forEach(function(ms) {
+            setTimeout(graficosDelante, ms);
+        });
     }
 
     function mostrarOsd(ch) {
         var osd = document.getElementById("osd");
-        graficosDelante();
+        graficosDelanteInsistiendo();
         osd.innerHTML = osdFor(ch);
         osd.style.display = "block";
         clearTimeout(osdTimeout);
@@ -1084,7 +1100,7 @@
         }
 
         isFullscreen = true;
-        graficosDelante();
+        graficosDelanteInsistiendo();
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
@@ -1421,7 +1437,7 @@
         /* ---------- Vista previa ---------- */
         #preview {
             position: fixed; top: 120px; left: 749px; width: 1131px; height: 636px;
-            border-radius: 18px; border: 1px solid rgba(129,186,38,.35);
+            border-radius: 18px;
             background: transparent; z-index: 1; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
             color: #5a6265; font-size: 26px;
