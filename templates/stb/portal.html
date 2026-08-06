@@ -1063,13 +1063,55 @@
         });
     }
 
+    // En el deco el video va por una capa de hardware que se pone por delante del
+    // navegador y no hay forma de evitarlo: la barra se dibuja bien pero queda
+    // tapada. Asi que mientras se enseña se le hace sitio, encogiendo la imagen
+    // a la parte de arriba. Se respeta el 16:9 para que no se deforme, y al
+    // ocultarse vuelve a pantalla completa. En la LG no hace falta, porque alli
+    // el video es un elemento mas de la pagina.
+    function huecoConBarra() {
+        var p = plano();
+        var alto = Math.round(p.alto * 0.80);
+        var ancho = Math.round(alto * 16 / 9);
+        if (ancho > p.ancho) { ancho = p.ancho; alto = Math.round(ancho * 9 / 16); }
+        return { x: Math.round((p.ancho - ancho) / 2), y: 0, width: ancho, height: alto };
+    }
+
+    function hacerSitioALaBarra(hacerlo) {
+        if (useHTML5 || !isFullscreen) return;
+        try {
+            if (player) {
+                if (hacerlo) {
+                    var r = huecoConBarra();
+                    player.fullscreen = false;
+                    player.aspectConversion = 1;
+                    player.setViewport(r);
+                } else {
+                    player.fullscreen = true;
+                    player.setViewport({x: 0, y: 0, width: plano().ancho, height: plano().alto});
+                }
+            } else if (stbAPI) {
+                if (hacerlo) {
+                    var r2 = huecoConBarra();
+                    stbAPI.SetPIG(0, 255, r2.x, r2.y);
+                } else {
+                    stbAPI.SetPIG(1, 255, 0, 0);
+                }
+            }
+        } catch(err) {}
+    }
+
     function mostrarOsd(ch) {
         var osd = document.getElementById("osd");
         graficosDelanteInsistiendo();
         osd.innerHTML = osdFor(ch);
         osd.style.display = "block";
+        hacerSitioALaBarra(true);
         clearTimeout(osdTimeout);
-        osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 12000);
+        osdTimeout = setTimeout(function() {
+            osd.style.display = "none";
+            hacerSitioALaBarra(false);
+        }, 12000);
     }
 
     function goFullscreen() {
@@ -1103,6 +1145,7 @@
         document.getElementById("content").style.display = "block";
         document.getElementById("preview").style.display = "flex";
         document.getElementById("preview-cap").style.display = "block";
+        clearTimeout(osdTimeout);
         document.getElementById("osd").style.display = "none";
         showChannels();
         // Si veniamos del archivo o de una grabacion, el canal ya no suena.
