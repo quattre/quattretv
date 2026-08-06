@@ -97,7 +97,25 @@
         xhr.send();
     }
 
+    // Contarle al servidor como es este aparato: sin esto hay que adivinar por
+    // que un modelo dibuja distinto que otro.
+    function contarComoSoy() {
+        var d = [];
+        try {
+            d.push('ventana=' + window.innerWidth + 'x' + window.innerHeight);
+            d.push('doc=' + document.documentElement.clientWidth + 'x' + document.documentElement.clientHeight);
+            d.push('pantalla=' + (screen ? screen.width + 'x' + screen.height : '?'));
+            d.push('dpr=' + (window.devicePixelRatio || 1));
+            d.push('api=' + (useHTML5 ? 'html5' : (player ? 'playerManager' : (stbAPI ? 'gSTB' : 'ninguna'))));
+            d.push('gSTB=' + (typeof gSTB !== 'undefined'));
+            d.push('pigviewport=' + !!(stbAPI && stbAPI.SetPIGViewport));
+            d.push('settopwin=' + !!(stbAPI && stbAPI.SetTopWin));
+        } catch(e) { d.push('error=' + e); }
+        api('type=stb&action=log&diag=' + encodeURIComponent(d.join(' | ')), function() {});
+    }
+
     function loadData() {
+        contarComoSoy();
         cargarModulos();
         loadGenres();
         loadPage(0);

@@ -225,9 +225,41 @@ def handle_stb(request, action):
     elif action == 'check_pin':
         return handle_check_pin(request)
     elif action == 'log':
-        return stalker_response({'result': True})
+        return handle_log(request)
 
     return stalker_response({'error': 'Unknown action'})
+
+
+def handle_log(request):
+    """
+    Recoge lo que el aparato cuenta de si mismo.
+
+    Sirve para dejar de adivinar como dibuja cada modelo: el portal manda al
+    arrancar su resolucion y que reproductor tiene, y queda guardado para
+    poder mirarlo. Se guarda tambien en la ficha del aparato.
+    """
+    device = get_device_from_request(request)
+    datos = request.GET.get('diag', '')[:400]
+
+    if datos:
+        import logging
+        logging.getLogger('quattretv.diag').warning(
+            'DIAG %s %s', device.mac_address if device else 'sin-aparato', datos)
+        try:
+            cache.set(
+                f'diag:{device.mac_address if device else "anonimo"}',
+                {'datos': datos, 'cuando': timezone.now().isoformat(),
+                 'ua': request.META.get('HTTP_USER_AGENT', '')[:200]},
+                60 * 60 * 24)
+            recientes = cache.get('diag:recientes') or []
+            clave = device.mac_address if device else 'anonimo'
+            if clave not in recientes:
+                recientes.append(clave)
+            cache.set('diag:recientes', recientes[-20:], 60 * 60 * 24)
+        except Exception:
+            pass
+
+    return stalker_response({'result': True})
 
 
 def handle_login(request):
