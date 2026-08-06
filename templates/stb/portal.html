@@ -283,6 +283,15 @@
         }
     }
 
+    function iniciales(nombre) {
+        var limpio = (nombre || '').replace(/[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ ]/g, '').trim();
+        var partes = limpio.split(/\s+/);
+        if (partes.length > 1 && partes[1]) {
+            return (partes[0].charAt(0) + partes[1].charAt(0)).toUpperCase();
+        }
+        return limpio.substring(0, 2).toUpperCase();
+    }
+
     function esc(s) {
         if (s === undefined || s === null) return '';
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -764,7 +773,13 @@
             var cls = (i === currentChannel) ? "item sel" : "item";
             h += '<div class="' + cls + '">';
             h += '<div class="num">' + c.number + '</div>';
-            if (c.logo) h += '<div class="ico"><img src="' + esc(c.logo) + '" onerror="this.style.display=0"></div>';
+            // El hueco va siempre, con logotipo o sin el: si falta, la lista se
+            // descuadra porque el nombre arranca en otro sitio. Los que no
+            // tienen logotipo llevan sus iniciales.
+            h += '<div class="ico">';
+            if (c.logo) h += '<img src="' + esc(c.logo) + '" onerror="this.parentNode.innerHTML=\'<b>' + esc(iniciales(c.name)) + '</b>\'">';
+            else h += '<b>' + esc(iniciales(c.name)) + '</b>';
+            h += '</div>';
             h += '<div class="info"><div class="name">' + esc(c.name);
             if (c.hd) h += ' <span class="hd">HD</span>';
             if (c.fav) h += ' <span class="fav">★</span>';
@@ -1398,6 +1413,10 @@
             background: rgba(255,255,255,.06); border-radius: 8px; overflow: hidden;
         }
         .ico img { max-width: 100%; max-height: 100%; }
+        .ico b {
+            font-family: Antonio, 'Segoe UI', Arial, sans-serif;
+            font-size: 19px; font-weight: 600; color: #6d7679; letter-spacing: .5px;
+        }
 
         .info { -webkit-box-flex: 1; flex: 1; overflow: hidden; }
         .name {
@@ -1545,6 +1564,7 @@
             .num { width: 41px; font-size: 20px; }
             .num.sm { font-size: 15px; width: 56px; }
             .ico { width: 36px; height: 27px; }
+            .ico b { font-size: 13px; }
             .name { font-size: 17px; }
             .epg { font-size: 11px; margin-top: 3px; }
             .hd, .rec, .live, .st { font-size: 9px; padding: 2px 5px; margin-left: 5px; }
