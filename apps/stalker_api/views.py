@@ -1144,12 +1144,22 @@ def handle_pvr(request, action):
     return stalker_response({'error': 'Unknown action'})
 
 
-def _pvr_device(request):
+def _pvr_device(request, exige_grabador=False):
     device = get_device_from_request(request)
     if not device:
         return None, stalker_response({'error': 'Not authenticated'})
     if device.user.tariff and not device.user.tariff.has_pvr:
         return None, stalker_response({'error': 'Grabaciones no incluidas en tu tarifa'})
+
+    if exige_grabador:
+        from apps.pvr.models import StorageServer, StorageRole
+        hay = StorageServer.objects.filter(
+            is_active=True, role__in=[StorageRole.RECORDS, StorageRole.BOTH]
+        ).exists()
+        if not hay:
+            return None, stalker_response({
+                'error': 'Las grabaciones no estan disponibles todavia'})
+
     return device, None
 
 
@@ -1192,7 +1202,7 @@ def handle_pvr_create(request):
     from datetime import datetime, timezone as dt_timezone
     from apps.pvr.models import Recording
 
-    device, error = _pvr_device(request)
+    device, error = _pvr_device(request, exige_grabador=True)
     if error:
         return error
 
@@ -1255,11 +1265,21 @@ def handle_pvr_delete(request):
     if error:
         return error
 
+    # Se puede quitar por id de grabacion o por el programa de la guia, que es
+    # como lo pide el mando: el mismo boton pone y quita.
+    program_id = request.GET.get('program_id')
     rec_id = request.GET.get('id') or request.GET.get('cmd')
-    try:
-        recording = Recording.objects.get(id=rec_id, user=device.user)
-    except (Recording.DoesNotExist, ValueError):
-        return stalker_response({'error': 'Grabación no encontrada'})
+
+    if program_id:
+        recording = Recording.objects.filter(
+            user=device.user, program_id=program_id).first()
+        if not recording:
+            return stalker_response({'error': 'Ese programa no estaba grabandose'})
+    else:
+        try:
+            recording = Recording.objects.get(id=rec_id, user=device.user)
+        except (Recording.DoesNotExist, ValueError):
+            return stalker_response({'error': 'Grabación no encontrada'})
 
     if recording.status == RecordingStatus.RECORDING and recording.storage:
         try:

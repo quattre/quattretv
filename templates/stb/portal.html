@@ -710,8 +710,8 @@
         }
         h += '</div>';
 
-        h += '<div class="help"><span>OK</span> Ver <span>▶</span> Guia <span>◀</span> Menu <span>REC</span> Grabar<br>';
-        h += '<span>VERDE</span> Grabaciones <span>AMARILLO</span> Favoritos <span>AZUL</span> Marcar <span>0-9</span> Ir al canal</div>';
+        h += '<div class="help"><span>OK</span> Ver <span>▶</span> Guia <span>◀</span> Menu <span>0-9</span> Ir al canal<br>';
+        h += 'Grabaciones, favoritos y peliculas estan en el <span>Menu</span></div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
         updatePreviewCap(ch);
@@ -782,8 +782,10 @@
             }
         }
 
-        var hint = guide.length && guide[guideIdx] && guide[guideIdx].past
-            ? '<span>OK</span> Ver desde el archivo' : '<span>REC</span> Grabar';
+        var sel2 = guide[guideIdx];
+        var hint = '<span>OK</span> Grabar';
+        if (sel2 && sel2.past) hint = '<span>OK</span> Ver desde el archivo';
+        else if (sel2 && sel2.rec) hint = '<span>OK</span> Quitar la grabacion';
         h += '<div class="help">' + hint + ' <span>◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
@@ -794,9 +796,23 @@
         if (!p) return;
         if (p.past) {
             playCatchup(p);
+        } else if (p.rec) {
+            quitarGrabacion(p);
         } else {
             recordProgram(p);
         }
+    }
+
+    function quitarGrabacion(p) {
+        api("type=pvr&action=delete_task&program_id=" + p.id, function(js) {
+            if (js && js.result) {
+                p.rec = 0;
+                toast('Grabacion quitada');
+                if (view === "guide") renderGuide();
+            } else {
+                toast((js && js.error) ? js.error : 'No se pudo quitar');
+            }
+        });
     }
 
     function recordProgram(p) {
@@ -865,7 +881,10 @@
             }
         }
         h += '</div>';
-        h += '<div class="help"><span>OK</span> Ver <span>REC</span> Borrar <span>◀</span> Volver</div>';
+        var r2 = recordings[recIdx];
+        var ayuda = (r2 && r2.status === 'completed')
+            ? '<span>OK</span> Ver' : '<span>OK</span> Quitar de la lista';
+        h += '<div class="help">' + ayuda + ' <span>▶</span> Borrar <span>◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -1147,8 +1166,10 @@
                 recIdx++;
                 renderRecordings(null);
             } else if (k === 13) {
-                playRecording();
-            } else if (k === 82 || k === 112) {
+                var sel = recordings[recIdx];
+                if (sel && sel.status === 'completed') playRecording();
+                else deleteRecording();
+            } else if (k === 39 || k === 82 || k === 112) {
                 deleteRecording();
             } else if (k === 37 || k === 8 || k === 27) {
                 showChannels();
