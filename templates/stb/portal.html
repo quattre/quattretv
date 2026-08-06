@@ -98,6 +98,7 @@
     }
 
     function loadData() {
+        cargarModulos();
         loadGenres();
         loadPage(0);
         // Señal de vida: sin esto, un aparato que lleva rato con un canal
@@ -365,14 +366,33 @@
 
     // ---------- Menu principal ----------
 
-    var MENU = [
-        {id: 'canales',     titulo: 'Canales'},
-        {id: 'categorias',  titulo: 'Categorias'},
-        {id: 'favoritos',   titulo: 'Solo favoritos'},
-        {id: 'peliculas',   titulo: 'Peliculas'},
-        {id: 'series',      titulo: 'Series'},
-        {id: 'grabaciones', titulo: 'Mis grabaciones'}
+    // El menu se arma con lo que el servidor dice que hay disponible: si no hay
+    // grabador, la opcion de grabaciones ni aparece.
+    var MENU_COMPLETO = [
+        {id: 'canales',     titulo: 'Canales',        modulo: 'tv'},
+        {id: 'categorias',  titulo: 'Categorias',     modulo: 'tv'},
+        {id: 'favoritos',   titulo: 'Solo favoritos', modulo: 'tv'},
+        {id: 'peliculas',   titulo: 'Peliculas',      modulo: 'vod'},
+        {id: 'series',      titulo: 'Series',         modulo: 'vod'},
+        {id: 'grabaciones', titulo: 'Mis grabaciones', modulo: 'records'}
     ];
+    var MODULOS = ['tv', 'epg', 'vod', 'settings'];
+    var MENU = MENU_COMPLETO.slice();
+
+    function cargarModulos() {
+        api("type=stb&action=get_modules", function(js) {
+            if (js && js.result && js.result.all_modules) {
+                MODULOS = js.result.all_modules;
+            }
+            MENU = [];
+            for (var i = 0; i < MENU_COMPLETO.length; i++) {
+                var op = MENU_COMPLETO[i];
+                for (var j = 0; j < MODULOS.length; j++) {
+                    if (MODULOS[j] === op.modulo) { MENU.push(op); break; }
+                }
+            }
+        });
+    }
     var menuIdx = 0;
 
     function openMenu() {

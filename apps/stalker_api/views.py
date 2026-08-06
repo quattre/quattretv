@@ -393,10 +393,32 @@ def handle_get_localization(request):
 
 
 def handle_get_modules(request):
-    """Get available modules."""
+    """
+    Que apartados tiene disponibles este aparato.
+
+    Las grabaciones solo se anuncian si hay un grabador dado de alta y la tarifa
+    las incluye: es mejor que no salga la opcion a que salga y avise de que no
+    esta disponible.
+    """
+    from apps.pvr.models import StorageServer, StorageRole
+
+    device = get_device_from_request(request)
+    modulos = ['tv', 'epg', 'settings']
+
+    tarifa = device.user.tariff if device else None
+
+    if not tarifa or tarifa.has_vod:
+        modulos.append('vod')
+
+    hay_grabador = StorageServer.objects.filter(
+        is_active=True, role__in=[StorageRole.RECORDS, StorageRole.BOTH]
+    ).exists()
+    if hay_grabador and (not tarifa or tarifa.has_pvr):
+        modulos.append('records')
+
     return stalker_response({
         'result': {
-            'all_modules': ['tv', 'vod', 'epg', 'records', 'settings'],
+            'all_modules': modulos,
             'disabled_modules': [],
         }
     })
