@@ -55,6 +55,12 @@
         graficosDelante();
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
+            // El boton del engranaje abre la configuracion del propio deco, que
+            // no pinta nada en manos de un cliente y ademas se superpone a la
+            // imagen. Se desactiva; mas abajo se monta una combinacion para
+            // poder entrar cuando haga falta.
+            try { if (gSTB.EnableServiceButton) gSTB.EnableServiceButton(false); } catch(err) {}
+            try { if (gSTB.EnableAppButton) gSTB.EnableAppButton(false); } catch(err) {}
             try {
                 stbAPI.InitPlayer();
                 stbAPI.SetViewport(0, 0, plano().ancho, plano().alto);
@@ -1117,6 +1123,38 @@
         showVolume();
     }
 
+    var teclaRepetida = 0, vecesTecla = 0, relojTecla = null, teclasVistas = {};
+
+    function accesoConfiguracion(k) {
+        // Cinco pulsaciones seguidas de la misma tecla no reconocida abren la
+        // configuracion del deco. Asi el cliente no entra sin querer y el
+        // tecnico si puede.
+        if (k === teclaRepetida) {
+            vecesTecla++;
+        } else {
+            teclaRepetida = k;
+            vecesTecla = 1;
+        }
+        clearTimeout(relojTecla);
+        relojTecla = setTimeout(function() { vecesTecla = 0; teclaRepetida = 0; }, 3000);
+
+        if (vecesTecla >= 5) {
+            vecesTecla = 0;
+            toast('Abriendo la configuracion del equipo');
+            try { if (stbAPI && stbAPI.EnableServiceButton) stbAPI.EnableServiceButton(true); } catch(err) {}
+            try { if (stbAPI && stbAPI.ExecAction) stbAPI.ExecAction('setup'); } catch(err) {}
+            return true;
+        }
+
+        // Apuntar las teclas que no manejamos, para saber cual es cual en cada
+        // mando sin tener que ir adivinando.
+        if (!teclasVistas[k]) {
+            teclasVistas[k] = 1;
+            api('type=stb&action=log&diag=' + encodeURIComponent('tecla=' + k), function() {});
+        }
+        return false;
+    }
+
     function handleKey(e) {
         var k = e.keyCode;
         if (k === 107) { adjustVolume(5); return false; }
@@ -1255,6 +1293,8 @@
                 toggleFavOnly();
             } else if (k === 115) {
                 toggleFavorite();
+            } else {
+                accesoConfiguracion(k);
             }
         }
         return false;
