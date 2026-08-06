@@ -34,6 +34,7 @@
     var recIdx = 0;
     var toastTimeout = null;
     var avisoCanal = null;
+    var MOSTRAR_LOGOS = false;   // ponerlo a true cuando haya un juego completo
 
     function fitScreen() {
         // No se escala nada: la pagina se adapta sola al tamano del navegador.
@@ -776,10 +777,12 @@
             // El hueco va siempre, con logotipo o sin el: si falta, la lista se
             // descuadra porque el nombre arranca en otro sitio. Los que no
             // tienen logotipo llevan sus iniciales.
-            h += '<div class="ico">';
-            if (c.logo) h += '<img src="' + esc(c.logo) + '" onerror="this.parentNode.innerHTML=\'<b>' + esc(iniciales(c.name)) + '</b>\'">';
-            else h += '<b>' + esc(iniciales(c.name)) + '</b>';
-            h += '</div>';
+            if (MOSTRAR_LOGOS) {
+                h += '<div class="ico">';
+                if (c.logo) h += '<img src="' + esc(c.logo) + '" onerror="this.parentNode.innerHTML=\'<b>' + esc(iniciales(c.name)) + '</b>\'">';
+                else h += '<b>' + esc(iniciales(c.name)) + '</b>';
+                h += '</div>';
+            }
             h += '<div class="info"><div class="name">' + esc(c.name);
             if (c.hd) h += ' <span class="hd">HD</span>';
             if (c.fav) h += ' <span class="fav">★</span>';
@@ -1043,7 +1046,7 @@
 
         var h = '<div class="osd-fila">';
         h += '<div class="osd-num">' + ch.number + '</div>';
-        if (ch.logo) h += '<div class="osd-ico"><img src="' + esc(ch.logo) + '" onerror="this.style.display=0"></div>';
+        if (MOSTRAR_LOGOS && ch.logo) h += '<div class="osd-ico"><img src="' + esc(ch.logo) + '" onerror="this.style.display=0"></div>';
 
         h += '<div class="osd-datos">';
         h += '<div class="osd-ch">' + esc(ch.name);
@@ -1401,7 +1404,7 @@
         }
         .num {
             font-family: Antonio, sans-serif;
-            width: 62px; font-size: 30px; font-weight: 600; color: #6d7679;
+            width: 74px; font-size: 34px; font-weight: 600; color: #6d7679;
             text-align: right; flex-shrink: 0;
         }
         .item.sel .num { color: #81ba26; }
@@ -1420,7 +1423,7 @@
 
         .info { -webkit-box-flex: 1; flex: 1; overflow: hidden; }
         .name {
-            font-size: 25px; font-weight: 500; white-space: nowrap;
+            font-size: 27px; font-weight: 500; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis;
         }
         .epg {
@@ -1561,11 +1564,11 @@
             .counter { padding: 6px 12px; border-radius: 15px; font-size: 13px; }
 
             .item { padding: 9px 11px; margin: 5px 0; border-radius: 9px; gap: 11px; }
-            .num { width: 41px; font-size: 20px; }
+            .num { width: 49px; font-size: 23px; }
             .num.sm { font-size: 15px; width: 56px; }
             .ico { width: 36px; height: 27px; }
             .ico b { font-size: 13px; }
-            .name { font-size: 17px; }
+            .name { font-size: 18px; }
             .epg { font-size: 11px; margin-top: 3px; }
             .hd, .rec, .live, .st { font-size: 9px; padding: 2px 5px; margin-left: 5px; }
             .fav, .arch, .lock { font-size: 13px; margin-left: 5px; }
