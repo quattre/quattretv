@@ -50,6 +50,12 @@
             // no pinta nada en manos de un cliente y ademas se superpone a la
             // imagen. Se desactiva; mas abajo se monta una combinacion para
             // poder entrar cuando haga falta.
+            // Desactivar el boton de configuracion tiene un efecto util ademas
+            // de evitar que el cliente entre sin querer: el deco deja de
+            // quedarse la tecla y esta pasa al portal, que es lo que permite
+            // contar las cinco pulsaciones.
+            try { if (gSTB.EnableServiceButton) gSTB.EnableServiceButton(false); } catch(err) {}
+            try { if (gSTB.EnableAppButton) gSTB.EnableAppButton(false); } catch(err) {}
             try {
                 stbAPI.InitPlayer();
                 stbAPI.SetTopWin(0);        // 0 = los graficos por delante
@@ -1151,6 +1157,10 @@
         if (vecesTecla >= 5) {
             vecesTecla = 0;
             toast('Abriendo la configuracion del equipo');
+            // Se para la reproduccion antes: con el video en marcha, su menu
+            // queda por debajo de la imagen y no se lee.
+            try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
+            playingChannelIdx = -1;
             try { if (stbAPI && stbAPI.EnableServiceButton) stbAPI.EnableServiceButton(true); } catch(err) {}
             try { if (stbAPI && stbAPI.ExecAction) stbAPI.ExecAction('setup'); } catch(err) {}
             return true;
