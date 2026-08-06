@@ -176,11 +176,12 @@
     // es la que declaramos en init() con SetViewport, y el propio deco se
     // encarga de escalarla a lo que tenga el televisor (720p, 1080i, lo que
     // sea). Por eso vale para todas las resoluciones.
+    // El plano de video va por su cuenta y es de 1920x1080 aunque el navegador
+    // dibuje a 720p: son dos resoluciones distintas dentro del mismo aparato.
+    // Al pasarle las de la ventana, la miniatura se iba al centro y la pantalla
+    // completa se quedaba corta.
     function plano() {
-        return {
-            ancho: window.innerWidth || LIENZO.ancho,
-            alto: window.innerHeight || LIENZO.alto
-        };
+        return { ancho: 1920, alto: 1080 };
     }
 
     function huecoDeco() {
