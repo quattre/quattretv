@@ -353,6 +353,7 @@
         playingChannelIdx = -1;   // ya no suena el canal de la lista
         setViewportFullscreen();
         isFullscreen = true;
+        graficosDelante();
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
@@ -717,6 +718,7 @@
     }
 
     function toast(msg) {
+        graficosDelante();
         var t = document.getElementById("toast");
         t.innerHTML = esc(msg);
         t.style.display = "block";
@@ -962,8 +964,20 @@
 
     // La barra se retira sola: dejarla fija tapa parte de la imagen.
     var osdTimeout = null;
+
+    // En el deco el video es una capa por hardware que puede quedar POR ENCIMA
+    // del HTML, sobre todo al pasar a pantalla completa. Se reafirma que los
+    // graficos van delante cada vez que hay que enseñar algo encima del video.
+    function graficosDelante() {
+        if (!stbAPI) return;
+        try { if (stbAPI.SetTopWin) stbAPI.SetTopWin(1); } catch(err) {}
+        try { if (stbAPI.SetAlphaLevel) stbAPI.SetAlphaLevel(255); } catch(err) {}
+        try { if (stbAPI.ShowSubtitle) {} } catch(err) {}
+    }
+
     function mostrarOsd(ch) {
         var osd = document.getElementById("osd");
+        graficosDelante();
         osd.innerHTML = osdFor(ch);
         osd.style.display = "block";
         clearTimeout(osdTimeout);
@@ -987,6 +1001,7 @@
         }
 
         isFullscreen = true;
+        graficosDelante();
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
@@ -1007,6 +1022,7 @@
     }
 
     function showVolume() {
+        graficosDelante();
         var v = document.getElementById("vol");
         v.innerHTML = "Vol: " + volume;
         v.style.display = "block";
@@ -1306,7 +1322,7 @@
             display: none; position: fixed; left: 0; right: 0; bottom: 0;
             padding: 12vh 3.6vw 5.2vh;
             background: linear-gradient(to top,
-                        rgba(20,23,25,.96) 0%, rgba(20,23,25,.85) 45%, rgba(20,23,25,0) 100%);
+                        rgba(20,23,25,.98) 0%, rgba(20,23,25,.92) 45%, rgba(20,23,25,0) 100%);
         }
         .osd-fila { display: -webkit-box; -webkit-box-align: end;
                     display: flex; align-items: flex-end; gap: 1.4vw; }
