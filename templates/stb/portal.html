@@ -52,10 +52,9 @@
             // poder entrar cuando haga falta.
             try {
                 stbAPI.InitPlayer();
-                stbAPI.SetViewport(0, 0, plano().ancho, plano().alto);
-                stbAPI.SetWinMode(0, 1);
-                stbAPI.SetTopWin(1);
-                stbAPI.SetTransparentColor(0x000000);
+                stbAPI.SetTopWin(0);        // 0 = los graficos por delante
+                stbAPI.SetAspect(0x10);
+                stbAPI.SetPIG(1, -1, -1, -1);
                 volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50;
             } catch(err) {}
         } else if (typeof stb !== "undefined") {
@@ -200,31 +199,36 @@
         if (useHTML5) {
             htmlPlayer.style.cssText =
                 'position:fixed;' + huecoCss() + ';z-index:2;border-radius:14px;';
+        } else if (stbAPI) {
+            // Ojo al orden: SetViewport es (ancho, alto, x, y).
+            try {
+                stbAPI.SetTopWin(0);
+                stbAPI.SetViewport(r.width, r.height, r.x, r.y);
+            } catch(err) {}
         } else if (player) {
             try {
                 player.fullscreen = false;
                 player.aspectConversion = 1;
                 player.setViewport(r);
             } catch(err) {}
-        } else if (stbAPI) {
-            try { stbAPI.SetPIG(0, 128, r.x, r.y); } catch(err) {}
         }
     }
 
     function setViewportFullscreen() {
         if (useHTML5) {
             htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;';
+        } else if (stbAPI) {
+            // Asi lo hace el portal de siempre: PIG en modo 1 con el resto en
+            // -1 (dejar como esta), y los graficos por delante.
+            try {
+                stbAPI.SetTopWin(0);
+                stbAPI.SetPIG(1, -1, -1, -1);
+            } catch(err) {}
         } else if (player) {
             try {
-                // fullscreen=true es lo que usaba el portal desde el principio y
-                // con eso los graficos SI quedaban por delante. Ponerlo a false
-                // con un viewport de pantalla completa cambia el modo del
-                // reproductor y se come el menu y la barra.
                 player.fullscreen = true;
                 player.setViewport({x: 0, y: 0, width: plano().ancho, height: plano().alto});
             } catch(err) {}
-        } else if (stbAPI) {
-            try { stbAPI.SetPIG(1, 256, 0, 0); } catch(err) {}
         }
     }
 
@@ -233,10 +237,10 @@
             var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
             htmlPlayer.src = url;
             htmlPlayer.play().catch(function(e) { console.log('Play error:', e); });
-        } else if (player) {
-            try { player.play({uri: ch.cmd}); } catch(err) {}
         } else if (stbAPI) {
             try { stbAPI.Play(ch.cmd); } catch(err) {}
+        } else if (player) {
+            try { player.play({uri: ch.cmd}); } catch(err) {}
         }
         document.body.style.background = "transparent";
 
@@ -1049,7 +1053,7 @@
     // graficos van delante cada vez que hay que enseñar algo encima del video.
     function graficosDelante() {
         if (!stbAPI) return;
-        try { if (stbAPI.SetTopWin) stbAPI.SetTopWin(1); } catch(err) {}
+        try { if (stbAPI.SetTopWin) stbAPI.SetTopWin(0); } catch(err) {}
         try { if (stbAPI.SetAlphaLevel) stbAPI.SetAlphaLevel(255); } catch(err) {}
     }
 
@@ -1063,55 +1067,13 @@
         });
     }
 
-    // En el deco el video va por una capa de hardware que se pone por delante del
-    // navegador y no hay forma de evitarlo: la barra se dibuja bien pero queda
-    // tapada. Asi que mientras se enseña se le hace sitio, encogiendo la imagen
-    // a la parte de arriba. Se respeta el 16:9 para que no se deforme, y al
-    // ocultarse vuelve a pantalla completa. En la LG no hace falta, porque alli
-    // el video es un elemento mas de la pagina.
-    function huecoConBarra() {
-        var p = plano();
-        var alto = Math.round(p.alto * 0.80);
-        var ancho = Math.round(alto * 16 / 9);
-        if (ancho > p.ancho) { ancho = p.ancho; alto = Math.round(ancho * 9 / 16); }
-        return { x: Math.round((p.ancho - ancho) / 2), y: 0, width: ancho, height: alto };
-    }
-
-    function hacerSitioALaBarra(hacerlo) {
-        if (useHTML5 || !isFullscreen) return;
-        try {
-            if (player) {
-                if (hacerlo) {
-                    var r = huecoConBarra();
-                    player.fullscreen = false;
-                    player.aspectConversion = 1;
-                    player.setViewport(r);
-                } else {
-                    player.fullscreen = true;
-                    player.setViewport({x: 0, y: 0, width: plano().ancho, height: plano().alto});
-                }
-            } else if (stbAPI) {
-                if (hacerlo) {
-                    var r2 = huecoConBarra();
-                    stbAPI.SetPIG(0, 255, r2.x, r2.y);
-                } else {
-                    stbAPI.SetPIG(1, 255, 0, 0);
-                }
-            }
-        } catch(err) {}
-    }
-
     function mostrarOsd(ch) {
         var osd = document.getElementById("osd");
         graficosDelanteInsistiendo();
         osd.innerHTML = osdFor(ch);
         osd.style.display = "block";
-        hacerSitioALaBarra(true);
         clearTimeout(osdTimeout);
-        osdTimeout = setTimeout(function() {
-            osd.style.display = "none";
-            hacerSitioALaBarra(false);
-        }, 12000);
+        osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 12000);
     }
 
     function goFullscreen() {
@@ -1486,9 +1448,9 @@
            el texto se lea sobre cualquier imagen sin tapar el video. */
         #osd {
             display: none; position: fixed; left: 0; right: 0; bottom: 0;
-            padding: 130px 70px 56px;
-            background: linear-gradient(to top,
-                        rgba(20,23,25,.98) 0%, rgba(20,23,25,.92) 45%, rgba(20,23,25,0) 100%);
+            padding: 26px 70px 30px;
+            background: #2c3134;
+            border-top: 4px solid #81ba26;
         }
         .osd-fila { display: -webkit-box; -webkit-box-align: end;
                     display: flex; align-items: flex-end; gap: 26px; }
