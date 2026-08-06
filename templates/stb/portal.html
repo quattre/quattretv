@@ -745,6 +745,7 @@
 
     function showChannels() {
         view = "list";
+        graficosDelante();
         var ch = channels[currentChannel];
         var h = '<div class="panel">';
         h += '<div class="header"><div class="logo">Quattre TV</div>';
@@ -1061,6 +1062,10 @@
         if (!stbAPI) return;
         try { if (stbAPI.SetTopWin) stbAPI.SetTopWin(0); } catch(err) {}
         try { if (stbAPI.SetAlphaLevel) stbAPI.SetAlphaLevel(255); } catch(err) {}
+        // Hay que insistir: el aparato los vuelve a habilitar por su cuenta, y
+        // por eso la configuracion se abria a la primera pulsacion.
+        try { if (stbAPI.EnableServiceButton) stbAPI.EnableServiceButton(false); } catch(err) {}
+        try { if (stbAPI.EnableVKButton) stbAPI.EnableVKButton(false); } catch(err) {}
     }
 
     // El aparato coloca su video por delante en el momento en que empieza a
@@ -1457,10 +1462,12 @@
         /* Barra inferior a pantalla completa. Se degrada hacia arriba para que
            el texto se lea sobre cualquier imagen sin tapar el video. */
         #osd {
-            display: none; position: fixed; left: 0; right: 0; bottom: 0;
-            padding: 22px 60px 24px;
+            display: none; position: fixed; left: 40px; right: 40px; bottom: 40px;
+            padding: 22px 34px 24px;
             background: #2c3134;
-            border-top: 4px solid #81ba26;
+            border-left: 5px solid #81ba26;
+            border-radius: 14px;
+            box-shadow: 0 14px 46px rgba(0,0,0,.55);
         }
         .osd-fila { display: -webkit-box; -webkit-box-align: end;
                     display: flex; align-items: flex-end; gap: 26px; }
@@ -1553,7 +1560,8 @@
             #preview-cap .t { font-size: 27px; }
             #preview-cap .e { font-size: 14px; margin-top: 6px; }
 
-            #osd { padding: 14px 34px 16px; border-top-width: 3px; }
+            #osd { left: 27px; right: 27px; bottom: 27px;
+                   padding: 14px 22px 16px; border-radius: 9px; border-left-width: 4px; }
             .osd-fila { gap: 14px; }
             .osd-num { font-size: 38px; }
             .osd-ico { width: 48px; height: 36px; border-radius: 5px; }
