@@ -35,20 +35,10 @@
     var toastTimeout = null;
     var avisoCanal = null;
 
-    var LIENZO = { ancho: 1920, alto: 1080 };   // sobre el que esta hecho el diseno
-
     function fitScreen() {
-        // El diseno se hace sobre 1920x1080. La LG dibuja justo a esa medida,
-        // pero el MAG520 lo hace a 1280x720 y todo salia un 50 % mas grande.
-        // Se encoge con zoom y NO con transform: transform en un ancestro rompe
-        // el plano de video por hardware del deco, zoom no lo toca porque el
-        // video va por una capa aparte.
-        var an = window.innerWidth || LIENZO.ancho;
-        var al = window.innerHeight || LIENZO.alto;
-        var k = Math.min(an / LIENZO.ancho, al / LIENZO.alto);
-        if (k > 0 && Math.abs(k - 1) > 0.01) {
-            try { document.body.style.zoom = k; } catch(err) {}
-        }
+        // No se escala nada: la pagina se adapta sola al tamano del navegador.
+        // Ni transform (rompe el plano de video del deco) ni zoom (obliga a
+        // recomponer la pagina entera en cada repintado y lo deja lento).
     }
 
     function init() {
@@ -60,8 +50,6 @@
             // no pinta nada en manos de un cliente y ademas se superpone a la
             // imagen. Se desactiva; mas abajo se monta una combinacion para
             // poder entrar cuando haga falta.
-            try { if (gSTB.EnableServiceButton) gSTB.EnableServiceButton(false); } catch(err) {}
-            try { if (gSTB.EnableAppButton) gSTB.EnableAppButton(false); } catch(err) {}
             try {
                 stbAPI.InitPlayer();
                 stbAPI.SetViewport(0, 0, plano().ancho, plano().alto);
@@ -1325,7 +1313,7 @@
         /* Identidad de Quattre: verde #81ba26 sobre carbon #2c3134, titulares en
            Antonio. Antes se usaba un verde y un azul que no eran los de la casa. */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 1920px; height: 1080px; overflow: hidden; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
         body {
             background: #1e2225;
             color: #fff;
