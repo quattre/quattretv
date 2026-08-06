@@ -1506,6 +1506,53 @@
             background: rgba(255,255,255,.05); border-radius: 14px;
             padding: 22px 32px; display: inline-block; min-width: 280px;
         }
+
+        /* Aparatos que dibujan a 720p, como el MAG520. El diseno de arriba esta
+           pensado para 1080p; aqui van las mismas medidas a dos tercios. Se hace
+           con una consulta de medios y no con zoom: el navegador lo resuelve una
+           sola vez, mientras que el zoom le obliga a recomponer la pagina en
+           cada repintado y deja el aparato lento. */
+        @media (max-width: 1400px) {
+            .panel { top: 27px; left: 27px; width: 440px; height: 667px;
+                     border-radius: 15px; padding: 21px 20px; }
+            .header { margin-bottom: 15px; padding-bottom: 13px; }
+            .logo { font-size: 31px; }
+            .counter { padding: 6px 12px; border-radius: 15px; font-size: 13px; }
+
+            .item { padding: 9px 11px; margin: 5px 0; border-radius: 9px; gap: 11px; }
+            .num { width: 41px; font-size: 20px; }
+            .num.sm { font-size: 15px; width: 56px; }
+            .ico { width: 36px; height: 27px; }
+            .name { font-size: 17px; }
+            .epg { font-size: 11px; margin-top: 3px; }
+            .hd, .rec, .live, .st { font-size: 9px; padding: 2px 5px; margin-left: 5px; }
+            .fav, .arch, .lock { font-size: 13px; margin-left: 5px; }
+            .bar { height: 3px; margin-top: 6px; }
+            .descr { font-size: 12px; padding: 11px 4px; }
+            .help { font-size: 10px; }
+            .help span { padding: 3px 7px; margin: 0 3px; }
+
+            #preview { top: 80px; left: 499px; width: 754px; height: 424px;
+                       border-radius: 12px; font-size: 17px; }
+            #preview-cap { top: 521px; left: 499px; width: 754px; }
+            #preview-cap .t { font-size: 27px; }
+            #preview-cap .e { font-size: 14px; margin-top: 6px; }
+
+            #osd { padding: 87px 47px 37px; }
+            .osd-fila { gap: 17px; }
+            .osd-num { font-size: 52px; }
+            .osd-ico { width: 64px; height: 48px; border-radius: 7px; }
+            .osd-ch { font-size: 27px; }
+            .osd-prog { font-size: 17px; margin-top: 7px; }
+            .osd-epg { font-size: 13px; margin-top: 5px; }
+            .osd-reloj { font-size: 35px; }
+            #osd .bar { max-width: 600px; }
+
+            #vol { padding: 17px 35px; font-size: 20px; border-radius: 11px; }
+            #toast { bottom: 43px; padding: 13px 24px; font-size: 15px; border-radius: 9px; }
+            #numjump { top: 43px; right: 48px; padding: 15px 28px; font-size: 40px; }
+            .pinbox { font-size: 37px; letter-spacing: 8px; padding: 15px 21px; min-width: 187px; }
+        }
     </style>
 </head>
 <body>
