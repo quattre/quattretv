@@ -228,9 +228,11 @@
             htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;';
         } else if (player) {
             try {
-                // Sin fullscreen=true: ese modo sube el plano de video por
-                // encima del navegador y se lleva por delante la barra de EPG.
-                player.fullscreen = false;
+                // fullscreen=true es lo que usaba el portal desde el principio y
+                // con eso los graficos SI quedaban por delante. Ponerlo a false
+                // con un viewport de pantalla completa cambia el modo del
+                // reproductor y se come el menu y la barra.
+                player.fullscreen = true;
                 player.setViewport({x: 0, y: 0, width: plano().ancho, height: plano().alto});
             } catch(err) {}
         } else if (stbAPI) {
@@ -249,7 +251,6 @@
             try { stbAPI.Play(ch.cmd); } catch(err) {}
         }
         document.body.style.background = "transparent";
-        graficosDelanteInsistiendo();
 
         // Avisar del cambio de canal, pero no en cada pulsacion: haciendo
         // zapping serian muchas peticiones seguidas y el deco se atasca. Se
@@ -1069,7 +1070,7 @@
     // rato despues: si no, la barra se ve un instante y la tapa la imagen.
     function graficosDelanteInsistiendo() {
         graficosDelante();
-        [200, 600, 1200, 2500].forEach(function(ms) {
+        [400, 1500].forEach(function(ms) {
             setTimeout(graficosDelante, ms);
         });
     }
