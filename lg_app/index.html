@@ -110,9 +110,10 @@
         // o dos semanas de aprobacion por cada cambio.
         //
         // El orden importa: iptv2 primero porque es el unico que tiene HTTPS
-        // hoy. iptv1 apunta todavia a la maquina vieja, con el puerto 443
-        // cerrado, asi que ponerlo primero costaria 8 segundos de espera en
-        // cada encendido hasta el dia de la migracion.
+        // hoy. iptv1 apunta todavia a la maquina vieja y su puerto 443 no
+        // rechaza, descarta en silencio: medido, tarda 3,1 s constantes en
+        // fallar. Ponerlo primero costaria esos 3 s en cada encendido hasta el
+        // dia de la migracion, sin ganar nada.
         //
         // El dia que iptv1 pase a la maquina nueva y se le ponga certificado,
         // esta lista ya no hay que tocarla: pasa a ser un respaldo de verdad.

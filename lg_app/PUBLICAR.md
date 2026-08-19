@@ -8,8 +8,8 @@ vale para la LG de cualquier cliente, no solo para la de pruebas.
 ## El bloqueo que habia ya no existe
 
 LG exige **HTTPS** para todo el contenido de red. La app apuntaba a
-`http://ipipiptv1.quattre.com:8000` y eso hacia imposible enviarla. Ahora apunta a
-`https://ipiptv1.quattre.com`, con certificado que se renueva solo, asi que ese
+`http://iptv1.quattre.com:8000` y eso hacia imposible enviarla. Ahora apunta a
+`https://iptv2.quattre.com`, con certificado que se renueva solo, asi que ese
 requisito esta cumplido.
 
 ## Lo que ya esta listo
