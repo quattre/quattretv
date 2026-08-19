@@ -1042,7 +1042,7 @@
         if (ch.cur_playing) {
             html += '<div class="e">' + esc(ch.epg_cur_start) + ' - ' + esc(ch.epg_cur_end) +
                     '  ' + esc(ch.cur_playing) + '</div>';
-            html += '<div class="bar" style="width:520px;"><i style="width:' +
+            html += '<div class="bar" style="max-width:520px;"><i style="width:' +
                     (ch.epg_progress || 0) + '%"></i></div>';
         }
         if (ch.epg_next) {
@@ -1501,12 +1501,14 @@
             display: flex; align-items: center; justify-content: center;
             color: #5a6265; font-size: 26px;
         }
-        #preview-cap {
-            position: fixed; top: 782px; left: 749px; width: 1131px; z-index: 2;
-            display: -webkit-box; -webkit-box-align: start;
-            display: flex; align-items: flex-start; gap: 26px;
-        }
-        #preview-cap .txt { -webkit-box-flex: 1; flex: 1; min-width: 0; }
+        /* Ojo: el JS le pone display:block en linea al mostrarla, asi que aqui
+           no vale flex — el estilo en linea gana y la caratula se apilaba encima
+           del texto, empujandolo fuera de la pantalla. Con flotante da igual el
+           display, y ademas es lo unico seguro en el navegador del MAG520. */
+        #preview-cap { position: fixed; top: 782px; left: 749px; width: 1131px; z-index: 2; }
+        /* overflow crea su propio contexto: el texto se queda en su columna en
+           vez de envolver por debajo de la caratula. */
+        #preview-cap .txt { overflow: hidden; }
         #preview-cap .t {
             font-family: Antonio, sans-serif;
             font-size: 40px; font-weight: 600; letter-spacing: .5px;
@@ -1519,7 +1521,8 @@
            ven enteras y sin deformar. Nada de object-fit: el navegador del
            MAG520 no lo lleva. */
         .cartel {
-            height: 152px; width: auto; max-width: 300px; flex-shrink: 0;
+            height: 152px; width: auto; max-width: 260px;
+            float: left; margin-right: 24px;
             border-radius: 10px; display: block;
             border: 1px solid rgba(255,255,255,.1);
             box-shadow: 0 10px 30px rgba(0,0,0,.6);
@@ -1636,10 +1639,10 @@
 
             #preview { top: 80px; left: 499px; width: 754px; height: 424px;
                        border-radius: 12px; font-size: 17px; }
-            #preview-cap { top: 521px; left: 499px; width: 754px; gap: 17px; }
+            #preview-cap { top: 521px; left: 499px; width: 754px; }
             #preview-cap .t { font-size: 27px; }
             #preview-cap .e { font-size: 14px; margin-top: 6px; }
-            .cartel { height: 101px; max-width: 200px; border-radius: 7px; }
+            .cartel { height: 101px; max-width: 173px; margin-right: 16px; border-radius: 7px; }
             .osd-cartel { height: 64px; max-width: 120px; border-radius: 5px; }
 
             #osd { left: 27px; right: 27px; bottom: 27px;
