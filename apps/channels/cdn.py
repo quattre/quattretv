@@ -140,7 +140,9 @@ def reiniciar_canal(channel):
         '-o', f'ConnectTimeout={TIMEOUT}',
         '-p', str(channel.cdn.ssh_port),
         f'{channel.cdn.ssh_user}@{channel.cdn.ssh_host}',
-        f'sudo systemctl restart {unidad}',
+        # -n para que falle diciéndolo si falta la regla de sudoers, en vez de
+        # quedarse esperando una contraseña que nadie va a teclear.
+        f'sudo -n systemctl restart {unidad}',
     ]
 
     logger.info('Reiniciando %s en %s', unidad, channel.cdn.name)
@@ -156,6 +158,11 @@ def reiniciar_canal(channel):
 
     if proceso.returncode != 0:
         error = (proceso.stderr or proceso.stdout or '').strip()[:300]
+        if 'password is required' in error or 'a terminal is required' in error:
+            return False, (
+                f'{channel.cdn.name} pide contraseña de sudo. Falta la regla '
+                f'/etc/sudoers.d/quattre-cdn (ver deploy/README.md)'
+            )
         return False, f'Fallo al reiniciar {unidad}: {error}'
 
     try:
