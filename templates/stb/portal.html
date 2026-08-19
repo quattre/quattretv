@@ -1027,7 +1027,18 @@
     function updatePreviewCap(ch) {
         var cap = document.getElementById("preview-cap");
         if (!cap || !ch) return;
-        var html = '<div class="t">' + ch.number + '. ' + esc(ch.name) + '</div>';
+
+        // La caratula del programa que dan las fuentes de EPG. Si no llega o no
+        // carga, el hueco desaparece y el texto ocupa todo, sin dejar marco
+        // vacio: es lo que afeaba la lista cuando faltaba el logotipo.
+        var html = '';
+        if (ch.epg_icon) {
+            html += '<img class="cartel" src="' + esc(ch.epg_icon) +
+                    '" onerror="this.style.display=\'none\'">';
+        }
+
+        html += '<div class="txt">';
+        html += '<div class="t">' + ch.number + '. ' + esc(ch.name) + '</div>';
         if (ch.cur_playing) {
             html += '<div class="e">' + esc(ch.epg_cur_start) + ' - ' + esc(ch.epg_cur_end) +
                     '  ' + esc(ch.cur_playing) + '</div>';
@@ -1037,6 +1048,7 @@
         if (ch.epg_next) {
             html += '<div class="e">Despues: ' + esc(ch.epg_next_start) + ' ' + esc(ch.epg_next) + '</div>';
         }
+        html += '</div>';
         cap.innerHTML = html;
     }
 
@@ -1047,6 +1059,10 @@
         var h = '<div class="osd-fila">';
         h += '<div class="osd-num">' + ch.number + '</div>';
         if (MOSTRAR_LOGOS && ch.logo) h += '<div class="osd-ico"><img src="' + esc(ch.logo) + '" onerror="this.style.display=0"></div>';
+        // Miniatura de lo que estan echando. Da imagen a la barra sin robarle
+        // sitio al texto, y desaparece sola si la fuente no la trae.
+        if (ch.epg_icon) h += '<img class="osd-cartel" src="' + esc(ch.epg_icon) +
+                              '" onerror="this.style.display=\'none\'">';
 
         h += '<div class="osd-datos">';
         h += '<div class="osd-ch">' + esc(ch.name);
@@ -1348,13 +1364,17 @@
     window.onload = init;
     </script>
     <style>
-        /* Identidad de Quattre: verde #81ba26 sobre carbon #2c3134, titulares en
-           Antonio. Antes se usaba un verde y un azul que no eran los de la casa. */
+        /* Identidad de Quattre: verde #81ba26 sobre carbon, titulares en Antonio.
+           El fondo va casi negro y no gris: en una tele los grises medios se ven
+           lavados y apagan el verde, que es justo lo que pasaba. Sobre negro el
+           verde de la marca recupera fuerza sin tener que cambiarlo.
+           El verde vivo (#9ad62f) es el mismo tono un punto mas claro, para los
+           realces en pantalla; el de la marca se reserva al logotipo. */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; }
         body {
-            background: #1e2225;
-            color: #fff;
+            background: #080b0d;
+            color: #f2f5f3;
             font-family: 'Segoe UI', Roboto, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
         }
@@ -1366,10 +1386,10 @@
             -webkit-box-orient: vertical;
             position: fixed; top: 40px; left: 40px; width: 660px; height: 1000px;
             display: flex; flex-direction: column;
-            background: rgba(44,49,52,.94);
+            background: #11171a;
             border-radius: 22px; padding: 32px 30px;
-            border: 1px solid rgba(255,255,255,.07);
-            box-shadow: 0 24px 70px rgba(0,0,0,.55);
+            border: 1px solid rgba(255,255,255,.06);
+            box-shadow: 0 30px 90px rgba(0,0,0,.75);
         }
 
         .header {
@@ -1384,8 +1404,9 @@
             letter-spacing: .5px; line-height: 1;
         }
         .counter {
-            background: rgba(129,186,38,.16); color: #9bd63a;
-            padding: 9px 18px; border-radius: 22px; font-size: 19px; font-weight: 600;
+            background: rgba(154,214,47,.12); color: #9ad62f;
+            border: 1px solid rgba(154,214,47,.22);
+            padding: 8px 18px; border-radius: 22px; font-size: 19px; font-weight: 600;
         }
 
         /* ---------- Lista ---------- */
@@ -1394,21 +1415,24 @@
             display: -webkit-box; -webkit-box-align: center;
             display: flex; align-items: center; gap: 16px;
             padding: 14px 16px; margin: 7px 0; border-radius: 14px;
-            background: rgba(255,255,255,.035);
+            background: rgba(255,255,255,.022);
             border-left: 4px solid transparent;
             transition: background .12s, border-color .12s;
         }
+        /* El seleccionado se levanta con una superficie solida y un filo verde.
+           Antes era un degradado translucido que en la tele quedaba desvaido. */
         .item.sel {
-            background: linear-gradient(90deg, rgba(129,186,38,.26) 0%, rgba(129,186,38,.06) 100%);
-            border-left-color: #81ba26;
+            background: #1d262a;
+            border-left-color: #9ad62f;
+            box-shadow: 0 0 0 1px rgba(154,214,47,.18), 0 8px 26px rgba(0,0,0,.5);
         }
         .num {
             font-family: Antonio, sans-serif;
-            width: 74px; font-size: 34px; font-weight: 600; color: #6d7679;
+            width: 74px; font-size: 34px; font-weight: 600; color: #5c686c;
             text-align: right; flex-shrink: 0;
         }
-        .item.sel .num { color: #81ba26; }
-        .num.sm { font-size: 22px; width: 84px; color: #9ba3a8; }
+        .item.sel .num { color: #9ad62f; }
+        .num.sm { font-size: 22px; width: 84px; color: #98a3a6; }
 
         .ico {
             width: 54px; height: 40px; flex-shrink: 0;
@@ -1440,21 +1464,25 @@
         }
         .hd   { background: rgba(255,255,255,.14); color: #fff; }
         .rec  { background: #e60000; color: #fff; }
-        .live { background: #81ba26; color: #14210a; }
+        .live { background: #9ad62f; color: #0d1505; }
         .fav  { color: #fdeb00; font-size: 19px; margin-left: 7px; }
         .arch { color: #c9d1cb; font-size: 19px; margin-left: 7px; }
         .lock { color: #ff7900; font-size: 18px; margin-left: 7px; }
         .item.past { opacity: .5; }
 
-        .bar { height: 5px; background: rgba(255,255,255,.1); border-radius: 3px; margin-top: 9px; overflow: hidden; }
-        .bar i { display: block; height: 100%; background: #81ba26; border-radius: 3px; }
+        .bar { height: 5px; background: rgba(255,255,255,.08); border-radius: 3px; margin-top: 9px; overflow: hidden; }
+        .bar i {
+            display: block; height: 100%; border-radius: 3px;
+            background: #9ad62f;
+            background: linear-gradient(90deg, #81ba26 0%, #9ad62f 100%);
+        }
 
         .descr {
             color: #c9d1cb; font-size: 18px; line-height: 1.5;
             padding: 16px 6px; border-top: 1px solid rgba(255,255,255,.08);
         }
 
-        .st.completed { background: #81ba26; color: #14210a; }
+        .st.completed { background: #9ad62f; color: #0d1505; }
         .st.recording { background: #e60000; color: #fff; }
         .st.scheduled { background: rgba(255,255,255,.16); color: #fff; }
         .st.failed    { background: #6d7679; color: #fff; }
@@ -1473,12 +1501,30 @@
             display: flex; align-items: center; justify-content: center;
             color: #5a6265; font-size: 26px;
         }
-        #preview-cap { position: fixed; top: 782px; left: 749px; width: 1131px; z-index: 2; }
+        #preview-cap {
+            position: fixed; top: 782px; left: 749px; width: 1131px; z-index: 2;
+            display: -webkit-box; -webkit-box-align: start;
+            display: flex; align-items: flex-start; gap: 26px;
+        }
+        #preview-cap .txt { -webkit-box-flex: 1; flex: 1; min-width: 0; }
         #preview-cap .t {
             font-family: Antonio, sans-serif;
             font-size: 40px; font-weight: 600; letter-spacing: .5px;
         }
-        #preview-cap .e { font-size: 21px; color: #9ba3a8; margin-top: 9px; }
+        #preview-cap .e { font-size: 21px; color: #98a3a6; margin-top: 9px; }
+
+        /* La caratula del programa, que ahora llega en el EPG. Cada fuente la
+           manda con una forma: Movistar+ vertical 2:3 y sincroguia apaisada
+           16:9. Se fija solo el alto y se deja el ancho libre, asi las dos se
+           ven enteras y sin deformar. Nada de object-fit: el navegador del
+           MAG520 no lo lleva. */
+        .cartel {
+            height: 152px; width: auto; max-width: 300px; flex-shrink: 0;
+            border-radius: 10px; display: block;
+            border: 1px solid rgba(255,255,255,.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,.6);
+            background: #11171a;
+        }
 
         /* ---------- Superpuestos ---------- */
         /* Barra inferior a pantalla completa. Se degrada hacia arriba para que
@@ -1486,17 +1532,27 @@
         #osd {
             display: none; position: fixed; left: 40px; right: 40px; bottom: 40px;
             padding: 22px 34px 24px;
-            background: #2c3134;
-            border-left: 5px solid #81ba26;
+            background: #10161a;
+            background: linear-gradient(180deg, #141b1f 0%, #0d1316 100%);
+            border-left: 5px solid #9ad62f;
             border-radius: 14px;
-            box-shadow: 0 14px 46px rgba(0,0,0,.55);
+            border-top: 1px solid rgba(255,255,255,.06);
+            box-shadow: 0 18px 60px rgba(0,0,0,.8);
         }
         .osd-fila { display: -webkit-box; -webkit-box-align: end;
                     display: flex; align-items: flex-end; gap: 26px; }
         .osd-num {
             font-family: Antonio, sans-serif;
-            font-size: 78px; font-weight: 700; color: #81ba26;
+            font-size: 78px; font-weight: 700; color: #9ad62f;
             line-height: .9; flex-shrink: 0;
+        }
+        /* Miniatura del programa en la barra, mismo criterio que el cartel
+           grande: alto fijo y ancho libre. */
+        .osd-cartel {
+            height: 96px; width: auto; max-width: 180px; flex-shrink: 0;
+            border-radius: 8px; display: block;
+            border: 1px solid rgba(255,255,255,.1);
+            background: #11171a;
         }
         .osd-ico {
             width: 96px; height: 72px; flex-shrink: 0; border-radius: 10px;
@@ -1514,19 +1570,20 @@
             font-size: 25px; margin-top: 10px; color: #fff;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .osd-prog b { color: #81ba26; font-weight: 600; margin-right: 14px; }
-        .osd-epg { font-size: 19px; color: #9ba3a8; margin-top: 8px; }
+        .osd-prog b { color: #9ad62f; font-weight: 600; margin-right: 14px; }
+        .osd-epg { font-size: 19px; color: #98a3a6; margin-top: 8px; }
         #osd .bar { width: 55%; max-width: 780px; height: 7px; margin-top: 10px; }
         .osd-reloj {
             font-family: Antonio, sans-serif;
-            font-size: 52px; font-weight: 600; color: #c9d1cb;
+            font-size: 52px; font-weight: 600; color: #e6ebe8;
             flex-shrink: 0; line-height: 1;
         }
 
         #vol, #toast, #numjump {
             position: fixed; z-index: 30; display: none;
-            background: rgba(44,49,52,.96);
-            box-shadow: 0 14px 46px rgba(0,0,0,.55);
+            background: #10161a;
+            border: 1px solid rgba(255,255,255,.07);
+            box-shadow: 0 18px 60px rgba(0,0,0,.8);
         }
         #vol {
             top: 50%; left: 50%; transform: translate(-50%,-50%);
@@ -1535,19 +1592,19 @@
         #toast {
             bottom: 64px; left: 50%; transform: translateX(-50%);
             padding: 20px 36px; font-size: 22px; border-radius: 14px;
-            border-left: 5px solid #81ba26;
+            border-left: 5px solid #9ad62f;
         }
         #numjump {
             top: 64px; right: 72px; padding: 22px 42px;
             font-family: Antonio, sans-serif;
             font-size: 60px; font-weight: 700; letter-spacing: 6px;
-            border-radius: 16px; color: #81ba26;
+            border-radius: 16px; color: #9ad62f;
         }
 
         .pinbox {
             font-family: Antonio, sans-serif;
-            font-size: 56px; letter-spacing: 12px; color: #81ba26; font-weight: 600;
-            background: rgba(255,255,255,.05); border-radius: 14px;
+            font-size: 56px; letter-spacing: 12px; color: #9ad62f; font-weight: 600;
+            background: rgba(255,255,255,.04); border-radius: 14px;
             padding: 22px 32px; display: inline-block; min-width: 280px;
         }
 
@@ -1579,9 +1636,11 @@
 
             #preview { top: 80px; left: 499px; width: 754px; height: 424px;
                        border-radius: 12px; font-size: 17px; }
-            #preview-cap { top: 521px; left: 499px; width: 754px; }
+            #preview-cap { top: 521px; left: 499px; width: 754px; gap: 17px; }
             #preview-cap .t { font-size: 27px; }
             #preview-cap .e { font-size: 14px; margin-top: 6px; }
+            .cartel { height: 101px; max-width: 200px; border-radius: 7px; }
+            .osd-cartel { height: 64px; max-width: 120px; border-radius: 5px; }
 
             #osd { left: 27px; right: 27px; bottom: 27px;
                    padding: 14px 22px 16px; border-radius: 9px; border-left-width: 4px; }
@@ -1605,7 +1664,7 @@
     <video id="html5video" autoplay playsinline style="position:fixed;top:11.1%;left:39%;width:58.9%;height:58.9%;z-index:2;border-radius:14px;display:none;"></video>
     <div id="preview"></div>
     <div id="preview-cap"></div>
-    <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">Quattre TV</div><div style="color:#9ba3a8;margin-top:20px;">Cargando canales...</div></div></div>
+    <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">QuattreTV</div><div style="color:#98a3a6;margin-top:20px;">Cargando canales...</div></div></div>
     <div id="osd"></div>
     <div id="vol" style="z-index:20;"></div>
     <div id="toast"></div>

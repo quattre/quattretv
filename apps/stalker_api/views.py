@@ -509,6 +509,9 @@ EMPTY_EPG = {
     'epg_next_start': '',
     'epg_cur_start': '',
     'epg_cur_end': '',
+    # La caratula del programa. Los decos de Infomir ignoran las claves que no
+    # conocen, asi que va en la misma respuesta sin romper nada.
+    'epg_icon': '',
 }
 
 EPG_CACHE_SECONDS = 60
@@ -550,6 +553,7 @@ def epg_now_next(channel_ids):
             epg_progress=p.progress_percent,
             epg_cur_start=timezone.localtime(p.start_time).strftime('%H:%M'),
             epg_cur_end=timezone.localtime(p.end_time).strftime('%H:%M'),
+            epg_icon=p.icon or '',
         )
 
     # Acotado a las proximas horas: sin el limite superior esta consulta traia
@@ -1066,6 +1070,7 @@ def handle_epg_table(request):
             'name': prog.title,
             'descr': prog.description or '',
             'category': prog.category or '',
+            'icon': prog.icon or '',
             # Extras used by our portal (MAG ignores unknown keys)
             'start_timestamp': int(prog.start_time.timestamp()),
             'stop_timestamp': int(prog.end_time.timestamp()),
@@ -1106,6 +1111,7 @@ def handle_epg_week(request):
             't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
             'name': prog.title,
             'descr': prog.description[:200] if prog.description else '',
+            'icon': prog.icon or '',
         })
 
     return stalker_response({'data': data})
