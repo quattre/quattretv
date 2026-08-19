@@ -114,10 +114,9 @@ algo que no es un corte de verdad:
 
     -dts_delta_threshold 30
 
-Con 30 segundos, el desajuste de 10,288 s de syfy pasa de largo y ffmpeg no lo
-toca. Y la vuelta a cero del reloj, que son 95.443 s, sigue estando muy por
-encima, asi que se sigue tratando como hasta ahora. Los demas canales no se
-enteran del cambio.
+Con 30 segundos, el salto de 10,288 s de syfy pasa de largo y ffmpeg no lo toca.
+Y la vuelta a cero del reloj, que son 95.443 s, sigue estando muy por encima, asi
+que se sigue tratando como hasta ahora.
 
 Es una opcion de entrada: va **antes** del `-i`.
 
@@ -132,12 +131,12 @@ que anadirle el hueco, con 30 s como valor por defecto. En el `ExecStart`:
      -i ${SRC} \
 ```
 
-Eso lo hace el script `fix_syfy.sh`, que hace copia de seguridad de la plantilla,
+Eso lo hace el script `poner_limite_discontinuidad.sh`, que hace copia de seguridad de la plantilla,
 aborta si la linea del `-i` no es la esperada y no hace nada si ya estuviera
 puesto. En cada CDN, como root:
 
 ```bash
-sudo bash /tmp/fix_syfy.sh
+sudo bash /tmp/poner_limite_discontinuidad.sh
 sudo systemctl daemon-reload
 ```
 
