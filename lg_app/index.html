@@ -108,13 +108,20 @@
         // servidor. Esto es solo el punto de entrada. Importa porque una vez
         // publicada, cambiar la app significa un envio nuevo a la tienda y una
         // o dos semanas de aprobacion por cada cambio.
+        //
+        // El orden importa: iptv2 primero porque es el unico que tiene HTTPS
+        // hoy. iptv1 apunta todavia a la maquina vieja, con el puerto 443
+        // cerrado, asi que ponerlo primero costaria 8 segundos de espera en
+        // cada encendido hasta el dia de la migracion.
+        //
+        // El dia que iptv1 pase a la maquina nueva y se le ponga certificado,
+        // esta lista ya no hay que tocarla: pasa a ser un respaldo de verdad.
+        // Y para mover a los clientes tampoco hace falta, porque /ping devuelve
+        // donde esta el portal. Importa porque una vez publicada la app,
+        // cambiarla es un envio nuevo y una o dos semanas de aprobacion.
         var SERVIDORES = [
-            'https://tv1.quattre.com',
-            'https://tv2.quattre.com',
-            // Red de seguridad: la direccion que funciona hoy. Se queda la
-            // ultima para que la app arranque aunque los nombres de arriba
-            // todavia no existan o se hayan cambiado mal.
-            'https://iptv2.quattre.com'
+            'https://iptv2.quattre.com',
+            'https://iptv1.quattre.com'
         ];
         var RUTA_PORTAL = '/quattretv/stb/';
         var ESPERA = 8000;   // ms que se le dan a cada servidor para contestar
