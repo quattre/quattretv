@@ -212,10 +212,17 @@ detecta. El unico rastro esta en el registro del propio canal.
 `anadir_deteccion_bucle.sh` le anade esa comprobacion, mirando el registro:
 
 ```bash
-bucle=$(journalctl -u "ffmpeg-hls@$canal.service" --since "2 min ago" \
+inv=$(systemctl show -p InvocationID --value "ffmpeg-hls@$canal.service")
+bucle=$(journalctl _SYSTEMD_INVOCATION_ID="$inv" --since "2 min ago" \
         --no-pager | grep -c "timestamp discontinuity")
 [ "$bucle" -gt 60 ] && reiniciar
 ```
+
+Se acota al **arranque actual del proceso** (`InvocationID`), no solo a los
+ultimos 2 minutos. Si no, la recomprobacion que hace el script 20 s despues de
+reiniciar seguiria contando los avisos de *antes* del reinicio y siempre diria
+"SIGUE FALLANDO DESPUES DEL REINICIO". Comprobado en cdn11: acotado asi, syfy
+sigue dando 5.676 y lasexta 0.
 
 **Umbral validado contra los 36 canales de cdn11**: 35 dan **0** y syfy da
 **5.606**. Casi dos ordenes de magnitud de margen, asi que no hay falsos

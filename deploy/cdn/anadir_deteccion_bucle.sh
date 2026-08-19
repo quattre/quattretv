@@ -49,7 +49,12 @@ nueva = '''    # 3.b bucle de correcciones de tiempo en la ENTRADA
     # que mira la salida, no lo ve — pero el sonido se descoloca. Solo se
     # arregla reiniciando. Un canal sano saca unos pocos avisos cada 26,5 h
     # (la vuelta a cero del reloj); uno atascado saca cientos por minuto.
-    bucle=$(journalctl -u "ffmpeg-hls@$canal.service" --since "2 min ago" --no-pager 2>/dev/null | grep -c "timestamp discontinuity")
+    #
+    # Se acota al arranque actual del proceso (InvocationID) y no solo a los
+    # ultimos 2 minutos: si no, la recomprobacion de despues del reinicio
+    # seguiria contando los avisos de ANTES y siempre diria que sigue fallando.
+    inv=$(systemctl show -p InvocationID --value "ffmpeg-hls@$canal.service" 2>/dev/null)
+    bucle=$(journalctl _SYSTEMD_INVOCATION_ID="$inv" --since "2 min ago" --no-pager 2>/dev/null | grep -c "timestamp discontinuity" || true)
     if [ "${bucle:-0}" -gt 60 ]; then
         if [ "$silent" != "silent" ]; then
             notify "$canal" "AUDIO DESCOLOCADO: bucle de correcciones ($bucle avisos en 2 min)" "⚠️"
