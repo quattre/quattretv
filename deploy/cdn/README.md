@@ -186,3 +186,52 @@ bash buscar_bucles.sh
 
 Una cuenta alta (decenas o cientos del mismo valor) es un canal atascado, y se
 arregla reiniciandolo. Cuentas de 2 a 5 son flipeos que se recuperan solos.
+
+## El vigilante que ya existe, y lo que le falta
+
+No es un cron: es `check-hls.service`, un servicio de systemd que corre
+`/usr/local/bin/check_hls.sh` como `www-data`, en bucle cada 300 s. Por canal
+comprueba cuatro cosas y, si falla alguna, avisa por Telegram y reinicia el
+canal:
+
+1. que exista `index.m3u8`
+2. que se haya actualizado hace menos de 20 s
+3. discontinuidades — `ffmpeg -t 1 -v debug -i index.m3u8`, si salen mas de 10
+4. que el directorio no pase de 800 MB
+
+**Funciona.** En 3 dias reinicio iberalia_pesca, levantetv y calle13, los tres
+por "SIN ACTUALIZAR", y los tres se restauraron. La regla de sudoers para
+`www-data` existe — por eso el vigilante si puede reiniciar y el panel de CDNs
+no, que va como `quattre`.
+
+**Lo que no ve:** la comprobacion 3 busca las discontinuidades en la **salida**.
+Cuando ffmpeg se atasca en el bucle de correcciones, la salida sigue siendo
+impecable (-0,040 s clavados entre audio y video, sin huecos), asi que no la
+detecta. El unico rastro esta en el registro del propio canal.
+
+`anadir_deteccion_bucle.sh` le anade esa comprobacion, mirando el registro:
+
+```bash
+bucle=$(journalctl -u "ffmpeg-hls@$canal.service" --since "2 min ago" \
+        --no-pager | grep -c "timestamp discontinuity")
+[ "$bucle" -gt 60 ] && reiniciar
+```
+
+**Umbral validado contra los 36 canales de cdn11**: 35 dan **0** y syfy da
+**5.606**. Casi dos ordenes de magnitud de margen, asi que no hay falsos
+positivos. Un canal sano solo saca unos pocos avisos cada 26,5 h, cuando el
+reloj da la vuelta.
+
+El script tambien hace dos cosas mas:
+
+- **Mete a `www-data` en el grupo `systemd-journal`.** Hoy no esta en ningun
+  grupo extra, asi que `journalctl` no le dejaria ver las unidades de los
+  canales y la comprobacion daria 0 siempre. Hay que reiniciar `check-hls`
+  despues para que coja el grupo.
+- **Quita el permiso de lectura a los demas** (`chmod 750`). El script lleva
+  dentro el token del bot de Telegram y estaba en `-rwxr-xr-x`: cualquiera con
+  una shell en la maquina podia leerlo y escribir en el grupo. Lo lanza systemd
+  como `www-data`, que es el dueno, asi que no necesita ese permiso.
+
+Hace copia de seguridad, aborta si el script no es el esperado, no hace nada si
+ya estuviera puesta y comprueba la sintaxis con `bash -n` antes de terminar.
