@@ -61,21 +61,38 @@ del registro.
 
 ## Merece la pena ponerlo en todos los canales?
 
-**No.** Revisados los dos CDN (cdn11, 30 canales; cdn10, 53 canales), solo syfy
-esta atascado. El resto se reparte en dos grupos:
+**Si.** No es cosa solo de syfy. Escaneados los 83 canales de los dos CDN
+buscando la firma del bucle — el mismo valor apareciendo con signo + y con signo
+-, descartando la vuelta a cero del reloj — sale esto:
 
-- **Vueltas a cero del reloj** (realmadridtv, antena3, 24h, lasexta,
-  paramount...): valor 95.443 s, unos pocos avisos agrupados en un instante cada
-  26,5 h. Quedan muy por encima de 30 s, asi que el cambio ni les afectaria.
-- **Saltos de verdad en la franja de 10-30 s** (valenciatv: 15,48 s y 19,32 s),
-  puntuales y sin quedarse en bucle. Ahi ffmpeg esta haciendo bien su trabajo:
-  absorbe el salto para que el espectador no lo note. Subirle el limite haria
-  que ese salto de 19 s **pasara a la emision** en vez de suavizarse.
+| canal | CDN | valor | veces |
+|---|---|---|---|
+| **syfy** | cdn11 | 10,29 s | **2.000 en 41 segundos** |
+| **squirrel** | cdn10 | 26,98 s | **733 + 297 + 354 + …** |
+| **laochomed** | cdn10 | 10,48 s | 49 |
+| realmadridtv | cdn10 | 16,68 / 20,28 / 20,53 s | 2-4 |
+| valenciatv | cdn10 | 11,76 … 53,76 s (16 valores) | 2-5 |
+| levantetv | cdn11 | 19,32 … 53,76 s (14 valores) | 2-5 |
+| iberalia_caza | cdn11 | 10,03 s | 5 |
+| castillalamancha | cdn11 | 48,24 s | 3 |
 
-El limite no distingue entre un salto desigual que atasca a ffmpeg y un salto de
-verdad que conviene absorber. Ponerlo a todos arreglaria uno y podria empeorar
-otro. Por eso el hueco `INOPTS` queda **vacio por defecto** y solo se rellena en
-el canal que lo necesita.
+Los de cuenta alta son atascos de verdad; los de 2-5 son canales que flipan unas
+pocas veces y se recuperan solos. En el momento del analisis solo syfy seguia
+atascado (squirrel y laochomed dieron 0 avisos en dos minutos: lo suyo fueron
+rachas), pero las rachas son reales y explican los casos sueltos que se ven de
+vez en cuando en otros canales.
+
+**Por que 30 y no mas:** el atasco mas grande encontrado es el de squirrel con
+26,98 s, asi que 30 los cubre todos. Subir mas solo anadiria exposicion —
+saltos de 40-50 s (valenciatv, levantetv, castillalamancha) pasarian crudos a la
+emision en vez de absorberse — sin cubrir ningun caso real de atasco.
+
+**Lo que no cubre:** el limite solo mueve la linea, no elimina el mecanismo. Un
+salto desigual de mas de 30 s podria volver a atascar un canal. No se ha visto
+ninguno, pero conviene saberlo.
+
+Por eso el valor va **por defecto en la plantilla**, y el hueco `INOPTS` queda
+para que un canal concreto pueda llevar la contraria si algun dia hace falta.
 
 ## Que NO es
 
@@ -107,28 +124,28 @@ Es una opcion de entrada: va **antes** del `-i`.
 ### Como aplicarlo
 
 La plantilla `ffmpeg-hls@.service` no deja meter opciones de entrada, asi que hay
-que anadirle un hueco. En el `ExecStart`:
+que anadirle el hueco, con 30 s como valor por defecto. En el `ExecStart`:
 
 ```diff
    exec /usr/bin/ffmpeg -loglevel ${LOGLEVEL:-warning} -nostats \
-+    ${INOPTS:-} \
++    ${INOPTS:--dts_delta_threshold 30} \
      -i ${SRC} \
 ```
 
-Y luego, solo en el canal que lo necesita, en `/home/quattre/canales/syfy`:
-
-```
-# El origen trae video y audio separados 10,288 s, justo por encima del limite
-# de 10 s que trae ffmpeg de fabrica, y eso lo mete en un bucle de correcciones
-# del que no sale hasta que se reinicia. Con 30 lo deja pasar.
-# El comentario va en su propia linea: systemd NO lo quita si va detras del valor.
-INOPTS=-dts_delta_threshold 30
-```
-
-Ambas cosas necesitan root en cdn11:
+Eso lo hace el script `fix_syfy.sh`, que hace copia de seguridad de la plantilla,
+aborta si la linea del `-i` no es la esperada y no hace nada si ya estuviera
+puesto. En cada CDN, como root:
 
 ```bash
+sudo bash /tmp/fix_syfy.sh
 sudo systemctl daemon-reload
+```
+
+**No hace falta reiniciar los 83 canales de golpe.** Cada uno coge la opcion
+cuando le toque reiniciarse por lo que sea. Solo conviene reiniciar a mano el
+que este atascado en ese momento:
+
+```bash
 sudo systemctl restart ffmpeg-hls@syfy
 ```
 
@@ -156,3 +173,17 @@ corrige desplazando el audio a mano en la entrada:
 
 pero eso hay que ajustarlo mirando la tele, porque no hay forma de medirlo desde
 el servidor.
+
+## Como encontrar canales atascados
+
+El escaneo que se uso para decidir esto esta en `buscar_bucles.sh`. Busca la
+firma del bucle en el registro de cada canal: el mismo valor apareciendo con
+signo + y con signo -, descartando la vuelta a cero del reloj. Se lanza en el
+CDN y no necesita root ni toca nada:
+
+```bash
+bash buscar_bucles.sh
+```
+
+Una cuenta alta (decenas o cientos del mismo valor) es un canal atascado, y se
+arregla reiniciandolo. Cuentas de 2 a 5 son flipeos que se recuperan solos.
