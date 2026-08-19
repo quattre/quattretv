@@ -229,6 +229,10 @@ QUATTRETV = {
     # URL publica de este middleware: los decos y las TV la usan para pedir las
     # playlists de catchup que generamos.
     'PUBLIC_URL': os.getenv('PUBLIC_URL', 'http://localhost:8000'),
+    # A donde manda /ping a las apps de television. Se deja vacio para que
+    # sigan donde estan; se rellena el dia que haya que moverlas a otra
+    # direccion, y se enteran solas sin republicar nada.
+    'PORTAL_URL': os.getenv('PORTAL_URL', ''),
     'STREAMING_SERVER_URL': os.getenv('STREAMING_SERVER_URL', 'http://localhost:8080'),
     'TIMESHIFT_ENABLED': os.getenv('TIMESHIFT_ENABLED', 'True').lower() in ('true', '1', 'yes'),
     'TIMESHIFT_HOURS': int(os.getenv('TIMESHIFT_HOURS', '24')),

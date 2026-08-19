@@ -96,9 +96,23 @@
     <button class="boton oculto" id="reintentar">Reintentar</button>
 
     <script>
-        var BASE = 'https://iptv2.quattre.com';
-        var PORTAL_URL = BASE + '/quattretv/stb/';
-        var ESPERA = 8000;   // ms que se le dan al servidor para contestar
+        // Lista de servidores, en orden. Se prueban de arriba abajo y se entra
+        // en el primero que conteste, asi que si uno se cae la app sigue
+        // funcionando sola.
+        //
+        // Todos tienen que ir por HTTPS: lo exige LG para publicar, y una app
+        // servida por https no puede llamar a http.
+        //
+        // Y no hace falta cambiar esta lista para mover a los clientes: /ping
+        // devuelve la direccion del portal, asi que basta con cambiarla en el
+        // servidor. Esto es solo el punto de entrada. Importa porque una vez
+        // publicada, cambiar la app significa un envio nuevo a la tienda y una
+        // o dos semanas de aprobacion por cada cambio.
+        var SERVIDORES = [
+            'https://iptv2.quattre.com'
+        ];
+        var RUTA_PORTAL = '/quattretv/stb/';
+        var ESPERA = 8000;   // ms que se le dan a cada servidor para contestar
 
         function texto(t) { document.getElementById('splash-status').textContent = t; }
 
@@ -113,11 +127,18 @@
 
         // Antes esto redirigia a ciegas a los 1,5 segundos. Si el servidor no
         // respondia, la tele se quedaba en la pagina de error del navegador o
-        // en negro, sin forma de volver. Ahora se pregunta primero.
-        function intentar() {
-            document.getElementById('reintentar').className = 'boton oculto';
-            document.getElementById('rueda').className = 'splash-spinner';
-            texto('Conectando...');
+        // en negro, sin forma de volver. Ahora se pregunta primero, y se
+        // recorre la lista hasta que alguno conteste.
+        function probar(indice) {
+            if (indice >= SERVIDORES.length) {
+                fallo('Ningun servidor responde.');
+                return;
+            }
+
+            var base = SERVIDORES[indice];
+            if (SERVIDORES.length > 1) {
+                texto('Conectando (' + (indice + 1) + ' de ' + SERVIDORES.length + ')...');
+            }
 
             var pet = new XMLHttpRequest();
             var resuelto = false;
@@ -125,30 +146,47 @@
                 if (resuelto) return;
                 resuelto = true;
                 try { pet.abort(); } catch (e) {}
-                fallo('El servidor no responde.');
+                probar(indice + 1);   // ese no contesta: al siguiente
             }, ESPERA);
 
             pet.onreadystatechange = function () {
                 if (pet.readyState !== 4 || resuelto) return;
                 resuelto = true;
                 clearTimeout(reloj);
-                if (pet.status >= 200 && pet.status < 500) {
-                    texto('Cargando QuattreTV...');
-                    window.location.href = PORTAL_URL;
-                } else {
-                    fallo('El servidor ha contestado con un error.');
+
+                if (pet.status < 200 || pet.status >= 500) {
+                    probar(indice + 1);
+                    return;
                 }
+
+                // Si el servidor dice a donde ir, se le hace caso. Asi se puede
+                // mover a los clientes sin tocar la app.
+                var destino = base + RUTA_PORTAL;
+                try {
+                    var js = JSON.parse(pet.responseText);
+                    if (js && js.portal) { destino = js.portal; }
+                } catch (e) {}
+
+                texto('Cargando QuattreTV...');
+                window.location.href = destino;
             };
 
             try {
                 // La marca de tiempo evita que la tele conteste desde su cache.
-                pet.open('GET', BASE + '/ping?t=' + new Date().getTime(), true);
+                pet.open('GET', base + '/ping?t=' + new Date().getTime(), true);
                 pet.send(null);
             } catch (e) {
                 clearTimeout(reloj);
                 resuelto = true;
-                fallo('No hay conexion.');
+                probar(indice + 1);
             }
+        }
+
+        function intentar() {
+            document.getElementById('reintentar').className = 'boton oculto';
+            document.getElementById('rueda').className = 'splash-spinner';
+            texto('Conectando...');
+            probar(0);
         }
 
         window.onload = function () {

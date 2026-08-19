@@ -24,7 +24,17 @@ def ping(request):
     Lleva CORS porque quien pregunta es la app de LG, que corre desde el propio
     aparato y por tanto desde otro origen.
     """
-    respuesta = JsonResponse({'ok': True})
+    # Ademas de decir "estoy aqui", dice DONDE esta el portal. Asi el dia que
+    # haya que mover a los clientes a otra maquina o a otra direccion se cambia
+    # aqui y ya: las apps ya instaladas se enteran solas. Sin esto habria que
+    # publicar una version nueva de la app en cada tienda y esperar la
+    # aprobacion de LG, que son una o dos semanas por cambio.
+    from django.conf import settings
+
+    respuesta = JsonResponse({
+        'ok': True,
+        'portal': settings.QUATTRETV.get('PORTAL_URL', ''),
+    })
     respuesta['Access-Control-Allow-Origin'] = '*'
     respuesta['Cache-Control'] = 'no-store'
     return respuesta
