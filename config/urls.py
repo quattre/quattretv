@@ -6,7 +6,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from apps.core.health import health
+from apps.core.health import health, ping
 from apps.stalker_api import storage_urls
 
 urlpatterns = [
@@ -14,6 +14,7 @@ urlpatterns = [
 
     # Salud del servicio (para monitorizacion)
     path('health', health, name='health'),
+    path('ping', ping, name='ping'),
     path('health/', health),
 
     # API v1

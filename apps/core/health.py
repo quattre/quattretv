@@ -11,6 +11,25 @@ from django.http import JsonResponse
 from django.utils import timezone
 
 
+def ping(request):
+    """
+    Lo minimo para que una app sepa si el servidor esta ahi.
+
+    No vale /health para esto: devuelve 503 cuando algo esta degradado (por
+    ejemplo el EPG viejo), y la app se negaria a arrancar por algo que no le
+    impide funcionar. Ademas /health cuenta el estado interno — grabadores,
+    numero de programas — y esto lo llama una app de television, asi que
+    responde lo justo.
+
+    Lleva CORS porque quien pregunta es la app de LG, que corre desde el propio
+    aparato y por tanto desde otro origen.
+    """
+    respuesta = JsonResponse({'ok': True})
+    respuesta['Access-Control-Allow-Origin'] = '*'
+    respuesta['Cache-Control'] = 'no-store'
+    return respuesta
+
+
 def health(request):
     estado = {}
     ok = True

@@ -35,8 +35,9 @@
         }
 
         .splash-logo span {
-            color: #ffffff;
-            font-weight: 300;
+            /* Iba en blanco y fino, asi que la app escribia el nombre de una
+               forma y el icono, el splash y el portal de otra. */
+            color: #81ba26;
         }
 
         .splash-subtitle {
@@ -61,28 +62,102 @@
         }
 
         .splash-status {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 16px;
-            margin-top: 20px;
+            color: #98a3a6;
+            font-size: 18px;
+            margin-top: 22px;
+            max-width: 900px;
+            text-align: center;
+            line-height: 1.5;
         }
+
+        .filete {
+            width: 200px; height: 6px; border-radius: 3px; margin: 4px 0 26px;
+            background: linear-gradient(90deg, #81ba26 0%, #9ad62f 100%);
+        }
+
+        .boton {
+            margin-top: 26px; padding: 14px 34px; font-size: 20px;
+            font-weight: 600; color: #0d1505; background: #9ad62f;
+            border: 3px solid transparent; border-radius: 10px; cursor: pointer;
+        }
+        /* En la tele no hay raton: lo que manda es el foco del mando. */
+        .boton:focus {
+            outline: none; border-color: #f2f5f3;
+        }
+        .oculto { display: none; }
     </style>
 </head>
 <body>
     <div class="splash-logo">Quattre<span>TV</span></div>
+    <div class="filete"></div>
     <div class="splash-subtitle">Quattre Internet SL</div>
-    <div class="splash-spinner"></div>
+    <div class="splash-spinner" id="rueda"></div>
     <div class="splash-status" id="splash-status">Conectando...</div>
+    <button class="boton oculto" id="reintentar">Reintentar</button>
 
     <script>
-        // URL del portal
-        var PORTAL_URL = 'https://iptv2.quattre.com/quattretv/stb/';
+        var BASE = 'https://iptv2.quattre.com';
+        var PORTAL_URL = BASE + '/quattretv/stb/';
+        var ESPERA = 8000;   // ms que se le dan al servidor para contestar
+
+        function texto(t) { document.getElementById('splash-status').textContent = t; }
+
+        function fallo(motivo) {
+            document.getElementById('rueda').className = 'splash-spinner oculto';
+            texto('No se puede conectar con QuattreTV. ' + motivo +
+                  ' Comprueba que la television tiene internet.');
+            var b = document.getElementById('reintentar');
+            b.className = 'boton';
+            b.focus();
+        }
+
+        // Antes esto redirigia a ciegas a los 1,5 segundos. Si el servidor no
+        // respondia, la tele se quedaba en la pagina de error del navegador o
+        // en negro, sin forma de volver. Ahora se pregunta primero.
+        function intentar() {
+            document.getElementById('reintentar').className = 'boton oculto';
+            document.getElementById('rueda').className = 'splash-spinner';
+            texto('Conectando...');
+
+            var pet = new XMLHttpRequest();
+            var resuelto = false;
+            var reloj = setTimeout(function () {
+                if (resuelto) return;
+                resuelto = true;
+                try { pet.abort(); } catch (e) {}
+                fallo('El servidor no responde.');
+            }, ESPERA);
+
+            pet.onreadystatechange = function () {
+                if (pet.readyState !== 4 || resuelto) return;
+                resuelto = true;
+                clearTimeout(reloj);
+                if (pet.status >= 200 && pet.status < 500) {
+                    texto('Cargando QuattreTV...');
+                    window.location.href = PORTAL_URL;
+                } else {
+                    fallo('El servidor ha contestado con un error.');
+                }
+            };
+
+            try {
+                // La marca de tiempo evita que la tele conteste desde su cache.
+                pet.open('GET', BASE + '/ping?t=' + new Date().getTime(), true);
+                pet.send(null);
+            } catch (e) {
+                clearTimeout(reloj);
+                resuelto = true;
+                fallo('No hay conexion.');
+            }
+        }
 
         window.onload = function () {
-            document.getElementById('splash-status').textContent = 'Cargando QuattreTV...';
-            // Mostrar splash 1.5 segundos y redirigir al portal
-            setTimeout(function () {
-                window.location.href = PORTAL_URL;
-            }, 1500);
+            document.getElementById('reintentar').onclick = intentar;
+            // El mando de LG manda OK como Enter sobre el elemento con el foco.
+            document.getElementById('reintentar').onkeydown = function (e) {
+                if (e.keyCode === 13) { intentar(); }
+            };
+            intentar();
         };
     </script>
 </body>
