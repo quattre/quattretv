@@ -25,16 +25,27 @@ paquete llega con un tiempo que se aparta del esperado mas de lo que marca
 `dts_delta_threshold` — que por defecto son **10 segundos** — lo toma por un
 corte del origen y mueve esa correccion.
 
-El origen de syfy tiene un desajuste de **10,288 s** entre la pista de video y
-la de audio. Es decir: justo por encima del limite de 10. En cuanto lo cruza,
-ffmpeg entra en un tira y afloja del que no sale — arregla el video y con ello
-descuadra el audio, arregla el audio y descuadra el video.
+Ese 10,288 s **no es una caracteristica permanente de syfy**: es el tamano de un
+salto que ocurrio una sola vez, el 16/08 a las 17:30, y que se quedo dentro de
+ffmpeg dando vueltas.
 
-Y encima el valor se mueve solo: el 16/08 era 10,720 s y el 19/08 ya era
-10,288 s. Va rondando la linea de los 10 segundos, cruzandola y volviendo. Por
-eso el canal aguanta unos dias bien, se estropea, y **solo se arregla matando el
-proceso**: al arrancar de nuevo ffmpeg toma como referencia los primeros
-paquetes y la diferencia vuelve a quedar por debajo del limite.
+Lo determinante es **a que pistas afecta el salto**:
+
+- En antena3, 24h o lasexta, la vuelta a cero del reloj llega el mismo segundo
+  al video **y a todas las pistas de audio a la vez**. ffmpeg mueve la
+  correccion una vez, todo se desplaza junto, sigue cuadrado, y no vuelve a
+  salir el aviso.
+- A syfy le llego un salto que afecto **solo a una de las dos pistas**, y de un
+  tamano desafortunado: 10,7 s, justo por encima de la linea de los 10 s. Al
+  corregir el video descuadro el audio; al corregir el audio descuadro el video.
+  Como la correccion es una sola para las dos, no hay salida.
+
+Por eso **solo se arregla matando el proceso**: al arrancar de nuevo, ffmpeg
+toma como referencia los primeros paquetes y ese estado se borra. Y por eso
+vuelve a pasar: basta con que el origen de otro salto desigual de ese tamano.
+
+El valor incluso se mueve algo mientras oscila: 10,720 s el dia 16, 10,288 s el
+dia 19.
 
 ## Por que ningun aviso lo detecta
 
@@ -47,6 +58,24 @@ paquetes y la diferencia vuelve a quedar por debajo del limite.
 
 O sea que mirando la emision no hay forma de verlo. El unico rastro es el bucle
 del registro.
+
+## Merece la pena ponerlo en todos los canales?
+
+**No.** Revisados los dos CDN (cdn11, 30 canales; cdn10, 53 canales), solo syfy
+esta atascado. El resto se reparte en dos grupos:
+
+- **Vueltas a cero del reloj** (realmadridtv, antena3, 24h, lasexta,
+  paramount...): valor 95.443 s, unos pocos avisos agrupados en un instante cada
+  26,5 h. Quedan muy por encima de 30 s, asi que el cambio ni les afectaria.
+- **Saltos de verdad en la franja de 10-30 s** (valenciatv: 15,48 s y 19,32 s),
+  puntuales y sin quedarse en bucle. Ahi ffmpeg esta haciendo bien su trabajo:
+  absorbe el salto para que el espectador no lo note. Subirle el limite haria
+  que ese salto de 19 s **pasara a la emision** en vez de suavizarse.
+
+El limite no distingue entre un salto desigual que atasca a ffmpeg y un salto de
+verdad que conviene absorber. Ponerlo a todos arreglaria uno y podria empeorar
+otro. Por eso el hueco `INOPTS` queda **vacio por defecto** y solo se rellena en
+el canal que lo necesita.
 
 ## Que NO es
 
