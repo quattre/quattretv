@@ -131,26 +131,39 @@
 
         function fallo(motivo) {
             document.getElementById('rueda').className = 'splash-spinner oculto';
-            texto('No se puede conectar con QuattreTV. ' + motivo +
-                  ' Comprueba que la television tiene internet.');
             var b = document.getElementById('reintentar');
             b.className = 'boton';
-            b.focus();
+            try { b.focus(); } catch (e) {}
+            // Se deja el boton por si alguien tiene prisa, pero la app sigue
+            // reintentando sola: nadie deberia tener que pulsar nada.
+            reintentar_luego();
         }
 
         // Antes esto redirigia a ciegas a los 1,5 segundos. Si el servidor no
         // respondia, la tele se quedaba en la pagina de error del navegador o
         // en negro, sin forma de volver. Ahora se pregunta primero, y se
         // recorre la lista hasta que alguno conteste.
-        function probar(indice) {
-            if (indice >= SERVIDORES.length) {
+        // Orden de prueba: el que funciono la ultima vez primero.
+        function orden() {
+            var lista = SERVIDORES.slice(0);
+            try {
+                var ultimo = localStorage.getItem('ultimo_servidor');
+                var i = ultimo ? lista.indexOf(ultimo) : -1;
+                if (i > 0) { lista.splice(i, 1); lista.unshift(ultimo); }
+            } catch (e) {}
+            return lista;
+        }
+
+        function probar(indice, lista) {
+            lista = lista || orden();
+            if (indice >= lista.length) {
                 fallo('Ningun servidor responde.');
                 return;
             }
 
-            var base = SERVIDORES[indice];
-            if (SERVIDORES.length > 1) {
-                texto('Conectando (' + (indice + 1) + ' de ' + SERVIDORES.length + ')...');
+            var base = lista[indice];
+            if (lista.length > 1) {
+                texto('Conectando (' + (indice + 1) + ' de ' + lista.length + ')...');
             }
 
             var pet = new XMLHttpRequest();
@@ -159,7 +172,7 @@
                 if (resuelto) return;
                 resuelto = true;
                 try { pet.abort(); } catch (e) {}
-                probar(indice + 1);   // ese no contesta: al siguiente
+                probar(indice + 1, lista);   // ese no contesta: al siguiente
             }, ESPERA);
 
             pet.onreadystatechange = function () {
@@ -168,7 +181,7 @@
                 clearTimeout(reloj);
 
                 if (pet.status < 200 || pet.status >= 500) {
-                    probar(indice + 1);
+                    probar(indice + 1, lista);
                     return;
                 }
 
@@ -179,6 +192,10 @@
                     var js = JSON.parse(pet.responseText);
                     if (js && js.portal) { destino = js.portal; }
                 } catch (e) {}
+
+                // Se recuerda cual ha contestado para empezar por el la
+                // proxima vez y ahorrarse el recorrido.
+                try { localStorage.setItem('ultimo_servidor', base); } catch (e) {}
 
                 texto('Cargando QuattreTV...');
                 window.location.href = destino;
@@ -191,24 +208,53 @@
             } catch (e) {
                 clearTimeout(reloj);
                 resuelto = true;
-                probar(indice + 1);
+                probar(indice + 1, lista);
             }
         }
 
-        function intentar() {
+        // Reintentos con esperas crecientes. Recorrer la lista una sola vez y
+        // rendirse no vale: el fallo mas comun en una tele no es que el servidor
+        // este caido, es que la app arranca antes que la red — el wifi sigue
+        // negociando cuando la app ya esta preguntando. Un solo intento fallaria
+        // por algo que habria funcionado tres segundos despues.
+        var ESPERAS = [2000, 4000, 8000, 15000];   // ms entre vueltas
+        var vuelta = 0;
+        var reloj_reintento = null;
+
+        function reintentar_luego() {
+            var espera = ESPERAS[Math.min(vuelta, ESPERAS.length - 1)];
+            vuelta++;
+            var queda = Math.round(espera / 1000);
+            texto('No se puede conectar con QuattreTV. Reintentando en ' +
+                  queda + ' s... Comprueba que la television tiene internet.');
+            clearTimeout(reloj_reintento);
+            reloj_reintento = setTimeout(function () { intentar(true); }, espera);
+        }
+
+        function intentar(automatico) {
+            clearTimeout(reloj_reintento);
             document.getElementById('reintentar').className = 'boton oculto';
             document.getElementById('rueda').className = 'splash-spinner';
+            if (!automatico) { vuelta = 0; }
             texto('Conectando...');
             probar(0);
         }
 
         window.onload = function () {
-            document.getElementById('reintentar').onclick = intentar;
+            var boton = document.getElementById('reintentar');
+            boton.onclick = function () { intentar(false); };
             // El mando de LG manda OK como Enter sobre el elemento con el foco.
-            document.getElementById('reintentar').onkeydown = function (e) {
-                if (e.keyCode === 13) { intentar(); }
+            boton.onkeydown = function (e) {
+                if (e.keyCode === 13) { intentar(false); }
             };
-            intentar();
+
+            // Si la tele avisa de que ha recuperado la red, no hay que esperar
+            // al siguiente reintento: se prueba en ese mismo momento.
+            if (window.addEventListener) {
+                window.addEventListener('online', function () { intentar(false); }, false);
+            }
+
+            intentar(false);
         };
     </script>
 </body>
