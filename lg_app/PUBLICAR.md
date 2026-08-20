@@ -30,6 +30,14 @@ requisito esta cumplido.
     tiene sentido redondear nada.
   - El de **400x400 no va dentro del paquete**: se sube aparte en Seller Lounge
     y es el que se ve en la tienda, redimensionado por ellos.
+
+  **Desviacion consciente de la especificacion:** LG documenta `icon.png` a
+  80x80, pero la television pinta ESE en la fila de aplicaciones y a su tamaño
+  real. Al lado de los iconos del sistema, que llenan la baldosa de 130, el
+  nuestro se veia al 61 % con negro alrededor — y 80/130 es exactamente 0,61.
+  Por eso se genera tambien a 130. **Si el envio a la tienda lo rechaza por el
+  tamaño**, hay que volver a 80x80 para el paquete que se sube (en la tienda no
+  se nota, porque alli usan el de 400x400).
 - **HTTPS** en todo el contenido de red.
 - **Comportamiento cuando falla la red**: la app pregunta al servidor antes de
   entrar y, si no contesta, enseña un aviso entendible y un boton de reintentar.

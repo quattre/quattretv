@@ -77,7 +77,7 @@ def icono(lado):
 
     d.text((x1, y - c1[1]), 'Quattre', font=f_arriba, fill=VERDE)
     d.text((x2, y + alto1 + separacion - c2[1]), 'TV', font=f_abajo, fill=VERDE)
-    return esquinas_redondas(img, int(lado * 0.20))
+    return esquinas_redondas(img, int(lado * 0.16))
 
 
 def esquinas_redondas(img, radio):
@@ -123,11 +123,15 @@ def arranque(ancho=1920, alto=1080):
 if __name__ == '__main__':
     if not os.path.exists(FUENTE):
         sys.exit('No encuentro la fuente Antonio en %s' % FUENTE)
-    icono(80).save(os.path.join(AQUI, 'icon.png'))
+    # Los dos a 130. LG documenta 80 para icon.png, pero la television pinta
+    # ESE en la fila de aplicaciones y a su tamaño real: al lado de los iconos
+    # del sistema, que llenan la baldosa de 130, el nuestro se veia al 61 % con
+    # negro alrededor — y 80/130 es justo 0,61.
+    icono(130).save(os.path.join(AQUI, 'icon.png'))
     icono(130).save(os.path.join(AQUI, 'largeIcon.png'))
     # El de 400 no va dentro del paquete: se sube aparte en Seller Lounge y es
     # el que se ve en la tienda, redimensionado por ellos.
     icono(400).save(os.path.join(AQUI, 'icon_tienda_400.png'))
     arranque().save(os.path.join(AQUI, 'splash.png'))
-    print('Generados icon.png (80), largeIcon.png (130), icon_tienda_400.png '
+    print('Generados icon.png (130), largeIcon.png (130), icon_tienda_400.png '
           'y splash.png (1920x1080)')
