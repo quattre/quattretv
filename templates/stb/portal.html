@@ -1059,10 +1059,6 @@
         var h = '<div class="osd-fila">';
         h += '<div class="osd-num">' + ch.number + '</div>';
         if (MOSTRAR_LOGOS && ch.logo) h += '<div class="osd-ico"><img src="' + esc(ch.logo) + '" onerror="this.style.display=0"></div>';
-        // Miniatura de lo que estan echando. Da imagen a la barra sin robarle
-        // sitio al texto, y desaparece sola si la fuente no la trae.
-        if (ch.epg_icon) h += '<img class="osd-cartel" src="' + esc(ch.epg_icon) +
-                              '" onerror="this.style.display=\'none\'">';
 
         h += '<div class="osd-datos">';
         h += '<div class="osd-ch">' + esc(ch.name);
@@ -1080,6 +1076,12 @@
                  '  ' + esc(ch.epg_next) + '</div>';
         }
         h += '</div>';
+
+        // Miniatura de lo que estan echando, al final y pegada a la derecha,
+        // para que no le robe sitio al texto ni lo separe del numero de canal.
+        // Desaparece sola si la fuente no la trae.
+        if (ch.epg_icon) h += '<img class="osd-cartel" src="' + esc(ch.epg_icon) +
+                              '" onerror="this.style.display=\'none\'">';
 
         h += '<div class="osd-reloj">' + hora + '</div>';
         h += '</div>';
@@ -1522,7 +1524,7 @@
            MAG520 no lo lleva. */
         .cartel {
             height: 152px; width: auto; max-width: 260px;
-            float: left; margin-right: 24px;
+            float: right; margin-left: 24px;
             border-radius: 10px; display: block;
             border: 1px solid rgba(255,255,255,.1);
             box-shadow: 0 10px 30px rgba(0,0,0,.6);
@@ -1642,7 +1644,7 @@
             #preview-cap { top: 521px; left: 499px; width: 754px; }
             #preview-cap .t { font-size: 27px; }
             #preview-cap .e { font-size: 14px; margin-top: 6px; }
-            .cartel { height: 101px; max-width: 173px; margin-right: 16px; border-radius: 7px; }
+            .cartel { height: 101px; max-width: 173px; margin-left: 16px; border-radius: 7px; }
             .osd-cartel { height: 64px; max-width: 120px; border-radius: 5px; }
 
             #osd { left: 27px; right: 27px; bottom: 27px;
