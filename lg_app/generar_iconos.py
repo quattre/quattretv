@@ -77,10 +77,25 @@ def icono(lado):
 
     d.text((x1, y - c1[1]), 'Quattre', font=f_arriba, fill=VERDE)
     d.text((x2, y + alto1 + separacion - c2[1]), 'TV', font=f_abajo, fill=VERDE)
-    # Cuadrado entero y opaco, sin redondear: webOS aplica su propia mascara al
-    # icono. Si se lo damos ya redondeado, las esquinas que quedan fuera van
-    # transparentes y la television las pinta de negro.
-    return img
+    return esquinas_redondas(img, int(lado * 0.20))
+
+
+def esquinas_redondas(img, radio):
+    """
+    Redondea las esquinas dejando BLANCO debajo de la transparencia.
+
+    El primer intento las dejo con negro debajo del canal alfa, y la television
+    pintaba las esquinas de negro — o sea que no estaba respetando la
+    transparencia, sino enseñando lo que hubiera debajo. Con blanco debajo sale
+    bien de las dos maneras: si respeta el alfa queda redondeado, y si no,
+    quedan esquinas blancas en vez de negras.
+    """
+    mascara = Image.new('L', img.size, 0)
+    ImageDraw.Draw(mascara).rounded_rectangle(
+        [0, 0, img.size[0] - 1, img.size[1] - 1], radius=radio, fill=255)
+    salida = Image.new('RGBA', img.size, BLANCO + (0,))
+    salida.paste(img, (0, 0), mascara)
+    return salida
 
 
 def arranque(ancho=1920, alto=1080):
