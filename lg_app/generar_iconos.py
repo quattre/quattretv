@@ -50,7 +50,11 @@ def icono(lado):
     img = Image.new('RGB', (lado, lado), BLANCO)
     d = ImageDraw.Draw(img)
 
-    margen = int(lado * 0.14)
+    # LG exige un minimo de 5 px de margen interior. Con 0,11 quedan 8,8 px
+    # en el de 80, asi que cumple y el logotipo llena mejor la baldosa —
+    # importante porque el icono no se redondea y un cuadrado blanco con
+    # mucho aire se lee como si faltara la imagen.
+    margen = int(lado * 0.11)
     hueco = lado - margen * 2
 
     # Se busca el cuerpo que hace que la palabra mas larga ocupe el ancho util.
@@ -106,5 +110,9 @@ if __name__ == '__main__':
         sys.exit('No encuentro la fuente Antonio en %s' % FUENTE)
     icono(80).save(os.path.join(AQUI, 'icon.png'))
     icono(130).save(os.path.join(AQUI, 'largeIcon.png'))
+    # El de 400 no va dentro del paquete: se sube aparte en Seller Lounge y es
+    # el que se ve en la tienda, redimensionado por ellos.
+    icono(400).save(os.path.join(AQUI, 'icon_tienda_400.png'))
     arranque().save(os.path.join(AQUI, 'splash.png'))
-    print('Generados icon.png (80), largeIcon.png (130) y splash.png (1920x1080)')
+    print('Generados icon.png (80), largeIcon.png (130), icon_tienda_400.png '
+          'y splash.png (1920x1080)')

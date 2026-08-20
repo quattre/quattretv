@@ -15,8 +15,21 @@ requisito esta cumplido.
 ## Lo que ya esta listo
 
 - **Paquete**: `com.quattre.tv_1.1.0_all.ipk`, generado con `ares-package`.
-- **Iconos**: `icon.png` (80x80) y `largeIcon.png` (130x130), y `splash.png`
-  (1920x1080). Se rehacen con `generar_iconos.py`.
+- **Iconos**: `icon.png` (80x80), `largeIcon.png` (130x130), `splash.png`
+  (1920x1080) y `icon_tienda_400.png` (400x400). Se rehacen todos con
+  `generar_iconos.py`.
+
+  Lo que exige LG, comprobado en su documentacion:
+  - **El fondo NO puede ser transparente.** Si se deja, la television pinta de
+    negro lo que quede fuera del dibujo — es lo que pasaba al redondear las
+    esquinas.
+  - **Minimo 5 px de margen** interior. El generador deja el 11 % del lado, que
+    son 8 px en el de 80.
+  - **Diseño plano, sin efectos visuales**, y que no toque los bordes.
+  - En la tienda el logotipo **se muestra en una caja cuadrada**, asi que no
+    tiene sentido redondear nada.
+  - El de **400x400 no va dentro del paquete**: se sube aparte en Seller Lounge
+    y es el que se ve en la tienda, redimensionado por ellos.
 - **HTTPS** en todo el contenido de red.
 - **Comportamiento cuando falla la red**: la app pregunta al servidor antes de
   entrar y, si no contesta, enseña un aviso entendible y un boton de reintentar.
