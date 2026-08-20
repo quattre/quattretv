@@ -2,8 +2,10 @@
 Stalker Portal compatible API views.
 """
 import hashlib
+import logging
 import time
 from django.core.cache import cache
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.cache import never_cache
@@ -16,6 +18,8 @@ from apps.channels.models import Channel, Category
 from apps.epg.models import Program
 from apps.vod.models import Movie, Series, VodCategory
 from .authentication import MACAuthentication
+
+logger_equipos = logging.getLogger(__name__)
 
 
 @never_cache
@@ -194,6 +198,29 @@ def limite_simultaneos_superado(device):
     return False, ''
 
 
+DIAS_PARA_RETIRAR = 90
+
+
+def retirar_equipos_fantasma(user):
+    """
+    Da de baja los aparatos que llevan mas de DIAS_PARA_RETIRAR sin aparecer.
+
+    Devuelve cuantos ha retirado. No borra nada: los marca como inactivos, asi
+    que el historial se conserva y se puede volver a activar desde el portal.
+
+    Noventa dias es deliberadamente largo: una television que se usa aunque sea
+    una vez al trimestre no se toca, y un fantasma — que por definicion no
+    vuelve nunca — desaparece solo.
+    """
+    from datetime import timedelta
+
+    corte = timezone.now() - timedelta(days=DIAS_PARA_RETIRAR)
+    viejos = user.devices.filter(is_active=True).filter(
+        Q(last_seen__lt=corte) | Q(last_seen__isnull=True, created_at__lt=corte)
+    )
+    return viejos.update(is_active=False)
+
+
 def get_device_from_request(request):
     """Get authenticated device from request."""
     auth = MACAuthentication()
@@ -323,12 +350,30 @@ def handle_login(request):
 
     if not device:
         limite = user.limite_equipos
-        registrados = user.devices.filter(is_active=True).count()
-        if limite and registrados >= limite:
-            return stalker_response({
-                'error': f'Has alcanzado el maximo de {limite} equipos. '
-                         'Da de baja uno para poder usar este.'
-            })
+        if limite:
+            # Antes de decir que no, se retiran los fantasmas.
+            #
+            # La app de television identifica cada aparato con un numero que
+            # guarda en el propio televisor. Si ese almacenamiento se borra
+            # — al reinstalar la app, al resetear la tele, al limpiar datos —
+            # la siguiente vez llega como un aparato nuevo y se come una plaza,
+            # aunque sea la misma tele de siempre. Sin esto, una familia se
+            # quedaria sin plazas sin haber añadido ninguna television.
+            #
+            # Se retiran solo los que llevan mucho sin dar señales, asi que un
+            # aparato en uso no se toca nunca: un fantasma no vuelve a aparecer
+            # jamas, y una tele de verdad se conecta sola en cuanto se enciende.
+            liberados = retirar_equipos_fantasma(user)
+            registrados = user.devices.filter(is_active=True).count()
+            if registrados >= limite:
+                return stalker_response({
+                    'error': f'Has alcanzado el maximo de {limite} equipos. '
+                             'Da de baja uno para poder usar este.'
+                })
+            if liberados:
+                logger_equipos.info(
+                    'Liberadas %d plazas de %s al registrar un aparato nuevo',
+                    liberados, user.username)
 
         if mac_aparato:
             mac = mac_aparato
