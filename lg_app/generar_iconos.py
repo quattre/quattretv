@@ -33,15 +33,6 @@ def degradado(ancho, alto, arriba, abajo):
     return img
 
 
-def esquinas_redondas(img, radio):
-    mascara = Image.new('L', img.size, 0)
-    ImageDraw.Draw(mascara).rounded_rectangle([0, 0, img.size[0] - 1, img.size[1] - 1],
-                                              radius=radio, fill=255)
-    salida = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    salida.paste(img, (0, 0), mascara)
-    return salida
-
-
 def centrar(d, texto, fuente, ancho):
     caja = d.textbbox((0, 0), texto, font=fuente)
     return (ancho - (caja[2] - caja[0])) // 2 - caja[0], caja
@@ -82,7 +73,10 @@ def icono(lado):
 
     d.text((x1, y - c1[1]), 'Quattre', font=f_arriba, fill=VERDE)
     d.text((x2, y + alto1 + separacion - c2[1]), 'TV', font=f_abajo, fill=VERDE)
-    return esquinas_redondas(img, int(lado * 0.22))
+    # Cuadrado entero y opaco, sin redondear: webOS aplica su propia mascara al
+    # icono. Si se lo damos ya redondeado, las esquinas que quedan fuera van
+    # transparentes y la television las pinta de negro.
+    return img
 
 
 def arranque(ancho=1920, alto=1080):
