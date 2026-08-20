@@ -77,7 +77,10 @@ def icono(lado):
 
     d.text((x1, y - c1[1]), 'Quattre', font=f_arriba, fill=VERDE)
     d.text((x2, y + alto1 + separacion - c2[1]), 'TV', font=f_abajo, fill=VERDE)
-    return esquinas_redondas(img, int(lado * 0.16))
+    # Radio medido sobre una foto de la propia television: los iconos del
+    # sistema curvan solo un 4 % del lado. El nuestro iba al 16-20 %, cuatro
+    # veces mas redondeado, y por eso asomaba tanto negro por las esquinas.
+    return esquinas_redondas(img, int(lado * 0.05))
 
 
 def esquinas_redondas(img, radio):
