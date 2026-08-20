@@ -14,7 +14,20 @@ requisito esta cumplido.
 
 ## Lo que ya esta listo
 
-- **Paquete**: `com.quattre.tv_1.1.0_all.ipk`, generado con `ares-package`.
+- **Paquete**: `com.quattre.tv_1.1.0_all.ipk`, generado con `empaquetar.sh`.
+
+  **No usar `ares-package lg_app` directamente**: mete la carpeta entera. El
+  paquete llego a llevar dentro la fuente Antonio, los generadores de Python, la
+  documentacion, los ficheros de prueba, el `__pycache__` y — lo peor —
+  `instalar_tv.sh`, que contiene **la contraseña del modo desarrollador de la
+  television de pruebas**. Todo eso se habria instalado en el televisor de cada
+  cliente. `empaquetar.sh` copia solo los cinco ficheros de la app, y **aborta**
+  si detecta que se ha colado alguno mas. El paquete paso de 70 KB a 24 KB.
+
+- **Permisos**: se quito `"requiredPermissions": ["all"]` del `appinfo.json`.
+  La app no usa ninguna API de webOS — solo abre una URL — y pedir todos los
+  permisos sin necesitarlos es de las cosas que los revisores miran con lupa.
+  Comprobado en la television que sin ellos funciona igual.
 - **Iconos**: `icon.png` (80x80), `largeIcon.png` (130x130), `splash.png`
   (1920x1080) y `icon_tienda_400.png` (400x400). Se rehacen todos con
   `generar_iconos.py`.
