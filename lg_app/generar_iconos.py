@@ -118,15 +118,22 @@ def arranque(ancho=1920, alto=1080):
 if __name__ == '__main__':
     if not os.path.exists(FUENTE):
         sys.exit('No encuentro la fuente Antonio en %s' % FUENTE)
-    # Los dos a 130. LG documenta 80 para icon.png, pero la television pinta
-    # ESE en la fila de aplicaciones y a su tamaño real: al lado de los iconos
-    # del sistema, que llenan la baldosa de 130, el nuestro se veia al 61 % con
-    # negro alrededor — y 80/130 es justo 0,61.
-    icono(130).save(os.path.join(AQUI, 'icon.png'))
+    # Tamaños tal cual los documenta LG. Se probo a agrandarlos para que la
+    # baldosa del lanzador se viera llena, y no sirvio de nada — con razon:
+    #
+    #   icon (80x80)       se usa en las notificaciones del sistema
+    #   largeIcon (130x130) se usa en la esquina superior izquierda al posarse
+    #                       sobre la baldosa
+    #
+    # Ninguno de los dos es el que se ve EN la baldosa. Ese es el de 400x400 que
+    # se sube en Seller Lounge, que LG redimensiona y usa en lugar de estos. En
+    # modo desarrollador la baldosa dibuja un respaldo a tamaño fijo, y por eso
+    # daba igual lo que se pusiera aqui.
+    icono(80).save(os.path.join(AQUI, 'icon.png'))
     icono(130).save(os.path.join(AQUI, 'largeIcon.png'))
     # El de 400 no va dentro del paquete: se sube aparte en Seller Lounge y es
     # el que se ve en la tienda, redimensionado por ellos.
     icono(400).save(os.path.join(AQUI, 'icon_tienda_400.png'))
     arranque().save(os.path.join(AQUI, 'splash.png'))
-    print('Generados icon.png (130), largeIcon.png (130), icon_tienda_400.png '
+    print('Generados icon.png (80), largeIcon.png (130), icon_tienda_400.png '
           'y splash.png (1920x1080)')

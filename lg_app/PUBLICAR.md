@@ -31,13 +31,19 @@ requisito esta cumplido.
   - El de **400x400 no va dentro del paquete**: se sube aparte en Seller Lounge
     y es el que se ve en la tienda, redimensionado por ellos.
 
-  **Desviacion consciente de la especificacion:** LG documenta `icon.png` a
-  80x80, pero la television pinta ESE en la fila de aplicaciones y a su tamaño
-  real. Al lado de los iconos del sistema, que llenan la baldosa de 130, el
-  nuestro se veia al 61 % con negro alrededor — y 80/130 es exactamente 0,61.
-  Por eso se genera tambien a 130. **Si el envio a la tienda lo rechaza por el
-  tamaño**, hay que volver a 80x80 para el paquete que se sube (en la tienda no
-  se nota, porque alli usan el de 400x400).
+  **Cual se ve en cada sitio** (esto ahorra perder el tiempo como se perdio):
+  - `icon` (80x80) -> **notificaciones del sistema**
+  - `largeIcon` (130x130) -> **esquina superior izquierda** al posarse sobre la
+    baldosa del lanzador
+  - `icon_tienda_400.png` (400x400, se sube en Seller Lounge) -> **la baldosa
+    del lanzador**, que es donde de verdad se ve el icono. LG lo redimensiona y
+    lo usa **en lugar** de los dos anteriores.
+
+  Es decir: **el icono de la baldosa no se controla desde el .ipk**. Instalada
+  en modo desarrollador, la baldosa dibuja un respaldo a tamaño fijo y se ve mas
+  pequeña que las de las apps del sistema, con fondo alrededor. Eso **se
+  arregla solo al publicar**, no hay que tocar nada. Comprobado: cambiar
+  `icon.png` de 80 a 130 px no altero en nada como se veia la baldosa.
 - **HTTPS** en todo el contenido de red.
 - **Comportamiento cuando falla la red**: la app pregunta al servidor antes de
   entrar y, si no contesta, enseña un aviso entendible y un boton de reintentar.
