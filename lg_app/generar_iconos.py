@@ -77,28 +77,20 @@ def icono(lado):
 
     d.text((x1, y - c1[1]), 'Quattre', font=f_arriba, fill=VERDE)
     d.text((x2, y + alto1 + separacion - c2[1]), 'TV', font=f_abajo, fill=VERDE)
-    # Radio medido sobre una foto de la propia television: los iconos del
-    # sistema curvan solo un 4 % del lado. El nuestro iba al 16-20 %, cuatro
-    # veces mas redondeado, y por eso asomaba tanto negro por las esquinas.
-    return esquinas_redondas(img, int(lado * 0.05))
+    # Opaco y cuadrado, sin redondear.
+    #
+    # Medido en dos fotos de la television: con el icono a 80 px se veia al
+    # 93 % del tamaño de los vecinos y a 130 px al 96 %, o sea que cambiar el
+    # tamaño del PNG no cambia nada — webOS lo dibuja a un tamaño fijo.
+    #
+    # Y webOS NO aplica su propia mascara a los iconos de terceros: lo que
+    # parece redondeado en los del sistema va pintado dentro de su imagen. Asi
+    # que redondear el nuestro solo consigue que asome el fondo negro de la
+    # baldosa por las esquinas. Entre llenar la baldosa entera con los cantos
+    # rectos o redondearla dejando negro, se elige lo primero — que ademas es
+    # lo que documenta LG: fondo no transparente y logotipo en caja cuadrada.
+    return img
 
-
-def esquinas_redondas(img, radio):
-    """
-    Redondea las esquinas dejando BLANCO debajo de la transparencia.
-
-    El primer intento las dejo con negro debajo del canal alfa, y la television
-    pintaba las esquinas de negro — o sea que no estaba respetando la
-    transparencia, sino enseñando lo que hubiera debajo. Con blanco debajo sale
-    bien de las dos maneras: si respeta el alfa queda redondeado, y si no,
-    quedan esquinas blancas en vez de negras.
-    """
-    mascara = Image.new('L', img.size, 0)
-    ImageDraw.Draw(mascara).rounded_rectangle(
-        [0, 0, img.size[0] - 1, img.size[1] - 1], radius=radio, fill=255)
-    salida = Image.new('RGBA', img.size, BLANCO + (0,))
-    salida.paste(img, (0, 0), mascara)
-    return salida
 
 
 def arranque(ancho=1920, alto=1080):
