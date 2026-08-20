@@ -786,7 +786,7 @@
             h += '<div class="info"><div class="name">' + esc(c.name);
             if (c.hd) h += ' <span class="hd">HD</span>';
             if (c.fav) h += ' <span class="fav">★</span>';
-            if (c.archive) h += ' <span class="arch">⟲</span>';
+            // Sin simbolo de archivo: ver el comentario en osdFor.
             if (c.locked) h += ' <span class="lock">🔒</span>';
             h += '</div>';
             if (c.cur_playing) {
@@ -1063,7 +1063,9 @@
         h += '<div class="osd-datos">';
         h += '<div class="osd-ch">' + esc(ch.name);
         if (ch.hd) h += ' <span class="hd">HD</span>';
-        if (ch.archive) h += ' <span class="arch">&#8634;</span>';
+        // El simbolo de archivo se quitó: en la tele quedaba como una cajita
+        // pequeña que no comunicaba nada, y ademas salia en casi todas las
+        // filas, asi que tampoco distinguia unos canales de otros.
         h += '</div>';
 
         if (ch.cur_playing) {
@@ -1507,7 +1509,9 @@
            no vale flex — el estilo en linea gana y la caratula se apilaba encima
            del texto, empujandolo fuera de la pantalla. Con flotante da igual el
            display, y ademas es lo unico seguro en el navegador del MAG520. */
-        #preview-cap { position: fixed; top: 782px; left: 749px; width: 1131px; z-index: 2; }
+        /* La miniatura de video acaba en 756; se deja aire para que el texto no
+           quede pegado a ella. */
+        #preview-cap { position: fixed; top: 806px; left: 749px; width: 1131px; z-index: 2; }
         /* overflow crea su propio contexto: el texto se queda en su columna en
            vez de envolver por debajo de la caratula. */
         #preview-cap .txt { overflow: hidden; }
@@ -1554,7 +1558,8 @@
         /* Miniatura del programa en la barra, mismo criterio que el cartel
            grande: alto fijo y ancho libre. */
         .osd-cartel {
-            height: 96px; width: auto; max-width: 180px; flex-shrink: 0;
+            height: 120px; width: auto; max-width: 214px; flex-shrink: 0;
+            margin-right: 28px;
             border-radius: 8px; display: block;
             border: 1px solid rgba(255,255,255,.1);
             background: #11171a;
@@ -1641,11 +1646,11 @@
 
             #preview { top: 80px; left: 499px; width: 754px; height: 424px;
                        border-radius: 12px; font-size: 17px; }
-            #preview-cap { top: 521px; left: 499px; width: 754px; }
+            #preview-cap { top: 537px; left: 499px; width: 754px; }
             #preview-cap .t { font-size: 27px; }
             #preview-cap .e { font-size: 14px; margin-top: 6px; }
             .cartel { height: 101px; max-width: 173px; margin-left: 16px; border-radius: 7px; }
-            .osd-cartel { height: 64px; max-width: 120px; border-radius: 5px; }
+            .osd-cartel { height: 80px; max-width: 143px; margin-right: 19px; border-radius: 5px; }
 
             #osd { left: 27px; right: 27px; bottom: 27px;
                    padding: 14px 22px 16px; border-radius: 9px; border-left-width: 4px; }
