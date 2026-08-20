@@ -19,6 +19,7 @@ FUENTE = sys.argv[1] if len(sys.argv) > 1 else os.path.join(AQUI, 'Antonio.ttf')
 FONDO_ALTO = (20, 27, 31)     # #141b1f
 FONDO_BAJO = (8, 11, 13)      # #080b0d
 VERDE      = (129, 186, 38)   # #81ba26, el de la marca
+BLANCO     = (255, 255, 255)
 VERDE_VIVO = (154, 214, 47)   # #9ad62f, para realces
 
 
@@ -48,13 +49,14 @@ def centrar(d, texto, fuente, ancho):
 
 def icono(lado):
     """
-    Icono cuadrado con el logotipo en dos lineas.
+    Icono cuadrado con el logotipo en dos lineas, verde sobre blanco.
 
-    A 80 px un logotipo en una sola linea no se lee, asi que va apilado, que es
-    como estaba. Lo que cambia es el margen — antes el texto llegaba casi al
-    borde — y el fondo.
+    A 80 px un logotipo en una sola linea no se lee, asi que va apilado. Va
+    sobre blanco a proposito: en la fila de aplicaciones de una television casi
+    todos los iconos son oscuros, asi que uno blanco destaca. Y es como se ve la
+    marca en quattre.com.
     """
-    img = degradado(lado, lado, FONDO_ALTO, FONDO_BAJO)
+    img = Image.new('RGB', (lado, lado), BLANCO)
     d = ImageDraw.Draw(img)
 
     margen = int(lado * 0.14)
