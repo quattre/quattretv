@@ -37,7 +37,8 @@ purchase and no external link out of the app.
 | **Subscription** | Full package — all live channels, VOD and recordings |
 | **Expiry** | None. The account does not expire. |
 | **Concurrent devices** | 5 |
-| **Parental PIN** | *[pending — see section 6]* |
+| **Parental PIN** | `1234` (see section 6) |
+| **Locked channel to test the PIN with** | **Dark**, channel number 29 |
 
 The account is ready before submission and stays active for the whole review.
 Sign-in is described in section 4.2.
@@ -224,9 +225,23 @@ They are handled as follows:
 7. The PIN is set by the account holder and can be changed from the customer's
    web account. It is not stored on the TV.
 
-For the review, the test account is given a PIN and at least one locked channel,
-so the behaviour can be verified in both directions: locked without the PIN, and
-unlocked after it.
+**How to verify it during the review.** Channel **29, "Dark"**, is an adult
+channel; the test account's PIN is **1234**. The behaviour can be checked in both
+directions:
+
+1. On the channel list, channel 29 shows a padlock. The preview window does not
+   play it and says the channel is locked.
+2. Press OK on it: the PIN screen appears. Enter a wrong PIN and it is rejected.
+3. Enter `1234` and the channel plays.
+4. Channel **30, "Dark Sin X"**, is the same channel without the adult content
+   and is *not* locked, which shows the lock applies per channel and not to the
+   whole list.
+
+What happens underneath, and it is the part worth checking: when the channel is
+locked the server sends the channel entry **with an empty address**. There is no
+stream URL on the television to be found. Verified against the live service —
+requesting the address of channel 29 without the PIN returns an error, not a
+URL.
 
 ---
 
