@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import TemplateView
 
 from apps.core.health import health, ping
 from apps.stalker_api import storage_urls
@@ -16,6 +17,15 @@ urlpatterns = [
     path('health', health, name='health'),
     path('ping', ping, name='ping'),
     path('health/', health),
+
+    # Politica de privacidad de la app de television. LG exige una direccion
+    # publica y la revisa: tiene que abrirse sin contrasena. Se sirve desde aqui
+    # y no desde quattre.com porque esta maquina ya tiene HTTPS y no depende de
+    # nadie mas. El texto esta en la plantilla, asi que se cambia editandola.
+    path('privacidad/', TemplateView.as_view(
+        template_name='legal/privacidad.html'), name='privacidad'),
+    path('privacy/', TemplateView.as_view(
+        template_name='legal/privacidad.html'), name='privacy'),
 
     # API v1
     path('api/v1/', include('apps.core.urls')),
