@@ -29,7 +29,7 @@ probado y falla en su revision, pierdes credibilidad para el resto del envio.
 | 2.2 | El video tambien por HTTPS | ✅ | cdn10 y cdn11 con certificado desde el 24/08/2026. Comprobado desde fuera: playlist y un segmento de 7 MB por https |
 | 2.3 | Ninguna llamada suelta en http | ✅ | Revisadas las plantillas del portal (0 coincidencias) y las 83 URLs de canal y los logos |
 | 2.4 | No se recogen datos personales desde la app | ✅ | La app solo guarda en la television la direccion del servidor que respondio |
-| 2.5 | URL de politica de privacidad | ❌ | **Pendiente.** Hay que publicarla en quattre.com |
+| 2.5 | URL de politica de privacidad | ✅ | Publicada en `https://iptv2.quattre.com/privacy/` (castellano en `/privacidad/`). Comprobado desde fuera: 200, sin login, sin cargar nada de terceros |
 
 ## 3. Comportamiento cuando algo falla
 
@@ -75,10 +75,14 @@ probado y falla en su revision, pierdes credibilidad para el resto del envio.
 
 ## Lo que falta antes de enviar
 
-1. **Publicar la politica de privacidad** y traer su URL (punto 2.5). El borrador
-   esta en `POLITICA_PRIVACIDAD.md`, con huecos marcados.
-2. **La tanda de pruebas en la television** (los ⏳): sin internet, con el servidor
+1. **La tanda de pruebas en la television** (los ⏳): sin internet, con el servidor
    apagado, recorrido completo solo con el mando, salir con HOME y el teclado en
    pantalla. Es una tarde y evita el rechazo mas tonto.
-3. **Capturas de pantalla** para la ficha de la tienda, que se hacen con la app
+2. **Capturas de pantalla** para la ficha de la tienda, que se hacen con la app
    corriendo en la television. Las medidas exactas salen en Seller Lounge.
+
+Y una revision que no bloquea el envio pero conviene hacer: que Marta Hernandez
+Acamer, la delegada de proteccion de datos, mire la politica publicada. Los
+plazos de facturacion salen del Codigo de Comercio y de la Ley General
+Tributaria, pero los doce meses de los registros de acceso son una decision de
+la casa.

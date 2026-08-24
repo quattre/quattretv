@@ -282,7 +282,9 @@ no webOS system API — `requiredPermissions` is deliberately absent from
 `appinfo.json`. Account data is held by the service under the subscription the
 customer signed.
 
-Privacy policy: **[URL pending — to be filled in before submission]**
+Privacy policy: **https://iptv2.quattre.com/privacy/** (same page in Spanish at
+`/privacidad/`). It is public, needs no sign-in and loads nothing from third
+parties.
 
 ---
 
