@@ -74,7 +74,14 @@ def archivo_del_canal():
 
 
 print('1. Sin ningun grabador dado de alta')
-StorageServer.objects.filter(role__in=[StorageRole.ARCHIVE, StorageRole.BOTH]).update(last_sync=None)
+# Los grabadores de verdad se apartan un momento, pero se apunta como estaban
+# para devolverlos igual al final: last_sync es un dato real de la plataforma y
+# una prueba no tiene por que borrarlo.
+reales = {
+    s.id: s.last_sync
+    for s in StorageServer.objects.filter(role__in=[StorageRole.ARCHIVE, StorageRole.BOTH])
+}
+StorageServer.objects.filter(id__in=reales).update(last_sync=None)
 comprobar('no se anuncia archivo', archivo_del_canal(), 0)
 
 print('2. Grabador dado de alta pero que nunca ha pedido tareas')
@@ -111,6 +118,8 @@ comprobar('se responde con un error, no con una URL', 'cmd' in js, False)
 print('     respuesta: %s' % js.get('error'))
 
 # --- limpieza ---
+for storage_id, cuando in reales.items():
+    StorageServer.objects.filter(id=storage_id).update(last_sync=cuando)
 Device.objects.filter(uid__startswith='ARCHIVO').delete()
 User.objects.filter(username='t_archivo').delete()
 Tariff.objects.filter(name='TEST archivo').delete()
