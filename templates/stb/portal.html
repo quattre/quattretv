@@ -977,10 +977,20 @@
         }
 
         var sel2 = guide[guideIdx];
-        var hint = '<span>OK</span> Grabar';
-        if (sel2 && sel2.past) hint = '<span>OK</span> Ver desde el archivo';
-        else if (sel2 && sel2.rec) hint = '<span>OK</span> Quitar la grabacion';
-        h += '<div class="help">' + hint + ' <span>◀</span> Volver</div>';
+        // Solo se ofrece lo que de verdad se puede hacer. Un programa pasado se
+        // ve si el canal tiene archivo; uno futuro se graba si hay grabador. Si
+        // no, no se anuncia: prometer "Grabar" y contestar que no se puede es
+        // peor que no ofrecerlo.
+        var hint = '';
+        if (sel2 && sel2.past) {
+            if (guideChannel && guideChannel.archive) hint = '<span>OK</span> Ver desde el archivo';
+        } else if (sel2 && sel2.rec) {
+            hint = '<span>OK</span> Quitar la grabacion';
+        } else if (hayGrabaciones()) {
+            hint = '<span>OK</span> Grabar';
+        }
+        if (hint) hint += ' ';
+        h += '<div class="help">' + hint + '<span>◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -1009,8 +1019,23 @@
         });
     }
 
+    // ¿Se pueden grabar cosas? El servidor ya lo dice al arrancar, en la lista
+    // de modulos: ahi solo aparece 'records' si la tarifa lo incluye y hay un
+    // grabador que conteste. Preguntarselo aqui evita ofrecer al usuario algo
+    // que va a terminar en un mensaje de error.
+    function hayGrabaciones() {
+        for (var i = 0; i < MODULOS.length; i++) {
+            if (MODULOS[i] === 'records') return true;
+        }
+        return false;
+    }
+
     function recordProgram(p) {
         if (!p) return;
+        if (!hayGrabaciones()) {
+            toast('Las grabaciones no estan disponibles');
+            return;
+        }
         api("type=pvr&action=create_task&program_id=" + p.id, function(js) {
             if (js && js.result) {
                 p.rec = 1;

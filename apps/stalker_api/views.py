@@ -473,12 +473,10 @@ def handle_get_modules(request):
     """
     Que apartados tiene disponibles este aparato.
 
-    Las grabaciones solo se anuncian si hay un grabador dado de alta y la tarifa
+    Las grabaciones solo se anuncian si hay un grabador que conteste y la tarifa
     las incluye: es mejor que no salga la opcion a que salga y avise de que no
     esta disponible.
     """
-    from apps.pvr.models import StorageServer, StorageRole
-
     device = get_device_from_request(request)
     modulos = ['tv', 'epg', 'settings']
 
@@ -487,10 +485,10 @@ def handle_get_modules(request):
     if not tarifa or tarifa.has_vod:
         modulos.append('vod')
 
-    hay_grabador = StorageServer.objects.filter(
-        is_active=True, role__in=[StorageRole.RECORDS, StorageRole.BOTH]
-    ).exists()
-    if hay_grabador and (not tarifa or tarifa.has_pvr):
+    # Que el grabador este dado de alta no significa que grabe: se le pregunta.
+    # Es la misma comprobacion que se hace al programar, para que el menu no
+    # ofrezca una seccion que luego contesta que no esta disponible.
+    if hay_grabador_de_clientes() and (not tarifa or tarifa.has_pvr):
         modulos.append('records')
 
     return stalker_response({
@@ -1300,6 +1298,59 @@ def handle_pvr(request, action):
     return stalker_response({'error': 'Unknown action'})
 
 
+ESPERA_GRABADOR = 2      # segundos que se le dan al grabador para contestar
+
+
+def hay_grabador_de_clientes():
+    """
+    Si hay ahora mismo un grabador de clientes que conteste.
+
+    Estar dado de alta no basta, y esta es exactamente la trampa en la que se
+    cayo: record1b figura en el panel para poder vigilarlo, asi que un exists()
+    decia que si, y el portal contestaba "Grabacion programada" a algo que no
+    iba a grabar nadie. Su direccion es interna y la plataforma nueva dejo de
+    alcanzarla al salir a la IP publica.
+
+    Aqui no sirve el truco del archivo — mirar last_sync — porque el grabador de
+    clientes **no viene a pedir tareas, recibe ordenes**: su last_sync seria
+    nulo para siempre aunque funcionase de maravilla. Hay que preguntarle.
+
+    Se cachea un minuto, en positivo y en negativo, para no llamar a la puerta
+    del grabador en cada pulsacion del mando.
+    """
+    import requests
+    from apps.pvr.models import StorageServer, StorageRole
+
+    try:
+        cacheado = cache.get('grabador:responde')
+        if cacheado is not None:
+            return bool(cacheado)
+    except Exception:
+        pass
+
+    hay = False
+    for storage in StorageServer.objects.filter(
+        is_active=True, role__in=[StorageRole.RECORDS, StorageRole.BOTH]
+    ):
+        try:
+            respuesta = requests.get(
+                storage.build_url('', public=True), timeout=ESPERA_GRABADOR
+            )
+            # Cualquier respuesta vale: un 401 significa que hay alguien ahi
+            # detras pidiendo credenciales, que es justo lo que queremos saber.
+            if respuesta.status_code:
+                hay = True
+                break
+        except Exception:
+            continue
+
+    try:
+        cache.set('grabador:responde', 1 if hay else 0, 60)
+    except Exception:
+        pass
+    return hay
+
+
 def _pvr_device(request, exige_grabador=False):
     device = get_device_from_request(request)
     if not device:
@@ -1307,14 +1358,9 @@ def _pvr_device(request, exige_grabador=False):
     if device.user.tariff and not device.user.tariff.has_pvr:
         return None, stalker_response({'error': 'Grabaciones no incluidas en tu tarifa'})
 
-    if exige_grabador:
-        from apps.pvr.models import StorageServer, StorageRole
-        hay = StorageServer.objects.filter(
-            is_active=True, role__in=[StorageRole.RECORDS, StorageRole.BOTH]
-        ).exists()
-        if not hay:
-            return None, stalker_response({
-                'error': 'Las grabaciones no estan disponibles todavia'})
+    if exige_grabador and not hay_grabador_de_clientes():
+        return None, stalker_response({
+            'error': 'Las grabaciones no estan disponibles todavia'})
 
     return device, None
 
