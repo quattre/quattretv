@@ -83,7 +83,16 @@
             // El archivo y las grabaciones se sirven como MPEG-TS crudo: el
             // deco lo reproduce, pero el <video> de LG no. Avisar en vez de
             // quedarse en negro.
+            //
+            // Pero hay dos motivos distintos para que el video falle y antes se
+            // decian igual: que la television no pueda con ese formato, y que
+            // no haya red. Decir "no se puede reproducir en este dispositivo"
+            // cuando lo que pasa es que se ha ido el internet manda al usuario
+            // a buscar el problema donde no esta.
             htmlPlayer.onerror = function() {
+                var sinRed = !hayRed ||
+                    (typeof navigator !== 'undefined' && navigator.onLine === false);
+                if (sinRed) { seCayoLaRed(); return; }
                 toast('Este contenido no se puede reproducir en este dispositivo');
             };
         }
@@ -91,22 +100,118 @@
         loadData();
     }
 
-    function api(query, cb) {
+    // ---------- Conexion ----------
+    //
+    // El lanzador de la app ya resuelve el arranque sin red. Pero una vez
+    // dentro no se notaba: el video se quedaba congelado con un aviso que
+    // ademas mentia ("no se puede reproducir en este dispositivo" cuando lo
+    // que pasaba era que no habia red), las listas dejaban de actualizarse sin
+    // decir nada, y al volver la red no se recuperaba solo — habia que
+    // moverse a ciegas hasta que alguna peticion volviera a funcionar.
+    var hayRed = true;
+    var relojRed = null;
+    var vueltaRed = 0;
+    var ESPERAS_RED = [2000, 4000, 8000, 15000];   // ms entre reintentos
+    var TIEMPO_PETICION = 12000;                   // ms antes de dar por muerta una peticion
+
+    function avisoRed(texto) {
+        document.getElementById('sinred-detalle').innerHTML = esc(texto);
+    }
+
+    function seCayoLaRed() {
+        if (!hayRed) return;      // ya estabamos avisando
+        hayRed = false;
+        graficosDelante();
+        document.getElementById('sinred').style.display = 'block';
+        vueltaRed = 0;
+        reintentarRed();
+    }
+
+    function reintentarRed() {
+        var espera = ESPERAS_RED[Math.min(vueltaRed, ESPERAS_RED.length - 1)];
+        vueltaRed++;
+        avisoRed('Reintentando en ' + Math.round(espera / 1000) +
+                 ' s... Comprueba que la television tiene internet.');
+        clearTimeout(relojRed);
+        relojRed = setTimeout(probarRed, espera);
+    }
+
+    function probarRed() {
+        avisoRed('Reintentando...');
+        // El latido es la peticion mas barata que hay, y ademas de paso le
+        // dice al panel que este aparato sigue vivo.
+        api('type=watchdog&action=get_events', function(js) {
+            if (js === null) { reintentarRed(); return; }
+            volvioLaRed();
+        }, true);   // silenciosa: si falla no queremos reentrar en el aviso
+    }
+
+    function volvioLaRed() {
+        if (hayRed) return;
+        hayRed = true;
+        clearTimeout(relojRed);
+        document.getElementById('sinred').style.display = 'none';
+
+        // Recuperarse de verdad, no solo quitar el cartel: se vuelve a pedir la
+        // lista (los canales pueden haber cambiado) y se arranca otra vez lo
+        // que se estaba viendo. Sin esto el usuario se queda con una imagen
+        // congelada y una app que parece ir, pero no va.
+        var estabaViendo = playingChannelIdx;
+        playingChannelIdx = -1;
+        loadPage(0);
+        if (isFullscreen && channels[estabaViendo >= 0 ? estabaViendo : currentChannel]) {
+            var ch = channels[estabaViendo >= 0 ? estabaViendo : currentChannel];
+            playChannel(ch);
+            playingChannelIdx = estabaViendo >= 0 ? estabaViendo : currentChannel;
+        } else if (!isFullscreen) {
+            startPreview();
+        }
+        toast('Conexion recuperada');
+    }
+
+    function api(query, cb, silenciosa) {
         var xhr = new XMLHttpRequest();
+        var resuelto = false;
+
+        // Sin esto una peticion podia quedarse colgada para siempre y la
+        // pantalla se quedaba en "Cargando..." sin decir nada nunca.
+        var reloj = setTimeout(function() {
+            if (resuelto) return;
+            resuelto = true;
+            try { xhr.abort(); } catch(err) {}
+            if (!silenciosa) seCayoLaRed();
+            cb(null);
+        }, TIEMPO_PETICION);
+
         xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    try {
-                        var r = JSON.parse(xhr.responseText);
-                        cb(r.js || {});
-                        return;
-                    } catch(err) {}
-                }
-                cb(null);
+            if (xhr.readyState !== 4 || resuelto) return;
+            resuelto = true;
+            clearTimeout(reloj);
+
+            if (xhr.status === 200) {
+                try {
+                    var r = JSON.parse(xhr.responseText);
+                    if (!hayRed) volvioLaRed();   // ha contestado: ya hay red
+                    cb(r.js || {});
+                    return;
+                } catch(err) {}
             }
+            // Status 0 es que no se ha llegado al servidor. Un 500 es que se ha
+            // llegado y ha fallado alli, que no es lo mismo y no toca avisar de
+            // que no hay red.
+            if (xhr.status === 0 && !silenciosa) seCayoLaRed();
+            cb(null);
         };
-        xhr.open("GET", "?" + query + "&_t=" + Date.now(), true);
-        xhr.send();
+
+        try {
+            xhr.open("GET", "?" + query + "&_t=" + Date.now(), true);
+            xhr.send();
+        } catch(err) {
+            clearTimeout(reloj);
+            resuelto = true;
+            if (!silenciosa) seCayoLaRed();
+            cb(null);
+        }
     }
 
     // Contarle al servidor como es este aparato: sin esto hay que adivinar por
@@ -1366,6 +1471,18 @@
     document.onkeydown = handleKey;
     window.onresize = fitScreen;
     window.onload = init;
+
+    // La television avisa cuando pierde y cuando recupera la red. Hacerle caso
+    // vale mas que esperar al siguiente reintento: en cuanto vuelve el cable,
+    // se recupera en el acto en vez de tardar hasta 15 segundos.
+    if (window.addEventListener) {
+        window.addEventListener('offline', function() { seCayoLaRed(); }, false);
+        window.addEventListener('online', function() {
+            clearTimeout(relojRed);
+            vueltaRed = 0;
+            probarRed();
+        }, false);
+    }
     </script>
     <style>
         /* Identidad de Quattre: verde #81ba26 sobre carbon, titulares en Antonio.
@@ -1612,6 +1729,19 @@
             font-size: 60px; font-weight: 700; letter-spacing: 6px;
             border-radius: 16px; color: #9ad62f;
         }
+        /* Aviso de que se ha caido la red. Va por encima de todo, incluso de
+           la pantalla completa, porque si no el usuario se queda mirando una
+           imagen congelada sin saber por que. */
+        #sinred {
+            position: fixed; z-index: 40; display: none;
+            top: 50%; left: 50%; transform: translate(-50%,-50%);
+            background: #10161a; border: 1px solid rgba(255,255,255,.07);
+            box-shadow: 0 18px 60px rgba(0,0,0,.85);
+            padding: 34px 54px; border-radius: 16px;
+            text-align: center; max-width: 900px;
+        }
+        #sinred .titulo { font-size: 26px; font-weight: 600; margin-bottom: 10px; }
+        #sinred .detalle { font-size: 19px; color: #98a3a6; line-height: 1.5; }
 
         .pinbox {
             font-family: Antonio, sans-serif;
@@ -1681,5 +1811,9 @@
     <div id="vol" style="z-index:20;"></div>
     <div id="toast"></div>
     <div id="numjump"></div>
+    <div id="sinred">
+        <div class="titulo">Se ha perdido la conexion</div>
+        <div class="detalle" id="sinred-detalle">Reintentando...</div>
+    </div>
 </body>
 </html>
