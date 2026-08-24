@@ -70,6 +70,13 @@ r = c.get('/quattretv/stb/portal.php?type=stb&action=login&login=t_graba'
 if r.status_code != 200:
     raise SystemExit('el login ha respondido %s: %s' % (r.status_code, r.content[:200]))
 
+# La cookie de la MAC la pone el javascript de la tele, no el servidor, asi que
+# aqui hay que ponerla a mano. Sin ella las peticiones llegan sin identificar y
+# la prueba pasaria por el motivo equivocado: "Not authenticated" no es lo mismo
+# que "no hay grabador".
+mac = json.loads(r.content)['js']['mac']
+c.cookies['mac'] = mac
+
 
 # --- se sustituye la llamada de red al grabador ---
 class RespuestaFalsa:
