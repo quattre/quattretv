@@ -625,6 +625,48 @@ def epg_now_next(channel_ids):
     return result
 
 
+# El grabador pide sus tareas de archivo cada 5 minutos; 15 sin aparecer es que
+# esta parado. Mismo criterio que /health y que comprobar_grabadores.
+ARCHIVO_SIN_CONTACTO_MIN = 15
+
+
+def hay_archivo_en_marcha():
+    """
+    Si hay ahora mismo algun grabador capaz de servir el archivo.
+
+    Que este dado de alta no basta: mientras no venga a pedir sus tareas no
+    esta grabando nada. Anunciar un archivo que no existe acaba con el usuario
+    pulsando sobre un programa ya emitido y llevandose un "Archivo no
+    disponible", que es peor que no ofrecerlo.
+
+    Se cachea un minuto porque la lista de canales se pide a menudo y esto no
+    cambia de un segundo a otro. Si la cache no responde se pregunta a la base
+    de datos, que aqui es barato: un exists() sobre un puñado de filas.
+    """
+    from datetime import timedelta
+    from apps.pvr.models import StorageServer, StorageRole
+
+    try:
+        cacheado = cache.get('archivo:en_marcha')
+        if cacheado is not None:
+            return bool(cacheado)
+    except Exception:
+        pass
+
+    limite = timezone.now() - timedelta(minutes=ARCHIVO_SIN_CONTACTO_MIN)
+    hay = StorageServer.objects.filter(
+        is_active=True,
+        role__in=[StorageRole.ARCHIVE, StorageRole.BOTH],
+        last_sync__gte=limite,
+    ).exists()
+
+    try:
+        cache.set('archivo:en_marcha', 1 if hay else 0, 60)
+    except Exception:
+        pass
+    return hay
+
+
 def handle_get_ordered_list(request):
     """Get ordered channel list."""
     device = get_device_from_request(request)
@@ -661,12 +703,16 @@ def handle_get_ordered_list(request):
     # no tiene sentido.
     tiene_pin = bool(device and device.user.parental_password)
     desbloqueado = parental_unlocked(device) if tiene_pin else True
+    # Lo mismo: una sola vez por peticion en vez de una por canal.
+    archivo_en_marcha = hay_archivo_en_marcha()
 
     data = []
     for ch in channels:
-        # Only advertise archive when a recorder can actually serve it: it needs
-        # catchup enabled and a multicast source being archived.
-        has_archive = bool(ch.has_catchup and ch.multicast_url)
+        # Solo se anuncia archivo cuando hay un grabador que pueda servirlo de
+        # verdad: hace falta el catchup activado en el canal, un multicast del
+        # que grabarlo, y un grabador que este dando señales de vida. Faltaba lo
+        # ultimo, y por eso 81 canales anunciaban un archivo que no existia.
+        has_archive = bool(ch.has_catchup and ch.multicast_url and archivo_en_marcha)
         # Un canal de adultos bloqueado no viaja con su URL: si se mandara,
         # pedir el PIN en pantalla seria un adorno que cualquiera se salta.
         bloqueado = bool(ch.is_adult and tiene_pin and not desbloqueado)
@@ -1202,6 +1248,11 @@ def handle_archive_link(request):
 
     if not channel.has_catchup or not channel.multicast_url:
         return stalker_response({'error': 'Archivo no disponible para este canal'})
+
+    # La lista de canales ya no lo ofrece si no hay grabador vivo, pero el deco
+    # puede pedirlo igual con una lista que tuviera en memoria.
+    if not hay_archivo_en_marcha():
+        return stalker_response({'error': 'Archivo no disponible en este momento'})
 
     if device and device.user.tariff and not device.user.tariff.has_catchup:
         return stalker_response({'error': 'Archivo no incluido en tu tarifa'})
