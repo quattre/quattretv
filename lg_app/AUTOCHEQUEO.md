@@ -57,7 +57,7 @@ probado y falla en su revision, pierdes credibilidad para el resto del envio.
 |---|---|---|---|
 | 5.1 | Hay contenido para adultos y se declara | ✅ | Declarado en el UX Scenario |
 | 5.2 | Control parental con PIN | ✅ | El servidor no entrega la direccion del canal bloqueado; el PIN no es una cortina de la app |
-| 5.3 | El revisor puede comprobar el control parental | ❌ | **Pendiente:** marcar un canal como +18 y poner PIN a la cuenta de revisores |
+| 5.3 | El revisor puede comprobar el control parental | ✅ | Canal 29 (Dark) marcado como +18 y PIN 1234 en la cuenta de revisores. Comprobado contra el servicio en marcha en cinco fases: llega con la direccion vacia, sin PIN devuelve error, PIN malo se rechaza, PIN bueno se acepta, y solo entonces entrega la URL |
 | 5.4 | Ninguna opcion del menu lleva a una pantalla vacia | ✅ | La cuenta de revisores paso a una tarifa de solo TV: Peliculas, Series y Mis grabaciones ya no aparecen |
 | 5.5 | Ninguna funcion ofrecida esta rota | ✅ | El archivo ya no se anuncia si no hay grabador dando señales. Antes lo anunciaban 81 canales sin haberlo |
 | 5.6 | No hay publicidad, compras ni contenido de usuarios | ✅ | |
@@ -75,9 +75,10 @@ probado y falla en su revision, pierdes credibilidad para el resto del envio.
 
 ## Lo que falta antes de enviar
 
-1. **URL de politica de privacidad** (punto 2.5).
-2. **Montar el +18 de prueba** (punto 5.3): marcar un canal y poner PIN a `lgreview`.
-3. **La tanda de pruebas en la television** (los ⏳): sin internet, con el servidor
+1. **Publicar la politica de privacidad** y traer su URL (punto 2.5). El borrador
+   esta en `POLITICA_PRIVACIDAD.md`, con huecos marcados.
+2. **La tanda de pruebas en la television** (los ⏳): sin internet, con el servidor
    apagado, recorrido completo solo con el mando, salir con HOME y el teclado en
    pantalla. Es una tarde y evita el rechazo mas tonto.
-4. **Cuenta de LG Seller Lounge**, que es donde se sube todo esto.
+3. **Capturas de pantalla** para la ficha de la tienda, que se hacen con la app
+   corriendo en la television. Las medidas exactas salen en Seller Lounge.
