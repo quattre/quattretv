@@ -783,10 +783,22 @@ def handle_get_short_epg(request):
         return stalker_response({'data': []})
 
     now = timezone.now()
-    programs = Program.objects.filter(
+    programs = list(Program.objects.filter(
         channel_id=channel_id,
         end_time__gte=now
-    ).order_by('start_time')[:10]
+    ).order_by('start_time')[:10])
+
+    # Que grabaciones tiene ya programadas este usuario de estos programas: sin
+    # esto la ficha ofreceria grabar algo que ya esta grabandose.
+    device = get_device_from_request(request)
+    programadas = set()
+    if device and programs:
+        from apps.pvr.models import Recording
+        programadas = set(
+            Recording.objects.filter(
+                user=device.user, program__in=programs
+            ).values_list('program_id', flat=True)
+        )
 
     data = []
     for prog in programs:
@@ -795,10 +807,20 @@ def handle_get_short_epg(request):
             't_time': timezone.localtime(prog.start_time).strftime('%H:%M'),
             't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
             'name': prog.title,
-            'descr': prog.description[:200] if prog.description else '',
+            # La descripcion iba recortada a 200 caracteres, y la ficha del
+            # programa la enseña entera: cortarla aqui dejaba la sinopsis a
+            # medias justo cuando el usuario ha pedido leerla. Casi la mitad de
+            # la guia pasa de esos 200 caracteres.
+            'descr': prog.description or '',
+            'category': prog.category or '',
             'start_timestamp': int(prog.start_time.timestamp()),
             'stop_timestamp': int(prog.end_time.timestamp()),
             'progress': prog.progress_percent,
+            # Los mismos que manda la guia, para que la ficha se pinte igual se
+            # llegue desde donde se llegue.
+            'past': 1 if prog.end_time < now else 0,
+            'current': 1 if prog.start_time <= now <= prog.end_time else 0,
+            'rec': 1 if prog.id in programadas else 0,
         })
 
     return stalker_response({'data': data})

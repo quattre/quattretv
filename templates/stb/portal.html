@@ -455,7 +455,7 @@
         for (var i = start; i < end; i++) {
             var g = genres[i];
             var cls = (i === genreIdx) ? "item sel" : "item";
-            h += '<div class="' + cls + '"><div class="info"><div class="name">' +
+            h += '<div class="' + cls + '" data-i="' + i + '"><div class="info"><div class="name">' +
                  esc(g.title) + (String(g.id) === String(genreFilter) ? ' <span class="live">ACTIVA</span>' : '') +
                  '</div></div></div>';
         }
@@ -574,7 +574,7 @@
             var cls = (i === menuIdx) ? "item sel" : "item";
             var extra = '';
             if (MENU[i].id === 'favoritos' && favOnly) extra = ' <span class="live">ACTIVO</span>';
-            h += '<div class="' + cls + '"><div class="info"><div class="name">' +
+            h += '<div class="' + cls + '" data-i="' + i + '"><div class="info"><div class="name">' +
                  esc(MENU[i].titulo) + extra + '</div></div></div>';
         }
         h += '</div>';
@@ -638,7 +638,7 @@
             for (var i = start; i < end; i++) {
                 var p = vod[i];
                 var cls = (i === vodIdx) ? "item sel" : "item";
-                h += '<div class="' + cls + '"><div class="info"><div class="name">' + esc(p.name);
+                h += '<div class="' + cls + '" data-i="' + i + '"><div class="info"><div class="name">' + esc(p.name);
                 if (p.hd) h += ' <span class="hd">HD</span>';
                 if (p.locked) h += ' <span class="lock">🔒</span>';
                 h += '</div>';
@@ -704,7 +704,7 @@
             for (var i = start; i < end; i++) {
                 var s = series[i];
                 var cls = (i === serieIdx) ? "item sel" : "item";
-                h += '<div class="' + cls + '"><div class="info"><div class="name">' + esc(s.name);
+                h += '<div class="' + cls + '" data-i="' + i + '"><div class="info"><div class="name">' + esc(s.name);
                 if (s.locked) h += ' <span class="lock">🔒</span>';
                 h += '</div>';
                 var meta = [];
@@ -752,7 +752,7 @@
             for (var i = start; i < end; i++) {
                 var cap = capitulos[i];
                 var cls = (i === capIdx) ? "item sel" : "item";
-                h += '<div class="' + cls + '">';
+                h += '<div class="' + cls + '" data-i="' + i + '">';
                 h += '<div class="num sm">T' + cap.season + 'E' + cap.episode + '</div>';
                 h += '<div class="info"><div class="name">' + esc(cap.name) + '</div></div></div>';
             }
@@ -877,7 +877,7 @@
         for (var i = start; i < end; i++) {
             var c = channels[i];
             var cls = (i === currentChannel) ? "item sel" : "item";
-            h += '<div class="' + cls + '">';
+            h += '<div class="' + cls + '" data-i="' + i + '">';
             h += '<div class="num">' + c.number + '</div>';
             // El hueco va siempre, con logotipo o sin el: si falta, la lista se
             // descuadra porque el nombre arranca en otro sitio. Los que no
@@ -976,11 +976,14 @@
                 var p = guide[i];
                 var cls = (i === guideIdx) ? "item sel" : "item";
                 if (p.past) cls += " past";
-                h += '<div class="' + cls + '">';
+                h += '<div class="' + cls + '" data-i="' + i + '">';
                 h += '<div class="num sm">' + esc(p.t_time) + '</div>';
                 h += '<div class="info"><div class="name">' + esc(p.name);
                 if (p.rec) h += ' <span class="rec">REC</span>';
                 if (p.current) h += ' <span class="live">AHORA</span>';
+                // Flecha en la fila marcada: la señal de "aqui se puede entrar"
+                // tiene que estar en la fila, no solo en la ayuda de abajo.
+                if (i === guideIdx) h += ' <span class="entrar">▶</span>';
                 h += '</div>';
                 if (p.current) h += '<div class="bar"><i style="width:' + (p.progress || 0) + '%"></i></div>';
                 h += '</div></div>';
@@ -989,13 +992,15 @@
 
             var sel = guide[guideIdx];
             if (sel && sel.descr) {
-                // Se sigue enseñando un adelanto, pero si hay mas se dice, en
-                // vez de cortar la frase por la mitad y dejar al usuario
-                // pensando que la guia esta rota.
+                // Se sigue enseñando un adelanto, pero el aviso de que hay mas
+                // va en su propia linea y en verde, no pegado al final de la
+                // frase: ahi es donde el ojo ya esta mirando, y la ayuda de
+                // abajo queda demasiado lejos para que nadie la lea.
                 var corto = sel.descr.length > 220;
                 h += '<div class="descr">' + esc(sel.descr.substring(0, 220));
-                if (corto) h += '... <span style="color:#9ad62f;">▶ ver ficha</span>';
+                if (corto) h += '...';
                 h += '</div>';
+                h += '<div class="ver-mas"><span>▶</span> Ver la informacion completa</div>';
             }
         }
 
@@ -1018,11 +1023,53 @@
     var fichaScrollMax = 0;
     var PASO_FICHA = 90;        // px que se desplaza cada pulsacion
 
+    var fichaDesdeFullscreen = false;
+
     function abrirFicha() {
         if (!guide[guideIdx]) return;
         view = "ficha";
         fichaScroll = 0;
         renderFicha();
+    }
+
+    // Volver de la ficha al sitio del que se vino, que no siempre es la guia:
+    // desde pantalla completa hay que devolver el video, no la lista.
+    function salirDeFicha() {
+        if (fichaDesdeFullscreen) {
+            fichaDesdeFullscreen = false;
+            view = "list";
+            document.getElementById("content").style.display = "none";
+            graficosDelanteInsistiendo();
+            return;
+        }
+        view = "guide";
+        renderGuide();
+    }
+
+    // La informacion del programa desde donde sea: en la guia es el programa
+    // marcado, y en la lista o en pantalla completa es el que se esta emitiendo
+    // en ese canal.
+    function mostrarInfoPrograma() {
+        if (view === "ficha") return;
+        if (view === "guide") { abrirFicha(); return; }
+
+        var idx = (isFullscreen && playingChannelIdx >= 0) ? playingChannelIdx : currentChannel;
+        var ch = channels[idx];
+        if (!ch) return;
+        if (ch.locked) { toast('Canal bloqueado - introduce el PIN'); return; }
+
+        api("type=itv&action=get_short_epg&ch_id=" + ch.id, function(js) {
+            var lista = (js && js.data) ? js.data : [];
+            if (lista.length === 0) { toast('Sin informacion de este programa'); return; }
+            guideChannel = ch;
+            guide = lista;
+            guideIdx = 0;
+            fichaDesdeFullscreen = isFullscreen;
+            if (isFullscreen) {
+                document.getElementById("content").style.display = "block";
+            }
+            abrirFicha();
+        });
     }
 
     function renderFicha() {
@@ -1183,7 +1230,7 @@
             for (var i = start; i < end; i++) {
                 var r = recordings[i];
                 var cls = (i === recIdx) ? "item sel" : "item";
-                h += '<div class="' + cls + '">';
+                h += '<div class="' + cls + '" data-i="' + i + '">';
                 h += '<div class="num sm">' + esc(r.start_time.substring(11)) + '</div>';
                 h += '<div class="info"><div class="name">' + esc(r.name);
                 h += ' <span class="st ' + esc(r.status) + '">' + esc(statusLabel(r.status)) + '</span></div>';
@@ -1440,8 +1487,39 @@
         return false;
     }
 
+    // Teclas del mando de LG que no coinciden con las de un teclado. La de
+    // atras es la mas importante: el mando manda 461, no la 8 ni la 27 del
+    // teclado, asi que hasta ahora el boton atras de la television no hacia
+    // nada — y con disableBackHistoryAPI en true, gestionarlo es cosa nuestra.
+    var TECLA_ATRAS = 461;
+    var TECLA_INFO = 457;
+    var TECLA_ROJO = 403, TECLA_VERDE = 404, TECLA_AMARILLO = 405, TECLA_AZUL = 406;
+
+    function normalizarTecla(k) {
+        if (k === TECLA_ATRAS) return 27;          // atras del mando = escape
+        if (k === 415 || k === 19) return 13;      // reproducir/pausa = OK
+        return k;
+    }
+
     function handleKey(e) {
-        var k = e.keyCode;
+        var k = normalizarTecla(e.keyCode);
+
+        // Los botones de colores, con el reparto de siempre en la television
+        // española: rojo graba, verde marca favorito, amarillo filtra los
+        // favoritos y azul abre la guia.
+        if (e.keyCode === TECLA_ROJO) {
+            if (view === "guide") recordProgram(guide[guideIdx]);
+            else recordCurrent();
+            return false;
+        }
+        if (e.keyCode === TECLA_VERDE) { toggleFavorite(); return false; }
+        if (e.keyCode === TECLA_AMARILLO) { toggleFavOnly(); return false; }
+        if (e.keyCode === TECLA_AZUL) {
+            if (view === "guide" || isFullscreen) { /* ya se esta en ello */ }
+            else if (channels.length > 0) openGuide();
+            return false;
+        }
+        if (e.keyCode === TECLA_INFO) { mostrarInfoPrograma(); return false; }
         if (k === 107) { adjustVolume(5); return false; }
         if (k === 109) { adjustVolume(-5); return false; }
 
@@ -1469,6 +1547,19 @@
             return false;
         }
 
+        // La ficha se mira antes que la pantalla completa: se puede abrir
+        // encima del video, y si no se comprobara aqui las flechas se irian a
+        // cambiar de canal en vez de desplazar el texto.
+        if (view === "ficha") {
+            if (k === 38) moverFicha(-PASO_FICHA);
+            else if (k === 40) moverFicha(PASO_FICHA);
+            else if (k === 33) moverFicha(-PASO_FICHA * 4);
+            else if (k === 34) moverFicha(PASO_FICHA * 4);
+            else if (k === 13) { salirDeFicha(); guideAction(); }
+            else if (k === 37 || k === 8 || k === 27 || k === 39) salirDeFicha();
+            return false;
+        }
+
         if (isFullscreen) {
             if (k === 38 || k === 33) {
                 // Cambiar canal en fullscreen
@@ -1488,8 +1579,17 @@
                     mostrarOsd(ch);
                 }
             } else if (k === 39 || k === 73 || k === 89) {
-                // Volver a enseñar la barra sin cambiar de canal.
-                mostrarOsd(channels[currentChannel]);
+                // Primera pulsacion: la barra del canal. Si ya esta puesta,
+                // otra vez entra en la ficha del programa. Es el mismo gesto
+                // que en la guia — derecha es entrar mas adentro — asi que no
+                // hay que aprender nada nuevo ni buscar un boton raro.
+                if (document.getElementById("osd").style.display === "block") {
+                    mostrarInfoPrograma();
+                } else {
+                    mostrarOsd(channels[currentChannel]);
+                }
+            } else if (k === 82 || k === 112) {
+                recordCurrent();
             } else if (k === 8 || k === 27 || k === 13) {
                 showMenu();
             }
@@ -1542,16 +1642,6 @@
             } else if (k === 37 || k === 8 || k === 27) {
                 showChannels();
             }
-        } else if (view === "ficha") {
-            if (k === 38) moverFicha(-PASO_FICHA);
-            else if (k === 40) moverFicha(PASO_FICHA);
-            else if (k === 33) moverFicha(-PASO_FICHA * 4);       // pagina arriba
-            else if (k === 34) moverFicha(PASO_FICHA * 4);        // pagina abajo
-            else if (k === 13) { view = "guide"; renderGuide(); guideAction(); }
-            else if (k === 37 || k === 8 || k === 27 || k === 39) {
-                view = "guide";
-                renderGuide();
-            }
         } else if (view === "recordings") {
             if (k === 38 && recIdx > 0) {
                 recIdx--;
@@ -1598,7 +1688,59 @@
         return false;
     }
 
+    // ---------- El mando de LG es un puntero ----------
+    //
+    // El Magic Remote, que es el que viene con casi todas las LG, se apunta a
+    // la pantalla y se hace clic. Hasta ahora el portal solo escuchaba teclas,
+    // asi que apuntar y pulsar no hacia absolutamente nada: la app parecia
+    // colgada. Y es el mando con el que la van a probar en la revision.
+    //
+    // Cada fila lleva su indice en data-i, asi que un clic es exactamente lo
+    // mismo que moverse hasta ella y pulsar OK: se reutiliza lo que ya hay en
+    // vez de duplicar cada accion.
+    function filaPulsada(destino) {
+        var n = destino;
+        while (n && n !== document.body) {
+            if (n.getAttribute && n.getAttribute('data-i') !== null) {
+                return parseInt(n.getAttribute('data-i'), 10);
+            }
+            n = n.parentNode;
+        }
+        return -1;
+    }
+
+    function manejarClic(e) {
+        var i = filaPulsada(e.target || e.srcElement);
+        if (i < 0 || isNaN(i)) return;
+
+        // Primer clic: seleccionar. Segundo clic sobre lo ya seleccionado:
+        // entrar. Asi no se entra sin querer al apuntar de pasada, que con un
+        // puntero pasa constantemente.
+        if (view === "menu") {
+            if (menuIdx === i) { elegirMenu(); } else { menuIdx = i; renderMenu(); }
+        } else if (view === "genres") {
+            if (genreIdx === i) { chooseGenre(); } else { genreIdx = i; renderGenres(); }
+        } else if (view === "vod") {
+            if (vodIdx === i) { verPelicula(); } else { vodIdx = i; renderVod(null); }
+        } else if (view === "series") {
+            if (serieIdx === i) { openCapitulos(); } else { serieIdx = i; renderSeries(null); }
+        } else if (view === "capitulos") {
+            if (capIdx === i) { verCapitulo(); } else { capIdx = i; renderCapitulos(null); }
+        } else if (view === "guide") {
+            if (guideIdx === i) { abrirFicha(); } else { guideIdx = i; renderGuide(); }
+        } else if (view === "recordings") {
+            if (recIdx === i) {
+                var sel = recordings[recIdx];
+                if (sel && sel.status === 'completed') playRecording();
+            } else { recIdx = i; renderRecordings(null); }
+        } else if (!isFullscreen) {
+            if (currentChannel === i) { goFullscreen(); }
+            else { currentChannel = i; showChannels(); startPreview(); }
+        }
+    }
+
     document.onkeydown = handleKey;
+    document.onclick = manejarClic;
     window.onresize = fitScreen;
     window.onload = init;
 
@@ -1736,6 +1878,19 @@
         /* Ficha del programa. El texto largo no cabe en una pantalla de tele y
            no hay raton para arrastrar nada, asi que se desplaza con las flechas
            y se recorta por arriba y por abajo con una caja de altura fija. */
+        /* "Aqui se puede entrar", dicho donde el ojo ya esta mirando. */
+        .entrar {
+            color: #9ad62f; font-size: 20px; margin-left: 8px;
+            animation: latir 1.6s ease-in-out infinite;
+        }
+        @keyframes latir { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+        .ver-mas {
+            color: #9ad62f; font-size: 19px; padding: 0 6px 12px;
+        }
+        .ver-mas span {
+            background: rgba(154,214,47,.14); border-radius: 6px;
+            padding: 2px 9px; margin-right: 8px;
+        }
         .ficha-datos {
             color: #98a3a6; font-size: 19px; margin-bottom: 4px;
         }
