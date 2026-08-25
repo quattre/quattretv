@@ -69,7 +69,29 @@ for tipo, esperado, quien in [
     comprobar('%s recibe %s' % (quien, 'https' if esperado == HTTPS else 'el 1500'),
               url_para_dispositivo(HTTPS, d), esperado)
 
-print('2. Casos raros que no deben romper nada')
+print('2. El interruptor para ir retirando la excepcion')
+sin_https = settings.QUATTRETV['TIPOS_SIN_HTTPS']
+solo_https = settings.QUATTRETV['STREAMS_SOLO_HTTPS']
+try:
+    # Se prueba un tipo, va bien, y se quita de la lista sin tocar codigo.
+    settings.QUATTRETV['TIPOS_SIN_HTTPS'] = ['android']
+    comprobar('quitando mag de la lista, un mag ya recibe https',
+              url_para_dispositivo(HTTPS, Device(device_type='mag')), HTTPS)
+    comprobar('y android sigue en el 1500 mientras no se pruebe',
+              url_para_dispositivo(HTTPS, Device(device_type='android')), HTTP1500)
+
+    # O de golpe, el dia que todo este comprobado.
+    settings.QUATTRETV['TIPOS_SIN_HTTPS'] = ['mag', 'android']
+    settings.QUATTRETV['STREAMS_SOLO_HTTPS'] = True
+    comprobar('con el interruptor puesto, un mag recibe https',
+              url_para_dispositivo(HTTPS, Device(device_type='mag')), HTTPS)
+    comprobar('y un android tambien',
+              url_para_dispositivo(HTTPS, Device(device_type='android')), HTTPS)
+finally:
+    settings.QUATTRETV['TIPOS_SIN_HTTPS'] = sin_https
+    settings.QUATTRETV['STREAMS_SOLO_HTTPS'] = solo_https
+
+print('3. Casos raros que no deben romper nada')
 comprobar('sin aparato se deja como esta', url_para_dispositivo(HTTPS, None), HTTPS)
 comprobar('una url vacia sigue vacia', url_para_dispositivo('', Device(device_type='mag')), '')
 comprobar('una url que ya iba en http no se toca',
@@ -78,7 +100,7 @@ comprobar('una url de otro sitio no se toca',
           url_para_dispositivo('https://otra.cosa/algo.m3u8?x=1', Device(device_type='lg')),
           'https://otra.cosa/algo.m3u8?x=1')
 
-print('3. Por el camino de verdad: lo que recibe cada aparato en la lista')
+print('4. Por el camino de verdad: lo que recibe cada aparato en la lista')
 for tipo, esperado in [('lg', 'https'), ('mag', 'http')]:
     c = aparato('URLS_' + tipo, tipo)
     datos = json.loads(c.get(

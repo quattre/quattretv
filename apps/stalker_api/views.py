@@ -5,6 +5,7 @@ import hashlib
 import logging
 import re
 import time
+from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.http import JsonResponse
@@ -1324,30 +1325,33 @@ def handle_pvr(request, action):
 ESPERA_GRABADOR = 2      # segundos que se le dan al grabador para contestar
 
 
-# Los aparatos que necesitan HTTPS de verdad: la app de television y el
-# navegador, porque una pagina servida por https no puede cargar video por http
-# y el navegador lo bloquea. Un deco no tiene ese problema — reproduce con su
-# propio reproductor, no con un navegador.
-TIPOS_CON_NAVEGADOR = ('lg', 'samsung', 'smart_tv', 'web')
-
-
 def url_para_dispositivo(url, device):
     """
     La direccion del canal tal y como la tiene que recibir este aparato.
 
-    Los canales se guardan en https, que es lo que necesitan la television y el
-    navegador. Pero los decos MAG llevan años pidiendo el puerto 1500 en claro,
-    y su TLS es antiguo: entregarles https los deja sin imagen. Como el CDN
-    sirve las dos puertas a la vez, a cada uno se le da la suya.
+    **Lo normal es https, y esto es una excepcion temporal.** Los canales se
+    guardan en https y ahi es donde tienen que acabar todos los aparatos,
+    incluidos los decos que se pasen a esta plataforma.
 
-    El dia que se compruebe que los MAG en la calle tragan bien el https, esto
-    se borra y ya esta. Mientras tanto, mejor que sigan viendo la television.
+    Mientras tanto, a los tipos listados en TIPOS_SIN_HTTPS se les devuelve el
+    puerto 1500 en claro, porque su TLS es antiguo y con https se quedan en
+    negro: el certificado es ECDSA y su cadena sube por raices de 2021 que un
+    deco viejo no tiene en su lista de confianza. Como el CDN sirve las dos
+    puertas a la vez desde el mismo sitio, no hay que elegir.
+
+    **Como se retira esto**, que es lo que se quiere:
+
+    1. Se prueba un tipo de aparato contra https.
+    2. Si va, se quita de TIPOS_SIN_HTTPS en el .env. Sin tocar codigo.
+    3. Cuando la lista se queda vacia — o directamente con
+       STREAMS_SOLO_HTTPS=True — esta funcion no hace nada y se puede borrar.
     """
     if not url or not device:
         return url
-    if device.device_type in TIPOS_CON_NAVEGADOR:
+    if settings.QUATTRETV.get('STREAMS_SOLO_HTTPS'):
         return url
-    # Un deco: se le devuelve la puerta de siempre.
+    if device.device_type not in settings.QUATTRETV.get('TIPOS_SIN_HTTPS', []):
+        return url
     return re.sub(r'^https://([a-z0-9.-]+)/', r'http://\1:1500/', url)
 
 
