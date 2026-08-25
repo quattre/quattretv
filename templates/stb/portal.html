@@ -2053,8 +2053,10 @@
             color: #98a3a6; font-size: 17px; margin-bottom: 4px;
         }
         .ficha-datos b { color: #9ad62f; font-weight: 600; }
+        /* Altura maxima, no fija: con una sinopsis corta la caja se quedaba
+           reservando 480 px de nada y el "volver" flotaba en medio del hueco. */
         .ficha-caja {
-            position: relative; overflow: hidden; height: 480px;
+            position: relative; overflow: hidden; max-height: 480px;
             border-top: 1px solid rgba(255,255,255,.08);
             margin-top: 14px; padding-top: 16px;
         }
