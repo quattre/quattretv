@@ -1923,6 +1923,12 @@
 
         /* ---------- Lista ---------- */
         .list { flex: 1; overflow: hidden; margin-bottom: 14px; }
+        /* Ojo con 'gap': la television lleva Chrome 53 (webOS de 2016) y ahi
+           no existe para flexbox — llego en Chrome 84. Se deja porque no
+           estorba en un navegador moderno, pero la separacion de verdad la dan
+           los margenes de abajo, que funcionan en todas partes. Sin ellos, en
+           la tele el numero del canal se pegaba al nombre del programa y se
+           leia "1Mañaneros 360". */
         .item {
             display: -webkit-box; -webkit-box-align: center;
             display: flex; align-items: center; gap: 16px;
@@ -1943,12 +1949,13 @@
             font-family: Antonio, sans-serif;
             width: 74px; font-size: 34px; font-weight: 600; color: #5c686c;
             text-align: right; flex-shrink: 0;
+            margin-right: 16px;      /* el 'gap' no llega a la television */
         }
         .item.sel .num { color: #9ad62f; }
         .num.sm { font-size: 22px; width: 84px; color: #98a3a6; }
 
         .ico {
-            width: 54px; height: 40px; flex-shrink: 0;
+            width: 54px; height: 40px; flex-shrink: 0; margin-right: 16px;
             display: flex; align-items: center; justify-content: center;
             background: rgba(255,255,255,.06); border-radius: 8px; overflow: hidden;
         }
@@ -1999,12 +2006,15 @@
            y se recorta por arriba y por abajo con una caja de altura fija. */
         /* Teclado del PIN: hace falta de verdad, no es decoracion. Los mandos
            nuevos de LG no traen teclas numericas. */
+        /* Con flex y no con grid: CSS Grid no existe en el Chrome 53 de la
+           television, asi que las teclas saldrian una debajo de otra. */
         .pinpad {
-            display: inline-grid; grid-template-columns: repeat(3, 1fr);
-            gap: 12px; margin-top: 26px;
+            display: -webkit-box; display: flex; flex-wrap: wrap;
+            width: 372px; margin: 26px auto 0;
         }
         .pintecla {
             width: 108px; height: 78px; line-height: 78px;
+            margin: 6px;
             font-size: 34px; font-weight: 600; text-align: center;
             background: #18211f; border: 2px solid rgba(255,255,255,.10);
             border-radius: 12px; cursor: pointer; color: #f2f5f3;
@@ -2128,6 +2138,8 @@
            y 24 abajo, el reloj 110 y 24 — y la barra se veia caida. */
         .osd-fila { display: -webkit-box; -webkit-box-align: center;
                     display: flex; align-items: center; gap: 26px; }
+        .osd-fila > * { margin-right: 26px; }
+        .osd-fila > *:last-child { margin-right: 0; }
         .osd-num {
             font-family: Antonio, sans-serif;
             font-size: 78px; font-weight: 700; color: #9ad62f;
@@ -2225,6 +2237,10 @@
             .counter { padding: 6px 12px; border-radius: 15px; font-size: 13px; }
 
             .item { padding: 9px 14px; margin: 5px 0; border-radius: 9px; gap: 11px; }
+            .num { margin-right: 11px; }
+            .ico { margin-right: 11px; }
+            .pinpad { width: 268px; }
+            .pintecla { width: 78px; height: 56px; line-height: 56px; font-size: 25px; margin: 4px; }
             .num { width: 49px; font-size: 23px; }
             .num.sm { font-size: 15px; width: 56px; }
             .ico { width: 36px; height: 27px; }
@@ -2249,6 +2265,7 @@
             #osd { left: 27px; right: 27px; bottom: 27px;
                    padding: 14px 22px 16px; border-radius: 9px; }
             .osd-fila { gap: 14px; }
+            .osd-fila > * { margin-right: 14px; }
             .osd-num { font-size: 38px; }
             .osd-ico { width: 48px; height: 36px; border-radius: 5px; }
             .osd-ch { font-size: 21px; }
