@@ -1409,11 +1409,13 @@
         // otra pista: la ayuda de abajo no se pinta porque el contenido esta
         // oculto detras del video, asi que si no se dice en la barra el usuario
         // no tiene forma de saber que la ficha existe.
+        // Solo lo que no es evidente. El "salir" sobraba: la flecha izquierda
+        // sale de todas las pantallas de la app, ya se ha usado para llegar
+        // hasta aqui, y ademas vuelve a decirse dentro de la ficha.
         var pistas = '';
         if (ch.cur_playing) pistas += '<span>▶</span> Informacion ';
-        if (hayGrabaciones()) pistas += '<span class="rojo">●</span> Grabar ';
-        pistas += '<span>◀</span> Salir';
-        h += '<div class="osd-pistas">' + pistas + '</div>';
+        if (hayGrabaciones()) pistas += '<span class="rojo">●</span> Grabar';
+        if (pistas) h += '<div class="osd-pistas">' + pistas + '</div>';
 
         return h;
     }
