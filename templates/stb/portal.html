@@ -367,11 +367,25 @@
         }
     }
 
+    // Cortar el video de verdad. Hace falta para los canales bloqueados: dejar
+    // de mandar la orden de reproducir no basta, porque lo que se estaba viendo
+    // sigue en pantalla y parece que el canal bloqueado se esta viendo igual.
+    function pararVideo() {
+        try { if (useHTML5 && htmlPlayer) { htmlPlayer.pause(); htmlPlayer.removeAttribute('src'); htmlPlayer.load(); } } catch(err) {}
+        try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
+        try { if (player && player.stop) player.stop(); } catch(err) {}
+        playingChannelIdx = -1;
+    }
+
     function startPreview() {
         if (channels.length === 0 || isFullscreen) return;
         var ch = channels[currentChannel];
         if (ch && ch.locked) {
-            // No se previsualiza un canal bloqueado: seria enseñarlo igual.
+            // Un canal bloqueado no se previsualiza. Y hay que parar lo que
+            // estuviera sonando: si no, se queda la imagen del canal anterior
+            // debajo del aviso y da toda la impresion de que el canal de
+            // adultos se esta viendo sin PIN.
+            pararVideo();
             document.getElementById("preview").innerHTML = 'Canal bloqueado - pulsa OK e introduce el PIN';
             return;
         }
@@ -779,6 +793,10 @@
     // ---------- Control parental ----------
 
     function pedirPin(despues) {
+        // Por si acaso: si se llega aqui desde algun camino que no pasa por la
+        // vista previa, que no se quede el video anterior sonando detras de la
+        // pantalla del PIN.
+        pararVideo();
         pinBuffer = '';
         pinPendiente = despues;
         view = "pin";
@@ -1110,7 +1128,7 @@
         h += '<div class="header"><div class="logo">' + esc(guideChannel.name) + '</div>';
         h += '<div class="counter">Ficha</div></div>';
 
-        h += '<div style="font-size:32px;font-weight:600;line-height:1.25;margin-bottom:10px;">' +
+        h += '<div style="font-size:26px;font-weight:600;line-height:1.25;margin-bottom:8px;">' +
              esc(p.name);
         if (p.current) h += ' <span class="live">AHORA</span>';
         if (p.rec) h += ' <span class="rec">REC</span>';
@@ -2020,16 +2038,19 @@
             padding: 2px 9px; margin-right: 8px;
         }
         .ficha-datos {
-            color: #98a3a6; font-size: 19px; margin-bottom: 4px;
+            color: #98a3a6; font-size: 17px; margin-bottom: 4px;
         }
         .ficha-datos b { color: #9ad62f; font-weight: 600; }
         .ficha-caja {
-            position: relative; overflow: hidden; height: 460px;
+            position: relative; overflow: hidden; height: 480px;
             border-top: 1px solid rgba(255,255,255,.08);
             margin-top: 14px; padding-top: 16px;
         }
+        /* Iba a 22 px y en la tele quedaba enorme, como un cartel. El cuerpo de
+           la lista de canales es 18, asi que la sinopsis no tiene por que ser
+           mayor que lo demas. */
         .ficha-texto {
-            color: #dfe6e0; font-size: 22px; line-height: 1.6;
+            color: #dfe6e0; font-size: 18px; line-height: 1.65;
             transition: transform .12s ease-out;
         }
         .ficha-mas {
@@ -2142,6 +2163,10 @@
             font-family: Antonio, sans-serif;
             font-size: 52px; font-weight: 600; color: #e6ebe8;
             flex-shrink: 0; line-height: 1;
+            /* Sin esto el nombre del programa acaba pegado al reloj y se leen
+               como si fueran la misma linea. */
+            margin-left: 36px; padding-left: 30px;
+            border-left: 1px solid rgba(255,255,255,.10);
         }
 
         #vol, #toast, #numjump {
@@ -2227,7 +2252,7 @@
             .osd-ch { font-size: 21px; }
             .osd-prog { font-size: 15px; margin-top: 5px; }
             .osd-epg { font-size: 12px; margin-top: 4px; }
-            .osd-reloj { font-size: 28px; }
+            .osd-reloj { font-size: 28px; margin-left: 19px; padding-left: 16px; }
             #osd .bar { width: 55%; max-width: 460px; height: 5px; margin-top: 7px; }
 
             #vol { padding: 17px 35px; font-size: 20px; border-radius: 11px; }

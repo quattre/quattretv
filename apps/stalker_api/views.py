@@ -3,6 +3,7 @@ Stalker Portal compatible API views.
 """
 import hashlib
 import logging
+import re
 import time
 from django.core.cache import cache
 from django.db.models import Q
@@ -718,7 +719,7 @@ def handle_get_ordered_list(request):
             'id': str(ch.id),
             'name': ch.name,
             'number': ch.number,
-            'cmd': '' if bloqueado else ch.stream_url,
+            'cmd': '' if bloqueado else url_para_dispositivo(ch.stream_url, device),
             'locked': 1 if bloqueado else 0,
             'logo': ch.logo_display_url,
             'censored': ch.is_adult,
@@ -757,7 +758,7 @@ def handle_get_url(request):
         if superado:
             return stalker_response({'error': aviso})
 
-        stream_url = channel.stream_url
+        stream_url = url_para_dispositivo(channel.stream_url, device)
     else:
         stream_url = cmd
 
@@ -947,7 +948,7 @@ def handle_vod_list(request):
             'hd': 1 if movie.is_hd else 0,
             'genres': movie.genres,
             # Como en los canales: si esta bloqueada no viaja la URL.
-            'cmd': '' if bloqueada else movie.stream_url,
+            'cmd': '' if bloqueada else url_para_dispositivo(movie.stream_url, device),
         })
 
     return stalker_response({
@@ -977,7 +978,7 @@ def handle_vod_link(request):
         if superado:
             return stalker_response({'error': aviso})
 
-        stream_url = movie.stream_url
+        stream_url = url_para_dispositivo(movie.stream_url, device)
     else:
         stream_url = cmd
 
@@ -1321,6 +1322,33 @@ def handle_pvr(request, action):
 
 
 ESPERA_GRABADOR = 2      # segundos que se le dan al grabador para contestar
+
+
+# Los aparatos que necesitan HTTPS de verdad: la app de television y el
+# navegador, porque una pagina servida por https no puede cargar video por http
+# y el navegador lo bloquea. Un deco no tiene ese problema — reproduce con su
+# propio reproductor, no con un navegador.
+TIPOS_CON_NAVEGADOR = ('lg', 'samsung', 'smart_tv', 'web')
+
+
+def url_para_dispositivo(url, device):
+    """
+    La direccion del canal tal y como la tiene que recibir este aparato.
+
+    Los canales se guardan en https, que es lo que necesitan la television y el
+    navegador. Pero los decos MAG llevan años pidiendo el puerto 1500 en claro,
+    y su TLS es antiguo: entregarles https los deja sin imagen. Como el CDN
+    sirve las dos puertas a la vez, a cada uno se le da la suya.
+
+    El dia que se compruebe que los MAG en la calle tragan bien el https, esto
+    se borra y ya esta. Mientras tanto, mejor que sigan viendo la television.
+    """
+    if not url or not device:
+        return url
+    if device.device_type in TIPOS_CON_NAVEGADOR:
+        return url
+    # Un deco: se le devuelve la puerta de siempre.
+    return re.sub(r'^https://([a-z0-9.-]+)/', r'http://\1:1500/', url)
 
 
 def hay_grabador_de_clientes():
