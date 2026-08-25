@@ -15,8 +15,13 @@ every screen is fully operable with the 4-way pad, OK and BACK.
 
 QuattreTV is the television client for QuattreTV, a subscription IPTV service
 operated by Quattre Internet SL for its own customers in Spain. The app lets a
-subscriber watch the live TV channels, the video-on-demand catalogue and their
-own recordings included in their subscription.
+subscriber watch the live TV channels included in their subscription, with a
+full programme guide.
+
+Some subscriptions also include a film and series catalogue and personal
+recordings. **Those are not enabled on the review account** (see section 2), so
+the reviewer will not see them: the app only shows what the account actually
+includes, and never displays an option that leads nowhere.
 
 The service is **subscription-only**. There is no free tier and no public
 content: every screen beyond the sign-in screen requires valid customer
@@ -34,7 +39,7 @@ purchase and no external link out of the app.
 |---|---|
 | **User** | `lgreview` |
 | **Password** | `QuattreLG2026` |
-| **Subscription** | Full package — all live channels, VOD and recordings |
+| **Subscription** | Live TV — all 81 channels and the programme guide. Films, series and recordings are **not** enabled on this account, so those menu options do not appear |
 | **Expiry** | None. The account does not expire. |
 | **Concurrent devices** | 5 |
 | **Parental PIN** | `1234` (see section 6) |
@@ -129,18 +134,18 @@ the programme on air and what is on next.
 
 ### 4.5 Main menu
 
-Opened with ◄ or BACK from the channel list. A vertical list:
+Opened with ◄ or BACK from the channel list. A vertical list.
+
+**With the review account the menu shows exactly three options:**
 
 - **Canales** — the channel list
 - **Categorias** — filter channels by genre
 - **Solo favoritos** — show only the channels the customer marked as favourite
-- **Peliculas** — film catalogue
-- **Series** — series catalogue
-- **Mis grabaciones** — the customer's own recordings
 
-The menu is built from what the customer's subscription actually includes: an
-option that does not apply to the account is not shown at all, never shown
-disabled or leading to an empty screen.
+Other subscriptions add **Peliculas**, **Series** and **Mis grabaciones**. The
+menu is built from what the account actually includes: an option that does not
+apply is not shown at all, never shown disabled and never leading to an empty
+screen. That is why the review account sees three and not six.
 
 | Key | Action |
 |---|---|
@@ -156,27 +161,16 @@ channel with start time, end time and description.
 | Key | Action |
 |---|---|
 | ▲ / ▼ | Move through the programmes |
-| **OK** | Play the programme (past programmes play from the archive) |
+| **OK** | Record the programme, where the subscription includes recordings |
 | **◄** / **BACK** | Back to the channel list |
 
-### 4.7 Films and series
+### 4.7 Films, series and recordings — not part of this review
 
-| Key | Action |
-|---|---|
-| ▲ / ▼ | Move through the catalogue |
-| **OK** | Play the film, or open the episode list of a series |
-| **◄** / **BACK** | Back to the main menu (from the episode list, back to the series list) |
+Subscriptions that include them add three more menu options, navigated exactly
+like the channel list: ▲▼ to move, OK to play, ◄ or BACK to go back.
 
-### 4.8 Recordings
-
-The customer's own recordings, with their state (recording, ready, failed).
-
-| Key | Action |
-|---|---|
-| ▲ / ▼ | Move through the list |
-| **OK** | Play a finished recording |
-| **►** | Delete the selected recording (asks for confirmation) |
-| **◄** / **BACK** | Back to the channel list |
+**They are deliberately not enabled on the review account.** Rather than show a
+reviewer an empty catalogue, the app hides what the account does not include.
 
 ---
 
@@ -282,9 +276,10 @@ no webOS system API — `requiredPermissions` is deliberately absent from
 `appinfo.json`. Account data is held by the service under the subscription the
 customer signed.
 
-Privacy policy: **https://iptv2.quattre.com/privacy/** (same page in Spanish at
-`/privacidad/`). It is public, needs no sign-in and loads nothing from third
-parties.
+Privacy policy: **https://quattre.com/avisolegal/** &mdash; published on the
+company's own domain, next to the general legal notice, and covering all the
+QuattreTV applications. It is public, needs no sign-in and is available in both
+Spanish and English.
 
 ---
 

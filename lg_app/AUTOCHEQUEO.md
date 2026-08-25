@@ -29,7 +29,7 @@ probado y falla en su revision, pierdes credibilidad para el resto del envio.
 | 2.2 | El video tambien por HTTPS | ✅ | cdn10 y cdn11 con certificado desde el 24/08/2026. Comprobado desde fuera: playlist y un segmento de 7 MB por https |
 | 2.3 | Ninguna llamada suelta en http | ✅ | Revisadas las plantillas del portal (0 coincidencias) y las 83 URLs de canal y los logos |
 | 2.4 | No se recogen datos personales desde la app | ✅ | La app solo guarda en la television la direccion del servidor que respondio |
-| 2.5 | URL de politica de privacidad | ✅ | Publicada en `https://iptv2.quattre.com/privacy/` (castellano en `/privacidad/`). Comprobado desde fuera: 200, sin login, sin cargar nada de terceros |
+| 2.5 | URL de politica de privacidad | ✅ | `https://quattre.com/avisolegal/`, en el dominio de la empresa y junto al aviso legal general. Cubre todas las apps de QuattreTV, no solo la de LG, y esta en castellano e ingles |
 
 ## 3. Comportamiento cuando algo falla
 
