@@ -93,6 +93,62 @@ comprobar('y no entra todavia', entradas, 0);
 manejarClic({ target: nodo({ 'data-i': '1' }, global.document.body) });
 comprobar('el segundo clic sobre lo mismo entra', entradas, 1);
 
+console.log('5. Los atajos hacen lo mismo con los tres mandos');
+let hecho = [];
+recordCurrent = function () { hecho.push('grabar'); };
+toggleFavorite = function () { hecho.push('favorito'); };
+toggleFavOnly = function () { hecho.push('solo-favoritos'); };
+openRecordings = function () { hecho.push('grabaciones'); };
+openGuide = function () { hecho.push('guia'); };
+mostrarInfoPrograma = function () { hecho.push('info'); };
+
+function atajo(codigo, vista) {
+    view = vista || 'list';
+    isFullscreen = false;
+    hecho = [];
+    atajoGlobal({ keyCode: codigo });
+    return hecho[0] || null;
+}
+
+// El mismo par de acciones, por el boton de color de LG y por la F de un MAG.
+comprobar('rojo de LG graba', atajo(403), 'grabar');
+comprobar('F1 del MAG graba igual', atajo(112), 'grabar');
+comprobar('verde de LG marca favorito', atajo(404), 'favorito');
+comprobar('F4 del MAG marca favorito igual', atajo(115), 'favorito');
+comprobar('amarillo de LG filtra favoritos', atajo(405), 'solo-favoritos');
+comprobar('F3 del MAG filtra favoritos igual', atajo(114), 'solo-favoritos');
+comprobar('F2 del MAG abre grabaciones', atajo(113), 'grabaciones');
+comprobar('azul de LG abre la guia', atajo(406), 'guia');
+comprobar('el boton de informacion abre la ficha', atajo(457), 'info');
+
+console.log('6. Los atajos se apartan donde estorbarian');
+comprobar('en el PIN no se graba nada', atajo(403, 'pin'), null);
+comprobar('en el PIN el color verde tampoco hace nada', atajo(404, 'pin'), null);
+// En grabaciones, esas teclas borran: no se las puede quedar el atajo global.
+comprobar('en grabaciones el rojo no lo intercepta', atajo(403, 'recordings'), null);
+comprobar('en grabaciones F1 tampoco', atajo(112, 'recordings'), null);
+
+console.log('7. El teclado del PIN se puede pulsar con el puntero');
+pinBuffer = '';
+let pintados = 0;
+renderPin = function () { pintados++; };
+comprobarPin = function () { hecho.push('comprobar-pin'); };
+hecho = [];
+pinPulsado('1'); pinPulsado('2'); pinPulsado('3'); pinPulsado('4');
+comprobar('se componen los digitos', pinBuffer, '1234');
+pinPulsado('borrar');
+comprobar('la tecla de borrar quita el ultimo', pinBuffer, '123');
+pinPulsado('ok');
+comprobar('la tecla OK comprueba el PIN', hecho[0], 'comprobar-pin');
+
+console.log('8. La rueda del mando se traduce a las flechas');
+let teclas = [];
+handleKey = function (e) { teclas.push(e.keyCode); };
+manejarRueda({ deltaY: 120, preventDefault() {} });
+comprobar('rueda hacia abajo = flecha abajo', teclas[0], 40);
+manejarRueda({ deltaY: -120, preventDefault() {} });
+comprobar('rueda hacia arriba = flecha arriba', teclas[1], 38);
+
 console.log('');
 if (fallos.length) {
     console.log('FALLAN ' + fallos.length + ' comprobaciones:');

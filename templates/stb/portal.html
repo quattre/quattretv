@@ -788,14 +788,40 @@
     function renderPin(aviso) {
         var h = '<div class="panel">';
         h += '<div class="header"><div class="logo">Canal bloqueado</div></div>';
-        h += '<div class="list"><div style="padding:30px 10px;">';
-        h += '<div style="color:#99a;font-size:20px;margin-bottom:24px;">Introduce el PIN con el mando</div>';
+        h += '<div class="list"><div style="padding:24px 10px;">';
+        h += '<div style="color:#99a;font-size:20px;margin-bottom:20px;">Introduce el PIN</div>';
         h += '<div class="pinbox">' + (pinBuffer.replace(/./g, '* ') || '_') + '</div>';
-        if (aviso) h += '<div style="color:#e74c3c;margin-top:20px;">' + esc(aviso) + '</div>';
+        if (aviso) h += '<div style="color:#e74c3c;margin-top:16px;">' + esc(aviso) + '</div>';
+
+        // Teclado en pantalla. No es un adorno: los mandos nuevos de LG no
+        // traen teclas numericas, asi que sin esto un cliente con Magic Remote
+        // no puede desbloquear un canal de ninguna manera. Con las teclas de
+        // numeros del mando o del deco sigue funcionando igual que antes.
+        h += '<div class="pinpad">';
+        for (var d = 1; d <= 9; d++) h += '<div class="pintecla" data-pin="' + d + '">' + d + '</div>';
+        h += '<div class="pintecla borrar" data-pin="borrar">←</div>';
+        h += '<div class="pintecla" data-pin="0">0</div>';
+        h += '<div class="pintecla aceptar" data-pin="ok">OK</div>';
+        h += '</div>';
+
         h += '</div></div>';
         h += '<div class="help"><span>0-9</span> PIN <span>OK</span> Aceptar <span>◀</span> Cancelar</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+    }
+
+    // Una tecla del teclado en pantalla, pulsada con el puntero.
+    function pinPulsado(valor) {
+        if (valor === 'ok') { comprobarPin(); return; }
+        if (valor === 'borrar') {
+            pinBuffer = pinBuffer.slice(0, -1);
+            renderPin('');
+            return;
+        }
+        if (pinBuffer.length < 10) {
+            pinBuffer += valor;
+            renderPin('');
+        }
     }
 
     function comprobarPin() {
@@ -991,23 +1017,27 @@
             h += '</div>';
 
             var sel = guide[guideIdx];
-            if (sel && sel.descr) {
-                // Se sigue enseñando un adelanto, pero el aviso de que hay mas
-                // va en su propia linea y en verde, no pegado al final de la
-                // frase: ahi es donde el ojo ya esta mirando, y la ayuda de
-                // abajo queda demasiado lejos para que nadie la lea.
-                var corto = sel.descr.length > 220;
-                h += '<div class="descr">' + esc(sel.descr.substring(0, 220));
-                if (corto) h += '...';
-                h += '</div>';
-                h += '<div class="ver-mas"><span>▶</span> Ver la informacion completa</div>';
+            if (sel) {
+                // El adelanto, y debajo el aviso de que hay ficha. Va en su
+                // propia linea y en verde porque ahi es donde el ojo ya esta
+                // mirando; la ayuda de abajo queda demasiado lejos. Y por eso
+                // mismo no se repite alli: decir lo mismo dos veces en la misma
+                // pantalla es ruido, no ayuda.
+                if (sel.descr) {
+                    var corto = sel.descr.length > 220;
+                    h += '<div class="descr">' + esc(sel.descr.substring(0, 220));
+                    if (corto) h += '...';
+                    h += '</div>';
+                }
+                h += '<div class="ver-mas"><span>▶</span> ' +
+                     (sel.descr ? 'Ver la informacion completa' : 'Ver la ficha del programa') +
+                     '</div>';
             }
         }
 
         var sel2 = guide[guideIdx];
         var hint = pistaGuia(sel2);
         if (hint) hint += ' ';
-        if (sel2) hint += '<span>▶</span> Ficha ';
         h += '<div class="help">' + hint + '<span>◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
@@ -1356,6 +1386,17 @@
 
         h += '<div class="osd-reloj">' + hora + '</div>';
         h += '</div>';
+
+        // Que se puede hacer desde aqui. En pantalla completa no hay ninguna
+        // otra pista: la ayuda de abajo no se pinta porque el contenido esta
+        // oculto detras del video, asi que si no se dice en la barra el usuario
+        // no tiene forma de saber que la ficha existe.
+        var pistas = '';
+        if (ch.cur_playing) pistas += '<span>▶</span> Informacion ';
+        if (hayGrabaciones()) pistas += '<span class="rojo">●</span> Grabar ';
+        pistas += '<span>◀</span> Salir';
+        h += '<div class="osd-pistas">' + pistas + '</div>';
+
         return h;
     }
 
@@ -1501,25 +1542,43 @@
         return k;
     }
 
+    // Atajos que valen desde cualquier pantalla, con los tres mandos:
+    //
+    //   - Los colores del mando de LG (403-406).
+    //   - Las teclas F1-F4 del mando de los MAG (112-115), que son sus colores.
+    //   - El boton de informacion (457) y el I de los MAG.
+    //
+    // Estaban repartidos: los colores solo funcionaban en algunas pantallas y
+    // las F1-F4 solo en la lista de canales, asi que el mismo boton hacia cosas
+    // distintas segun donde estuvieras, o no hacia nada. Aqui se resuelven una
+    // sola vez y se comportan igual en todas partes.
+    //
+    // Se deja fuera la pantalla del PIN — ahi no toca grabar ni nada parecido —
+    // y la de grabaciones, que usa esas mismas teclas para borrar.
+    function atajoGlobal(e) {
+        if (view === "pin" || view === "recordings") return false;
+        var k = e.keyCode;
+
+        if (k === TECLA_ROJO || k === 82 || k === 112) {
+            if (view === "guide" || view === "ficha") recordProgram(guide[guideIdx]);
+            else recordCurrent();
+            return true;
+        }
+        if (k === TECLA_VERDE || k === 115) { toggleFavorite(); return true; }
+        if (k === TECLA_AMARILLO || k === 114) { toggleFavOnly(); return true; }
+        if (k === 83 || k === 113) { openRecordings(); return true; }
+        if (k === TECLA_AZUL) {
+            if (view !== "guide" && !isFullscreen && channels.length > 0) openGuide();
+            return true;
+        }
+        if (k === TECLA_INFO) { mostrarInfoPrograma(); return true; }
+        return false;
+    }
+
     function handleKey(e) {
         var k = normalizarTecla(e.keyCode);
 
-        // Los botones de colores, con el reparto de siempre en la television
-        // española: rojo graba, verde marca favorito, amarillo filtra los
-        // favoritos y azul abre la guia.
-        if (e.keyCode === TECLA_ROJO) {
-            if (view === "guide") recordProgram(guide[guideIdx]);
-            else recordCurrent();
-            return false;
-        }
-        if (e.keyCode === TECLA_VERDE) { toggleFavorite(); return false; }
-        if (e.keyCode === TECLA_AMARILLO) { toggleFavOnly(); return false; }
-        if (e.keyCode === TECLA_AZUL) {
-            if (view === "guide" || isFullscreen) { /* ya se esta en ello */ }
-            else if (channels.length > 0) openGuide();
-            return false;
-        }
-        if (e.keyCode === TECLA_INFO) { mostrarInfoPrograma(); return false; }
+        if (atajoGlobal(e)) return false;
         if (k === 107) { adjustVolume(5); return false; }
         if (k === 109) { adjustVolume(-5); return false; }
 
@@ -1588,8 +1647,6 @@
                 } else {
                     mostrarOsd(channels[currentChannel]);
                 }
-            } else if (k === 82 || k === 112) {
-                recordCurrent();
             } else if (k === 8 || k === 27 || k === 13) {
                 showMenu();
             }
@@ -1637,8 +1694,6 @@
             } else if (k === 39) {
                 // Derecha otra vez: la ficha completa del programa.
                 abrirFicha();
-            } else if (k === 82 || k === 112) {
-                recordProgram(guide[guideIdx]);
             } else if (k === 37 || k === 8 || k === 27) {
                 showChannels();
             }
@@ -1673,14 +1728,6 @@
                 openGuide();
             } else if (k === 37) {
                 openMenu();
-            } else if (k === 82 || k === 112) {
-                recordCurrent();
-            } else if (k === 113 || k === 83) {
-                openRecordings();
-            } else if (k === 114) {
-                toggleFavOnly();
-            } else if (k === 115) {
-                toggleFavorite();
             } else {
                 accesoConfiguracion(k);
             }
@@ -1709,8 +1756,48 @@
         return -1;
     }
 
+    // Busca un atributo subiendo por los padres, que es donde acaba el clic
+    // cuando se pulsa el texto de dentro de una fila.
+    function atributoPulsado(destino, nombre) {
+        var n = destino;
+        while (n && n !== document.body) {
+            if (n.getAttribute && n.getAttribute(nombre) !== null) {
+                return n.getAttribute(nombre);
+            }
+            n = n.parentNode;
+        }
+        return null;
+    }
+
     function manejarClic(e) {
-        var i = filaPulsada(e.target || e.srcElement);
+        var destino = e.target || e.srcElement;
+
+        // El teclado del PIN
+        if (view === "pin") {
+            var tecla = atributoPulsado(destino, 'data-pin');
+            if (tecla !== null) pinPulsado(tecla);
+            return;
+        }
+
+        // En pantalla completa no hay filas: un clic saca la barra del canal, y
+        // el siguiente entra en la ficha. Sin esto, con el Magic Remote la
+        // pantalla completa era un callejon sin salida — apuntabas, pulsabas y
+        // no pasaba nada.
+        if (isFullscreen) {
+            if (document.getElementById("osd").style.display === "block") {
+                mostrarInfoPrograma();
+            } else {
+                mostrarOsd(channels[currentChannel]);
+            }
+            return;
+        }
+
+        if (view === "ficha") {
+            salirDeFicha();
+            return;
+        }
+
+        var i = filaPulsada(destino);
         if (i < 0 || isNaN(i)) return;
 
         // Primer clic: seleccionar. Segundo clic sobre lo ya seleccionado:
@@ -1739,8 +1826,20 @@
         }
     }
 
+    // La rueda del Magic Remote. Con 83 canales, bajar de uno en uno con la
+    // flecha es un suplicio, y la rueda es justo para lo que esta. Se traduce a
+    // las mismas flechas para no duplicar ni una linea de logica.
+    function manejarRueda(e) {
+        var abajo = (e.deltaY || e.wheelDelta * -1 || e.detail) > 0;
+        handleKey({ keyCode: abajo ? 40 : 38 });
+        if (e.preventDefault) e.preventDefault();
+        return false;
+    }
+
     document.onkeydown = handleKey;
     document.onclick = manejarClic;
+    document.onwheel = manejarRueda;
+    document.onmousewheel = manejarRueda;      // teles con Chromium antiguo
     window.onresize = fitScreen;
     window.onload = init;
 
@@ -1878,6 +1977,35 @@
         /* Ficha del programa. El texto largo no cabe en una pantalla de tele y
            no hay raton para arrastrar nada, asi que se desplaza con las flechas
            y se recorta por arriba y por abajo con una caja de altura fija. */
+        /* Teclado del PIN: hace falta de verdad, no es decoracion. Los mandos
+           nuevos de LG no traen teclas numericas. */
+        .pinpad {
+            display: inline-grid; grid-template-columns: repeat(3, 1fr);
+            gap: 12px; margin-top: 26px;
+        }
+        .pintecla {
+            width: 108px; height: 78px; line-height: 78px;
+            font-size: 34px; font-weight: 600; text-align: center;
+            background: #18211f; border: 2px solid rgba(255,255,255,.10);
+            border-radius: 12px; cursor: pointer; color: #f2f5f3;
+        }
+        .pintecla:hover { border-color: #9ad62f; background: #1e2a24; }
+        .pintecla.aceptar { background: #9ad62f; color: #0d1505; font-size: 26px; }
+        .pintecla.borrar  { font-size: 30px; color: #98a3a6; }
+
+        /* Lo que se puede hacer, dentro de la barra de pantalla completa: ahi
+           no hay ayuda abajo porque el contenido esta oculto tras el video. */
+        .osd-pistas {
+            margin-top: 12px; padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,.08);
+            color: #98a3a6; font-size: 17px; text-align: right;
+        }
+        .osd-pistas span {
+            background: rgba(255,255,255,.10); border-radius: 6px;
+            padding: 2px 9px; margin: 0 6px 0 14px; color: #f2f5f3;
+        }
+        .osd-pistas span.rojo { background: #e60000; color: #fff; }
+
         /* "Aqui se puede entrar", dicho donde el ojo ya esta mirando. */
         .entrar {
             color: #9ad62f; font-size: 20px; margin-left: 8px;
