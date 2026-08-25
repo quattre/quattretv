@@ -56,39 +56,33 @@ def aparato(uid, tipo):
     return c
 
 
-print('1. La funcion, tipo por tipo')
-for tipo, esperado, quien in [
-    ('lg', HTTPS, 'la television de LG'),
-    ('samsung', HTTPS, 'una Samsung'),
-    ('web', HTTPS, 'un navegador'),
-    ('smart_tv', HTTPS, 'otra smart TV'),
-    ('mag', HTTP1500, 'un deco MAG'),
-    ('android', HTTP1500, 'un Android'),
+print('1. Todo aparato nuevo recibe https, sea del tipo que sea')
+for tipo, quien in [
+    ('lg', 'una television de LG'),
+    ('samsung', 'una Samsung'),
+    ('web', 'un navegador'),
+    ('smart_tv', 'otra smart TV'),
+    ('mag', 'un deco MAG nuevo'),
+    ('android', 'un Android'),
 ]:
-    d = Device(device_type=tipo)
-    comprobar('%s recibe %s' % (quien, 'https' if esperado == HTTPS else 'el 1500'),
-              url_para_dispositivo(HTTPS, d), esperado)
+    comprobar('%s recibe https' % quien,
+              url_para_dispositivo(HTTPS, Device(device_type=tipo)), HTTPS)
 
-print('2. El interruptor para ir retirando la excepcion')
-sin_https = settings.QUATTRETV['TIPOS_SIN_HTTPS']
+print('2. La excepcion, marcada aparato por aparato')
+comprobar('un deco viejo marcado recibe el 1500',
+          url_para_dispositivo(HTTPS, Device(device_type='mag', usa_http_legacy=True)), HTTP1500)
+comprobar('otro deco del mismo tipo sin marcar sigue en https',
+          url_para_dispositivo(HTTPS, Device(device_type='mag', usa_http_legacy=False)), HTTPS)
+comprobar('y una television marcada por error tambien haria caso',
+          url_para_dispositivo(HTTPS, Device(device_type='lg', usa_http_legacy=True)), HTTP1500)
+
+print('2b. El interruptor del dia que no quede ningun aparato antiguo')
 solo_https = settings.QUATTRETV['STREAMS_SOLO_HTTPS']
 try:
-    # Se prueba un tipo, va bien, y se quita de la lista sin tocar codigo.
-    settings.QUATTRETV['TIPOS_SIN_HTTPS'] = ['android']
-    comprobar('quitando mag de la lista, un mag ya recibe https',
-              url_para_dispositivo(HTTPS, Device(device_type='mag')), HTTPS)
-    comprobar('y android sigue en el 1500 mientras no se pruebe',
-              url_para_dispositivo(HTTPS, Device(device_type='android')), HTTP1500)
-
-    # O de golpe, el dia que todo este comprobado.
-    settings.QUATTRETV['TIPOS_SIN_HTTPS'] = ['mag', 'android']
     settings.QUATTRETV['STREAMS_SOLO_HTTPS'] = True
-    comprobar('con el interruptor puesto, un mag recibe https',
-              url_para_dispositivo(HTTPS, Device(device_type='mag')), HTTPS)
-    comprobar('y un android tambien',
-              url_para_dispositivo(HTTPS, Device(device_type='android')), HTTPS)
+    comprobar('con el interruptor puesto, hasta un marcado recibe https',
+              url_para_dispositivo(HTTPS, Device(device_type='mag', usa_http_legacy=True)), HTTPS)
 finally:
-    settings.QUATTRETV['TIPOS_SIN_HTTPS'] = sin_https
     settings.QUATTRETV['STREAMS_SOLO_HTTPS'] = solo_https
 
 print('3. Casos raros que no deben romper nada')
@@ -101,7 +95,7 @@ comprobar('una url de otro sitio no se toca',
           'https://otra.cosa/algo.m3u8?x=1')
 
 print('4. Por el camino de verdad: lo que recibe cada aparato en la lista')
-for tipo, esperado in [('lg', 'https'), ('mag', 'http')]:
+for tipo, esperado in [('lg', 'https'), ('mag', 'https')]:
     c = aparato('URLS_' + tipo, tipo)
     datos = json.loads(c.get(
         '/quattretv/stb/portal.php?type=itv&action=get_ordered_list&p=0').content)['js']['data']
@@ -115,7 +109,7 @@ for tipo, esperado in [('lg', 'https'), ('mag', 'http')]:
                 % pagina).content)['js']['data']
             fila = [x for x in datos if x['name'] == 'TEST canal urls']
             pagina += 1
-    comprobar('en la lista, un %s recibe %s' % (tipo, esperado),
+    comprobar('en la lista, un %s nuevo recibe %s' % (tipo, esperado),
               fila[0]['cmd'].split(':')[0] if fila else 'no aparece', esperado)
 
     enlace = json.loads(c.get(

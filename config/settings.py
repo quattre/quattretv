@@ -233,18 +233,14 @@ QUATTRETV = {
     # sigan donde estan; se rellena el dia que haya que moverlas a otra
     # direccion, y se enteran solas sin republicar nada.
     'PORTAL_URL': os.getenv('PORTAL_URL', ''),
-    # El destino es que TODOS los aparatos pidan el video por https. Mientras
-    # tanto, a los decos se les sigue dando el puerto 1500 en claro porque su
-    # TLS es antiguo y con https se quedan en negro.
+    # Todos los aparatos que se dan de alta aqui piden el video por https. La
+    # unica excepcion son los decos antiguos que se arrastren de la plataforma
+    # vieja, que se marcan uno a uno en su ficha (`usa_http_legacy`).
     #
-    # Se pone a True el dia que se compruebe que los decos de la calle tragan el
-    # https, y entonces sobra tanto esto como url_para_dispositivo(). Los tipos
-    # de aparato que se quedan en el 1500 se pueden ir recortando de uno en uno
-    # segun se vayan probando, sin tocar codigo.
+    # Esto de aqui ignora hasta esa excepcion: se pone a True el dia que ya no
+    # quede ningun aparato antiguo, y entonces se puede cerrar el puerto 1500 de
+    # los CDN y borrar url_para_dispositivo().
     'STREAMS_SOLO_HTTPS': os.getenv('STREAMS_SOLO_HTTPS', 'False').lower() in ('true', '1', 'yes'),
-    'TIPOS_SIN_HTTPS': [
-        t.strip() for t in os.getenv('TIPOS_SIN_HTTPS', 'mag,android').split(',') if t.strip()
-    ],
     'STREAMING_SERVER_URL': os.getenv('STREAMING_SERVER_URL', 'http://localhost:8080'),
     'TIMESHIFT_ENABLED': os.getenv('TIMESHIFT_ENABLED', 'True').lower() in ('true', '1', 'yes'),
     'TIMESHIFT_HOURS': int(os.getenv('TIMESHIFT_HOURS', '24')),

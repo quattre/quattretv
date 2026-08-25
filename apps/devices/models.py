@@ -64,6 +64,20 @@ class Device(TimeStampedModel, ActivableModel):
         related_name='last_watched_by'
     )
 
+    # Todo aparato que se da de alta aqui pide el video por https. Este campo
+    # es la excepcion, y por eso viene desactivado: se marca a mano en los decos
+    # antiguos que se arrastren de la plataforma vieja y cuyo TLS no llegue,
+    # para que sigan pidiendo el puerto 1500 en claro mientras se sustituyen.
+    #
+    # No es por tipo de aparato a proposito: dos MAG del mismo modelo pueden
+    # tener firmware distinto, y lo que decide es si ESE aparato puede o no.
+    usa_http_legacy = models.BooleanField(
+        default=False,
+        verbose_name='Pedir el video sin cifrar (aparato antiguo)',
+        help_text='Solo para decos viejos que no pueden con HTTPS. Un aparato '
+                  'nuevo nunca lleva esto marcado: todos entran por HTTPS.'
+    )
+
     # Settings
     timezone = models.CharField(max_length=50, default='Europe/Madrid')
     language = models.CharField(max_length=5, default='es')

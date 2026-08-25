@@ -8,7 +8,7 @@ class DeviceAdmin(admin.ModelAdmin):
         'mac_address', 'user', 'device_type', 'name',
         'is_active', 'is_online', 'last_seen', 'last_ip'
     )
-    list_filter = ('device_type', 'is_active', 'last_seen')
+    list_filter = ('device_type', 'is_active', 'usa_http_legacy', 'last_seen')
     search_fields = ('mac_address', 'serial_number', 'user__username', 'name')
     readonly_fields = ('token', 'token_expires', 'last_seen', 'created_at', 'updated_at')
 
@@ -18,6 +18,14 @@ class DeviceAdmin(admin.ModelAdmin):
         }),
         ('Authentication', {
             'fields': ('token', 'token_expires', 'is_active')
+        }),
+        ('Compatibilidad', {
+            'fields': ('usa_http_legacy',),
+            'description': 'Todos los aparatos piden el video por HTTPS. Esta '
+                           'casilla es la excepcion, solo para decos antiguos '
+                           'arrastrados de la plataforma vieja que no pueden '
+                           'con HTTPS. Se desmarca en cuanto se compruebe que '
+                           'ese aparato si puede.'
         }),
         ('Status', {
             'fields': ('last_seen', 'last_ip', 'last_channel')

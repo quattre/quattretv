@@ -1329,28 +1329,26 @@ def url_para_dispositivo(url, device):
     """
     La direccion del canal tal y como la tiene que recibir este aparato.
 
-    **Lo normal es https, y esto es una excepcion temporal.** Los canales se
-    guardan en https y ahi es donde tienen que acabar todos los aparatos,
-    incluidos los decos que se pasen a esta plataforma.
+    **Todo el que se da de alta aqui pide el video por https.** Los canales se
+    guardan asi y es lo que recibe cualquier aparato nuevo, sea un deco, una
+    television o un navegador. No hay que hacer nada para que sea asi.
 
-    Mientras tanto, a los tipos listados en TIPOS_SIN_HTTPS se les devuelve el
-    puerto 1500 en claro, porque su TLS es antiguo y con https se quedan en
-    negro: el certificado es ECDSA y su cadena sube por raices de 2021 que un
-    deco viejo no tiene en su lista de confianza. Como el CDN sirve las dos
-    puertas a la vez desde el mismo sitio, no hay que elegir.
+    La unica excepcion son los decos antiguos que se arrastren de la plataforma
+    vieja y cuyo TLS no llegue: se les marca `usa_http_legacy` a mano y siguen
+    pidiendo el puerto 1500 en claro hasta que se sustituyan. Como el CDN sirve
+    las dos puertas a la vez desde el mismo sitio, conviven sin problema.
 
-    **Como se retira esto**, que es lo que se quiere:
+    Se marca por aparato y no por tipo a proposito: dos decos del mismo modelo
+    pueden llevar firmware distinto, y lo que decide es si **ese** aparato puede.
 
-    1. Se prueba un tipo de aparato contra https.
-    2. Si va, se quita de TIPOS_SIN_HTTPS en el .env. Sin tocar codigo.
-    3. Cuando la lista se queda vacia — o directamente con
-       STREAMS_SOLO_HTTPS=True — esta funcion no hace nada y se puede borrar.
+    Con STREAMS_SOLO_HTTPS=True se ignora hasta la excepcion, para el dia que ya
+    no quede ningun aparato antiguo y se pueda cerrar el 1500.
     """
     if not url or not device:
         return url
     if settings.QUATTRETV.get('STREAMS_SOLO_HTTPS'):
         return url
-    if device.device_type not in settings.QUATTRETV.get('TIPOS_SIN_HTTPS', []):
+    if not getattr(device, 'usa_http_legacy', False):
         return url
     return re.sub(r'^https://([a-z0-9.-]+)/', r'http://\1:1500/', url)
 
