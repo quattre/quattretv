@@ -535,9 +535,17 @@
         if (favOnly && channels.length === 0) {
             favOnly = false;
             applyFilters();
-            toast('Todavia no tienes favoritos');
+            toast('Todavia no tienes favoritos. Marca uno con el boton verde.');
+        } else if (favOnly) {
+            // Se dice cuantos quedan. Con uno o dos favoritos la parrilla se
+            // queda casi vacia de golpe, y sin este aviso parece que la app ha
+            // perdido los canales en vez de que hay un filtro puesto. Le paso a
+            // Sergio probando el mando: marco un favorito sin querer, filtro, y
+            // se quedo con un canal sin saber por que.
+            toast('Solo favoritos: ' + channels.length +
+                  (channels.length === 1 ? ' canal' : ' canales'));
         } else {
-            toast(favOnly ? 'Solo favoritos' : 'Todos los canales');
+            toast('Todos los canales: ' + channels.length);
         }
         showChannels();
         startPreview();
@@ -1621,7 +1629,12 @@
         if (k === TECLA_AMARILLO || k === 114) { toggleFavOnly(); return true; }
         if (k === 83 || k === 113) { openRecordings(); return true; }
         if (k === TECLA_AZUL) {
-            if (view !== "guide" && !isFullscreen && channels.length > 0) openGuide();
+            // Conmuta: abre la guia, y si ya estas en ella vuelve a la lista.
+            // Antes, estando en la guia o a pantalla completa, no hacia nada y
+            // encima no lo decia: un boton que unas veces responde y otras se
+            // queda callado parece roto.
+            if (view === "guide") showChannels();
+            else if (channels.length > 0) openGuide();
             return true;
         }
         if (k === TECLA_INFO) { mostrarInfoPrograma(); return true; }
