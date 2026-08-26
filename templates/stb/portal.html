@@ -1716,6 +1716,18 @@
             return false;
         }
 
+        // La rueda del mando no siempre manda un evento de rueda: la de los
+        // Magic Remote que no son originales manda las teclas de pagina, 33 y
+        // 34. Solo estaban atendidas en la rama de pantalla completa, y por eso
+        // alli la rueda cambiaba de canal mientras que en las listas y en la
+        // guia no hacia absolutamente nada.
+        //
+        // Se traducen aqui y no en normalizarTecla porque la ficha si las usa
+        // para otra cosa —desplazar el texto de cuatro en cuatro— y esa ya ha
+        // pasado unas lineas mas arriba.
+        if (k === 33) k = 38;
+        else if (k === 34) k = 40;
+
         // Ojo con el orden: la pantalla completa solo manda si no hay ningun
         // panel abierto encima. La guia y las grabaciones se pueden abrir sobre
         // el video, y cuando lo estan, las flechas son suyas. Sin el
@@ -1723,7 +1735,7 @@
         // canal y el boton de atras salia a la miniatura en vez de devolver la
         // imagen.
         if (isFullscreen && view === "list") {
-            if (k === 38 || k === 33) {
+            if (k === 38) {
                 // Cambiar canal en fullscreen
                 if (currentChannel > 0) {
                     currentChannel--;
@@ -1732,7 +1744,7 @@
                     playingChannelIdx = currentChannel;
                     mostrarOsd(ch);
                 }
-            } else if (k === 40 || k === 34) {
+            } else if (k === 40) {
                 if (currentChannel < channels.length - 1) {
                     currentChannel++;
                     var ch = channels[currentChannel];

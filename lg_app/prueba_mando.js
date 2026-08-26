@@ -229,6 +229,52 @@ esc = esc;
 reproducirPantallaCompleta('http://x', 'Canal', 'Programa');
 comprobar('al ver el archivo la vista pasa a la del video', view, 'list');
 
+console.log('10. La rueda que manda teclas de pagina mueve en todas las listas');
+// El Magic Remote de la tele de pruebas no manda un evento de rueda: manda 33 y
+// 34, las teclas de pagina. Solo estaban atendidas a pantalla completa, asi que
+// la rueda cambiaba de canal sobre el video y no hacia nada en el listado ni en
+// la guia.
+handleKey = handleKeyDeVerdad;
+channels = [{ id: '1', name: 'Uno' }, { id: '2', name: 'Dos' }, { id: '3', name: 'Tres' }];
+view = 'list';
+isFullscreen = false;
+currentChannel = 0;
+showChannels = function () {};
+startPreview = function () {};
+
+handleKey({ keyCode: 34 });
+comprobar('pagina abajo baja por el listado', currentChannel, 1);
+handleKey({ keyCode: 33 });
+comprobar('pagina arriba sube por el listado', currentChannel, 0);
+
+view = 'guide';
+guide = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
+guideIdx = 0;
+renderGuide = function () {};
+handleKey({ keyCode: 34 });
+comprobar('y tambien baja por la guia', guideIdx, 1);
+handleKey({ keyCode: 33 });
+comprobar('y sube por la guia', guideIdx, 0);
+
+// Sobre el video sigue cambiando de canal, que es donde ya funcionaba.
+view = 'list';
+isFullscreen = true;
+currentChannel = 0;
+playingChannelIdx = 0;
+playChannel = function () {};
+mostrarOsd = function () {};
+handleKey({ keyCode: 34 });
+comprobar('sobre el video sigue cambiando de canal', currentChannel, 1);
+
+// La ficha es la excepcion: ahi 33 y 34 desplazan el texto de cuatro en cuatro.
+view = 'ficha';
+let saltos = [];
+moverFicha = function (n) { saltos.push(n); };
+handleKey({ keyCode: 34 });
+handleKey({ keyCode: 33 });
+comprobar('en la ficha siguen siendo el salto largo', JSON.stringify(saltos),
+    JSON.stringify([PASO_FICHA * 4, -PASO_FICHA * 4]));
+
 console.log('');
 if (fallos.length) {
     console.log('FALLAN ' + fallos.length + ' comprobaciones:');
