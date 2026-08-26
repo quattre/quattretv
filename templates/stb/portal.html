@@ -248,19 +248,42 @@
 
     // El listado va paginado de 50 en 50: antes solo se pedia la primera
     // pagina, asi que en la tele solo se veian 50 canales.
-    function loadPage(page) {
+    function loadPage(page, intento) {
         api("type=itv&action=get_ordered_list&p=" + page, function(js) {
-            if (!js || !js.data) return;
+            if (!js || !js.data) {
+                // Antes aqui habia un return a secas, y esa linea dejaba al
+                // cliente con 50 canales de 81 sin decirle nada: la lista se
+                // quedaba cortada y parecia que esos eran todos los que tenia.
+                // Una pagina que no llega se reintenta, y si no hay manera se
+                // avisa, que es lo minimo.
+                intento = (intento || 0) + 1;
+                if (intento <= 3) {
+                    setTimeout(function() { loadPage(page, intento); }, 1500 * intento);
+                } else if (page > 0) {
+                    toast('No se han podido cargar todos los canales');
+                }
+                return;
+            }
+
+            // La pagina 0 empieza de cero. Sin esto, volver a cargarla —al
+            // recuperarse la red, por ejemplo— añadia los mismos canales otra
+            // vez y salian duplicados en la lista.
+            if (page === 0) allChannels = [];
             allChannels = allChannels.concat(js.data);
             applyFilters();
+
             if (page === 0) {
                 showChannels();
                 startPreview();
             } else {
                 if (view === "list") showChannels();
             }
+
+            // Se compara con allChannels, no con channels: channels es la lista
+            // ya filtrada, asi que con un filtro puesto se quedaba corta y
+            // dejaba de pedir paginas antes de tiempo.
             var perPage = js.max_page_items || 50;
-            if (channels.length < (js.total_items || 0) && js.data.length >= perPage) {
+            if (allChannels.length < (js.total_items || 0) && js.data.length >= perPage) {
                 loadPage(page + 1);
             }
         });
