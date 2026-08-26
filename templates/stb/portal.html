@@ -1725,8 +1725,10 @@
         // Se traducen aqui y no en normalizarTecla porque la ficha si las usa
         // para otra cosa —desplazar el texto de cuatro en cuatro— y esa ya ha
         // pasado unas lineas mas arriba.
-        if (k === 33) k = 38;
-        else if (k === 34) k = 40;
+        if (k === 33 || k === 34) {
+            if (giroDuplicado('teclas')) return false;
+            k = (k === 33) ? 38 : 40;
+        }
 
         // Ojo con el orden: la pantalla completa solo manda si no hay ningun
         // panel abierto encima. La guia y las grabaciones se pueden abrir sobre
@@ -1953,10 +1955,30 @@
     // La rueda del Magic Remote. Con 83 canales, bajar de uno en uno con la
     // flecha es un suplicio, y la rueda es justo para lo que esta. Se traduce a
     // las mismas flechas para no duplicar ni una linea de logica.
+    // Hay mandos que mandan el giro de la rueda como evento de rueda y otros
+    // como teclas de pagina. Un mando podria mandar las dos cosas por la misma
+    // muesca, y entonces cada giro saltaria dos posiciones en vez de una.
+    //
+    // Se atiende lo primero que llegue y se descarta lo que venga pegado detras
+    // por el otro camino. Las repeticiones del MISMO camino no se tocan nunca:
+    // esas son giros de verdad, y descartarlas haria que girar rapido moviera
+    // menos. Por eso al descartar no se apunta nada — si no, el siguiente giro
+    // de verdad se veria como duplicado del que acabamos de tirar.
+    var ultimoGiro = { camino: '', cuando: 0 };
+    function giroDuplicado(camino) {
+        var ahora = new Date().getTime();
+        if (ultimoGiro.camino && ultimoGiro.camino !== camino &&
+            ahora - ultimoGiro.cuando < 250) return true;
+        ultimoGiro.camino = camino;
+        ultimoGiro.cuando = ahora;
+        return false;
+    }
+
     function manejarRueda(e) {
+        if (e.preventDefault) e.preventDefault();
+        if (giroDuplicado('rueda')) return false;
         var abajo = (e.deltaY || e.wheelDelta * -1 || e.detail) > 0;
         handleKey({ keyCode: abajo ? 40 : 38 });
-        if (e.preventDefault) e.preventDefault();
         return false;
     }
 

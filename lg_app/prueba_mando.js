@@ -235,6 +235,9 @@ console.log('10. La rueda que manda teclas de pagina mueve en todas las listas')
 // la rueda cambiaba de canal sobre el video y no hacia nada en el listado ni en
 // la guia.
 handleKey = handleKeyDeVerdad;
+// La seccion 9 giro la rueda por el otro camino hace un instante; sin esto el
+// guardia contra muescas duplicadas se comeria la primera tecla.
+ultimoGiro.camino = ''; ultimoGiro.cuando = 0;
 channels = [{ id: '1', name: 'Uno' }, { id: '2', name: 'Dos' }, { id: '3', name: 'Tres' }];
 view = 'list';
 isFullscreen = false;
@@ -274,6 +277,35 @@ handleKey({ keyCode: 34 });
 handleKey({ keyCode: 33 });
 comprobar('en la ficha siguen siendo el salto largo', JSON.stringify(saltos),
     JSON.stringify([PASO_FICHA * 4, -PASO_FICHA * 4]));
+
+console.log('11. Un mando que mande las dos cosas no salta de dos en dos');
+// No hay Magic Remote original a mano. Si resulta que manda el evento de rueda
+// Y la tecla de pagina por la misma muesca, cada giro movería dos posiciones y
+// la app se volveria inservible justo con el mando que usa el revisor de LG.
+// Asi funciona con las dos clases de mando sin tener que saber cual es.
+channels = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }];
+view = 'list';
+isFullscreen = false;
+currentChannel = 0;
+ultimoGiro.camino = ''; ultimoGiro.cuando = 0;
+
+// Primera muesca: llegan las dos cosas casi a la vez.
+manejarRueda({ deltaY: 120, preventDefault() {} });
+handleKey({ keyCode: 34 });
+comprobar('una muesca mueve una sola posicion', currentChannel, 1);
+
+// Segunda muesca, 100 ms mas tarde: lo mismo otra vez.
+ultimoGiro.cuando -= 100;
+manejarRueda({ deltaY: 120, preventDefault() {} });
+handleKey({ keyCode: 34 });
+comprobar('la muesca siguiente vuelve a mover una', currentChannel, 2);
+
+// Y al que solo manda teclas no se le penaliza por girar rapido: dos muescas
+// seguidas por el mismo camino son dos giros de verdad, no un duplicado.
+ultimoGiro.camino = 'teclas';
+handleKey({ keyCode: 34 });
+handleKey({ keyCode: 34 });
+comprobar('girar rapido mueve en cada muesca', currentChannel, 4);
 
 console.log('');
 if (fallos.length) {
