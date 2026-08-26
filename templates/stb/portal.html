@@ -1853,29 +1853,32 @@
         var i = filaPulsada(destino);
         if (i < 0 || isNaN(i)) return;
 
-        // Primer clic: seleccionar. Segundo clic sobre lo ya seleccionado:
-        // entrar. Asi no se entra sin querer al apuntar de pasada, que con un
-        // puntero pasa constantemente.
+        // Un clic hace lo mismo que moverse hasta la fila y pulsar OK. En una
+        // television esa es la convencion con el puntero, y es lo que prueba el
+        // autochequeo de LG: apuntar a un boton y pulsar, y que la app avance.
+        //
+        // Se probo antes en dos pasos —el primero selecciona, el segundo
+        // entra— para que el puntero no metiera al usuario donde no queria al
+        // pasar por encima. Pero eso no es lo que espera nadie: se apunta a lo
+        // que se quiere ver y se pulsa una vez.
         if (view === "menu") {
-            if (menuIdx === i) { elegirMenu(); } else { menuIdx = i; renderMenu(); }
+            menuIdx = i; renderMenu(); elegirMenu();
         } else if (view === "genres") {
-            if (genreIdx === i) { chooseGenre(); } else { genreIdx = i; renderGenres(); }
+            genreIdx = i; renderGenres(); chooseGenre();
         } else if (view === "vod") {
-            if (vodIdx === i) { verPelicula(); } else { vodIdx = i; renderVod(null); }
+            vodIdx = i; renderVod(null); verPelicula();
         } else if (view === "series") {
-            if (serieIdx === i) { openCapitulos(); } else { serieIdx = i; renderSeries(null); }
+            serieIdx = i; renderSeries(null); openCapitulos();
         } else if (view === "capitulos") {
-            if (capIdx === i) { verCapitulo(); } else { capIdx = i; renderCapitulos(null); }
+            capIdx = i; renderCapitulos(null); verCapitulo();
         } else if (view === "guide") {
-            if (guideIdx === i) { abrirFicha(); } else { guideIdx = i; renderGuide(); }
+            guideIdx = i; renderGuide(); abrirFicha();
         } else if (view === "recordings") {
-            if (recIdx === i) {
-                var sel = recordings[recIdx];
-                if (sel && sel.status === 'completed') playRecording();
-            } else { recIdx = i; renderRecordings(null); }
+            recIdx = i; renderRecordings(null);
+            var sel = recordings[recIdx];
+            if (sel && sel.status === 'completed') playRecording();
         } else if (!isFullscreen) {
-            if (currentChannel === i) { goFullscreen(); }
-            else { currentChannel = i; showChannels(); startPreview(); }
+            currentChannel = i; showChannels(); goFullscreen();
         }
     }
 

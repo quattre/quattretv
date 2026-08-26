@@ -309,8 +309,9 @@ kind, no banner ads and no AVOD.</p>
 <table class="datos" style="max-width:250mm">
   <tr><td>Remote</td><td>Works with both the Magic Remote and a standard remote. Every
       screen is operable with the 4-way pad, OK and BACK; no pointer is required.
-      With the Magic Remote, rows respond to the pointer &mdash; the first click
-      selects and the second enters &mdash; and the wheel scrolls long lists.</td></tr>
+      With the Magic Remote, rows respond to the pointer &mdash; a single click does
+      the same as moving to the row and pressing OK &mdash; and the wheel scrolls
+      long lists.</td></tr>
   <tr><td>BACK key</td><td>Handled by the app (<code>disableBackHistoryAPI</code> is
       true). BACK always leads back towards the channel list; from the channel list
       it opens the main menu. No screen can be got stuck in.</td></tr>

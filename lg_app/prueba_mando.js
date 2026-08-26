@@ -76,7 +76,10 @@ comprobar('pulsando el texto de dentro se encuentra la fila', filaPulsada(nombre
 comprobar('pulsando la propia fila tambien', filaPulsada(fila), 4);
 comprobar('pulsando fuera de cualquier fila no devuelve nada', filaPulsada(nodo({}, global.document.body)), -1);
 
-console.log('4. Un clic en la lista selecciona, y el segundo entra');
+console.log('4. Un clic hace lo mismo que moverse hasta la fila y pulsar OK');
+// En una television la convencion del puntero es un solo clic, y es lo que
+// prueba el autochequeo de LG. Antes hacian falta dos y eso se leia como que la
+// app no responde al puntero.
 channels = [{ id: '1', name: 'Uno', cmd: 'http://x' }, { id: '2', name: 'Dos', cmd: 'http://y' }];
 view = 'list';
 isFullscreen = false;
@@ -87,11 +90,8 @@ showChannels = function () {};
 startPreview = function () {};
 
 manejarClic({ target: nodo({ 'data-i': '1' }, global.document.body) });
-comprobar('el primer clic mueve la seleccion', currentChannel, 1);
-comprobar('y no entra todavia', entradas, 0);
-
-manejarClic({ target: nodo({ 'data-i': '1' }, global.document.body) });
-comprobar('el segundo clic sobre lo mismo entra', entradas, 1);
+comprobar('el clic mueve la seleccion', currentChannel, 1);
+comprobar('y entra a la vez', entradas, 1);
 
 console.log('5. Los atajos hacen lo mismo con los tres mandos');
 let hecho = [];
