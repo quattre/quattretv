@@ -33,9 +33,10 @@ global.XMLHttpRequest = function () {
 
 eval(codigo);
 
-// La seccion 5 sustituye openGuide por un doble; se guarda la de verdad
-// porque la seccion 9 necesita ejecutarla entera.
+// Las secciones 5 y 8 sustituyen openGuide y handleKey por dobles; se
+// guardan las de verdad porque la seccion 9 necesita ejecutarlas enteras.
 const openGuideDeVerdad = openGuide;
+const handleKeyDeVerdad = handleKey;
 
 let fallos = [];
 function comprobar(desc, obtenido, esperado) {
@@ -153,27 +154,64 @@ comprobar('rueda hacia abajo = flecha abajo', teclas[0], 40);
 manejarRueda({ deltaY: -120, preventDefault() {} });
 comprobar('rueda hacia arriba = flecha arriba', teclas[1], 38);
 
-console.log('9. El azul abre la guia tambien estando a pantalla completa');
-// A pantalla completa la capa de graficos se apaga para dejar ver el video.
-// openGuide escribia dentro de esa capa sin volver a encenderla: la guia se
-// pintaba donde no se ve. El boton azul parecia roto y, peor, dejaba las
-// flechas gobernando una lista invisible en vez de cambiar de canal.
+console.log('9. La guia abierta sobre el video manda ella, no la pantalla completa');
+// Dos fallos distintos con la misma raiz:
+//
+//   - goFullscreen apaga la capa de graficos para dejar ver el video, y
+//     openGuide escribia dentro sin volver a encenderla: la guia se pintaba
+//     donde no se ve y el boton azul parecia roto.
+//   - handleKey miraba isFullscreen ANTES que la vista, asi que con la guia ya
+//     abierta las flechas y la rueda seguian cambiando de canal y el boton de
+//     atras salia a la miniatura en vez de devolver la imagen.
 const capa = elemento('content');
 channels = [{ id: '1', name: 'Uno', cmd: 'http://x' }];
 currentChannel = 0;
 view = 'list';
 isFullscreen = true;
 capa.style.display = 'none';
+
 openGuideDeVerdad();
-comprobar('la guia se hace visible', capa.style.display, 'block');
+comprobar('el azul hace visible la guia', capa.style.display, 'block');
 comprobar('queda anotado de donde se vino', guiaDesdeFullscreen, true);
 
-// Y al cerrarla hay que devolver el video, no la lista de canales.
+// Con la guia delante, las flechas son suyas.
+guide = [{ name: 'A' }, { name: 'B' }, { name: 'C' }];
+guideIdx = 0;
+view = 'guide';
+let canalesCambiados = 0;
 let vueltasALaLista = 0;
+renderGuide = function () {};
+playChannel = function () { canalesCambiados++; };
 showChannels = function () { vueltasALaLista++; };
-salirDeGuia();
-comprobar('al cerrar se vuelve a ocultar', capa.style.display, 'none');
-comprobar('y se vuelve al video, no a la lista', vueltasALaLista, 0);
+
+handleKeyDeVerdad({ keyCode: 40 });
+comprobar('la flecha abajo baja por la guia', guideIdx, 1);
+comprobar('y no cambia de canal', canalesCambiados, 0);
+
+// La rueda pasa por el mismo sitio, asi que hereda el arreglo. La seccion 8
+// dejo puesto un doble de handleKey para poder mirar que tecla salia; aqui hace
+// falta el de verdad, que es quien decide.
+handleKey = handleKeyDeVerdad;
+manejarRueda({ deltaY: 120, preventDefault() {} });
+comprobar('la rueda tampoco cambia de canal', canalesCambiados, 0);
+comprobar('la rueda baja por la guia', guideIdx, 2);
+
+// Y el puntero: pulsar una fila entra en el programa, no saca la barra.
+let barras = 0, fichas = 0;
+mostrarOsd = function () { barras++; };
+abrirFicha = function () { fichas++; };
+manejarClic({ target: nodo({ 'data-i': '0' }, global.document.body) });
+comprobar('el puntero elige el programa', guideIdx, 0);
+comprobar('y no saca la barra del canal', barras, 0);
+comprobar('sino que abre la ficha', fichas, 1);
+
+// Atras devuelve el video, no la miniatura.
+view = 'guide';
+handleKeyDeVerdad({ keyCode: 461 });
+comprobar('atras oculta la guia', capa.style.display, 'none');
+comprobar('y devuelve el video, no la miniatura', vueltasALaLista, 0);
+comprobar('la vista vuelve a ser la del video', view, 'list');
+comprobar('sin salir de pantalla completa', isFullscreen, true);
 
 // Desde el menu, en cambio, cerrar la guia si devuelve la lista.
 view = 'guide';
@@ -181,6 +219,15 @@ isFullscreen = false;
 guiaDesdeFullscreen = false;
 salirDeGuia();
 comprobar('desde el menu si se vuelve a la lista', vueltasALaLista, 1);
+
+// Ver un programa del archivo deja la vista donde toca: si se quedara en
+// "guide", las teclas mandarian sobre una guia que ya no esta en pantalla.
+view = 'guide';
+setViewportFullscreen = function () {};
+graficosDelanteInsistiendo = function () {};
+esc = esc;
+reproducirPantallaCompleta('http://x', 'Canal', 'Programa');
+comprobar('al ver el archivo la vista pasa a la del video', view, 'list');
 
 console.log('');
 if (fallos.length) {

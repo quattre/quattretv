@@ -574,6 +574,13 @@
         playingChannelIdx = -1;   // ya no suena el canal de la lista
         setViewportFullscreen();
         isFullscreen = true;
+        // A pantalla completa y sin panel encima la vista es siempre "list".
+        // Es lo que miran las teclas y el puntero para saber que mandan sobre
+        // el video y no sobre una lista que ya no se ve. Se llega aqui desde la
+        // guia y desde las grabaciones, asi que hay que dejarlo dicho.
+        view = "list";
+        guiaDesdeFullscreen = false;
+        fichaDesdeFullscreen = false;
         graficosDelanteInsistiendo();
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
@@ -1314,6 +1321,7 @@
     function openRecordings() {
         view = "recordings";
         recIdx = 0;
+        if (isFullscreen) document.getElementById("content").style.display = "block";
         document.getElementById("content").innerHTML =
             '<div class="panel"><div class="header"><div class="logo">Grabaciones</div></div>' +
             '<div style="color:#666;padding:20px;">Cargando...</div></div>';
@@ -1535,6 +1543,7 @@
         }
 
         isFullscreen = true;
+        view = "list";
         graficosDelanteInsistiendo();
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
@@ -1707,7 +1716,13 @@
             return false;
         }
 
-        if (isFullscreen) {
+        // Ojo con el orden: la pantalla completa solo manda si no hay ningun
+        // panel abierto encima. La guia y las grabaciones se pueden abrir sobre
+        // el video, y cuando lo estan, las flechas son suyas. Sin el
+        // "view === list" pasaba esto: con la guia abierta la rueda cambiaba de
+        // canal y el boton de atras salia a la miniatura en vez de devolver la
+        // imagen.
+        if (isFullscreen && view === "list") {
             if (k === 38 || k === 33) {
                 // Cambiar canal en fullscreen
                 if (currentChannel > 0) {
@@ -1799,7 +1814,13 @@
             } else if (k === 39 || k === 82 || k === 112) {
                 deleteRecording();
             } else if (k === 37 || k === 8 || k === 27) {
-                showChannels();
+                if (isFullscreen) {
+                    view = "list";
+                    document.getElementById("content").style.display = "none";
+                    graficosDelanteInsistiendo();
+                } else {
+                    showChannels();
+                }
             }
         } else {
             if (k === 38 && currentChannel > 0) {
@@ -1871,7 +1892,7 @@
         // el siguiente entra en la ficha. Sin esto, con el Magic Remote la
         // pantalla completa era un callejon sin salida — apuntabas, pulsabas y
         // no pasaba nada.
-        if (isFullscreen) {
+        if (isFullscreen && view === "list") {
             if (document.getElementById("osd").style.display === "block") {
                 mostrarInfoPrograma();
             } else {
