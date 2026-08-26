@@ -377,16 +377,11 @@
         } else if (player) {
             try { player.play({uri: ch.cmd}); } catch(err) {}
         }
-        // Poner la pagina transparente es un truco de los decos: asi se ve el
-        // plano de video del aparato por detras del navegador. En una LG el
-        // video es un elemento de la propia pagina, y dejarla transparente le
-        // dice al compositor de webOS que la trate como una capa superpuesta:
-        // el resultado es que se ve el video y TODO LO DEMAS EN NEGRO, con la
-        // interfaz dibujada pero invisible. Pasaba despues de un rato viendo la
-        // television, y desde el sofa parece que la app se ha colgado.
-        if (!useHTML5) {
-            document.body.style.background = "transparent";
-        }
+        // La pagina va transparente a proposito, y hace falta en los dos
+        // aparatos: tanto el plano de video del deco como el de la television
+        // van POR DETRAS del navegador, y solo asoman donde la pagina no pinta
+        // nada. Con el fondo opaco el video se reproduce pero no se ve.
+        document.body.style.background = "transparent";
 
         // Avisar del cambio de canal, pero no en cada pulsacion: haciendo
         // zapping serian muchas peticiones seguidas y el deco se atasca. Se
@@ -403,7 +398,13 @@
     // de mandar la orden de reproducir no basta, porque lo que se estaba viendo
     // sigue en pantalla y parece que el canal bloqueado se esta viendo igual.
     function pararVideo() {
-        try { if (useHTML5 && htmlPlayer) { htmlPlayer.pause(); htmlPlayer.removeAttribute('src'); htmlPlayer.load(); } } catch(err) {}
+        // Se pausa y se esconde, pero NO se desmonta el elemento. Quitarle el
+        // src y llamar a load() reinicia la tuberia multimedia de la television
+        // y deja su plano de video en un estado del que no vuelve: se queda
+        // tapando la pagina entera y la interfaz desaparece aunque siga
+        // dibujada. Con esconderlo basta para lo que hace falta, que es no
+        // dejar el canal anterior sonando detras del aviso de canal bloqueado.
+        try { if (useHTML5 && htmlPlayer) { htmlPlayer.pause(); htmlPlayer.style.display = 'none'; } } catch(err) {}
         try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
         try { if (player && player.stop) player.stop(); } catch(err) {}
         playingChannelIdx = -1;
