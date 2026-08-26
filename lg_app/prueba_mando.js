@@ -33,6 +33,10 @@ global.XMLHttpRequest = function () {
 
 eval(codigo);
 
+// La seccion 5 sustituye openGuide por un doble; se guarda la de verdad
+// porque la seccion 9 necesita ejecutarla entera.
+const openGuideDeVerdad = openGuide;
+
 let fallos = [];
 function comprobar(desc, obtenido, esperado) {
     const ok = obtenido === esperado;
@@ -148,6 +152,35 @@ manejarRueda({ deltaY: 120, preventDefault() {} });
 comprobar('rueda hacia abajo = flecha abajo', teclas[0], 40);
 manejarRueda({ deltaY: -120, preventDefault() {} });
 comprobar('rueda hacia arriba = flecha arriba', teclas[1], 38);
+
+console.log('9. El azul abre la guia tambien estando a pantalla completa');
+// A pantalla completa la capa de graficos se apaga para dejar ver el video.
+// openGuide escribia dentro de esa capa sin volver a encenderla: la guia se
+// pintaba donde no se ve. El boton azul parecia roto y, peor, dejaba las
+// flechas gobernando una lista invisible en vez de cambiar de canal.
+const capa = elemento('content');
+channels = [{ id: '1', name: 'Uno', cmd: 'http://x' }];
+currentChannel = 0;
+view = 'list';
+isFullscreen = true;
+capa.style.display = 'none';
+openGuideDeVerdad();
+comprobar('la guia se hace visible', capa.style.display, 'block');
+comprobar('queda anotado de donde se vino', guiaDesdeFullscreen, true);
+
+// Y al cerrarla hay que devolver el video, no la lista de canales.
+let vueltasALaLista = 0;
+showChannels = function () { vueltasALaLista++; };
+salirDeGuia();
+comprobar('al cerrar se vuelve a ocultar', capa.style.display, 'none');
+comprobar('y se vuelve al video, no a la lista', vueltasALaLista, 0);
+
+// Desde el menu, en cambio, cerrar la guia si devuelve la lista.
+view = 'guide';
+isFullscreen = false;
+guiaDesdeFullscreen = false;
+salirDeGuia();
+comprobar('desde el menu si se vuelve a la lista', vueltasALaLista, 1);
 
 console.log('');
 if (fallos.length) {

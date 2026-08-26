@@ -945,6 +945,7 @@
 
     function showChannels() {
         view = "list";
+        guiaDesdeFullscreen = false;
         graficosDelante();
         var ch = channels[currentChannel];
         var h = '<div class="panel">';
@@ -1010,6 +1011,13 @@
     function openGuide() {
         var ch = channels[currentChannel];
         if (!ch) return;
+        // A pantalla completa la capa de graficos esta apagada (la apaga
+        // goFullscreen). Si no se vuelve a encender aqui, la guia se pinta
+        // donde no se ve: el boton azul parecia no hacer nada, y encima dejaba
+        // las flechas gobernando una lista invisible en vez de cambiar de
+        // canal. Es el mismo apaño que ya hacia la ficha.
+        guiaDesdeFullscreen = isFullscreen;
+        if (isFullscreen) document.getElementById("content").style.display = "block";
         guideChannel = ch;
         guide = [];
         guideIdx = 0;
@@ -1025,6 +1033,19 @@
             }
             renderGuide();
         });
+    }
+
+    // Salir de la guia por donde se entro: desde pantalla completa hay que
+    // devolver el video, no la lista de canales.
+    function salirDeGuia() {
+        if (guiaDesdeFullscreen) {
+            guiaDesdeFullscreen = false;
+            view = "list";
+            document.getElementById("content").style.display = "none";
+            graficosDelanteInsistiendo();
+            return;
+        }
+        showChannels();
     }
 
     // Que se puede hacer con el programa seleccionado. Solo se ofrece lo que de
@@ -1113,6 +1134,7 @@
     var PASO_FICHA = 90;        // px que se desplaza cada pulsacion
 
     var fichaDesdeFullscreen = false;
+    var guiaDesdeFullscreen = false;
 
     function abrirFicha() {
         if (!guide[guideIdx]) return;
@@ -1633,7 +1655,7 @@
             // Antes, estando en la guia o a pantalla completa, no hacia nada y
             // encima no lo decia: un boton que unas veces responde y otras se
             // queda callado parece roto.
-            if (view === "guide") showChannels();
+            if (view === "guide") salirDeGuia();
             else if (channels.length > 0) openGuide();
             return true;
         }
@@ -1761,7 +1783,7 @@
                 // Derecha otra vez: la ficha completa del programa.
                 abrirFicha();
             } else if (k === 37 || k === 8 || k === 27) {
-                showChannels();
+                salirDeGuia();
             }
         } else if (view === "recordings") {
             if (k === 38 && recIdx > 0) {
