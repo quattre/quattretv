@@ -2184,11 +2184,12 @@
         .osd-pistas {
             margin-top: 12px; padding-top: 12px;
             border-top: 1px solid rgba(255,255,255,.08);
-            color: #98a3a6; font-size: 17px; text-align: right;
+            color: #a8b2b5; font-size: 21px; text-align: right;
         }
         .osd-pistas span {
-            background: rgba(255,255,255,.10); border-radius: 6px;
-            padding: 2px 9px; margin: 0 6px 0 14px; color: #f2f5f3;
+            background: rgba(255,255,255,.10); border-radius: 8px;
+            padding: 6px 14px; margin: 0 6px 0 14px; color: #f2f5f3;
+            font-weight: 600;
         }
         .osd-pistas span.rojo { background: #e60000; color: #fff; }
         .osd-pistas span[data-tecla]:hover { background: rgba(154,214,47,.32); color: #fff; }
@@ -2239,14 +2240,26 @@
         .st.scheduled { background: rgba(255,255,255,.16); color: #fff; }
         .st.failed    { background: #6d7679; color: #fff; }
 
-        .help { text-align: center; color: #6d7679; font-size: 15px; line-height: 2; }
+        /* A tamaño de television, no de monitor: 15 px a tres metros no se leen,
+           y desde que estos rotulos hacen algo al pulsarlos tienen que ser un
+           blanco al que apuntar con el Magic Remote, no una nota al pie. */
+        .help { text-align: center; color: #8a9497; font-size: 20px; line-height: 2.2; }
         .help span {
-            background: rgba(255,255,255,.09); padding: 5px 11px;
-            border-radius: 6px; margin: 0 5px; color: #c9d1cb; font-weight: 600;
+            background: rgba(255,255,255,.09); padding: 9px 17px;
+            border-radius: 8px; margin: 0 7px; color: #e6ece8;
+            font-size: 21px; font-weight: 600;
         }
         /* Solo los que llevan data-tecla hacen algo al pulsarlos. Los que no
            —"0-9" o "▲▼", que no son una tecla sola— se quedan como estaban, sin
            cursor ni respuesta, para que no prometan lo que no dan. */
+        /* Los que no llevan data-tecla no son un boton: "0-9" y "▲▼" no son una
+           tecla sola y no se pueden pulsar. Se quedan sin relleno, con un filo
+           fino, para que se lean como lo que son —una leyenda de que teclas del
+           mando valen— y no como un boton que no responde. */
+        .help span:not([data-tecla]), .osd-pistas span:not([data-tecla]) {
+            background: none; border: 1px solid rgba(255,255,255,.16);
+            color: #8a9497; font-weight: 500;
+        }
         [data-tecla] { cursor: pointer; transition: background .1s, color .1s; }
         .help span[data-tecla]:hover { background: rgba(154,214,47,.32); color: #fff; }
         .help span[data-tecla]:active { background: #9ad62f; color: #0d1505; }
@@ -2419,8 +2432,10 @@
             .fav, .arch, .lock { font-size: 13px; margin-left: 5px; }
             .bar { height: 3px; margin-top: 6px; }
             .descr { font-size: 12px; padding: 11px 4px; }
-            .help { font-size: 10px; }
-            .help span { padding: 3px 7px; margin: 0 3px; }
+            .help { font-size: 13px; line-height: 2.2; }
+            .help span { padding: 6px 11px; margin: 0 5px; font-size: 14px; }
+            .osd-pistas { font-size: 14px; }
+            .osd-pistas span { padding: 4px 9px; }
 
             #preview { top: 80px; left: 499px; width: 754px; height: 424px;
                        border-radius: 12px; font-size: 17px; }
