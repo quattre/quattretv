@@ -507,7 +507,7 @@
                  '</div></div></div>';
         }
         h += '</div>';
-        h += '<div class="help"><span>OK</span> Elegir <span>◀</span> Volver</div>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Elegir <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -640,7 +640,7 @@
                  esc(MENU[i].titulo) + extra + '</div></div></div>';
         }
         h += '</div>';
-        h += '<div class="help"><span>OK</span> Entrar <span>◀</span> Volver</div>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Entrar <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -717,7 +717,7 @@
             }
         }
         h += '</div>';
-        h += '<div class="help"><span>OK</span> Ver <span>◀</span> Volver</div>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -777,7 +777,7 @@
             }
         }
         h += '</div>';
-        h += '<div class="help"><span>OK</span> Capitulos <span>◀</span> Volver</div>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Capitulos <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -820,7 +820,7 @@
             }
         }
         h += '</div>';
-        h += '<div class="help"><span>OK</span> Ver <span>◀</span> Volver</div>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -871,7 +871,7 @@
         h += '</div>';
 
         h += '</div></div>';
-        h += '<div class="help"><span>0-9</span> PIN <span>OK</span> Aceptar <span>◀</span> Cancelar</div>';
+        h += '<div class="help"><span>0-9</span> PIN <span data-tecla="13">OK</span> Aceptar <span data-tecla="37">◀</span> Cancelar</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -997,8 +997,8 @@
         }
         h += '</div>';
 
-        h += '<div class="help"><span>OK</span> Ver <span>▶</span> Guia <span>◀</span> Menu <span>0-9</span> Ir al canal<br>';
-        h += 'Grabaciones, favoritos y peliculas estan en el <span>Menu</span></div>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu <span>0-9</span> Ir al canal<br>';
+        h += 'Grabaciones, favoritos y peliculas estan en el <span data-tecla="37">Menu</span></div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
         updatePreviewCap(ch);
@@ -1065,10 +1065,10 @@
         if (!p) return '';
         if (p.past) {
             return (guideChannel && guideChannel.archive)
-                ? '<span>OK</span> Ver desde el archivo' : '';
+                ? '<span data-tecla="13">OK</span> Ver desde el archivo' : '';
         }
-        if (p.rec) return '<span>OK</span> Quitar la grabacion';
-        if (hayGrabaciones()) return '<span>OK</span> Grabar';
+        if (p.rec) return '<span data-tecla="13">OK</span> Quitar la grabacion';
+        if (hayGrabaciones()) return '<span data-tecla="13">OK</span> Grabar';
         return '';
     }
 
@@ -1116,7 +1116,7 @@
                     if (corto) h += '...';
                     h += '</div>';
                 }
-                h += '<div class="ver-mas"><span>▶</span> ' +
+                h += '<div class="ver-mas"><span data-tecla="39">▶</span> ' +
                      (sel.descr ? 'Ver la informacion completa' : 'Ver la ficha del programa') +
                      '</div>';
             }
@@ -1125,7 +1125,7 @@
         var sel2 = guide[guideIdx];
         var hint = pistaGuia(sel2);
         if (hint) hint += ' ';
-        h += '<div class="help">' + hint + '<span>◀</span> Volver</div>';
+        h += '<div class="help">' + hint + '<span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -1222,7 +1222,7 @@
 
         var accion = pistaGuia(p);
         h += '<div class="help" id="ficha-ayuda">' + (accion ? accion + ' ' : '') +
-             '<span>◀</span> Volver a la guia</div>';
+             '<span data-tecla="37">◀</span> Volver a la guia</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
 
@@ -1233,7 +1233,7 @@
         if (fichaScrollMax > 0) {
             document.getElementById('ficha-ayuda').innerHTML =
                 '<span>▲▼</span> Desplazar ' + (accion ? accion + ' ' : '') +
-                '<span>◀</span> Volver a la guia';
+                '<span data-tecla="37">◀</span> Volver a la guia';
         }
         pintarScrollFicha();
     }
@@ -1360,8 +1360,8 @@
         h += '</div>';
         var r2 = recordings[recIdx];
         var ayuda = (r2 && r2.status === 'completed')
-            ? '<span>OK</span> Ver' : '<span>OK</span> Quitar de la lista';
-        h += '<div class="help">' + ayuda + ' <span>▶</span> Borrar <span>◀</span> Volver</div>';
+            ? '<span data-tecla="13">OK</span> Ver' : '<span data-tecla="13">OK</span> Quitar de la lista';
+        h += '<div class="help">' + ayuda + ' <span data-tecla="39">▶</span> Borrar <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
     }
@@ -1484,8 +1484,8 @@
         // sale de todas las pantallas de la app, ya se ha usado para llegar
         // hasta aqui, y ademas vuelve a decirse dentro de la ficha.
         var pistas = '';
-        if (ch.cur_playing) pistas += '<span>▶</span> Informacion ';
-        if (hayGrabaciones()) pistas += '<span class="rojo">●</span> Grabar';
+        if (ch.cur_playing) pistas += '<span data-tecla="39">▶</span> Informacion ';
+        if (hayGrabaciones()) pistas += '<span class="rojo" data-tecla="403">●</span> Grabar';
         if (pistas) h += '<div class="osd-pistas">' + pistas + '</div>';
 
         return h;
@@ -1902,6 +1902,17 @@
             return;
         }
 
+        // Los rotulos de "OK Ver", "◀ Volver" y demas tienen pinta de boton, y
+        // con el Magic Remote se apunta a ellos y se pulsa. Antes no hacian
+        // nada: parecian botones rotos. Cada uno dice de que tecla habla, asi
+        // que el clic hace exactamente lo que haria esa tecla — y sirve para
+        // todas las pantallas sin repetir la logica en ninguna.
+        var comoTecla = atributoPulsado(destino, 'data-tecla');
+        if (comoTecla !== null) {
+            handleKey({ keyCode: parseInt(comoTecla, 10) });
+            return;
+        }
+
         // En pantalla completa no hay filas: un clic saca la barra del canal, y
         // el siguiente entra en la ficha. Sin esto, con el Magic Remote la
         // pantalla completa era un callejon sin salida — apuntabas, pulsabas y
@@ -2078,6 +2089,16 @@
             margin-right: 16px;      /* el 'gap' no llega a la television */
         }
         .item.sel .num { color: #9ad62f; }
+        /* Con el Magic Remote apuntas a una fila y, sin esto, no hay forma de
+           saber cual vas a elegir hasta que ya la has elegido, ni de saber si
+           la pulsacion ha entrado. Son los puntos 7 (Mouse Over-Focus) y 10
+           (UI Button) del autochequeo de LG. El tono de encima queda por debajo
+           del de la fila marcada, para que se distingan: uno dice "aqui esta el
+           puntero" y el otro "esta es la elegida". */
+        .item { cursor: pointer; }
+        .item:hover { background: rgba(255,255,255,.075); }
+        .item.sel:hover { background: #33424a; }
+        .item:active, .item.sel:active { background: #465c66; }
         .num.sm { font-size: 22px; width: 84px; color: #98a3a6; }
 
         .ico {
@@ -2146,6 +2167,7 @@
             border-radius: 12px; cursor: pointer; color: #f2f5f3;
         }
         .pintecla:hover { border-color: #9ad62f; background: #1e2a24; }
+        .pintecla:active { background: #9ad62f; border-color: #9ad62f; color: #0d1505; }
         .pintecla.aceptar { background: #9ad62f; color: #0d1505; font-size: 26px; }
         .pintecla.borrar  { font-size: 30px; color: #98a3a6; }
 
@@ -2161,6 +2183,10 @@
             padding: 2px 9px; margin: 0 6px 0 14px; color: #f2f5f3;
         }
         .osd-pistas span.rojo { background: #e60000; color: #fff; }
+        .osd-pistas span[data-tecla]:hover { background: rgba(154,214,47,.32); color: #fff; }
+        .osd-pistas span[data-tecla]:active { background: #9ad62f; color: #0d1505; }
+        .osd-pistas span.rojo[data-tecla]:hover { background: #ff3b3b; color: #fff; }
+        .osd-pistas span.rojo[data-tecla]:active { background: #ff6b6b; color: #fff; }
 
         /* "Aqui se puede entrar", dicho donde el ojo ya esta mirando. */
         .entrar {
@@ -2210,6 +2236,12 @@
             background: rgba(255,255,255,.09); padding: 5px 11px;
             border-radius: 6px; margin: 0 5px; color: #c9d1cb; font-weight: 600;
         }
+        /* Solo los que llevan data-tecla hacen algo al pulsarlos. Los que no
+           —"0-9" o "▲▼", que no son una tecla sola— se quedan como estaban, sin
+           cursor ni respuesta, para que no prometan lo que no dan. */
+        [data-tecla] { cursor: pointer; transition: background .1s, color .1s; }
+        .help span[data-tecla]:hover { background: rgba(154,214,47,.32); color: #fff; }
+        .help span[data-tecla]:active { background: #9ad62f; color: #0d1505; }
 
         /* ---------- Vista previa ---------- */
         #preview {

@@ -307,6 +307,32 @@ handleKey({ keyCode: 34 });
 handleKey({ keyCode: 34 });
 comprobar('girar rapido mueve en cada muesca', currentChannel, 4);
 
+console.log('12. Los rotulos de accion se pueden pulsar con el puntero');
+// "OK Ver", "◀ Volver", el punto rojo de grabar... tienen pinta de boton, y con
+// el Magic Remote se apunta a ellos y se pulsa. Antes no hacian nada: parecian
+// botones rotos, que es justo lo que mira el punto 10 del autochequeo de LG.
+// Cada rotulo dice de que tecla habla, asi que el clic hace lo que esa tecla.
+let teclasEnviadas = [];
+handleKey = function (e) { teclasEnviadas.push(e.keyCode); };
+view = 'list';
+isFullscreen = false;
+
+manejarClic({ target: nodo({ 'data-tecla': '13' }, global.document.body) });
+comprobar('pulsar el rotulo OK manda la tecla OK', teclasEnviadas[0], 13);
+
+manejarClic({ target: nodo({ 'data-tecla': '37' }, global.document.body) });
+comprobar('pulsar el de volver manda la flecha izquierda', teclasEnviadas[1], 37);
+
+// El punto rojo vive en la barra del canal, o sea a pantalla completa: el
+// rotulo se mira antes que la rama del video, si no se lo comeria ella.
+isFullscreen = true;
+manejarClic({ target: nodo({ 'data-tecla': '403' }, global.document.body) });
+comprobar('el punto rojo graba tambien sobre el video', teclasEnviadas[2], 403);
+
+// Y pulsar al lado, donde no hay rotulo, no manda ninguna tecla.
+manejarClic({ target: nodo({}, global.document.body) });
+comprobar('pulsar fuera de un rotulo no manda nada', teclasEnviadas.length, 3);
+
 console.log('');
 if (fallos.length) {
     console.log('FALLAN ' + fallos.length + ' comprobaciones:');
