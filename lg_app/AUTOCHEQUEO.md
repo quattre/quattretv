@@ -66,7 +66,7 @@ probado y falla en su revision, pierdes credibilidad para el resto del envio.
 
 | # | Punto | Estado | Con qué se ha comprobado |
 |---|---|---|---|
-| 6.1 | Usuario y contraseña entregados | ✅ | `lgreview` / `QuattreLG2026` |
+| 6.1 | Usuario y contraseña entregados | ✅ | `lgreview` / ver `ACCESOS.md` (copia local, fuera del repositorio) |
 | 6.2 | Sin fecha de caducidad | ✅ | Comprobado en la ficha: caducidad vacia |
 | 6.3 | Con acceso a todo el contenido que ofrece la app | ✅ | 83 canales y guia |
 | 6.4 | Varios equipos permitidos | ✅ | 5 equipos, 2 emisiones simultaneas |

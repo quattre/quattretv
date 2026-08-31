@@ -19,6 +19,16 @@ arrastrar imagenes a mano.
 import os
 import subprocess
 import sys
+
+# La contraseña de la cuenta de pruebas tiene que salir en el PDF -- el revisor
+# la necesita -- pero no en el repositorio: una credencial que entra en el
+# historial de git ya no se saca. Se pasa por el entorno al generar:
+#
+#   CLAVE_PRUEBA=... python3 lg_app/generar_ux_scenario.py capturas salida.pdf
+#
+# Si no se pone, el documento sale con un hueco visible en vez de con una
+# contraseña equivocada, que es peor.
+CLAVE_PRUEBA = os.environ.get('CLAVE_PRUEBA', '(rellenar antes de enviar)')
 import tempfile
 
 from PIL import Image, ImageDraw, ImageFont
@@ -262,7 +272,7 @@ There is no user-generated content, no advertising and no link out of the app.
 <h2>4. Test account and parental control</h2>
 <table class="datos">
   <tr><td>User</td><td>lgreview</td></tr>
-  <tr><td>Password</td><td>QuattreLG2026</td></tr>
+  <tr><td>Password</td><td>' + CLAVE_PRUEBA + '</td></tr>
   <tr><td>Expiry</td><td>None. The account does not expire.</td></tr>
   <tr><td>Devices</td><td>5, with 2 concurrent streams</td></tr>
   <tr><td>Adult content</td><td>None. See below.</td></tr>

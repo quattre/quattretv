@@ -1,0 +1,36 @@
+This is the first submission of this app.
+
+Desired platform: webOS 3.0 and later (2016 and later models). The app is written
+in ES5 with prefixed flexbox only, and has been verified on a webOS 4.5 set
+(model 32LM6380PLC). It is a webOS app and does not target Netcast.
+
+Desired launch date: as soon as the review is approved. There is no marketing
+date to meet.
+
+NOTES FOR THE TESTER
+
+1. A subscription account is required. The test account is provided in the Test
+   Account field. There is no sign-up inside the TV: accounts are created by the
+   operator when the customer contracts the service.
+
+2. The app contains no adult material. Our line-up does include one channel
+   rated for adults, and it is excluded from the webOS line-up on the server, so
+   it is not reachable from this app at all.
+
+3. Channels 1001 to 1016 are radio stations. They carry audio only and have no
+   video track. This is expected and is not a playback fault.
+
+4. All content is live television. There is no pause, rewind, or on-demand
+   content, so playback controls do not apply.
+
+5. Bandwidth. This is operator IPTV delivered over our own managed fibre
+   network, where bandwidth is guaranteed. Channels are broadcast quality at a
+   single bitrate, measured between 3.0 and 9.4 Mbps (4.3 Mbps on average), and
+   there is no adaptive bitrate ladder. Comfortable playback of any channel
+   needs about 12 Mbps; the heaviest channel is number 24. Below that it will
+   buffer. This is by design and matches how the service is sold.
+
+6. Service language: Spanish. Service country: Spain.
+
+If anything fails during the review, please write to info@quattre.com and we
+will answer the same working day.

@@ -9,7 +9,19 @@ APP_ID="com.quattre.tv"
 IPK_DIR="$(cd "$(dirname "$0")" && pwd)"
 IPK="$(ls -t "$IPK_DIR"/*.ipk 2>/dev/null | head -1)"
 SUBNET="192.168.200.0/24"
-PASSPHRASE="A68DD3"   # passphrase del modo dev de esta TV (se ve en la app Developer Mode)
+# La passphrase del modo desarrollador de la television. NO va en el codigo: es
+# una credencial, y lo que entra en el historial de git ya no se saca. Se lee de
+# ~/.lgtv_passphrase o de la variable LG_TV_PASSPHRASE.
+#
+# Ademas cambia cada vez que se reactiva el modo desarrollador, asi que tenerla
+# escrita aqui obligaba a editar el script cada vez.
+PASSPHRASE="${LG_TV_PASSPHRASE:-$(cat ~/.lgtv_passphrase 2>/dev/null)}"
+if [ -z "$PASSPHRASE" ]; then
+  echo "Falta la passphrase del modo desarrollador." >&2
+  echo "  La ves en la app Developer Mode de la television, y se guarda asi:" >&2
+  echo "    echo XXXXXX > ~/.lgtv_passphrase && chmod 600 ~/.lgtv_passphrase" >&2
+  exit 1
+fi
 
 if [ -z "$IPK" ]; then
   echo "ERROR: no encuentro ningun .ipk en $IPK_DIR" >&2

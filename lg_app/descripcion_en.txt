@@ -1,0 +1,25 @@
+QuattreTV is the television app for Quattre Internet subscribers.
+
+An active Quattre television subscription is required to use it. If you are not a customer yet, you can subscribe at quattre.com or at any of our shops.
+
+WHAT YOU CAN DO
+
+- Watch every channel included in your subscription, live.
+- Browse the programme guide for each channel, with full details for each programme: start time, duration and synopsis.
+- Jump straight to a channel by typing its number on the remote.
+- Mark your favourite channels and filter the list to show only those.
+- Browse channels by category.
+
+BUILT FOR THE REMOTE
+
+The whole app is operated with the TV remote, with no keyboard and no mouse. It works the same with the Magic Remote pointer and with a standard remote control. The colour buttons do what you would expect: favourites, guide and recording.
+
+PARENTAL CONTROL
+
+Adult channels are locked behind a PIN set by the account holder. Until the correct PIN is entered, the channel address never leaves our servers, so the lock does not depend on the application and cannot be bypassed from the television.
+
+NO ADVERTISING
+
+The app is free, contains no advertising and nothing can be purchased inside it. Subscriptions are arranged at quattre.com or in our shops, never from the television.
+
+Quattre Internet S.L. Internet, television and mobile operator.

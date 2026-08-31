@@ -38,7 +38,7 @@ purchase and no external link out of the app.
 | | |
 |---|---|
 | **User** | `lgreview` |
-| **Password** | `QuattreLG2026` |
+| **Password** | ver `ACCESOS.md` (copia local, fuera del repositorio) |
 | **Subscription** | Live TV — the 80 channels served to webOS, and the programme guide. Films, series and recordings are **not** enabled on this account, so those menu options do not appear |
 | **Expiry** | None. The account does not expire. |
 | **Concurrent devices** | 5 |

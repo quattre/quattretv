@@ -1,0 +1,25 @@
+QuattreTV es la aplicacion de television para clientes de Quattre Internet.
+
+Necesitas tener contratado el servicio de television de Quattre para usarla. Si aun no eres cliente, puedes contratarlo en quattre.com o en cualquiera de nuestras tiendas.
+
+QUE PUEDES HACER
+
+- Ver en directo todos los canales incluidos en tu tarifa.
+- Consultar la guia de programacion de cada canal, con la ficha completa de cada programa: hora de inicio, duracion y sinopsis.
+- Saltar directamente a un canal escribiendo su numero con el mando.
+- Marcar tus canales favoritos y filtrar la lista para ver solo esos.
+- Recorrer los canales por categorias.
+
+PENSADA PARA EL MANDO
+
+Toda la aplicacion se maneja con el mando de la television, sin teclado y sin raton. Funciona igual con el Magic Remote apuntando a la pantalla que con un mando normal. Los botones de colores hacen lo de siempre: favoritos, guia y grabacion.
+
+CONTROL PARENTAL
+
+Los canales para adultos estan bloqueados con un PIN que configura el titular de la cuenta. Mientras no se introduce el PIN correcto, la direccion del canal no sale de nuestros servidores, asi que el bloqueo no depende de la aplicacion y no se puede saltar desde el televisor.
+
+SIN PUBLICIDAD
+
+La aplicacion es gratuita, no lleva publicidad y no se puede comprar nada dentro de ella. El servicio se contrata en quattre.com o en nuestras tiendas, nunca desde el televisor.
+
+Quattre Internet S.L. Operador de internet, television y telefonia movil.

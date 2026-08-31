@@ -1,0 +1,259 @@
+INSTRUCCIONES PARA QUIEN MANTIENE quattre.com
+=============================================
+
+Que hay que hacer
+-----------------
+Anadir una seccion nueva al final de la pagina https://quattre.com/avisolegal/
+con el contenido HTML que viene mas abajo.
+
+No sustituye a nada de lo que ya hay: se anade debajo. La pagina actual habla
+del tratamiento de datos de la WEB (formularios, comunicaciones comerciales).
+Esta seccion nueva cubre las APLICACIONES de QuattreTV, que es informacion que
+hoy no esta y que exige la tienda de aplicaciones de LG para publicar la app.
+
+Si es posible, ponerle a la seccion el ancla id="apps", para poder enlazarla
+como https://quattre.com/avisolegal/#apps
+
+Sobre el formato
+----------------
+El HTML va sin clases ni estilos propios: son solo h1, h2, p, ul, li y table.
+Coge el diseno de la web. Si vuestra plantilla ya usa h1 para el titulo de la
+pagina, bajad los h1 de este bloque a h2 y los h2 a h3.
+
+Lleva las dos versiones, castellano e ingles, en la misma seccion. La inglesa
+hace falta porque la revision de LG se hace en ingles.
+
+Que NO hay que cambiar
+----------------------
+Los datos de empresa, el NIF, la delegada de proteccion de datos y el correo de
+ejercicio de derechos estan tomados de lo que ya figura publicado en esa misma
+pagina, para que no digan cosas distintas. Si algo de eso cambia, hay que
+cambiarlo en los dos sitios.
+
+
+-------------------- CONTENIDO A ANADIR (HTML) --------------------
+
+<h1>Politica de privacidad de las aplicaciones QuattreTV</h1>
+<p>Ultima actualizacion: 24 de agosto de 2026</p>
+
+<h2>Quien trata tus datos</h2>
+<p><strong>QUATTRE INTERNET S.L.</strong> es el responsable del tratamiento.</p>
+<ul>
+  <li>NIF: B98168206</li>
+  <li>Domicilio: C/ Alguixos 5, 46138 Rafelbunyol (Valencia), Espana</li>
+  <li>Telefono: 961 126 346</li>
+  <li>Correo: <a href="mailto:info@quattre.com">info@quattre.com</a></li>
+  <li>Registro Mercantil de Valencia: Tomo 9074, Libro 6358, Folio 152, Hoja V-135232</li>
+  <li><strong>Delegada de proteccion de datos:</strong> Marta Hernandez Acamer &mdash;
+      <a href="mailto:protecciondatos@quattre.com">protecciondatos@quattre.com</a></li>
+</ul>
+<p>Esta politica se refiere a <strong>las aplicaciones de QuattreTV</strong> —la de
+televisores LG y las que se publiquen para otras plataformas— y complementa el
+aviso legal y la politica de privacidad generales publicados en quattre.com.</p>
+
+<h2>Que son las aplicaciones</h2>
+<p>Las aplicaciones de QuattreTV son el punto de entrada al servicio de television
+que tienes contratado. Muestra los canales, la guia de programacion y el resto del
+contenido que incluya tu tarifa.</p>
+<p><strong>Las aplicaciones son gratuitas y no se puede comprar nada dentro de
+ellas.</strong> El servicio se contrata y se paga en quattre.com o en cualquiera
+de nuestras tiendas, nunca desde el televisor.</p>
+
+<h2>Que guardan las aplicaciones en tu aparato</h2>
+<ul>
+  <li><strong>La direccion del servidor que respondio la ultima vez</strong>, para
+      que el siguiente arranque sea mas rapido.</li>
+  <li><strong>Un identificador del aparato, generado por nosotros</strong>, que
+      sirve para reconocer ese aparato dentro de tu cuenta y para aplicar el numero de
+      equipos que incluye tu tarifa.</li>
+  <li><strong>Tu sesion</strong>, para no pedirte la contrasena cada vez que
+      enciendes.</li>
+</ul>
+
+<h2>Que NO hacen las aplicaciones</h2>
+<ul>
+  <li><strong>No usan el identificador de publicidad del aparato</strong> ni ninguna
+      otra identificacion proporcionada por el fabricante.</li>
+  <li><strong>No utilizan ninguna funcion del sistema operativo del aparato.</strong>
+      La aplicacion de televisores LG, por ejemplo, no solicita ni un solo
+      permiso a webOS.</li>
+  <li>No acceden a tu lista de canales de la television, ni a lo que ves en otras
+      aplicaciones, ni al microfono, ni a la camara.</li>
+  <li><strong>No llevan publicidad</strong>, ni herramientas de medicion de terceros,
+      ni botones de redes sociales.</li>
+  <li><strong>No comparten ningun dato con LG</strong> ni con ningun otro fabricante
+      de televisores o telefonos.</li>
+</ul>
+
+<h2>Que datos tratamos y con que amparo legal</h2>
+<table>
+<tr><th>Dato</th><th>Para que</th><th>Base juridica (art. 6 RGPD)</th></tr>
+<tr><td>Nombre, domicilio, telefono y correo</td><td>Darte de alta como cliente, facturarte y atenderte</td><td>Ejecucion del contrato (6.1.b)</td></tr>
+<tr><td>Usuario y contrasena</td><td>Que puedas entrar en el servicio</td><td>Ejecucion del contrato (6.1.b)</td></tr>
+<tr><td>Identificador de cada televisor o descodificador</td><td>Reconocer tus equipos y aplicar el numero de aparatos y de emisiones simultaneas que incluye tu tarifa</td><td>Ejecucion del contrato (6.1.b)</td></tr>
+<tr><td>Direccion IP y fecha del ultimo acceso de cada equipo</td><td>Seguridad del servicio, deteccion de uso indebido de la cuenta y soporte tecnico</td><td>Interes legitimo (6.1.f)</td></tr>
+<tr><td>Canales que marcas como favoritos</td><td>Tenerlos a mano en tu lista</td><td>Ejecucion del contrato (6.1.b)</td></tr>
+<tr><td>Grabaciones que programas, si tu tarifa las incluye</td><td>Prestarte ese servicio</td><td>Ejecucion del contrato (6.1.b)</td></tr>
+<tr><td>PIN de control parental</td><td>Bloquear los canales para adultos</td><td>Ejecucion del contrato (6.1.b)</td></tr>
+<tr><td>Datos de facturacion</td><td>Cumplir las obligaciones fiscales y contables</td><td>Obligacion legal (6.1.c)</td></tr>
+</table>
+<p>Sobre el <strong>interes legitimo</strong> de la direccion IP y la fecha de
+ultimo acceso: sin ese dato no podemos saber cuantos equipos usan una cuenta ni
+detectar que a alguien le han robado las credenciales. Es la informacion minima
+para eso, no se usa para perfilarte ni para publicidad, y puedes oponerte
+escribiendo a protecciondatos@quattre.com.</p>
+<p><strong>No tomamos decisiones automatizadas</strong> que te afecten, ni
+elaboramos perfiles.</p>
+
+<h2>Cuanto tiempo los guardamos</h2>
+<ul>
+  <li><strong>Datos de cliente:</strong> mientras seas cliente y, despues,
+      mientras puedan derivarse responsabilidades del contrato.</li>
+  <li><strong>Facturacion y contabilidad:</strong> seis anos, segun el articulo 30
+      del Codigo de Comercio. Los datos con trascendencia fiscal, cuatro anos,
+      segun el articulo 66 de la Ley General Tributaria.</li>
+  <li><strong>Registros de acceso de los equipos:</strong> doce meses.</li>
+  <li><strong>Grabaciones que programas:</strong> el tiempo que indique tu
+      tarifa; despues se borran solas.</li>
+</ul>
+<p>Pasados esos plazos los datos se suprimen.</p>
+
+<h2>Con quien los compartimos</h2>
+<p><strong>No vendemos ni cedemos tus datos a nadie.</strong></p>
+<p>El servicio de television se presta desde <strong>servidores propios de
+Quattre Internet S.L. situados en Espana</strong>, en nuestra propia red. No
+intervienen plataformas de terceros para la reproduccion de los canales.</p>
+<p>Solo se comunican datos a proveedores con los que existe contrato de encargado
+de tratamiento (asesoria contable y fiscal), y a las administraciones publicas
+cuando lo exija la ley. <strong>No hay transferencias internacionales de
+datos.</strong></p>
+
+<h2>Menores y control parental</h2>
+<p>El servicio incluye canales para adultos. Estan bloqueados con un PIN que
+configura el titular de la cuenta desde su area de clientes.</p>
+<p>Merece la pena explicar como funciona, porque no es un simple aviso en
+pantalla: <strong>mientras no se introduce el PIN correcto, nuestro servidor no
+entrega al televisor la direccion del canal</strong>. El bloqueo no depende de la
+aplicacion ni se puede saltar manipulandola, porque en el televisor no hay
+ninguna direccion que encontrar.</p>
+
+<h2>Tus derechos</h2>
+<p>Puedes ejercer los derechos de acceso, rectificacion, supresion, oposicion,
+limitacion del tratamiento y portabilidad escribiendo a
+<strong><a href="mailto:protecciondatos@quattre.com">protecciondatos@quattre.com</a></strong>,
+o por correo postal a la direccion indicada arriba, acreditando tu identidad.</p>
+<p>Si consideras que no hemos atendido correctamente tu solicitud, puedes
+presentar una reclamacion ante la <strong>Agencia Espanola de Proteccion de
+Datos</strong> (www.aepd.es).</p>
+
+<h2>Cambios en esta politica</h2>
+<p>Si la modificamos, publicaremos la nueva version en esta misma direccion y
+actualizaremos la fecha del encabezado.</p>
+
+<div></div>
+
+<h1 id="english">Privacy Policy &mdash; QuattreTV applications</h1>
+<p>Last updated: 24 August 2026</p>
+
+<h2>Who processes your data</h2>
+<p><strong>QUATTRE INTERNET S.L.</strong> is the data controller.</p>
+<ul>
+  <li>Company number (NIF): B98168206</li>
+  <li>Address: C/ Alguixos 5, 46138 Rafelbunyol (Valencia), Spain</li>
+  <li>Phone: +34 961 126 346</li>
+  <li>Email: <a href="mailto:info@quattre.com">info@quattre.com</a></li>
+  <li><strong>Data Protection Officer:</strong> Marta Hernandez Acamer &mdash;
+      <a href="mailto:protecciondatos@quattre.com">protecciondatos@quattre.com</a></li>
+</ul>
+<p>This policy covers <strong>the QuattreTV applications</strong> &mdash; the LG
+television app and any others published for other platforms &mdash; and
+complements the general legal notice published at quattre.com.</p>
+
+<h2>What the applications are</h2>
+<p>The QuattreTV applications are the entry point to the television service you
+have subscribed to. It shows the channels, the programme guide and the rest of
+the content included in your subscription.</p>
+<p><strong>The applications are free and nothing can be purchased inside them.</strong>
+The service is contracted and paid for at quattre.com or in any of our shops,
+never from the television.</p>
+
+<h2>What the applications store on your device</h2>
+<ul>
+  <li><strong>The address of the server that answered last</strong>, so the next
+      start is faster.</li>
+  <li><strong>A device identifier, generated by us</strong>, used to recognise
+      that television within your account and to apply the number of devices your
+      subscription includes.</li>
+  <li><strong>Your session</strong>, so you are not asked for your password every
+      time.</li>
+</ul>
+
+<h2>What the applications do not do</h2>
+<ul>
+  <li><strong>They do not use the device's advertising identifier</strong> or any
+      other manufacturer-provided identification.</li>
+  <li><strong>They use no function of the device's operating system.</strong> The LG
+      television app, for instance, requests no webOS permission at all.</li>
+  <li>It does not access your TV channel list, what you watch in other
+      applications, the microphone or the camera.</li>
+  <li><strong>It contains no advertising</strong>, no third-party analytics and no
+      social network components.</li>
+  <li><strong>It shares no data with LG</strong> or any other television
+      manufacturer.</li>
+</ul>
+
+<h2>What data we process and on what legal basis</h2>
+<table>
+<tr><th>Data</th><th>Purpose</th><th>Legal basis (GDPR art. 6)</th></tr>
+<tr><td>Name, address, phone and email</td><td>Register you as a customer, invoice you and support you</td><td>Performance of the contract (6.1.b)</td></tr>
+<tr><td>Username and password</td><td>Sign-in</td><td>Performance of the contract (6.1.b)</td></tr>
+<tr><td>Identifier of each television or set-top box</td><td>Recognise your devices and apply the device and concurrent-stream limits of your subscription</td><td>Performance of the contract (6.1.b)</td></tr>
+<tr><td>IP address and last access time of each device</td><td>Service security, detection of account misuse and technical support</td><td>Legitimate interest (6.1.f)</td></tr>
+<tr><td>Channels you mark as favourites</td><td>So you have them at hand</td><td>Performance of the contract (6.1.b)</td></tr>
+<tr><td>Recordings you schedule, if included in your subscription</td><td>To provide that service</td><td>Performance of the contract (6.1.b)</td></tr>
+<tr><td>Parental control PIN</td><td>To lock adult channels</td><td>Performance of the contract (6.1.b)</td></tr>
+<tr><td>Billing data</td><td>Tax and accounting obligations</td><td>Legal obligation (6.1.c)</td></tr>
+</table>
+<p><strong>No automated decision-making or profiling</strong> takes place.</p>
+
+<h2>How long we keep it</h2>
+<ul>
+  <li><strong>Customer data:</strong> while you are a customer and afterwards
+      while liabilities may arise from the contract.</li>
+  <li><strong>Invoicing and accounting:</strong> six years (art. 30 of the Spanish
+      Commercial Code); data of tax relevance, four years (art. 66 of the General
+      Tax Act).</li>
+  <li><strong>Device access logs:</strong> twelve months.</li>
+  <li><strong>Recordings you schedule:</strong> as long as your subscription
+      states; they are then deleted automatically.</li>
+</ul>
+
+<h2>Who we share it with</h2>
+<p><strong>We do not sell or transfer your data.</strong></p>
+<p>The television service runs on <strong>servers owned by Quattre Internet S.L.
+located in Spain</strong>, on our own network. No third-party platform is
+involved in delivering the channels.</p>
+<p>Data is only disclosed to processors under a data processing agreement
+(accounting and tax advisors) and to public authorities where the law requires
+it. <strong>There are no international data transfers.</strong></p>
+
+<h2>Minors and parental control</h2>
+<p>The service includes adult channels, locked behind a PIN set by the account
+holder.</p>
+<p>How it works is worth stating, because it is not merely an on-screen warning:
+<strong>until the correct PIN is entered, our server does not hand the channel
+address to the television</strong>. The lock does not depend on the application
+and cannot be bypassed by tampering with it, because there is no address on the
+television to find.</p>
+
+<h2>Your rights</h2>
+<p>You may exercise your rights of access, rectification, erasure, objection,
+restriction of processing and portability by writing to
+<strong><a href="mailto:protecciondatos@quattre.com">protecciondatos@quattre.com</a></strong>,
+or by post to the address above, proving your identity.</p>
+<p>If you believe your request has not been handled properly, you may lodge a
+complaint with the Spanish Data Protection Agency (www.aepd.es).</p>
+
+<h2>Changes to this policy</h2>
+<p>If we amend it, the new version will be published at this same address and the
+date above updated.</p>
