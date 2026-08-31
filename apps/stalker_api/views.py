@@ -667,6 +667,27 @@ def hay_archivo_en_marcha():
     return hay
 
 
+def canales_visibles(qs, device):
+    """
+    Quita los canales que no deben llegar a ESTE tipo de aparato.
+
+    La tarifa dice que canales tiene contratados el cliente; esto dice en que
+    aparatos se pueden ver, que no es lo mismo. Un mismo cliente puede tener un
+    MAG en el salon y una LG en la habitacion con la misma tarifa.
+
+    El caso que lo motiva: LG no admite aplicaciones con contenido para adultos
+    sin un contrato aparte con LG Electronics, asi que el canal +18 no puede
+    viajar a sus televisores aunque el cliente lo tenga pagado.
+
+    Se filtra en la consulta y no despues porque la lista va paginada de 50 en
+    50: filtrar en Python descuadraria el total y dejaria paginas cortas.
+    """
+    tipo = getattr(device, 'device_type', None) if device else None
+    if not tipo:
+        return qs
+    return qs.exclude(oculto_para__contains=',%s,' % tipo)
+
+
 def handle_get_ordered_list(request):
     """Get ordered channel list."""
     device = get_device_from_request(request)
@@ -674,7 +695,9 @@ def handle_get_ordered_list(request):
     page = int(request.GET.get('p', 0))
     per_page = 50
 
-    channels = Channel.objects.filter(is_active=True).order_by('number')
+    channels = canales_visibles(
+        Channel.objects.filter(is_active=True).order_by('number'), device
+    )
 
     if genre_id and genre_id != '*':
         channels = channels.filter(category_id=genre_id)
@@ -747,9 +770,13 @@ def handle_get_url(request):
 
     # cmd could be channel ID or direct URL
     if cmd.isdigit():
-        try:
-            channel = Channel.objects.get(id=cmd, is_active=True)
-        except Channel.DoesNotExist:
+        # Se pasa por el mismo filtro que la lista. Si no, esconder un canal
+        # seria solo no enseñarlo: bastaria con pedir su numero para verlo, y
+        # el aparato ya sabe pedir por id.
+        channel = canales_visibles(
+            Channel.objects.filter(id=cmd, is_active=True), device
+        ).first()
+        if not channel:
             return stalker_response({'error': 'Channel not found'})
 
         if parental_blocked(device, channel):
@@ -1260,9 +1287,10 @@ def handle_archive_link(request):
     if not channel_id:
         return stalker_response({'error': 'Channel ID required'})
 
-    try:
-        channel = Channel.objects.get(id=channel_id, is_active=True)
-    except Channel.DoesNotExist:
+    channel = canales_visibles(
+        Channel.objects.filter(id=channel_id, is_active=True), device
+    ).first()
+    if not channel:
         return stalker_response({'error': 'Channel not found'})
 
     if parental_blocked(device, channel):
@@ -1486,9 +1514,10 @@ def handle_pvr_create(request):
     if not channel_id:
         return stalker_response({'error': 'ch_id o program_id requerido'})
 
-    try:
-        channel = Channel.objects.get(id=channel_id, is_active=True)
-    except Channel.DoesNotExist:
+    channel = canales_visibles(
+        Channel.objects.filter(id=channel_id, is_active=True), device
+    ).first()
+    if not channel:
         return stalker_response({'error': 'Canal no encontrado'})
 
     try:

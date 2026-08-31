@@ -157,6 +157,26 @@ class Channel(TimeStampedModel, ActivableModel):
     is_adult = models.BooleanField(default=False)
     is_radio = models.BooleanField(default=False, help_text='Radio station instead of TV channel')
 
+    # Que aparatos NO deben ver este canal.
+    #
+    # Hace falta porque la tarifa es del CLIENTE y no del aparato: el mismo
+    # cliente puede tener un MAG en el salon y una LG en la habitacion, con la
+    # misma tarifa, y hay canales que solo se pueden servir a uno de los dos.
+    # El caso que lo motiva: LG no admite contenido para adultos sin un contrato
+    # aparte con LG Electronics, asi que el canal +18 no puede viajar a sus
+    # televisores aunque el cliente lo tenga contratado.
+    #
+    # Vacio = lo ve todo el mundo, que es como estaban los 81 canales hasta
+    # ahora. Se guarda entre comas -- ",lg,samsung," -- para poder filtrarlo en
+    # la propia consulta y no despues, que romperia la paginacion.
+    oculto_para = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        verbose_name='Oculto para',
+        help_text='Aparatos que NO veran este canal. Vacio = lo ven todos.'
+    )
+
     # EPG mapping
     epg_id = models.CharField(
         max_length=100,
@@ -191,6 +211,25 @@ class Channel(TimeStampedModel, ActivableModel):
 
     def __str__(self):
         return f"{self.number}. {self.name}"
+
+    # ---- Aparatos que pueden ver el canal ----
+
+    @staticmethod
+    def marca(tipos):
+        """De ['lg','samsung'] a ',lg,samsung,'. Vacio si no hay ninguno."""
+        tipos = [t for t in (tipos or []) if t]
+        return (',' + ','.join(tipos) + ',') if tipos else ''
+
+    @property
+    def tipos_ocultos(self):
+        """Lista de tipos de aparato que no ven este canal."""
+        return [t for t in (self.oculto_para or '').split(',') if t]
+
+    def visible_para(self, tipo):
+        """¿Un aparato de este tipo puede ver el canal?"""
+        if not tipo:
+            return True
+        return tipo not in self.tipos_ocultos
 
     @property
     def logo_display_url(self):
