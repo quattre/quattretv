@@ -82,13 +82,21 @@
                     </div>
 
                     <hr class="my-6 border-gray-200">
-                    <h3 class="text-sm font-semibold text-gray-800">Quien ve este canal</h3>
+                    <h3 class="text-sm font-semibold text-gray-800">Aparatos que NO ven este canal</h3>
                     <p class="mt-1 text-sm text-gray-500">
-                        La <strong>tarifa</strong> dice que canales tiene contratados el cliente.
-                        Esto dice en que <strong>aparatos</strong> se pueden ver, que no es lo mismo:
+                        Ojo, va al reves de lo que parece: <strong>marcar un aparato lo deja
+                        fuera</strong>. Sin marcar nada, el canal lo ven todos.
+                        La <strong>tarifa</strong> dice que canales tiene contratados el cliente;
+                        esto dice en que <strong>aparatos</strong> se pueden ver, que no es lo mismo:
                         un mismo cliente puede tener un MAG en el salon y una LG en la habitacion.
-                        Marca los aparatos que <strong>no</strong> deben ver este canal.
-                        Sin marcar nada, lo ven todos.
+                    </p>
+                    <p class="mt-2 text-sm font-medium {% if ocultos %}text-amber-700{% else %}text-green-700{% endif %}">
+                        Ahora mismo:
+                        {% if ocultos %}
+                            este canal NO se manda a {{ ocultos_nombres|join:", " }}. El resto de aparatos si lo ven.
+                        {% else %}
+                            lo ven todos los aparatos.
+                        {% endif %}
                     </p>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                         {% for valor, etiqueta in tipos_aparato %}

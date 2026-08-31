@@ -538,6 +538,7 @@ def channel_edit(request, channel_id):
         'categories': Category.objects.all(),
         'tipos_aparato': DeviceType.choices,
         'ocultos': channel.tipos_ocultos,
+        'ocultos_nombres': [dict(DeviceType.choices).get(t, t) for t in channel.tipos_ocultos],
     }
 
     return render(request, 'portal/pages/channel_edit.html', context)
