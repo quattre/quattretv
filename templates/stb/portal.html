@@ -1598,7 +1598,12 @@
         var pistas = '';
         if (ch.cur_playing) pistas += '<span data-tecla="39">▶</span> Informacion ';
         if (hayGrabaciones()) pistas += '<span class="rojo" data-tecla="403">●</span> Grabar';
-        if (pistas) h += '<div class="osd-pistas">' + pistas + '</div>';
+        // La fila de pistas se pinta SIEMPRE, aunque no haya nada que decir. Si
+        // no, en un canal sin guia desaparecia -- con su borde y sus margenes,
+        // unos 45 px -- y como la barra va anclada por abajo, todo lo de arriba
+        // se desplazaba. Al cambiar de canal parecia que el recuadro saltaba.
+        h += '<div class="osd-pistas"' + (pistas ? '' : ' style="visibility:hidden"') +
+             '>' + (pistas || '&nbsp;') + '</div>';
 
         return h;
     }
