@@ -11,46 +11,27 @@
             box-sizing: border-box;
         }
 
+        /* El fondo es la MISMA imagen que webOS pinta como pantalla de
+           arranque. Antes esta pagina redibujaba el logotipo con CSS, y como
+           la fuente Antonio no viaja en el paquete salia con otra letra, otro
+           tamaño y otro degradado: al abrir la app se veian dos pantallas
+           distintas en dos segundos. Reusando el fichero, el relevo entre una
+           y otra no se nota — solo aparece el texto de debajo. */
         body {
-            /* Iba por libre con un degradado azul y un verde que no eran los de
-               la casa, asi que la app y el portal no parecian el mismo producto. */
-            background: radial-gradient(120% 100% at 50% 0%, #141b1f 0%, #080b0d 70%);
+            background: #080b0d url(splash.png) no-repeat center center;
+            background-size: 1920px 1080px;
             overflow: hidden;
             width: 1920px;
             height: 1080px;
+            position: relative;
             font-family: 'Segoe UI', Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
         }
 
-        .splash-logo {
-            font-family: Antonio, 'Segoe UI', Arial, sans-serif;
-            font-size: 76px;
-            font-weight: 700;
-            color: #81ba26;
-            margin-bottom: 10px;
-            letter-spacing: 1px;
-        }
-
-        .splash-logo span {
-            /* Iba en blanco y fino, asi que la app escribia el nombre de una
-               forma y el icono, el splash y el portal de otra. */
-            color: #81ba26;
-        }
-
-        .splash-subtitle {
-            font-size: 20px;
-            color: rgba(255, 255, 255, 0.5);
-            margin-bottom: 40px;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-        }
-
+        /* Todo va colocado respecto al filete verde de la imagen, que acaba
+           en y=634 de los 1080. */
         .splash-spinner {
-            width: 50px;
-            height: 50px;
+            position: absolute; top: 690px; left: 50%; margin-left: -19px;
+            width: 38px; height: 38px;
             border: 3px solid rgba(154, 214, 47, 0.18);
             border-top-color: #9ad62f;
             border-radius: 50%;
@@ -62,21 +43,16 @@
         }
 
         .splash-status {
+            position: absolute; top: 752px; left: 0; width: 100%;
             color: #98a3a6;
-            font-size: 18px;
-            margin-top: 22px;
-            max-width: 900px;
+            font-size: 26px;
             text-align: center;
             line-height: 1.5;
         }
 
-        .filete {
-            width: 200px; height: 6px; border-radius: 3px; margin: 4px 0 26px;
-            background: linear-gradient(90deg, #81ba26 0%, #9ad62f 100%);
-        }
-
         .boton {
-            margin-top: 26px; padding: 14px 34px; font-size: 20px;
+            position: absolute; top: 822px; left: 50%; margin-left: -105px;
+            padding: 14px 34px; font-size: 22px;
             font-weight: 600; color: #0d1505; background: #9ad62f;
             border: 3px solid transparent; border-radius: 10px; cursor: pointer;
         }
@@ -88,11 +64,8 @@
     </style>
 </head>
 <body>
-    <div class="splash-logo">Quattre<span>TV</span></div>
-    <div class="filete"></div>
-    <div class="splash-subtitle">Quattre Internet SL</div>
     <div class="splash-spinner" id="rueda"></div>
-    <div class="splash-status" id="splash-status">Conectando...</div>
+    <div class="splash-status" id="splash-status">Cargando...</div>
     <button class="boton oculto" id="reintentar">Reintentar</button>
 
     <script>
