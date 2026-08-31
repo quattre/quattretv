@@ -502,6 +502,10 @@ def channel_edit(request, channel_id):
         channel.has_catchup = 'has_archive' in request.POST
         channel.has_timeshift = 'has_archive' in request.POST
         channel.is_active = 'is_active' in request.POST
+        # En que aparatos NO se ve. La tarifa dice que canales tiene el CLIENTE;
+        # esto dice en que aparatos se pueden ver, que no es lo mismo: un mismo
+        # cliente puede tener un MAG en el salon y una LG en la habitacion.
+        channel.oculto_para = Channel.marca(request.POST.getlist('oculto_para'))
 
         # Update stream URL (both in Channel and ChannelStream)
         stream_url = request.POST.get('stream_url')
@@ -526,11 +530,14 @@ def channel_edit(request, channel_id):
         messages.success(request, 'Canal actualizado')
         return redirect('portal:channels')
 
+    from apps.devices.models import DeviceType
     context = {
         'active_page': 'channels',
         'stats': get_base_stats(),
         'channel': channel,
         'categories': Category.objects.all(),
+        'tipos_aparato': DeviceType.choices,
+        'ocultos': channel.tipos_ocultos,
     }
 
     return render(request, 'portal/pages/channel_edit.html', context)

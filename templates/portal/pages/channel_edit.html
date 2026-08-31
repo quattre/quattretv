@@ -80,6 +80,27 @@
                             <span class="ml-2 text-sm text-gray-700">Activo</span>
                         </label>
                     </div>
+
+                    <hr class="my-6 border-gray-200">
+                    <h3 class="text-sm font-semibold text-gray-800">Quien ve este canal</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        La <strong>tarifa</strong> dice que canales tiene contratados el cliente.
+                        Esto dice en que <strong>aparatos</strong> se pueden ver, que no es lo mismo:
+                        un mismo cliente puede tener un MAG en el salon y una LG en la habitacion.
+                        Marca los aparatos que <strong>no</strong> deben ver este canal.
+                        Sin marcar nada, lo ven todos.
+                    </p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                        {% for valor, etiqueta in tipos_aparato %}
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="oculto_para" value="{{ valor }}"
+                                   class="w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-500"
+                                   {% if valor in ocultos %}checked{% endif %}>
+                            <span class="ml-2 text-sm text-gray-700">{{ etiqueta }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+
                     <hr class="my-6 border-gray-200">
                     <div class="flex gap-3">
                         <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
