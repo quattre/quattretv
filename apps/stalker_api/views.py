@@ -235,6 +235,25 @@ def get_device_from_request(request):
     return None
 
 
+def aparato_o_error(request):
+    """
+    Devuelve (aparato, None) si la peticion viene identificada, y
+    (None, respuesta_de_error) si no.
+
+    Hace falta porque los handlers pedian el aparato para AFINAR la respuesta
+    -- filtrar por la tarifa, marcar los favoritos, esconder lo que ese aparato
+    no debe ver -- pero cuando no habia ninguno seguian contestando igual: la
+    parrilla entera, con las direcciones de emision dentro. Cualquiera que
+    supiera la direccion del portal se llevaba los canales sin ser cliente, y
+    esa direccion viaja dentro de la app: en cuanto se publique en la tienda la
+    conoce cualquiera que mire el trafico de su television.
+    """
+    device = get_device_from_request(request)
+    if not device:
+        return None, stalker_response({'error': 'No autenticado'})
+    return device, None
+
+
 # ============== STB Handlers ==============
 
 def handle_stb(request, action):
@@ -525,6 +544,9 @@ def handle_itv(request, action):
 
 def handle_get_genres(request):
     """Get channel categories/genres."""
+    _, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
     categories = Category.objects.filter(is_active=True).order_by('order')
 
     data = []
@@ -690,7 +712,9 @@ def canales_visibles(qs, device):
 
 def handle_get_ordered_list(request):
     """Get ordered channel list."""
-    device = get_device_from_request(request)
+    device, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
     genre_id = request.GET.get('genre', '*')
     page = int(request.GET.get('p', 0))
     per_page = 50
@@ -769,7 +793,9 @@ def handle_get_ordered_list(request):
 def handle_get_url(request):
     """Get stream URL for a channel."""
     cmd = request.GET.get('cmd', '')
-    device = get_device_from_request(request)
+    device, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
 
     # cmd could be channel ID or direct URL
     if cmd.isdigit():
@@ -810,6 +836,9 @@ def handle_create_link(request):
 
 def handle_get_short_epg(request):
     """Get short EPG for channel."""
+    _, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
     channel_id = request.GET.get('ch_id')
     if not channel_id:
         return stalker_response({'data': []})
