@@ -430,6 +430,32 @@ isFullscreen = true;
 pintarRadio({ name: 'Cope', radio: 1 });
 comprobar('a pantalla completa ocupa todo', tarjeta.style.cssText.indexOf('width:100%') >= 0, true);
 
+console.log('15. La tarjeta de radio cambia de tamaño al entrar y salir de pantalla completa');
+// pintarRadio mira isFullscreen para saber si ocupa el hueco pequeño o toda la
+// pantalla. Si la variable se actualiza DESPUES de recolocar, la tarjeta se
+// queda con el tamaño anterior hasta el siguiente cambio de canal.
+channels = [{ id: '1', number: 1001, name: 'Cadena Ser', radio: 1, cmd: 'http://x' }];
+currentChannel = 0;
+playingChannelIdx = -1;
+isFullscreen = false;
+// Los dobles repintan la tarjeta igual que hacen las funciones de verdad: lo
+// que se prueba aqui es el ORDEN -- que isFullscreen ya valga lo que toca
+// cuando se recoloca -- y no el calculo del encuadre.
+setViewportPreview = function () { pintarRadio(channels[currentChannel]); };
+setViewportFullscreen = function () { pintarRadio(channels[currentChannel]); };
+graficosDelanteInsistiendo = function () {};
+mostrarOsd = function () {};
+startPreview = function () {};
+playChannel = function (ch) { pintarRadio(ch); };
+
+goFullscreen();
+comprobar('al entrar, la tarjeta ocupa toda la pantalla',
+    tarjeta.style.cssText.indexOf('width:100%') >= 0, true);
+
+showMenu();
+comprobar('al salir, vuelve al hueco pequeño',
+    tarjeta.style.cssText.indexOf('width:100%') < 0, true);
+
 console.log('');
 if (fallos.length) {
     console.log('FALLAN ' + fallos.length + ' comprobaciones:');

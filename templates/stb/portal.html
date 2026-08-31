@@ -675,8 +675,8 @@
     function reproducirPantallaCompleta(url, titulo, subtitulo) {
         playChannel({cmd: url});
         playingChannelIdx = -1;   // ya no suena el canal de la lista
-        setViewportFullscreen();
         isFullscreen = true;
+        setViewportFullscreen();
         // A pantalla completa y sin panel encima la vista es siempre "list".
         // Es lo que miran las teclas y el puntero para saber que mandan sobre
         // el video y no sobre una lista que ya no se ve. Se llega aqui desde la
@@ -1649,6 +1649,13 @@
         if (ch.locked) { pedirPin(goFullscreen); return; }
         if (!ch.cmd) return;
 
+        // Se marca ANTES de recolocar nada. Lo que se pinta encima del video
+        // -- la tarjeta de radio -- consulta esta variable para saber si tiene
+        // que ocupar el hueco pequeño o la pantalla entera. Poniendola despues,
+        // la tarjeta se quedaba con el tamaño anterior hasta el siguiente
+        // cambio de canal.
+        isFullscreen = true;
+
         // Si ya está reproduciendo este canal, solo cambiar viewport
         if (playingChannelIdx === currentChannel) {
             setViewportFullscreen();
@@ -1659,7 +1666,6 @@
             playingChannelIdx = currentChannel;
         }
 
-        isFullscreen = true;
         view = "list";
         graficosDelanteInsistiendo();
         document.getElementById("content").style.display = "none";
@@ -1669,9 +1675,11 @@
     }
 
     function showMenu() {
-        // Volver al menu sin parar reproduccion, solo cambiar viewport
-        setViewportPreview();
+        // Volver al menu sin parar reproduccion, solo cambiar viewport.
+        // El orden importa, igual que en goFullscreen: primero se dice donde
+        // estamos y despues se recoloca.
         isFullscreen = false;
+        setViewportPreview();
         document.getElementById("content").style.display = "block";
         document.getElementById("preview").style.display = "flex";
         document.getElementById("preview-cap").style.display = "block";
