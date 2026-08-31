@@ -403,6 +403,33 @@ if (global.__pendiente) global.__pendiente();
 comprobar('parar el video corta los reintentos', global.__video.arranques, antes);
 global.__video.diferido = false;
 
+console.log('14. Un canal de radio no se queda en negro');
+// Las emisoras (1001-1016) no traen pista de video. El hueco se quedaba negro:
+// para el usuario eso es "no funciona", y para el revisor de LG es "el video no
+// se reproduce" -- un rechazo por un canal que va perfectamente.
+const tarjeta = elemento('radio');
+elemento('radio-logo'); elemento('radio-nombre'); elemento('radio-prog');
+global.HUECO = { x: 0.39, y: 0.111, ancho: 0.589, alto: 0.589 };
+
+isFullscreen = false;
+pintarRadio({ name: 'Cadena Ser', radio: 1, logo: 'http://x/ser.png', cur_playing: 'Hora 25' });
+comprobar('la tarjeta aparece', tarjeta.style.cssText.indexOf('display:block') >= 0, true);
+comprobar('con el nombre de la emisora', elemento('radio-nombre').innerHTML, 'Cadena Ser');
+comprobar('y lo que suena', elemento('radio-prog').innerHTML, 'Hora 25');
+
+// Sin guia no se deja el hueco vacio: se dice que es radio en directo.
+pintarRadio({ name: 'Radio Marca', radio: 1 });
+comprobar('sin guia, dice que es radio', elemento('radio-prog').innerHTML, 'Radio en directo');
+
+// En un canal de television normal, la tarjeta no debe verse.
+pintarRadio({ name: 'La 1', radio: 0 });
+comprobar('en un canal de television no sale', tarjeta.style.display, 'none');
+
+// A pantalla completa ocupa toda la pantalla, no el hueco pequeño.
+isFullscreen = true;
+pintarRadio({ name: 'Cope', radio: 1 });
+comprobar('a pantalla completa ocupa todo', tarjeta.style.cssText.indexOf('width:100%') >= 0, true);
+
 console.log('');
 if (fallos.length) {
     console.log('FALLAN ' + fallos.length + ' comprobaciones:');

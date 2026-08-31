@@ -748,6 +748,9 @@ def handle_get_ordered_list(request):
             'logo': ch.logo_display_url,
             'censored': ch.is_adult,
             'hd': 1 if ch.is_hd else 0,
+            # Un canal de radio no trae imagen. El aparato tiene que saberlo
+            # para no quedarse en negro, que es lo que hacia hasta ahora.
+            'radio': 1 if ch.is_radio else 0,
             'fav': 1 if ch.id in favorites else 0,
             'archive': 1 if has_archive else 0,
             'archive_range': ch.timeshift_hours if has_archive else 0,
