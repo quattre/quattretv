@@ -19,6 +19,19 @@ global.window = { addEventListener(){}, location:{ set href(v){ navegado = v; } 
 global.setTimeout = (fn, ms) => { const id = temporizadores.length; temporizadores.push({fn, ms}); return id; };
 global.clearTimeout = (id) => { if (temporizadores[id]) temporizadores[id] = null; };
 
+// La portada de la pantalla de carga se intenta traer del servidor con una
+// imagen suelta. En Node no existe Image, y sin este doble el cargador ni se
+// puede evaluar. Se guarda la peticion para poder comprobarla.
+global.__portadas = [];
+global.Image = function(){
+    const img = this;
+    this.onload = null; this.onerror = null;
+    Object.defineProperty(this, 'src', {
+        set(v){ global.__portadas.push(v); img._src = v; },
+        get(){ return img._src; },
+    });
+};
+
 global.XMLHttpRequest = function(){
     this.open = function(m, url){ this.url = url; };
     this.send = function(){

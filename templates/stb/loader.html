@@ -54,9 +54,17 @@
         document.getElementById('username').focus();
     }
 
-    function showKeyboard(inputId) {
-        var input = document.getElementById(inputId);
-        input.focus();
+    // Abrir el teclado en pantalla.
+    //
+    // En webOS no hay ninguna orden para pedirlo: el televisor lo saca solo
+    // cuando un campo de texto recibe el foco a raiz de algo que ha hecho el
+    // usuario. Si el campo YA tiene el foco, volver a enfocarlo no hace nada,
+    // asi que hay que soltarlo primero. Los decos si tienen orden propia y se
+    // llama tambien, que no estorba.
+    function abrirTeclado(input) {
+        if (!input) return;
+        try { input.blur(); } catch(e) {}
+        try { input.focus(); } catch(e) {}
         try {
             if (typeof(gSTB) !== 'undefined' && gSTB.ShowVirtualKeyboard) {
                 gSTB.ShowVirtualKeyboard();
@@ -64,6 +72,10 @@
                 stb.ShowVirtualKeyboard();
             }
         } catch(e) {}
+    }
+
+    function showKeyboard(inputId) {
+        abrirTeclado(document.getElementById(inputId));
     }
 
 
@@ -129,10 +141,13 @@
         var focused = document.activeElement;
 
         if (key == 13) { // OK button
-            if (focused.id == 'username') {
-                document.getElementById('password').focus();
-            } else if (focused.id == 'password') {
-                doLogin();
+            // Pulsar OK sobre un campo tiene que abrir el teclado. Antes
+            // saltaba al campo siguiente, asi que con el mando no habia forma
+            // de escribir: el teclado no salia nunca y un cliente nuevo no
+            // podia ni meter su usuario. Para moverse entre campos estan las
+            // flechas, y para entrar, el boton.
+            if (focused.id == 'username' || focused.id == 'password') {
+                abrirTeclado(focused);
             } else if (focused.tagName == 'BUTTON') {
                 focused.click();
             }
@@ -152,6 +167,7 @@
         .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
         h1 { color: #81ba26; font-size: 42px; margin-bottom: 5px; }
         h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
+        #ayuda { color: #6d7679; font-size: 15px; margin-top: 18px; }
         #msg { color: #81ba26; font-size: 16px; margin: 15px; min-height: 20px; }
         #login { display: none; text-align: center; }
         input { font-size: 20px; padding: 12px 20px; width: 280px; margin: 8px 0; border: 2px solid #333; border-radius: 8px;
@@ -177,6 +193,8 @@
             <input type="password" id="password" placeholder="Contrasena" onclick="showKeyboard('password')" onfocus="showKeyboard('password')">
             <br>
             <button id="loginBtn" onclick="doLogin()">Entrar</button>
+            <div id="ayuda">Pulsa OK sobre un campo para escribir &middot;
+                Flechas para moverte &middot; OK en Entrar para acceder</div>
             <div id="msg"></div>
         </div>
     </div>
