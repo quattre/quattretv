@@ -39,11 +39,10 @@ purchase and no external link out of the app.
 |---|---|
 | **User** | `lgreview` |
 | **Password** | `QuattreLG2026` |
-| **Subscription** | Live TV — all 81 channels and the programme guide. Films, series and recordings are **not** enabled on this account, so those menu options do not appear |
+| **Subscription** | Live TV — the 80 channels served to webOS, and the programme guide. Films, series and recordings are **not** enabled on this account, so those menu options do not appear |
 | **Expiry** | None. The account does not expire. |
 | **Concurrent devices** | 5 |
-| **Parental PIN** | `1234` (see section 6) |
-| **Locked channel to test the PIN with** | **Dark**, channel number 29 |
+| **Adult content** | None. See section 6 |
 
 The account is ready before submission and stays active for the whole review.
 Sign-in is described in section 4.2.
@@ -118,7 +117,7 @@ preview window on the right.
 | **◄** | Open the main menu |
 | **BACK** | Same as ◄ — open the main menu |
 
-Channels marked with 🔒 are adult channels. See section 6.
+Channels can be marked with 🔒 when they are rated for adults. None of the channels served to webOS is. See section 6.
 
 ### 4.4 Full-screen playback
 
@@ -196,46 +195,49 @@ by webOS.
 
 ---
 
-## 6. Parental control and adult content — **please read**
+## 5b. Radio stations
 
-**The service carries adult channels.** They are declared here on purpose.
+Channels **1001 to 1016 are radio stations**. They carry audio only and have no
+video track, which is expected and is not a playback fault.
 
-They are handled as follows:
+The app detects them and does not leave the screen black: it shows the station
+logo, its name, what is on air and a small animation, over the same area the
+video would occupy. This works both in the preview window of the menu and full
+screen.
 
-1. Adult channels appear in the list marked with a padlock (🔒) and their name.
-   Nothing else about them is shown.
-2. **The stream address of a locked channel is never sent to the TV.** The
-   server withholds it. The app physically cannot play the channel, with or
-   without the app's cooperation — the PIN is not a screen the app draws over
-   the video, it is the server refusing to hand over the content.
-3. The preview window does not play a locked channel either. It shows
-   *"Canal bloqueado — pulsa OK e introduce el PIN"* ("Channel locked — press OK
-   and enter the PIN").
-4. Pressing OK on a locked channel opens the PIN screen. The PIN is entered with
-   the number keys. ◄ or BACK cancels.
-5. A correct PIN unlocks the device for **30 minutes**, after which it locks
-   again by itself. A wrong PIN is rate-limited.
-6. The same check is applied to films, series and episodes rated for adults.
-7. The PIN is set by the account holder and can be changed from the customer's
-   web account. It is not stored on the TV.
+---
 
-**How to verify it during the review.** Channel **29, "Dark"**, is an adult
-channel; the test account's PIN is **1234**. The behaviour can be checked in both
-directions:
+## 6. Parental control and adult content
 
-1. On the channel list, channel 29 shows a padlock. The preview window does not
-   play it and says the channel is locked.
-2. Press OK on it: the PIN screen appears. Enter a wrong PIN and it is rejected.
-3. Enter `1234` and the channel plays.
-4. Channel **30, "Dark Sin X"**, is the same channel without the adult content
-   and is *not* locked, which shows the lock applies per channel and not to the
-   whole list.
+**This app contains no adult material.**
 
-What happens underneath, and it is the part worth checking: when the channel is
-locked the server sends the channel entry **with an empty address**. There is no
-stream URL on the television to be found. Verified against the live service —
-requesting the address of channel 29 without the PIN returns an error, not a
-URL.
+Our television line-up does include one channel rated for adults. It is
+**excluded from the webOS line-up on the server**, per device type, so it is not
+reachable from this app at all: it is not in the channel list, it is not
+returned by the guide, and asking for its address by channel id returns an
+error. It remains available on our set-top boxes and Android devices, which are
+not distributed through the LG Content Store.
+
+The line-up served to a webOS television has 80 channels. The same account on a
+set-top box sees 81.
+
+**The app still ships a PIN mechanism**, unused on webOS today, in case a channel
+is rated for adults in the future. It is worth describing because of how it
+works:
+
+1. A locked channel appears with a padlock and nothing else.
+2. **The stream address of a locked channel is never sent to the TV.** The server
+   withholds it. The PIN is not a screen the app draws over the video: it is the
+   server refusing to hand over the content, so the lock cannot be bypassed by
+   tampering with the app.
+3. The preview window does not play a locked channel either.
+4. Pressing OK on a locked channel opens the PIN screen. Wrong PINs are
+   rate-limited.
+5. The PIN is set by the account holder from the customer's web account. It is
+   never stored on the television.
+
+**During this review no channel will ask for a PIN**, because none of the 80
+channels served to webOS is rated for adults.
 
 ---
 

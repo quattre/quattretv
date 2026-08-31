@@ -265,31 +265,39 @@ There is no user-generated content, no advertising and no link out of the app.
   <tr><td>Password</td><td>QuattreLG2026</td></tr>
   <tr><td>Expiry</td><td>None. The account does not expire.</td></tr>
   <tr><td>Devices</td><td>5, with 2 concurrent streams</td></tr>
-  <tr><td>Parental PIN</td><td>1234</td></tr>
-  <tr><td>Adult channel to test it with</td><td>Channel 29, &ldquo;Dark&rdquo;</td></tr>
-  <tr><td>Subscription</td><td>Live TV: 81 channels and the programme guide. Films,
-      series and recordings are <strong>not</strong> enabled on this account, so
-      those menu options do not appear.</td></tr>
+  <tr><td>Adult content</td><td>None. See below.</td></tr>
+  <tr><td>Subscription</td><td>Live TV: the 80 channels served to webOS, and the
+      programme guide. Films, series and recordings are <strong>not</strong>
+      enabled on this account, so those menu options do not appear.</td></tr>
+  <tr><td>Radio stations</td><td>Channels 1001 to 1016 are radio: audio only, no
+      video track. Expected, not a playback fault.</td></tr>
 </table>
 
-<h3 style="margin-top:5mm">Authentication method for adult content: PIN code (parental lock)</h3>
-<p class="intro">The service carries adult channels and they are declared here on
-purpose. This is how the lock works, and it is worth checking:</p>
+<h3 style="margin-top:5mm">Adult content: none</h3>
+<p class="intro"><strong>This application contains no adult material.</strong> Our
+television line-up does include one channel rated for adults; it is
+<strong>excluded from the webOS line-up on the server</strong>, per device type,
+so it cannot be reached from this app at all.</p>
 <table class="datos" style="max-width:250mm">
-  <tr><td>In the channel list</td><td>Channel 29 shows a padlock. The preview window
-      does not play it and says the channel is locked.</td></tr>
-  <tr><td>Pressing OK on it</td><td>The PIN screen opens. Digits are entered with the
-      number keys or by pointing at the on-screen keypad with the Magic Remote.
-      A wrong PIN is rejected and rate-limited.</td></tr>
-  <tr><td>With the correct PIN</td><td>The device is unlocked for 30 minutes and
-      then locks itself again.</td></tr>
-  <tr><td>Underneath</td><td><strong>While the channel is locked, the server sends
-      the channel entry with an empty address.</strong> There is no stream URL on
-      the television to be found. The lock does not depend on the application and
-      cannot be bypassed from it.</td></tr>
-  <tr><td>Channel 30, &ldquo;Dark Sin X&rdquo;</td><td>The same channel without the
-      adult content. It is not locked, which shows the lock applies per channel.</td></tr>
+  <tr><td>Not in the list</td><td>The channel is not returned to a webOS television.
+      A webOS set receives 80 channels; the same account on a set-top box receives
+      81.</td></tr>
+  <tr><td>Not by any other route</td><td>Asking for its guide or its address by
+      channel id returns an error, not the content. The filter is applied on the
+      server, not in the application.</td></tr>
+  <tr><td>During this review</td><td><strong>No channel will ask for a PIN</strong>,
+      because none of the 80 channels served to webOS is rated for adults.</td></tr>
+  <tr><td>The mechanism remains</td><td>The app still ships a PIN lock for the day a
+      channel is rated for adults. While a channel is locked the server sends its
+      entry <strong>with an empty address</strong>: there is no stream URL on the
+      television to be found, so the lock cannot be bypassed from the app.</td></tr>
 </table>
+
+<h3 style="margin-top:5mm">Radio stations</h3>
+<p class="intro">Channels 1001 to 1016 carry audio only. The application detects
+them and shows the station logo, its name and what is on air over the area the
+video would occupy, both in the preview window and full screen, so the screen is
+never left black.</p>
 </div>
 
 <div class="seccion">
