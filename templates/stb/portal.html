@@ -377,6 +377,7 @@
     // que un reintento tardio pise al canal que el usuario ya haya puesto.
     var testigoVideo = 0;
     var relojVideo = null;
+    var relojMudo = null;
     var ESPERAS_VIDEO = [700, 1500, 3000];
 
     function arrancarVideo(url) {
@@ -384,21 +385,54 @@
         var mio = ++testigoVideo;
         var intento = 0;
 
+        function rendirse(motivo) {
+            if (mio !== testigoVideo) return;
+            // Quedarse en negro no dice nada, ni al usuario ni a quien tenga que
+            // arreglarlo. Se escribe en la ventana de la vista previa lo que ha
+            // pasado, con el estado del reproductor detras: es la unica forma de
+            // saber por que no hay imagen cuando no se puede enchufar el
+            // depurador a la television.
+            var v = htmlPlayer || {};
+            var estado = 'listo=' + v.readyState +
+                         ' red=' + v.networkState +
+                         ' imagen=' + v.videoWidth + 'x' + v.videoHeight +
+                         ' error=' + (v.error ? v.error.code : 'no') +
+                         ' pausado=' + v.paused;
+            var caja = document.getElementById('preview');
+            if (caja && !isFullscreen) {
+                caja.innerHTML = 'No se pudo iniciar la imagen (' + esc(motivo) + ')' +
+                                 '<div style="font-size:15px;color:#6d7679;margin-top:10px;">' +
+                                 esc(estado) + '</div>';
+            }
+        }
+
         function probar() {
             if (mio !== testigoVideo) return;   // ya se ha cambiado de canal
             htmlPlayer.style.display = 'block';
             htmlPlayer.src = url;
             var p;
-            try { p = htmlPlayer.play(); } catch (err) { p = null; }
+            try { p = htmlPlayer.play(); } catch (err) { rendirse('excepcion'); return; }
             if (!p || !p.catch) return;         // navegadores que no devuelven promesa
-            p.catch(function() {
+            p.catch(function(e) {
                 if (mio !== testigoVideo) return;
-                if (intento >= ESPERAS_VIDEO.length) return;
+                if (intento >= ESPERAS_VIDEO.length) {
+                    rendirse((e && e.name) ? e.name : 'no arranca');
+                    return;
+                }
                 relojVideo = setTimeout(probar, ESPERAS_VIDEO[intento++]);
             });
         }
 
         probar();
+
+        // Y el caso silencioso: play() no se queja pero no llega imagen. Pasa
+        // cuando la tuberia multimedia de la television no esta lista todavia.
+        clearTimeout(relojMudo);
+        relojMudo = setTimeout(function() {
+            if (mio !== testigoVideo) return;
+            if (htmlPlayer && htmlPlayer.videoWidth > 0) return;   // hay imagen
+            rendirse('sin imagen a los 8 s');
+        }, 8000);
     }
 
     function playChannel(ch) {
@@ -439,6 +473,7 @@
         // dejar el canal anterior sonando detras del aviso de canal bloqueado.
         testigoVideo++;              // invalida los reintentos que quedaran en marcha
         clearTimeout(relojVideo);
+        clearTimeout(relojMudo);
         try { if (useHTML5 && htmlPlayer) { htmlPlayer.pause(); htmlPlayer.style.display = 'none'; } } catch(err) {}
         try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
         try { if (player && player.stop) player.stop(); } catch(err) {}

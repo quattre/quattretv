@@ -357,8 +357,17 @@ console.log('13. Si el video no arranca a la primera, se reintenta');
 // de canal a mano. Es lo que mira el punto 3 del autochequeo de LG.
 useHTML5 = true;
 htmlPlayer = global.__video;
+// Se apuntan solo las esperas de los reintentos. El vigilante de los 8 s, que
+// avisa cuando play() no se queja pero no llega imagen, se deja fuera: no es un
+// reintento y su temporizador no debe dispararse aqui.
+const VIGILANTE_MUDO = 8000;
 let esperas = [];
-global.setTimeout = function (fn, ms) { esperas.push(ms); fn(); return 0; };
+global.setTimeout = function (fn, ms) {
+    if (ms === VIGILANTE_MUDO) return 0;
+    esperas.push(ms);
+    fn();
+    return 0;
+};
 
 global.__video.arranques = 0;
 global.__video.fallosPendientes = 0;
