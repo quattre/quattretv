@@ -1,0 +1,3 @@
+SRC=udp://224.168.11.249:2249
+TRANSCODE=copy     # o h264 si quieres transcodificar este canal
+MAPS=

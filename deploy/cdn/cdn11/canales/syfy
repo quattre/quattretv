@@ -1,0 +1,12 @@
+SRC=udp://239.0.17.17:20000
+# noaac = audio mp2 sin recodificar. La conversion a AAC metia 2,7 s de desfase.
+# OJO: el comentario va en su propia linea; systemd NO lo quita si va detras del valor.
+TRANSCODE=copy
+# Video + audio castellano (spa = 0:a:0)
+MAPS=-map 0:v:0 -map 0:a:0
+
+# Un salto desigual de ~10,7 s (16/08/2026) metio a ffmpeg en un bucle de
+# correcciones del que no salia: cuadraba el video y descuadraba el audio, y al
+# reves, ~10 veces por segundo. Con el limite en 30 s deja pasar ese salto.
+# El comentario va en su propia linea: systemd NO lo quita si va detras del valor.
+INOPTS=-dts_delta_threshold 30

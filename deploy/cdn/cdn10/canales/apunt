@@ -1,0 +1,5 @@
+SRC=udp://234.5.2.185:20000
+TRANSCODE=copy
+MAPS=
+
+
