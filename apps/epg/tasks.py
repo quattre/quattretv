@@ -38,9 +38,15 @@ def update_epg_source(source_id):
 
         # Get channel mapping. epg_id is blank (not null) when unmapped, so an
         # isnull filter would map every channel to the empty key.
-        channels_map = {
-            c.epg_id: c for c in Channel.objects.exclude(epg_id='')
-        }
+        #
+        # Una lista y no un canal suelto: el mismo identificador puede estar en
+        # mas de un canal, y con un diccionario simple el ultimo pisaba a los
+        # demas y esos se quedaban sin guia, sin decir nada. Pasa siempre que se
+        # lleva la misma cadena dos veces -- un HD y un SD, o una version sin la
+        # franja de adultos.
+        channels_map = {}
+        for c in Channel.objects.exclude(epg_id=''):
+            channels_map.setdefault(c.epg_id, []).append(c)
 
         # Process programs
         programs_to_create = []
@@ -54,8 +60,6 @@ def update_epg_source(source_id):
             if channel_id not in channels_map:
                 continue
 
-            channel = channels_map[channel_id]
-
             # Parse times
             start = parse_xmltv_time(prog.get('@start'))
             stop = parse_xmltv_time(prog.get('@stop'))
@@ -63,17 +67,18 @@ def update_epg_source(source_id):
             if not start or not stop:
                 continue
 
-            programs_to_create.append(Program(
-                channel=channel,
-                epg_id=channel_id,
-                title=xmltv_text(prog.get('title')),
-                description=xmltv_text(prog.get('desc')),
-                start_time=start,
-                end_time=stop,
-                category=xmltv_text(prog.get('category')),
-                episode_title=xmltv_text(prog.get('sub-title')),
-                icon=xmltv_imagen(prog.get('icon')),
-            ))
+            for channel in channels_map[channel_id]:
+                programs_to_create.append(Program(
+                    channel=channel,
+                    epg_id=channel_id,
+                    title=xmltv_text(prog.get('title')),
+                    description=xmltv_text(prog.get('desc')),
+                    start_time=start,
+                    end_time=stop,
+                    category=xmltv_text(prog.get('category')),
+                    episode_title=xmltv_text(prog.get('sub-title')),
+                    icon=xmltv_imagen(prog.get('icon')),
+                ))
 
         if programs_to_create:
             _replace_programs(programs_to_create)
