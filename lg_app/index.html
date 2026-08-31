@@ -102,6 +102,33 @@
 
         function texto(t) { document.getElementById('splash-status').textContent = t; }
 
+        // La imagen de esta pantalla se puede cambiar sin rehacer el paquete ni
+        // volver a pasar por la tienda: basta con sustituir el fichero
+        //   /var/www/quattretv/media/app/portada.png
+        // en el servidor. Se ve en el siguiente arranque de la app.
+        //
+        // La del paquete NO se quita: es la que se ve al instante, la que queda
+        // si no hay red y la que pinta webOS antes de que exista esta pagina —
+        // esa ultima es del sistema y tiene que ir dentro del .ipk por fuerza.
+        // La del servidor solo sustituye a la de dentro cuando ha terminado de
+        // descargarse entera, asi que nunca se ve un hueco ni media imagen.
+        //
+        // El sello por horas es para saltarse la cache de nginx, que guarda
+        // /media/ siete dias: sin el, un cambio tardaria una semana en verse.
+        function portadaDelServidor(i) {
+            i = i || 0;
+            if (i >= SERVIDORES.length) return;
+            var h = new Date();
+            var sello = '' + h.getFullYear() + (h.getMonth() + 1) + h.getDate() + h.getHours();
+            var img = new Image();
+            img.onload = function() {
+                document.body.style.backgroundImage = 'url(' + img.src + ')';
+            };
+            img.onerror = function() { portadaDelServidor(i + 1); };
+            img.src = SERVIDORES[i] + '/media/app/portada.png?v=' + sello;
+        }
+        portadaDelServidor(0);
+
         function fallo(motivo) {
             document.getElementById('rueda').className = 'splash-spinner oculto';
             var b = document.getElementById('reintentar');
