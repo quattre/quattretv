@@ -1,0 +1,46 @@
+# Direcciones IP del equipo de revision de LG
+#
+# LG revisa las apps DESDE COREA. Si nuestros servidores les bloquean o les
+# ponen trabas, rechazan el envio sin llegar a probar la aplicacion, y en el
+# formulario avisan de ello: "Apps will be rejected in such cases without
+# proceeding with the QA, so the QA Team IP addresses must be whitelisted".
+#
+# Hoy (31/08/2026) no hay ningun bloqueo por pais: se comprobo pidiendo la
+# parrilla y un canal desde fuera de la red de la empresa y contesto sin
+# problema. Esta lista hace falta para dos cosas:
+#
+#   1. El limite de intentos del login (apps/stalker_api/throttle.py). Un
+#      revisor que teclee mal la contraseña un par de veces se llevaria un
+#      "Demasiados intentos" y daria la app por rota. Estas IP quedan exentas.
+#   2. El dia que se pongan reglas por pais en el Juniper, o cualquier otro
+#      filtro, estas direcciones tienen que quedar fuera.
+#
+# Lista entregada por LG en el Seller Agreement del envio de agosto de 2026.
+# Si LG la actualiza, hay que cambiarla aqui y en la variable IPS_REVISION_LG
+# del .env de produccion.
+
+1.222.94.83
+1.222.94.84
+27.122.242.72
+27.122.242.76
+27.122.242.78
+27.122.242.79
+27.122.242.81
+27.122.242.84
+112.219.71.44
+112.219.71.45
+115.114.17.62
+116.120.157.41
+116.120.157.52
+121.66.144.138
+121.66.144.140-121.66.144.142
+182.224.177.0/24
+195.160.253.7
+203.247.149.152
+203.247.149.205
+203.247.149.239
+203.247.149.242
+203.247.149.244
+217.79.6.41-217.79.6.46
+222.112.209.235
+49.172.166.0/24
