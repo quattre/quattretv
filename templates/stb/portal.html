@@ -367,11 +367,44 @@
         }
     }
 
+    // Nada mas encender la television, su reproductor tarda mas en estar listo
+    // que la pagina. play() falla, y antes eso se quedaba en un mensaje de
+    // consola: el usuario se encontraba el menu con la ventana en negro y solo
+    // se arreglaba cambiando de canal a mano. Es lo que mira el punto 3 del
+    // autochequeo de LG, el de reiniciar el aparato.
+    //
+    // Se reintenta unas pocas veces, separando cada vez mas. El testigo evita
+    // que un reintento tardio pise al canal que el usuario ya haya puesto.
+    var testigoVideo = 0;
+    var relojVideo = null;
+    var ESPERAS_VIDEO = [700, 1500, 3000];
+
+    function arrancarVideo(url) {
+        clearTimeout(relojVideo);
+        var mio = ++testigoVideo;
+        var intento = 0;
+
+        function probar() {
+            if (mio !== testigoVideo) return;   // ya se ha cambiado de canal
+            htmlPlayer.style.display = 'block';
+            htmlPlayer.src = url;
+            var p;
+            try { p = htmlPlayer.play(); } catch (err) { p = null; }
+            if (!p || !p.catch) return;         // navegadores que no devuelven promesa
+            p.catch(function() {
+                if (mio !== testigoVideo) return;
+                if (intento >= ESPERAS_VIDEO.length) return;
+                relojVideo = setTimeout(probar, ESPERAS_VIDEO[intento++]);
+            });
+        }
+
+        probar();
+    }
+
     function playChannel(ch) {
         if (useHTML5) {
             var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
-            htmlPlayer.src = url;
-            htmlPlayer.play().catch(function(e) { console.log('Play error:', e); });
+            arrancarVideo(url);
         } else if (stbAPI) {
             try { stbAPI.Play(ch.cmd); } catch(err) {}
         } else if (player) {
@@ -404,6 +437,8 @@
         // tapando la pagina entera y la interfaz desaparece aunque siga
         // dibujada. Con esconderlo basta para lo que hace falta, que es no
         // dejar el canal anterior sonando detras del aviso de canal bloqueado.
+        testigoVideo++;              // invalida los reintentos que quedaran en marcha
+        clearTimeout(relojVideo);
         try { if (useHTML5 && htmlPlayer) { htmlPlayer.pause(); htmlPlayer.style.display = 'none'; } } catch(err) {}
         try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
         try { if (player && player.stop) player.stop(); } catch(err) {}

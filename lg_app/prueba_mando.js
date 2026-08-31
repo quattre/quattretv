@@ -26,6 +26,23 @@ global.navigator = { onLine: true };
 global.setTimeout = () => 0;
 global.clearTimeout = () => {};
 global.setInterval = () => 0;
+// Un <video> de mentira al que se le puede decir cuantas veces debe fallar al
+// arrancar, que es lo que hace la television recien encendida.
+global.__video = {
+    style: {}, src: '', arranques: 0, fallosPendientes: 0, diferido: false,
+    play() {
+        this.arranques++;
+        if (this.fallosPendientes > 0) {
+            this.fallosPendientes--;
+            const v = this;
+            // Con 'diferido' el fallo se guarda en vez de dispararse, para
+            // poder simular un reintento que llega tarde.
+            return { catch(f) { if (v.diferido) global.__pendiente = f; else f(); return this; } };
+        }
+        return { catch() { return this; } };
+    },
+    pause() {},
+};
 global.XMLHttpRequest = function () {
     this.open = function () {};
     this.send = function () {};
@@ -332,6 +349,50 @@ comprobar('el punto rojo graba tambien sobre el video', teclasEnviadas[2], 403);
 // Y pulsar al lado, donde no hay rotulo, no manda ninguna tecla.
 manejarClic({ target: nodo({}, global.document.body) });
 comprobar('pulsar fuera de un rotulo no manda nada', teclasEnviadas.length, 3);
+
+console.log('13. Si el video no arranca a la primera, se reintenta');
+// Nada mas encender la television su reproductor tarda mas en estar listo que
+// la pagina, asi que play() falla. Antes eso se quedaba en un mensaje de
+// consola y el usuario veia el menu con la ventana en negro hasta que cambiaba
+// de canal a mano. Es lo que mira el punto 3 del autochequeo de LG.
+useHTML5 = true;
+htmlPlayer = global.__video;
+let esperas = [];
+global.setTimeout = function (fn, ms) { esperas.push(ms); fn(); return 0; };
+
+global.__video.arranques = 0;
+global.__video.fallosPendientes = 0;
+arrancarVideo('http://x/uno.m3u8');
+comprobar('si arranca a la primera, no se reintenta', global.__video.arranques, 1);
+
+// Ahora que falle dos veces seguidas: debe volver a intentarlo y acabar dentro.
+global.__video.arranques = 0;
+global.__video.fallosPendientes = 2;
+esperas = [];
+arrancarVideo('http://x/dos.m3u8');
+comprobar('reintenta hasta que entra', global.__video.arranques, 3);
+comprobar('separando cada vez mas', JSON.stringify(esperas), JSON.stringify([700, 1500]));
+
+// Y que no reintente para siempre.
+global.__video.arranques = 0;
+global.__video.fallosPendientes = 99;
+esperas = [];
+arrancarVideo('http://x/tres.m3u8');
+comprobar('se rinde tras cuatro intentos', global.__video.arranques, 4);
+comprobar('y no espera mas veces', esperas.length, 3);
+
+// Parar el video cancela lo que quedara en marcha: un reintento que llegue
+// tarde no puede resucitar el canal que se acaba de cortar.
+global.__video.diferido = true;
+global.__video.arranques = 0;
+global.__video.fallosPendientes = 1;
+global.__pendiente = null;
+arrancarVideo('http://x/cuatro.m3u8');
+const antes = global.__video.arranques;
+pararVideo();
+if (global.__pendiente) global.__pendiente();
+comprobar('parar el video corta los reintentos', global.__video.arranques, antes);
+global.__video.diferido = false;
 
 console.log('');
 if (fallos.length) {
