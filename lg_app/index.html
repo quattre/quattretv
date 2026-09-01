@@ -11,8 +11,8 @@
             box-sizing: border-box;
         }
 
-        /* El fondo es la MISMA imagen que webOS pinta como pantalla de
-           arranque. Antes esta pagina redibujaba el logotipo con CSS, y como
+        /* El fondo es la MISMA imagen que el televisor pinta como pantalla
+           de arranque en LG. Antes esta pagina redibujaba el logotipo con CSS, y como
            la fuente Antonio no viaja en el paquete salia con otra letra, otro
            tamaño y otro degradado: al abrir la app se veian dos pantallas
            distintas en dos segundos. Reusando el fichero, el relevo entre una
@@ -108,7 +108,8 @@
         // en el servidor. Se ve en el siguiente arranque de la app.
         //
         // La del paquete NO se quita: es la que se ve al instante, la que queda
-        // si no hay red y la que pinta webOS antes de que exista esta pagina —
+        // si no hay red y, en LG, la que pinta el sistema antes de que exista
+        // esta pagina —
         // esa ultima es del sistema y tiene que ir dentro del .ipk por fuerza.
         // La del servidor solo sustituye a la de dentro cuando ha terminado de
         // descargarse entera, asi que nunca se ve un hueco ni media imagen.

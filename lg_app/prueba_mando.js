@@ -456,6 +456,38 @@ showMenu();
 comprobar('al salir, vuelve al hueco pequeño',
     tarjeta.style.cssText.indexOf('width:100%') < 0, true);
 
+console.log('16. El mando de Samsung');
+// Tizen no manda a la aplicacion las teclas que no son flechas si no se piden
+// antes. Sin registrarlas, los cuatro colores y el boton de informacion se los
+// queda el televisor y la app no se entera -- el mismo sintoma que tuvimos en
+// LG con el azul, pero aqui por diseño de la plataforma.
+comprobar('el atras de Samsung vale como escape', normalizarTecla(10009), 27);
+comprobar('el salir de Samsung tambien', normalizarTecla(10182), 27);
+comprobar('el atras de LG sigue valiendo', normalizarTecla(461), 27);
+comprobar('las flechas no se tocan', normalizarTecla(40), 40);
+
+// Sin Tizen no se pide nada y no revienta: es el caso de LG y del MAG.
+global.tizen = undefined;
+comprobar('sin Tizen no intenta registrar nada', pedirTeclasTizen(), 0);
+
+// Con Tizen se piden todas, y una que falle no se lleva a las demas por delante.
+let pedidas = [];
+global.tizen = {
+    tvinputdevice: {
+        registerKey(nombre) {
+            if (nombre === 'MediaStop') throw new Error('este modelo no la tiene');
+            pedidas.push(nombre);
+        },
+    },
+};
+const n = pedirTeclasTizen();
+comprobar('se registran las teclas disponibles', n, TECLAS_TIZEN.length - 1);
+comprobar('los cuatro colores entre ellas',
+    ['ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue'].every(t => pedidas.includes(t)), true);
+comprobar('y el boton de informacion', pedidas.includes('Info'), true);
+comprobar('la que falla no tumba al resto', pedidas.includes('MediaStop'), false);
+global.tizen = undefined;
+
 console.log('');
 if (fallos.length) {
     console.log('FALLAN ' + fallos.length + ' comprobaciones:');

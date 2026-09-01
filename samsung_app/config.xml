@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  La ficha de la app para televisores Samsung. Es el equivalente al
+  appinfo.json de LG.
+
+  OJO CON DOS COSAS ANTES DE EMPAQUETAR:
+
+  1. El identificador de "package" (los diez caracteres antes del punto) lo
+     asigna Samsung al dar de alta la app en el Seller Office. Hasta entonces
+     vale cualquiera para probar en el simulador, pero el paquete que se envie
+     tiene que llevar el bueno.
+
+  2. tv.inputdevice es imprescindible. Sin ese permiso, Tizen no deja registrar
+     los botones de color ni el de informacion, y la aplicacion no los recibe:
+     el televisor se los queda y el usuario ve que no hacen nada.
+-->
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://quattre.com/tv"
+        version="1.1.0"
+        viewmodes="maximized">
+
+  <tizen:application id="QuattreTV0.QuattreTV"
+                     package="QuattreTV0"
+                     required_version="4.0"/>
+
+  <name>QuattreTV</name>
+  <description>Television en directo de Quattre</description>
+  <author href="https://quattre.com" email="info@quattre.com">Quattre Internet SL</author>
+  <icon src="icon.png"/>
+  <content src="index.html"/>
+
+  <tizen:profile name="tv"/>
+  <tizen:setting screen-orientation="landscape"
+                 background-support="disable"
+                 encryption="disable"
+                 hwkey-event="enable"/>
+
+  <!-- Los botones de color y el de informacion. Sin esto no llegan a la app. -->
+  <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+  <!-- Para poder cerrar la aplicacion con el boton de salir. -->
+  <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+  <!-- Saber si hay red, para avisar en vez de quedarse en negro. -->
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+
+  <!-- El portal vive en nuestros servidores, no dentro del paquete: asi los
+       cambios llegan sin pasar otra vez por la tienda. Hay que dejarle salir. -->
+  <access origin="*" subdomains="true"/>
+  <tizen:allow-navigation>*.quattre.com quattre.com</tizen:allow-navigation>
+
+  <tizen:metadata key="http://samsung.com/tv/metadata/use.voice.control" value="false"/>
+</widget>

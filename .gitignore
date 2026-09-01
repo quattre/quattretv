@@ -105,3 +105,4 @@ build/
 *.pem
 *.key
 secrets/
+samsung_app/dist/

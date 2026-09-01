@@ -45,6 +45,7 @@
     function init() {
         fitScreen();
         graficosDelante();
+        pedirTeclasTizen();
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
             // El boton del engranaje abre la configuracion del propio deco, que
@@ -1753,10 +1754,48 @@
     var TECLA_INFO = 457;
     var TECLA_ROJO = 403, TECLA_VERDE = 404, TECLA_AMARILLO = 405, TECLA_AZUL = 406;
 
+    // El atras de Samsung es otro numero: 10009. Y el de salir, 10182 -- se
+    // trata como atras porque en la pantalla principal el atras ya cierra la
+    // app, asi que hacen lo mismo.
+    var TECLA_ATRAS_TIZEN = 10009;
+    var TECLA_SALIR_TIZEN = 10182;
+
     function normalizarTecla(k) {
-        if (k === TECLA_ATRAS) return 27;          // atras del mando = escape
+        if (k === TECLA_ATRAS) return 27;          // atras del mando de LG
+        if (k === TECLA_ATRAS_TIZEN) return 27;    // atras del mando de Samsung
+        if (k === TECLA_SALIR_TIZEN) return 27;    // salir de Samsung
         if (k === 415 || k === 19) return 13;      // reproducir/pausa = OK
         return k;
+    }
+
+    // En Samsung hay que PEDIR las teclas que no son las flechas.
+    //
+    // Tizen no se las manda a la aplicacion si no las registra antes: los
+    // colores, el boton de informacion y los de reproduccion se los queda el
+    // televisor y la app no se entera de nada. Es exactamente el mismo tropiezo
+    // que tuvimos en LG con el boton azul, pero aqui no es un fallo nuestro
+    // sino como funciona la plataforma, y sin esto los cuatro colores estarian
+    // muertos.
+    //
+    // Se piden por nombre y de una en una: si el modelo no tiene alguna, falla
+    // solo esa y las demas siguen registrandose.
+    var TECLAS_TIZEN = [
+        'ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue',
+        'Info', 'ChannelUp', 'ChannelDown',
+        'MediaPlay', 'MediaPause', 'MediaPlayPause', 'MediaStop',
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+    ];
+
+    function pedirTeclasTizen() {
+        if (typeof tizen === 'undefined' || !tizen.tvinputdevice) return 0;
+        var puestas = 0;
+        for (var i = 0; i < TECLAS_TIZEN.length; i++) {
+            try {
+                tizen.tvinputdevice.registerKey(TECLAS_TIZEN[i]);
+                puestas++;
+            } catch (e) {}
+        }
+        return puestas;
     }
 
     // Atajos que valen desde cualquier pantalla, con los tres mandos:
