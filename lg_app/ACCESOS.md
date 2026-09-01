@@ -32,7 +32,7 @@ La misma cuenta de LG sirve para el portal de vendedores y para entrar en la app
 | **Sistema** | webOS 4.5, navegador Chrome 53 |
 | **IP** | 192.168.200.93 *(cambia si se resetea)* |
 | **Puerto de desarrollador** | 9922, usuario `prisoner` |
-| **Passphrase del modo dev** | `A68DD3` *(cambia al reactivar el modo)* |
+| **Passphrase del modo dev** | ver `ACCESOS.md` (copia local, fuera del repositorio). Cambia al reactivar el modo |
 | **Mando** | Magic Remote original, probado el 28/08/2026 |
 
 **El Modo Desarrollador caduca cada 50 horas y al caducar el televisor borra la
@@ -45,7 +45,7 @@ Para instalar: `./lg_app/instalar_tv.sh` desde el repositorio.
 | | |
 |---|---|
 | **Usuario** | `lgreview` |
-| **Contraseña** | `QuattreLG2026` |
+| **Contraseña** | ver `ACCESOS.md` (copia local, fuera del repositorio) |
 | **Caducidad** | ninguna |
 | **Tarifa** | Solo TV — 5 equipos, 2 emisiones a la vez |
 | **PIN parental** | `1234` *(hoy no lo pide ningún canal en LG)* |
