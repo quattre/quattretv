@@ -1,0 +1,19 @@
+Quattre Internet S.L. is a Spanish telecommunications operator based in
+Rafelbunyol, in the province of Valencia. We build and run our own fibre optic
+network and provide internet access, telephony and television directly to
+homes and businesses in the region.
+
+Our television service is delivered over our own managed network, from our own
+head-end and content delivery servers located in Spain. Subscribers watch it on
+the set-top box we install, and we are now bringing the same service to the
+televisions they already own, so that a customer does not need an extra box in
+every room.
+
+The QuattreTV application is that television service: the channel line-up the
+customer has contracted, the programme guide, and nothing else. It is free to
+install, contains no advertising and no purchases; the service itself is
+contracted with us, as their telecommunications provider.
+
+We are not a content aggregator or a streaming platform. We are the operator
+that brings the line the customer pays for, and the application is simply how
+that service reaches the screen.

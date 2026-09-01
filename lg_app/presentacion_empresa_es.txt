@@ -1,0 +1,19 @@
+Quattre Internet S.L. es un operador de telecomunicaciones español con sede en
+Rafelbunyol, en la provincia de Valencia. Desplegamos y gestionamos nuestra
+propia red de fibra óptica y damos servicio de internet, telefonía y televisión
+directamente a hogares y empresas de la zona.
+
+El servicio de televisión se entrega por nuestra propia red, desde nuestra
+cabecera y nuestros servidores de distribución, situados en España. Los clientes
+lo ven en el descodificador que les instalamos, y ahora lo estamos llevando a los
+televisores que ya tienen, para que no haga falta un aparato más en cada
+habitación.
+
+La aplicación QuattreTV es ese servicio de televisión: los canales que el cliente
+tiene contratados, la guía de programación y nada más. Es gratuita, no lleva
+publicidad ni compras dentro; el servicio se contrata con nosotros, como su
+operador de telecomunicaciones.
+
+No somos un agregador de contenidos ni una plataforma de streaming. Somos el
+operador que lleva la línea que el cliente paga, y la aplicación es simplemente
+cómo ese servicio llega a la pantalla.
