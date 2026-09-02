@@ -51,7 +51,23 @@
     function showLogin() {
         document.getElementById('auto').style.display = 'none';
         document.getElementById('login').style.display = 'block';
-        document.getElementById('username').focus();
+        // Se insiste: hay televisores que ignoran el foco pedido en el mismo
+        // instante en que el campo se hace visible, y entonces no hay donde
+        // escribir -- las teclas llegan a la pagina y se pierden.
+        enfocar('username');
+        setTimeout(function() { enfocar('username'); }, 400);
+    }
+
+    function enfocar(id) {
+        var input = document.getElementById(id);
+        if (!input) return;
+        try { input.focus(); } catch(e) {}
+    }
+
+    // ¿Esta el foco en uno de nuestros campos?
+    function campoConFoco() {
+        var f = document.activeElement;
+        return (f && (f.id === 'username' || f.id === 'password')) ? f : null;
     }
 
     // Abrir el teclado en pantalla.
@@ -63,7 +79,15 @@
     // llama tambien, que no estorba.
     function abrirTeclado(input) {
         if (!input) return;
-        try { input.blur(); } catch(e) {}
+        // El soltar-y-volver-a-coger el foco es un apaño para webOS: alli el
+        // teclado solo sale cuando un campo LO RECIBE, y si ya lo tenia no pasa
+        // nada. En Tizen no hace falta -- el teclado sale igual -- y ademas es
+        // dañino: al soltar el foco, el teclado del televisor se queda
+        // escribiendo en el vacio y no llega ni una letra al campo.
+        var esTizen = (typeof tizen !== 'undefined');
+        if (!esTizen) {
+            try { input.blur(); } catch(e) {}
+        }
         try { input.focus(); } catch(e) {}
         try {
             if (typeof(gSTB) !== 'undefined' && gSTB.ShowVirtualKeyboard) {
@@ -138,6 +162,15 @@
     // Handle remote control navigation
     document.onkeydown = function(e) {
         var key = e.keyCode;
+
+        // Red de seguridad: si llega una tecla y no hay ningun campo enfocado,
+        // se enfoca el de usuario. Sin esto, en un televisor que no haya hecho
+        // caso al foco inicial no se puede escribir nada y no hay forma de
+        // saber por que: las teclas se pierden en silencio.
+        if (!campoConFoco() && document.activeElement.tagName !== 'BUTTON') {
+            enfocar('username');
+        }
+
         var focused = document.activeElement;
 
         if (key == 13) { // OK button
