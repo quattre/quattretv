@@ -93,6 +93,33 @@
         // Y para mover a los clientes tampoco hace falta, porque /ping devuelve
         // donde esta el portal. Importa porque una vez publicada la app,
         // cambiarla es un envio nuevo y una o dos semanas de aprobacion.
+        // En Samsung hay que PEDIR las teclas, y hay que hacerlo AQUI.
+        //
+        // Tizen no manda a la aplicacion las teclas que no son flechas si no se
+        // registran antes: los colores, los numeros y las de reproduccion se las
+        // queda el televisor. Y el objeto 'tizen' que permite pedirlas SOLO
+        // existe en la pagina que va dentro del paquete -- esta. En cuanto se
+        // salta al portal, que vive en nuestro servidor, es una pagina web
+        // normal y ahi ya no hay API del televisor que valga.
+        //
+        // Por eso se piden antes de saltar: el registro es de la aplicacion, no
+        // de la pagina, asi que sigue valiendo despues.
+        var TECLAS_TIZEN = [
+            'ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue',
+            'Info', 'ChannelUp', 'ChannelDown',
+            'MediaPlay', 'MediaPause', 'MediaPlayPause', 'MediaStop',
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+        ];
+
+        function pedirTeclasTizen() {
+            if (typeof tizen === 'undefined' || !tizen.tvinputdevice) return 0;
+            var n = 0;
+            for (var i = 0; i < TECLAS_TIZEN.length; i++) {
+                try { tizen.tvinputdevice.registerKey(TECLAS_TIZEN[i]); n++; } catch (e) {}
+            }
+            return n;
+        }
+
         var SERVIDORES = [
             'https://iptv2.quattre.com',
             'https://iptv1.quattre.com'
@@ -129,6 +156,12 @@
             img.src = SERVIDORES[i] + '/media/app/portada.png?v=' + sello;
         }
         portadaDelServidor(0);
+
+        // Antes de cualquier otra cosa: si es un Samsung, pedirle las teclas.
+        var teclasPuestas = pedirTeclasTizen();
+        if (teclasPuestas) {
+            try { console.log('Teclas de Tizen registradas: ' + teclasPuestas); } catch (e) {}
+        }
 
         function fallo(motivo) {
             document.getElementById('rueda').className = 'splash-spinner oculto';

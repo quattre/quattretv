@@ -160,6 +160,25 @@
     }
 
     // Handle remote control navigation
+    // En Samsung hay que PEDIR las teclas antes de recibirlas.
+    //
+    // Tizen no manda a la aplicacion las que no son flechas si no se registran:
+    // los numeros y los colores se los queda el televisor. Esto estaba en el
+    // portal desde ayer, pero la pantalla de acceso es otro fichero y se quedo
+    // fuera -- y es justo donde hace falta, porque aqui se escribe.
+    var TECLAS_TIZEN = ['0','1','2','3','4','5','6','7','8','9',
+                        'ColorF0Red','ColorF1Green','ColorF2Yellow','ColorF3Blue'];
+    var teclasTizenPuestas = 0;
+
+    function pedirTeclasTizen() {
+        if (typeof tizen === 'undefined' || !tizen.tvinputdevice) return 0;
+        var n = 0;
+        for (var i = 0; i < TECLAS_TIZEN.length; i++) {
+            try { tizen.tvinputdevice.registerKey(TECLAS_TIZEN[i]); n++; } catch (e) {}
+        }
+        return n;
+    }
+
     // Las ultimas teclas recibidas, para el panel de diagnostico.
     var teclasVistas = [];
 
@@ -191,7 +210,8 @@
                        : (typeof gSTB !== 'undefined') ? 'deco MAG'
                        : 'navegador';
         d.innerHTML =
-            'plataforma: <b>' + plataforma + '</b><br>' +
+            'plataforma: <b>' + plataforma + '</b>' +
+            '   teclas Tizen pedidas: <b>' + teclasTizenPuestas + '</b><br>' +
             'foco en: <b>' + (f ? (f.id || f.tagName) : 'NADA') + '</b>' +
             (f && f.value !== undefined && f.id !== 'password'
                 ? '  texto: <b>"' + f.value + '"</b>' : '') + '<br>' +
@@ -199,7 +219,11 @@
             'letras en la contraseña: <b>' +
                 ((document.getElementById('password') || {}).value || '').length + '</b><br>' +
             'ultimas teclas: <b>' + (teclasVistas.join('  ') || 'ninguna') + '</b><br>' +
-            'pantalla: <b>' + window.innerWidth + 'x' + window.innerHeight + '</b>';
+            'pantalla: <b>' + window.innerWidth + 'x' + window.innerHeight + '</b><br>' +
+            // El identificador que la app se guarda en el aparato. Con el se
+            // puede dar de alta el equipo desde el servidor y entrar sin
+            // escribir nada, que en un televisor ajeno vale su peso en oro.
+            'identificador del aparato: <b>' + idAparato() + '</b>';
         d.style.display = 'block';
 
         // Se manda al servidor para poder leerlo sin estar delante. Del campo
@@ -249,11 +273,50 @@
         }
     };
 
-    window.onload = function() { setTimeout(initApp, 100); };
+    // Red por debajo para el puntero.
+    //
+    // Los campos solo atendian a 'click', y en un televisor el puntero puede
+    // mandar otra cosa -- o el clic puede llegar a un elemento de dentro y no
+    // al campo. Con esto, cualquier pulsacion en cualquier sitio de la pagina
+    // busca hacia arriba el campo mas cercano y lo enfoca. Si no hay ninguno,
+    // no hace nada.
+    function pulsacionEnLaPagina(e) {
+        var n = e.target || e.srcElement;
+        while (n && n !== document.body) {
+            if (n.tagName === 'INPUT') { abrirTeclado(n); return; }
+            if (n.tagName === 'BUTTON') { return; }   // el boton se apaña solo
+            n = n.parentNode;
+        }
+    }
+
+    document.addEventListener('mousedown', pulsacionEnLaPagina, true);
+    document.addEventListener('click', pulsacionEnLaPagina, true);
+    document.addEventListener('touchstart', pulsacionEnLaPagina, true);
+
+    window.onload = function() {
+        teclasTizenPuestas = pedirTeclasTizen();
+        setTimeout(initApp, 100);
+    };
     </script>
     <style>
         body { background: linear-gradient(180deg, #2c3134 0%, #1e2225 100%); margin: 0; padding: 0; font-family: Arial; min-height: 100vh; }
         .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+
+        /* Cuando el televisor abre su teclado en pantalla, se come la mitad de
+           abajo y la ventana se queda en unos 568 px de alto. Con el formulario
+           centrado sobre 1080, el campo se iba fuera de la vista: se escribia
+           bien pero no se veia nada, y parecia que el teclado no funcionaba.
+           Con poca altura se sube todo arriba y se aprieta. */
+        @media (max-height: 800px) {
+            .container { justify-content: flex-start; padding-top: 20px; min-height: 0; }
+            h1 { font-size: 30px; margin-bottom: 2px; }
+            h2 { font-size: 13px; margin-bottom: 14px; }
+            input { font-size: 17px; padding: 8px 14px; margin: 5px 0; }
+            button { padding: 8px 20px; }
+            #ayuda { font-size: 13px; margin-top: 10px; }
+            #msg { margin: 8px; }
+            #diag { display: none !important; }
+        }
         h1 { color: #81ba26; font-size: 42px; margin-bottom: 5px; }
         h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
         #ayuda { color: #6d7679; font-size: 15px; margin-top: 18px; }
@@ -284,9 +347,15 @@
         </div>
 
         <div id="login">
-            <input type="text" id="username" placeholder="Usuario" onclick="showKeyboard('username')" onfocus="showKeyboard('username')">
+            <input type="text" id="username" placeholder="Usuario"
+                   onmousedown="showKeyboard('username')"
+                   ontouchstart="showKeyboard('username')"
+                   onclick="showKeyboard('username')">
             <br>
-            <input type="password" id="password" placeholder="Contrasena" onclick="showKeyboard('password')" onfocus="showKeyboard('password')">
+            <input type="password" id="password" placeholder="Contrasena"
+                   onmousedown="showKeyboard('password')"
+                   ontouchstart="showKeyboard('password')"
+                   onclick="showKeyboard('password')">
             <br>
             <button id="loginBtn" onclick="doLogin()">Entrar</button>
             <div id="ayuda">Pulsa OK sobre un campo para escribir &middot;
