@@ -1886,6 +1886,14 @@
             'ventana: <b>' + window.innerWidth + 'x' + window.innerHeight + '</b>' +
             '   red: <b>' + (hayRed ? 'si' : 'NO') + '</b>';
         d.style.display = 'block';
+
+        // Y se manda al servidor, para poder leerlo sin estar delante del
+        // televisor. En un aparato ajeno no hay consola ni depurador, asi que
+        // esta es la unica via.
+        try {
+            api('type=stb&action=diag&d=' + encodeURIComponent(
+                d.innerHTML.replace(/<br>/g, ' | ').replace(/<[^>]*>/g, '')), function () {});
+        } catch (err) {}
     }
 
     function handleKey(e) {

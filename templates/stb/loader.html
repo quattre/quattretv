@@ -193,11 +193,24 @@
         d.innerHTML =
             'plataforma: <b>' + plataforma + '</b><br>' +
             'foco en: <b>' + (f ? (f.id || f.tagName) : 'NADA') + '</b>' +
-            (f && f.value !== undefined ? '  texto: <b>"' + f.value + '"</b>' : '') + '<br>' +
+            (f && f.value !== undefined && f.id !== 'password'
+                ? '  texto: <b>"' + f.value + '"</b>' : '') + '<br>' +
             'usuario escrito: <b>"' + (document.getElementById('username') || {}).value + '"</b><br>' +
+            'letras en la contraseña: <b>' +
+                ((document.getElementById('password') || {}).value || '').length + '</b><br>' +
             'ultimas teclas: <b>' + (teclasVistas.join('  ') || 'ninguna') + '</b><br>' +
             'pantalla: <b>' + window.innerWidth + 'x' + window.innerHeight + '</b>';
         d.style.display = 'block';
+
+        // Se manda al servidor para poder leerlo sin estar delante. Del campo
+        // de contraseña solo viaja CUANTAS letras tiene, nunca su contenido.
+        try {
+            var texto = d.innerHTML.replace(/<br>/g, ' | ').replace(/<[^>]*>/g, '');
+            var x = new XMLHttpRequest();
+            x.open('GET', '/quattretv/stb/?type=stb&action=diag&d=' +
+                   encodeURIComponent('[acceso] ' + texto), true);
+            x.send();
+        } catch (e) {}
     }
 
     document.onkeydown = function(e) {

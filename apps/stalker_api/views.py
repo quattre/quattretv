@@ -235,6 +235,40 @@ def get_device_from_request(request):
     return None
 
 
+logger_diag = logging.getLogger('quattretv.diagnostico')
+
+
+def handle_diag(request):
+    """
+    Recoge el panel de diagnostico que la app enseña al teclear 0000.
+
+    Existe porque en un televisor que no es nuestro no hay consola ni depurador
+    -- el laboratorio remoto de Samsung no deja ni leer registros -- y la unica
+    forma de saber que esta pasando era que alguien leyera la pantalla en voz
+    alta por telefono. Asi llega solo.
+
+    Sirve igual para soporte: un cliente con un problema teclea 0000 y aqui
+    queda escrito que aparato tiene, en que pantalla estaba y que teclas pulso.
+    """
+    datos = request.GET.get('d', '')[:2000]
+    device = get_device_from_request(request)
+    logger_diag.warning(
+        'DIAGNOSTICO %s | aparato=%s tipo=%s | %s',
+        client_ip_diag(request),
+        getattr(device, 'mac_address', 'sin identificar'),
+        getattr(device, 'device_type', '?'),
+        datos.replace('\n', ' / '),
+    )
+    return stalker_response({'result': True})
+
+
+def client_ip_diag(request):
+    reenviada = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    if reenviada:
+        return reenviada.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '?')
+
+
 def aparato_o_error(request):
     """
     Devuelve (aparato, None) si la peticion viene identificada, y
@@ -266,6 +300,8 @@ def handle_stb(request, action):
         return handle_do_auth(request)
     elif action == 'login':
         return handle_login(request)
+    elif action == 'diag':
+        return handle_diag(request)
     elif action == 'get_localization':
         return handle_get_localization(request)
     elif action == 'get_modules':
