@@ -48,5 +48,26 @@
   <access origin="*" subdomains="true"/>
   <tizen:allow-navigation>*.quattre.com quattre.com</tizen:allow-navigation>
 
+  <!--
+    Tizen aplica una politica de seguridad de contenidos por defecto que webOS no
+    tiene, y con ella NO se ejecutan los guiones escritos dentro del propio
+    HTML. Nuestro cargador es exactamente eso: una pagina con su script dentro
+    que prueba los servidores y redirige al portal. Sin esto el script no corre,
+    no pasa nada nunca, y el televisor se queda en negro, que es justo lo que
+    hacia.
+
+    Se abre tambien la conexion a nuestros servidores y la carga de video, que
+    la politica por defecto tampoco deja.
+  -->
+  <tizen:content-security-policy>
+    default-src * 'unsafe-inline' 'unsafe-eval';
+    script-src * 'unsafe-inline' 'unsafe-eval';
+    connect-src *;
+    img-src * data:;
+    media-src *;
+    style-src * 'unsafe-inline';
+    font-src * data:
+  </tizen:content-security-policy>
+
   <tizen:metadata key="http://samsung.com/tv/metadata/use.voice.control" value="false"/>
 </widget>
