@@ -20,7 +20,17 @@ function elemento(id) {
     if (!elementos[id]) elementos[id] = { id, style: {}, innerHTML: '' };
     return elementos[id];
 }
-global.document = { getElementById: elemento, body: {}, onkeydown: null, onclick: null };
+global.document = {
+    getElementById: elemento,
+    body: {},
+    onkeydown: null,
+    onclick: null,
+    // El panel de diagnostico consulta el <video> para contar lo que hace.
+    getElementsByTagName: (t) => (t === 'video' ? [global.__video] : []),
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    activeElement: { id: '', tagName: 'BODY' },
+};
 global.window = { addEventListener() {}, onresize: null, onload: null };
 global.navigator = { onLine: true };
 global.setTimeout = () => 0;
@@ -487,6 +497,39 @@ comprobar('los cuatro colores entre ellas',
 comprobar('y el boton de informacion', pedidas.includes('Info'), true);
 comprobar('la que falla no tumba al resto', pedidas.includes('MediaStop'), false);
 global.tizen = undefined;
+
+console.log('17. El panel de diagnostico se abre tecleando 0000');
+// En un televisor ajeno no hay consola ni depurador -- el laboratorio remoto de
+// Samsung no deja ni leer registros. La unica forma de saber que pasa es que la
+// app lo escriba en pantalla y alguien lo lea en voz alta.
+handleKey = handleKeyDeVerdad;
+const panel = elemento('diag');
+panel.style.display = 'none';
+channels = [{ id: '1', number: 1, name: 'La 1' }];
+currentChannel = 0;
+view = 'list';
+isFullscreen = false;
+hayRed = true;
+stbAPI = null;
+teclasTizenPuestas = 0;
+global.navigator = { onLine: true, userAgent: 'Mozilla/5.0' };
+showChannels = function () {};
+startPreview = function () {};
+
+// Cuatro ceros lo abren.
+[48, 48, 48, 48].forEach(k => handleKey({ keyCode: k }));
+comprobar('cuatro ceros abren el panel', panel.style.display, 'block');
+comprobar('y dice en que pantalla estamos', panel.innerHTML.indexOf('list') >= 0, true);
+comprobar('y que canal hay puesto', panel.innerHTML.indexOf('La 1') >= 0, true);
+
+// Otros cuatro lo cierran.
+[48, 48, 48, 48].forEach(k => handleKey({ keyCode: k }));
+comprobar('otros cuatro lo cierran', panel.style.display, 'none');
+
+// Un numero normal no lo abre ni salta a ningun canal raro.
+pushDigit = function () {};
+[48, 49, 48, 48].forEach(k => handleKey({ keyCode: k }));
+comprobar('0100 no abre el panel', panel.style.display, 'none');
 
 console.log('');
 if (fallos.length) {

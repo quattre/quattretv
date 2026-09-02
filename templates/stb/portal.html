@@ -42,10 +42,12 @@
         // recomponer la pagina entera en cada repintado y lo deja lento).
     }
 
+    var teclasTizenPuestas = 0;
+
     function init() {
         fitScreen();
         graficosDelante();
-        pedirTeclasTizen();
+        teclasTizenPuestas = pedirTeclasTizen();
         if (typeof gSTB !== "undefined") {
             stbAPI = gSTB;
             // El boton del engranaje abre la configuracion del propio deco, que
@@ -1836,7 +1838,60 @@
         return false;
     }
 
+    // ---------- Panel de diagnostico ----------
+    //
+    // Se abre tecleando 0000 y se cierra igual. Nadie va a un canal cero, asi
+    // que no se dispara sin querer, y se puede explicar por telefono en cinco
+    // segundos: "teclea cuatro ceros y leeme lo que sale".
+    var teclasVistas = [];
+    var marcadosDiag = '';
+
+    function apuntarTecla(e) {
+        teclasVistas.push(e.keyCode + (e.key && e.key.length === 1 ? " '" + e.key + "'" : ''));
+        if (teclasVistas.length > 10) teclasVistas.shift();
+    }
+
+    function quizaDiagnostico(k) {
+        if (k >= 48 && k <= 57) marcadosDiag += String(k - 48);
+        else if (k >= 96 && k <= 105) marcadosDiag += String(k - 96);
+        else { marcadosDiag = ''; return false; }
+        if (marcadosDiag.length > 4) marcadosDiag = marcadosDiag.slice(-4);
+        if (marcadosDiag !== '0000') return false;
+        marcadosDiag = '';
+        var d = document.getElementById('diag');
+        if (d.style.display === 'block') { d.style.display = 'none'; }
+        else { pintarDiagnostico(); }
+        return true;
+    }
+
+    function pintarDiagnostico() {
+        var d = document.getElementById('diag');
+        if (!d) return;
+        var v = document.getElementsByTagName('video')[0];
+        var ch = channels[currentChannel] || {};
+        var plataforma = (typeof tizen !== 'undefined') ? 'Samsung (Tizen)'
+                       : (navigator.userAgent.indexOf('Web0S') >= 0) ? 'LG (webOS)'
+                       : stbAPI ? 'deco MAG' : 'navegador';
+        d.innerHTML =
+            'plataforma: <b>' + plataforma + '</b>' +
+            '   teclas Tizen pedidas: <b>' + teclasTizenPuestas + '</b><br>' +
+            'pantalla: <b>' + view + '</b>   completa: <b>' + isFullscreen + '</b>' +
+            '   canales: <b>' + channels.length + '</b><br>' +
+            'canal: <b>' + (ch.number || '?') + ' ' + (ch.name || '') + '</b>' +
+            '   radio: <b>' + (ch.radio ? 'si' : 'no') + '</b><br>' +
+            'video: <b>' + (v ? (v.videoWidth + 'x' + v.videoHeight +
+                '  estado=' + v.readyState + '  sonando=' + !v.paused +
+                '  error=' + (v.error ? v.error.code : 'no')) : 'sin elemento') + '</b><br>' +
+            'ultimas teclas: <b>' + (teclasVistas.join('  ') || 'ninguna') + '</b><br>' +
+            'ventana: <b>' + window.innerWidth + 'x' + window.innerHeight + '</b>' +
+            '   red: <b>' + (hayRed ? 'si' : 'NO') + '</b>';
+        d.style.display = 'block';
+    }
+
     function handleKey(e) {
+        apuntarTecla(e);
+        if (quizaDiagnostico(normalizarTecla(e.keyCode))) return false;
+        if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
         var k = normalizarTecla(e.keyCode);
 
         if (atajoGlobal(e)) return false;
@@ -2566,6 +2621,15 @@
             50%      { height: 44px; opacity: 1; }
         }
 
+        #diag {
+            display: none; position: fixed; top: 40px; left: 40px; z-index: 40;
+            padding: 20px 26px; max-width: 900px;
+            background: rgba(8,11,13,.96); border: 1px solid #2b373d;
+            border-radius: 10px;
+            color: #9ad62f; font-family: monospace; font-size: 19px; line-height: 1.7;
+        }
+        #diag b { color: #e6ebe8; font-weight: normal; }
+
         #vol, #toast, #numjump {
             position: fixed; z-index: 30; display: none;
             background: #10161a;
@@ -2681,6 +2745,11 @@
     <div id="preview-cap"></div>
     <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">QuattreTV</div><div style="color:#98a3a6;margin-top:20px;">Cargando canales...</div></div></div>
     <div id="osd"></div>
+    <!-- Panel de diagnostico. Se enseña tecleando 0000 y se quita igual. Existe
+         porque en un televisor ajeno no hay consola ni depurador: el laboratorio
+         remoto de Samsung no deja ni leer registros. La unica forma de saber que
+         pasa es que la propia app lo escriba y alguien lo lea en voz alta. -->
+    <div id="diag"></div>
     <div id="vol" style="z-index:20;"></div>
     <div id="toast"></div>
     <div id="numjump"></div>

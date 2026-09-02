@@ -160,8 +160,51 @@
     }
 
     // Handle remote control navigation
+    // Las ultimas teclas recibidas, para el panel de diagnostico.
+    var teclasVistas = [];
+
+    function apuntarTecla(e) {
+        var t = e.keyCode + (e.key && e.key.length === 1 ? " '" + e.key + "'" : '');
+        teclasVistas.push(t);
+        if (teclasVistas.length > 10) teclasVistas.shift();
+    }
+
+    // Se abre tecleando 0000: nadie va a un canal cero, asi que no se dispara
+    // sin querer, y se puede explicar por telefono en cinco segundos.
+    var marcados = '';
+
+    function quizaDiagnostico(key) {
+        if (key >= 48 && key <= 57) marcados += String(key - 48);
+        else if (key >= 96 && key <= 105) marcados += String(key - 96);
+        else { marcados = ''; return false; }
+        if (marcados.length > 4) marcados = marcados.slice(-4);
+        if (marcados === '0000') { marcados = ''; pintarDiagnostico(); return true; }
+        return false;
+    }
+
+    function pintarDiagnostico() {
+        var d = document.getElementById('diag');
+        if (!d) return;
+        var f = document.activeElement;
+        var plataforma = (typeof tizen !== 'undefined') ? 'Samsung (Tizen)'
+                       : (typeof webOS !== 'undefined' || navigator.userAgent.indexOf('Web0S') >= 0) ? 'LG (webOS)'
+                       : (typeof gSTB !== 'undefined') ? 'deco MAG'
+                       : 'navegador';
+        d.innerHTML =
+            'plataforma: <b>' + plataforma + '</b><br>' +
+            'foco en: <b>' + (f ? (f.id || f.tagName) : 'NADA') + '</b>' +
+            (f && f.value !== undefined ? '  texto: <b>"' + f.value + '"</b>' : '') + '<br>' +
+            'usuario escrito: <b>"' + (document.getElementById('username') || {}).value + '"</b><br>' +
+            'ultimas teclas: <b>' + (teclasVistas.join('  ') || 'ninguna') + '</b><br>' +
+            'pantalla: <b>' + window.innerWidth + 'x' + window.innerHeight + '</b>';
+        d.style.display = 'block';
+    }
+
     document.onkeydown = function(e) {
         var key = e.keyCode;
+        apuntarTecla(e);
+        if (quizaDiagnostico(key)) return;
+        if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
 
         // Red de seguridad: si llega una tecla y no hay ningun campo enfocado,
         // se enfoca el de usuario. Sin esto, en un televisor que no haya hecho
@@ -201,6 +244,13 @@
         h1 { color: #81ba26; font-size: 42px; margin-bottom: 5px; }
         h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
         #ayuda { color: #6d7679; font-size: 15px; margin-top: 18px; }
+        #diag {
+            display: none; margin-top: 22px; padding: 14px 18px;
+            background: #0c1113; border: 1px solid #2b373d; border-radius: 8px;
+            color: #9ad62f; font-family: monospace; font-size: 15px;
+            text-align: left; line-height: 1.6; max-width: 760px;
+        }
+        #diag b { color: #e6ebe8; font-weight: normal; }
         #msg { color: #81ba26; font-size: 16px; margin: 15px; min-height: 20px; }
         #login { display: none; text-align: center; }
         input { font-size: 20px; padding: 12px 20px; width: 280px; margin: 8px 0; border: 2px solid #333; border-radius: 8px;
@@ -229,6 +279,12 @@
             <div id="ayuda">Pulsa OK sobre un campo para escribir &middot;
                 Flechas para moverte &middot; OK en Entrar para acceder</div>
             <div id="msg"></div>
+            <!-- Panel de diagnostico. Se enseña tecleando 0000. Existe porque
+                 en un televisor ajeno -- el laboratorio remoto de Samsung, por
+                 ejemplo -- no hay consola ni depurador: la unica forma de saber
+                 que esta pasando es que la propia app lo escriba en pantalla y
+                 alguien lo lea en voz alta. -->
+            <div id="diag"></div>
         </div>
     </div>
 </body>
