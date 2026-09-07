@@ -19,6 +19,50 @@ sola**, sin reempaquetar ni volver a pasar por ninguna tienda.
 - El filtro de canales por tipo de aparato ya tiene su casilla de Samsung, así
   que el canal +18 se puede excluir igual que en LG si su tienda lo exige.
 
+## Estado a 07/09/2026
+
+Probado entero en un Samsung TU32H5005 propio (Tizen 8.0) con el depurador
+enchufado. Funciona: los 80 canales, el video a 1920x1080 con sonido, los
+cuatro botones de color, el atras, la guia, la ficha, las emisoras de radio,
+la pantalla completa y el acceso.
+
+**El acceso ya no depende del teclado del televisor.** El de Tizen va a rachas
+-unas veces sale y escribe, otras sale y no llega ni una letra al campo- asi que
+en Samsung la aplicacion dibuja el suyo: solo necesita flechas y OK. En webOS y
+en los decos se sigue usando el del aparato, que ahi funciona.
+
+**Material del envio**, en `/home/sergio/envio-samsung/`:
+
+| Fichero | Que es |
+|---|---|
+| `capturas/` | ocho capturas a 1920x1080, con imagen real del canal |
+| `UX_SCENARIO_samsung.pdf` | el documento para los revisores, 12 paginas |
+
+Se rehacen con:
+
+```
+python3 lg_app/capturas_navegador.py https://iptv2.quattre.com/quattretv/stb/ <MAC> capturas
+python3 lg_app/montar_video_en_capturas.py capturas <fotograma.png>
+CLAVE_PRUEBA=... python3 lg_app/generar_ux_scenario.py capturas/con-video salida.pdf samsung
+```
+
+## Lo que falta, y necesita la cuenta de Samsung
+
+Esto no se puede hacer desde aqui, hace falta entrar en el Seller Office:
+
+1. **Dar de alta la aplicacion** en https://seller.samsungapps.com y anotar el
+   **identificador de paquete** que asignen: diez caracteres. Va en dos sitios
+   de `samsung_app/config.xml`, lineas 23 y 24, donde ahora pone `QuattreTV0`,
+   que es de mentira.
+2. **Certificado de distribucion de Samsung.** El que hay es autofirmado: vale
+   para el televisor en modo desarrollador, no para publicar. Se saca del
+   asistente de certificados de Tizen Studio con la cuenta de la empresa.
+   **Ojo con el asistente**: hay que elegir el de *Samsung*, no el de *Tizen* --
+   el de Tizen no pide DUID y no sirve. Y el de distribucion va atado a los
+   DUID de la lista; el de la tienda, no.
+3. Con las dos cosas, reempaquetar y firmar:
+   `PERFIL_FIRMA=<perfil> samsung_app/empaquetar.sh`
+
 ## Lo que falta, por orden
 
 1. **Cuenta de Samsung Developer** y alta de la app en el Seller Office. De ahí
