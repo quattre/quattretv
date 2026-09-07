@@ -50,10 +50,22 @@ CLAVE_PRUEBA=... python3 lg_app/generar_ux_scenario.py capturas/con-video salida
 
 Esto no se puede hacer desde aqui, hace falta entrar en el Seller Office:
 
-1. **Dar de alta la aplicacion** en https://seller.samsungapps.com y anotar el
-   **identificador de paquete** que asignen: diez caracteres. Va en dos sitios
-   de `samsung_app/config.xml`, lineas 23 y 24, donde ahora pone `QuattreTV0`,
-   que es de mentira.
+1. **Darse de alta en el TV Seller Office**, que es
+   **https://seller.samsungapps.com/tv** y no el portal general de Samsung. Con
+   la misma cuenta Samsung, pero es un alta aparte: correo, pais y zona
+   horaria. De ahi sale el **identificador de paquete** de la aplicacion, diez
+   caracteres, que va en dos sitios de `samsung_app/config.xml`, lineas 23 y
+   24, donde ahora pone `QuattreTV0`, que es de mentira.
+
+   **AVISO IMPORTANTE, y esto cambia el plan.** El alta normal deja en
+   *Public Seller*, y un Public Seller **solo puede publicar en Estados
+   Unidos**. Su documentacion es literal: *«To launch an application outside
+   the United States or use certain APIs, you must have a Partner Seller
+   membership»*. Para publicar en España hay que pedir el paso a **Partner
+   Seller**, y eso **no se aprueba solo**: el formulario pide el correo de un
+   *Content Manager* de Samsung que apruebe la solicitud, o sea que hace falta
+   un interlocutor en Samsung España. En LG no habia nada de esto: se enviaba y
+   ya. Conviene empezar por ahi, porque puede tardar y bloquea todo lo demas.
 2. **Certificado de distribucion de Samsung.** El que hay es autofirmado: vale
    para el televisor en modo desarrollador, no para publicar. Se saca del
    asistente de certificados de Tizen Studio con la cuenta de la empresa.
