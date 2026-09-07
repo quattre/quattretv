@@ -17,6 +17,16 @@ colocar el video (HUECO en portal.html), asi que si algun dia se cambia el
 reparto de la pantalla, se cambia aqui el mismo numero y ya esta.
 
     python3 lg_app/montar_video_en_capturas.py <carpeta> <fotograma.png>
+
+OJO CON QUE IMAGEN SE PASA. Para las capturas de una tienda NO vale un
+fotograma real del canal: trae encima los logotipos de quien emite -- LaLiga,
+EA Sports, el mosca de la cadena -- y eso son marcas de terceros en un
+escaparate nuestro. Ademas envejece, porque el titular del dia se queda puesto
+meses. Se pasa 'lg_app/fondo_neutro.png', que es un degradado en los colores de
+la casa y lo genera lg_app/generar_fondo_neutro.py. Es lo que se hizo para LG.
+
+El fotograma real si sirve para mirar como queda la interfaz sobre imagen de
+verdad, que para eso se hizo esto.
 """
 import os
 import shutil
