@@ -44,14 +44,30 @@ PUERTO = 9333
 # Cada paso: fichero, que ejecutar antes, cuanto esperar a que se pinte, y una
 # descripcion. Se navega llamando a las funciones del portal en vez de mandar
 # teclas: es lo mismo que hace el usuario y no depende de donde este el foco.
+# El canal que sale en las capturas. Se elige a proposito uno de imagen neutra
+# y luminosa: las capturas de la tienda se quedan puestas meses y en un canal de
+# noticias sale el titular del dia -- la primera tanda salio con un titular
+# politico y un telefono en pantalla. El deporte y los documentales envejecen
+# mejor. Es un numero de canal, no una posicion en la lista.
+CANAL_ESCAPARATE = 37       # Teledeporte
+
 GUION = [
-    ('01-canales',    'showChannels(); startPreview();',                     2.5, 'La lista de canales con la vista previa'),
+    ('01-canales',    'currentChannel = __c; showChannels(); startPreview();', 2.5, 'La lista de canales con la vista previa'),
     ('02-menu',       'openMenu();',                                         1.5, 'El menu principal'),
     ('03-categorias', 'openGenres();',                                       2.0, 'Los canales por categoria'),
-    ('04-guia',       'showChannels(); currentChannel = 0; openGuide();',    3.5, 'La guia de programacion'),
+    ('04-guia',       'showChannels(); currentChannel = __c; openGuide();',  3.5, 'La guia de programacion'),
     ('05-ficha',      'abrirFicha();',                                       2.0, 'La ficha completa del programa'),
-    ('06-completa',   'showChannels(); currentChannel = 0; goFullscreen();', 3.5, 'Un canal a pantalla completa'),
+    # A pantalla completa se enseña ademas la barra de informacion: sin ella la
+    # captura es el canal a secas y no se ve nada de la aplicacion.
+    ('06-completa',   'showChannels(); currentChannel = __c; goFullscreen();'
+                      ' mostrarOsd(channels[__c]);',                         3.5, 'Un canal a pantalla completa'),
+    # Hay que SALIR de pantalla completa antes de la radio. Se venia de la
+    # captura anterior, y showChannels() cambia la vista pero deja isFullscreen
+    # a true y la capa de graficos apagada: la captura salia identica a la 06,
+    # byte a byte, y nadie lo noto porque las dos parecian correctas por
+    # separado.
     ('07-radio',      '''(function () {
+        showMenu();
         for (var i = 0; i < channels.length; i++) {
             if (channels[i].radio) {
                 currentChannel = i; showChannels(); startPreview();
@@ -59,7 +75,7 @@ GUION = [
             }
         }
         return null;
-    })()''',                                                                 3.0, 'Una emisora de radio'),
+    })()''',                                                                 3.5, 'Una emisora de radio'),
 ]
 
 
@@ -96,6 +112,22 @@ class Navegador:
         return r.get('result', {}).get('value')
 
     def foto(self, destino):
+        # Aqui no hay video: un Chrome de escritorio no reproduce el HLS de los
+        # canales. El portal, cuando no consigue arrancar la imagen, escribe en
+        # su lugar por que ha fallado y el estado del reproductor -- que es justo
+        # lo que se quiere en un televisor y justo lo que no puede salir en una
+        # captura para la tienda. Se vacia antes de disparar; el hueco lo rellena
+        # despues montar_video_en_capturas.py con un fotograma de verdad.
+        # Y se quita el aviso emergente: aqui salta "este contenido no se puede
+        # reproducir en este dispositivo" en cuanto se toca una emisora de radio,
+        # porque Chrome tampoco reproduce ese flujo. En el televisor no aparece.
+        self.js('''(function(){
+            var c = document.getElementById("preview");
+            if (c && /No se pudo iniciar la imagen/.test(c.innerHTML)) c.innerHTML = "";
+            var t = document.getElementById("toast");
+            if (t) t.style.display = "none";
+            return 1;
+        })()''')
         d = self.manda('Page.captureScreenshot', format='png')
         if not d.get('data'):
             return 0
@@ -117,9 +149,14 @@ def main():
         'google-chrome', '--headless', '--no-sandbox', '--disable-gpu',
         '--disable-dev-shm-usage', '--hide-scrollbars',
         '--window-size=1920,1080', '--force-device-scale-factor=1',
-        # El portal deja el fondo transparente a proposito, para que asome el
-        # plano de video del televisor. En un navegador eso saldria blanco.
-        '--default-background-color=080b0d',
+        # Aqui iba '--default-background-color', para que el fondo transparente
+        # del portal no saliera blanco. No se puede: Chrome lo cuenta como
+        # "orden de headless" y no admite ordenes de headless a la vez que el
+        # depurador -- se niega a arrancar con un escueto "Headless commands are
+        # not compatible with remote debugging" y ni siquiera abre el puerto.
+        # Por eso este script no funcionaba en ninguna maquina con Chrome
+        # moderno, y parecia cosa de esta. El color se pone mas abajo por el
+        # propio protocolo, que hace lo mismo y si convive con el depurador.
         '--user-data-dir=' + perfil,
         '--remote-debugging-port=%d' % PUERTO,
         # Desde Chrome 111 rechaza las conexiones al depurador que no vengan de
@@ -132,12 +169,33 @@ def main():
         nav = Navegador(PUERTO)
         nav.manda('Page.enable')
         nav.manda('Network.enable')
+        # El fondo que antes se pedia por linea de comandos, y en NEGRO PURO.
+        #
+        # El parametro original pedia #080B0D, el gris muy oscuro de la
+        # aplicacion, y eso rompe el montaje del video: montar_video_en_capturas
+        # busca el hueco por el negro, y 08 ya no es negro. Con aquel color, la
+        # captura de pantalla completa no se reconocia como tal y se le metia el
+        # video en el recuadro pequeño, como si fuera la vista previa.
+        #
+        # Negro es ademas lo que se ve de verdad: en el televisor esa zona es el
+        # plano de video, y en una captura sale negra.
+        nav.manda('Emulation.setDefaultBackgroundColorOverride',
+                  color={'r': 0, 'g': 0, 'b': 0, 'a': 1})
         # La MAC es la credencial del portal: sin ella devuelve el formulario de
         # acceso en vez de la aplicacion.
         dominio = url.split('/')[2]
         nav.manda('Network.setCookie', name='mac', value=mac, domain=dominio, path='/')
         nav.manda('Page.navigate', url=url)
         time.sleep(8)
+
+        # __c es la posicion del canal escaparate dentro de la lista, que no es
+        # su numero: la lista va filtrada por lo que ve cada aparato.
+        nav.js('''window.__c = (function () {
+            for (var i = 0; i < channels.length; i++) {
+                if (String(channels[i].number) === "%d") return i;
+            }
+            return 0;
+        })()''' % CANAL_ESCAPARATE)
 
         cargados = nav.js('typeof channels !== "undefined" ? channels.length : -1')
         if not isinstance(cargados, int) or cargados <= 0:

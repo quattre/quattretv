@@ -19,6 +19,7 @@ reparto de la pantalla, se cambia aqui el mismo numero y ya esta.
     python3 lg_app/montar_video_en_capturas.py <carpeta> <fotograma.png>
 """
 import os
+import shutil
 import sys
 
 from PIL import Image, ImageChops, ImageDraw
@@ -69,7 +70,17 @@ def es_pantalla_completa(captura):
     return blancos < (120 * 120) * 0.5
 
 
+# Las capturas de emisoras de radio no llevan video: en su sitio va la tarjeta
+# con el nombre de la emisora y las barras. Meterles un fotograma de television
+# encima tapa la tarjeta y ademas es mentira -- una emisora no tiene imagen.
+SIN_VIDEO = ('radio',)
+
+
 def montar(ruta_captura, fotograma, destino):
+    if any(m in os.path.basename(ruta_captura).lower() for m in SIN_VIDEO):
+        shutil.copyfile(ruta_captura, destino)
+        return 'sin video (emisora de radio), se copia tal cual'
+
     captura = Image.open(ruta_captura).convert('RGB')
     ancho, alto = captura.size
 
