@@ -1,0 +1,172 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<style>
+@page { size: A4; margin: 16mm 15mm 14mm 15mm;
+        @bottom-center { content: "Quattre Internet S.L. — logotipos para la aplicacion de television — pagina " counter(page) " de " counter(pages);
+                         font: 8pt Helvetica; color: #8a9497; } }
+body { font: 10pt/1.45 Helvetica, Arial, sans-serif; color: #22292c; }
+h1 { font-size: 19pt; color: #5f8a1c; margin: 0 0 2mm; letter-spacing: .3px; }
+.sub { color: #6b7679; font-size: 9.5pt; margin: 0 0 6mm; }
+h2 { font-size: 12pt; color: #22292c; margin: 7mm 0 2.5mm;
+     border-bottom: 1.5pt solid #9ad62f; padding-bottom: 1.2mm; }
+h3 { font-size: 10.5pt; margin: 4mm 0 1.5mm; color: #3a4448; }
+p { margin: 0 0 2.5mm; }
+table { border-collapse: collapse; width: 100%; margin: 0 0 3mm; font-size: 9.5pt; }
+th { background: #eef3e4; color: #3f4d22; text-align: left; font-weight: bold;
+     padding: 1.6mm 2.5mm; border: .5pt solid #ccd6b8; }
+td { padding: 1.6mm 2.5mm; border: .5pt solid #d8dee0; vertical-align: top; }
+td.k { width: 42%; color: #4a5458; }
+td.v { font-weight: bold; }
+.dato { font-family: "DejaVu Sans Mono", monospace; font-size: 9pt; }
+.nota { background: #f4f7ec; border-left: 2.5pt solid #9ad62f;
+        padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 9.5pt; }
+.aviso { background: #fdf6e6; border-left: 2.5pt solid #e0a422;
+         padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 9.5pt; }
+img.cap { width: 100%; border: .5pt solid #c9d0d3; border-radius: 2mm; }
+.pie { font-size: 8.5pt; color: #77807f; margin-top: 1.5mm; font-style: italic; }
+.col { display: flex; gap: 6mm; }
+.col > div { flex: 1; }
+.muestra { background: #11171a; border-radius: 3mm; padding: 6mm 5mm; text-align: center; }
+.muestra .t1 { color: #81ba26; font-size: 26pt; font-weight: bold; letter-spacing: .5px; }
+.muestra .t2 { color: #98a3a6; font-size: 9pt; margin-top: 1.5mm; }
+.muestra .caja { border: .8pt dashed #9ad62f; display: inline-block; padding: 1mm 2mm; }
+.color { display: inline-block; width: 4mm; height: 4mm; border: .5pt solid #999;
+         vertical-align: -.6mm; margin-right: 1.5mm; }
+ul { margin: 0 0 3mm; padding-left: 5mm; } li { margin-bottom: 1.2mm; }
+.brk { page-break-before: always; }
+</style></head><body>
+
+<h1>Logotipos para la aplicacion de television</h1>
+<p class="sub">Quattre TV &mdash; LG, Samsung, descodificadores y, mas adelante, Android TV &middot; 7 de septiembre de 2026</p>
+
+<p>Hoy los dos rotulos de la aplicacion son <b>texto</b>, compuesto con la tipografia
+Antonio en verde. Queremos sustituirlos por el logotipo real. Estas son las medidas
+exactas, tomadas sobre un televisor de 1920&times;1080.</p>
+
+<div class="nota">
+<b>Lo mas util que se puede entregar es el logotipo en vectorial</b> (SVG, AI o EPS).
+La aplicacion va a ir saliendo en varias tiendas &mdash;LG y Samsung ahora, Android TV
+despues&mdash; y cada una pide sus propios tamaños de icono. Con el vectorial se genera
+aqui lo que pida cada una sin volver a molestar. Las medidas concretas de este documento
+son las que hacen falta hoy.
+</div>
+
+<p>Se piden <b>tres cosas</b>: el logotipo vectorial, los dos rotulos que van dentro de la
+aplicacion (apartados 1 y 2) y los iconos de las tiendas (apartado 3).</p>
+
+<h2>1. Pantalla de acceso</h2>
+<p>Es lo primero que se ve al abrir la aplicacion, con el logotipo centrado sobre fondo
+oscuro y el formulario de usuario y contraseña debajo.</p>
+
+<div class="col">
+<div>
+<table>
+<tr><td class="k">Espacio disponible</td><td class="v">450 &times; 120 px</td></tr>
+<tr><td class="k">Ocupa hoy el texto</td><td class="v">425 &times; 117 px</td></tr>
+<tr><td class="k">Fichero a entregar</td><td class="v">900 &times; 240 px</td></tr>
+<tr><td class="k">Formato</td><td class="v">PNG con transparencia</td></tr>
+</table>
+<p style="font-size:9pt;color:#5a6467;">Se entrega al doble para que no se vea
+pastoso: la aplicacion lo muestra a la mitad.</p>
+</div>
+<div class="muestra">
+  <div class="caja"><div class="t1">QuattreTV</div></div>
+  <div class="t2">Television de Quattre</div>
+</div>
+</div>
+
+<h2>2. Cabecera del portal</h2>
+<p>Es el rotulo de arriba del listado de canales, el que se ve mientras se cambia de
+canal. Convive con una etiqueta verde a su derecha que indica cuantos canales hay.</p>
+
+<img class="cap" src="capturas/cabecera.png">
+<p class="pie">Cabecera real, ampliada. El logotipo va a la izquierda; la etiqueta verde de la
+derecha no se toca.</p>
+
+<table>
+<tr><th>Concepto</th><th>Medida</th></tr>
+<tr><td class="k">Ocupa hoy el texto</td><td class="v">182 &times; 46 px</td></tr>
+<tr><td class="k">Espacio disponible hasta la etiqueta verde</td><td class="v">440 &times; 60 px</td></tr>
+<tr><td class="k">Alto util de la cabecera</td><td class="v">60 px maximo</td></tr>
+<tr><td class="k">Fichero a entregar</td><td class="v">880 &times; 160 px</td></tr>
+<tr><td class="k">Formato</td><td class="v">PNG con transparencia</td></tr>
+</table>
+
+<div class="aviso">
+<b>El logotipo puede crecer bastante.</b> Ahora usa 182 px de los 440 disponibles,
+y por eso se ve pequeño en pantalla. Se puede aprovechar todo el ancho siempre que
+el alto no pase de 60 px.
+</div>
+
+<div class="brk"></div>
+<h2>Donde va cada cosa</h2>
+<img class="cap" src="capturas/panel.png" style="width:62%;">
+<p class="pie">Pantalla real de un televisor. Arriba a la izquierda, la cabecera. La
+etiqueta verde &laquo;80 canales&raquo; queda a su derecha y se mantiene como esta.</p>
+
+<h2>Colores y tipografia actuales</h2>
+<table>
+<tr><th>Elemento</th><th>Valor</th></tr>
+<tr><td class="k">Verde del logotipo</td><td class="v dato"><span class="color" style="background:#81ba26"></span>#81BA26</td></tr>
+<tr><td class="k">Verde claro (etiquetas y barras)</td><td class="v dato"><span class="color" style="background:#9ad62f"></span>#9AD62F</td></tr>
+<tr><td class="k">Fondo del panel</td><td class="v dato"><span class="color" style="background:#11171a"></span>#11171A</td></tr>
+<tr><td class="k">Fondo de la pantalla de acceso</td><td class="v dato"><span class="color" style="background:#0c1113"></span>#0C1113</td></tr>
+<tr><td class="k">Tipografia</td><td class="v">Antonio, negrita</td></tr>
+</table>
+
+<h2>Como entregarlo</h2>
+<ul>
+<li><b>PNG con fondo transparente.</b> El fondo de la aplicacion es oscuro y no siempre
+del mismo tono, asi que el logotipo no puede llevar fondo propio.</li>
+<li><b>Version para fondo oscuro.</b> Todo el interfaz es oscuro; no hace falta la
+version para fondo claro.</li>
+<li><b>Sin margenes sobrantes</b> alrededor del dibujo: la aplicacion ya deja su propio
+aire y un margen incrustado descuadra la alineacion.</li>
+<li><b>El vectorial, siempre.</b> Es lo que evita tener que volver a pedir piezas cada
+vez que se añade una tienda o sale un televisor con otra resolucion.</li>
+<li><b>Los iconos son cuadrados y se ven pequeños.</b> Conviene que el dibujo llene el
+cuadro; un logotipo apaisado metido en un cuadrado deja dos franjas vacias y se ve
+diminuto en la fila de aplicaciones del televisor.</li>
+</ul>
+
+<div class="nota">
+<b>Por que dos tamaños y no uno escalado.</b> A 46 px de alto, un logotipo con mucho
+detalle o texto fino se emborrona y no se lee desde el sofa. Si el logotipo tiene
+partes pequeñas, conviene una version simplificada para la cabecera.
+</div>
+
+<h2>3. Iconos y pantalla de arranque de cada tienda</h2>
+<p>Cada plataforma pide sus propias piezas. Todas son el mismo logotipo, solo cambia el
+tamaño y el encuadre, asi que con el vectorial salen todas.</p>
+
+<table>
+<tr><th>Pieza</th><th>Medida</th><th>Donde se usa</th><th>Estado</th></tr>
+<tr><td>Icono pequeño</td><td class="v">80 &times; 80</td><td>LG &mdash; fila de aplicaciones del televisor</td><td>en uso</td></tr>
+<tr><td>Icono grande</td><td class="v">130 &times; 130</td><td>LG &mdash; aplicacion destacada</td><td>en uso</td></tr>
+<tr><td>Icono de tienda</td><td class="v">400 &times; 400</td><td>LG Content Store</td><td>en uso</td></tr>
+<tr><td>Pantalla de arranque</td><td class="v">1920 &times; 1080</td><td>LG y Samsung, mientras carga</td><td>en uso</td></tr>
+<tr><td>Icono de tienda</td><td class="v">512 &times; 512</td><td>Samsung Seller Office</td><td>por enviar</td></tr>
+<tr><td>Banner de television</td><td class="v">320 &times; 180</td><td>Android TV &mdash; tira de aplicaciones</td><td>previsto</td></tr>
+<tr><td>Icono de tienda</td><td class="v">512 &times; 512</td><td>Google Play</td><td>previsto</td></tr>
+<tr><td>Grafico de portada</td><td class="v">1024 &times; 500</td><td>Google Play, ficha de la aplicacion</td><td>previsto</td></tr>
+</table>
+
+<div class="aviso">
+<b>El banner de Android TV es el mas exigente.</b> Es apaisado y muy pequeño &mdash;320
+&times; 180&mdash;, va sobre fondo oscuro y ahi conviven logotipo y nombre. Si el
+logotipo lleva texto fino, hara falta una version simplificada, igual que en la cabecera.
+</div>
+
+<h2>Televisores de menor resolucion</h2>
+<p>Una parte del parque es de 1280&times;720. Ahi la aplicacion reduce todo
+proporcionalmente &mdash;la cabecera pasa de 46 a 31 px de alto&mdash; y usa los mismos
+ficheros, reescalados. No hay que entregar nada aparte por esto.</p>
+
+<h2>Contacto</h2>
+<table>
+<tr><td class="k">Empresa</td><td class="v">Quattre Internet S.L. &middot; CIF B98168206</td></tr>
+<tr><td class="k">Direccion</td><td class="v">C/ Alguixos 5, 46138 Rafelbunyol (Valencia)</td></tr>
+<tr><td class="k">Telefono</td><td class="v">961 126 346</td></tr>
+<tr><td class="k">Correo</td><td class="v">info@quattre.com</td></tr>
+</table>
+
+</body></html>
