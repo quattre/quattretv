@@ -31,6 +31,17 @@
   <content src="index.html"/>
 
   <tizen:profile name="tv"/>
+
+  <!--
+    Los tamaños de pantalla que admite la aplicacion. Sin esta linea, el
+    pre-test del Seller Office rechaza el paquete con dos errores criticos:
+    "screen size is not specified" y "feature information is not available".
+    Son el mismo fallo contado dos veces.
+
+    Va 'all' porque el portal se adapta: esta hecho a 1920x1080 y tiene su
+    propio juego de medidas para los televisores de 1280x720.
+  -->
+  <feature name="http://tizen.org/feature/screen.size.all"/>
   <tizen:setting screen-orientation="landscape"
                  background-support="disable"
                  encryption="disable"
