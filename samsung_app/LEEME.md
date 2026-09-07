@@ -46,6 +46,20 @@ python3 lg_app/montar_video_en_capturas.py capturas <fotograma.png>
 CLAVE_PRUEBA=... python3 lg_app/generar_ux_scenario.py capturas/con-video salida.pdf samsung
 ```
 
+## Tramites en marcha
+
+| Fecha | Que | Estado |
+|---|---|---|
+| 07/09/2026 | Alta en TV Seller Office y grupo de vendedor creado | hecho |
+| 07/09/2026 | Aplicacion dada de alta. Identificador de tienda `3202609048187` | hecho |
+| 07/09/2026 | Paquete subido: **Pre-Test Pass** | hecho |
+| 07/09/2026 | 1:1 Q&A pidiendo el Content Manager para el partnership | **enviado, esperando** |
+
+El partnership es el que manda en el calendario: sin el, un Public Group solo
+puede publicar en Estados Unidos, y para conseguirlo hace falta contrato con
+Samsung o con Samsung España. En los foros hay quejas de solicitudes semanas
+paradas, asi que conviene insistir si en un par de semanas no contestan.
+
 ## Lo que falta, y necesita la cuenta de Samsung
 
 Esto no se puede hacer desde aqui, hace falta entrar en el Seller Office:
