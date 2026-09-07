@@ -597,12 +597,78 @@
         renderGenres();
     }
 
+    // ---------- Cuantas filas caben de verdad ----------
+    //
+    // Cada lista llevaba escrito a mano cuantas filas pintaba: 11 canales, 9
+    // programas de la guia, 10 capitulos... Numeros sacados de medir la
+    // pantalla una vez, hace tiempo.
+    //
+    // Al agrandar los rotulos para que se lean desde el sofa, las filas
+    // crecieron hasta 105 px y el hueco de la lista son 739: caben 7, no 11.
+    // Las otras cuatro se pintaban fuera de la pantalla. Y como la caja no
+    // lleva barra de desplazamiento (.list va con overflow hidden), el cursor
+    // bajaba hasta la ultima fila que se veia y ahi parecia quedarse clavado,
+    // aunque por dentro siguiera cambiando de canal: se movia por filas
+    // invisibles. Lo mismo al subir.
+    //
+    // Asi que no se adivina: se pinta, se mide la caja de verdad, y si no
+    // coincide se vuelve a pintar una sola vez con el numero bueno. Cada lista
+    // guarda su medida porque sus filas no miden lo mismo, y esto vale para
+    // cualquier televisor y cualquier tamaño de letra sin tocar nada.
+    var filasCaben = {};
+    var midiendoFilas = false;
+
+    function filasDe(lista, porDefecto) {
+        return filasCaben[lista] || porDefecto;
+    }
+
+    function medirFilas(lista, usadas, repintar) {
+        // Se mide una sola vez por lista, sobre el primer pintado. Ese usa el
+        // numero de partida, que es generoso, asi que la muestra tiene filas de
+        // sobra y de los dos tipos: las que llevan programa y barra de avance
+        // son mas altas que las que no.
+        //
+        // Medir en cada pintado parecia mejor y no lo es: segun el tramo de la
+        // lista toca una mezcla distinta de filas altas y bajas, sale un numero
+        // distinto cada vez y la lista cambia de tamaño sola mientras navegas.
+        if (midiendoFilas || !usadas || filasCaben[lista]) return;
+        var caja = document.querySelector("#content .list");
+        if (!caja || caja.children.length < 1) return;
+        var filas = caja.children;
+        var hueco = caja.clientHeight;
+        if (hueco <= 0) return;
+
+        // El paso de una fila a la siguiente, no la altura de la fila:
+        // getBoundingClientRect no cuenta los margenes, y son 7 px arriba y 7
+        // abajo en cada una. Con once filas eso es medio centimetro de mas, y
+        // por eso la ultima se salia aunque el reparto pareciera correcto. Se
+        // coge el paso mas grande de la muestra, que es el caso peor.
+        var paso = 0;
+        for (var i = 1; i < filas.length; i++) {
+            var d = filas[i].getBoundingClientRect().top -
+                    filas[i - 1].getBoundingClientRect().top;
+            if (d > paso) paso = d;
+        }
+        if (paso <= 0 && filas[0]) paso = filas[0].getBoundingClientRect().height;
+        if (paso <= 0) return;
+
+        var caben = Math.max(3, Math.floor(hueco / paso));
+        filasCaben[lista] = caben;
+        if (caben === usadas) return;
+        midiendoFilas = true;
+        try { repintar(); } finally { midiendoFilas = false; }
+    }
+
+    // Si cambia el tamaño de la ventana —el teclado del televisor la encoge—
+    // las medidas de antes ya no valen.
+    window.addEventListener("resize", function() { filasCaben = {}; });
+
     function renderGenres() {
         var h = '<div class="panel">';
         h += '<div class="header"><div class="logo">Categorias</div></div>';
         h += '<div class="list">';
-        var visible = 11;
-        var start = Math.max(0, genreIdx - 5);
+        var visible = filasDe("generos", 11);
+        var start = Math.max(0, genreIdx - Math.floor((visible - 1) / 2));
         var end = Math.min(genres.length, start + visible);
         if (end - start < visible) start = Math.max(0, end - visible);
         for (var i = start; i < end; i++) {
@@ -616,6 +682,7 @@
         h += '<div class="help"><span data-tecla="13">OK</span> Elegir <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+        medirFilas("generos", visible, function() { renderGenres(); });
     }
 
     function chooseGenre() {
@@ -799,8 +866,8 @@
         } else if (vod.length === 0) {
             h += '<div style="color:#666;padding:20px;">No hay peliculas en el catalogo</div>';
         } else {
-            var visible = 9;
-            var start = Math.max(0, vodIdx - 4);
+            var visible = filasDe("peliculas", 9);
+            var start = Math.max(0, vodIdx - Math.floor((visible - 1) / 2));
             var end = Math.min(vod.length, start + visible);
             if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
@@ -826,6 +893,7 @@
         h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+        medirFilas("peliculas", visible, function() { renderVod(null); });
     }
 
     function verPelicula() {
@@ -865,8 +933,8 @@
         } else if (series.length === 0) {
             h += '<div style="color:#666;padding:20px;">No hay series en el catalogo</div>';
         } else {
-            var visible = 10;
-            var start = Math.max(0, serieIdx - 5);
+            var visible = filasDe("series", 10);
+            var start = Math.max(0, serieIdx - Math.floor((visible - 1) / 2));
             var end = Math.min(series.length, start + visible);
             if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
@@ -886,6 +954,7 @@
         h += '<div class="help"><span data-tecla="13">OK</span> Capitulos <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+        medirFilas("series", visible, function() { renderSeries(null); });
     }
 
     function openCapitulos() {
@@ -913,8 +982,8 @@
         } else if (capitulos.length === 0) {
             h += '<div style="color:#666;padding:20px;">Esta serie no tiene capitulos cargados</div>';
         } else {
-            var visible = 10;
-            var start = Math.max(0, capIdx - 5);
+            var visible = filasDe("capitulos", 10);
+            var start = Math.max(0, capIdx - Math.floor((visible - 1) / 2));
             var end = Math.min(capitulos.length, start + visible);
             if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
@@ -929,6 +998,7 @@
         h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+        medirFilas("capitulos", visible, function() { renderCapitulos(null); });
     }
 
     function verCapitulo() {
@@ -1069,8 +1139,8 @@
         h += '<div class="counter">' + esc(etiqueta) + '</div></div>';
 
         h += '<div class="list">';
-        var visible = 11;
-        var start = Math.max(0, currentChannel - 5);
+        var visible = filasDe("canales", 11);
+        var start = Math.max(0, currentChannel - Math.floor((visible - 1) / 2));
         var end = Math.min(channels.length, start + visible);
         if (end - start < visible) start = Math.max(0, end - visible);
         for (var i = start; i < end; i++) {
@@ -1107,6 +1177,7 @@
         h += 'Grabaciones, favoritos y peliculas estan en el <span data-tecla="37">Menu</span></div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+        medirFilas("canales", visible, showChannels);
         updatePreviewCap(ch);
     }
 
@@ -1187,8 +1258,8 @@
             h += '<div class="list"><div style="color:#666;padding:20px;">Sin datos de EPG para este canal</div></div>';
         } else {
             h += '<div class="list">';
-            var visible = 9;
-            var start = Math.max(0, guideIdx - 4);
+            var visible = filasDe("guia", 9);
+            var start = Math.max(0, guideIdx - Math.floor((visible - 1) / 2));
             var end = Math.min(guide.length, start + visible);
             if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
@@ -1234,6 +1305,7 @@
         h += '<div class="help">' + hint + '<span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+        medirFilas("guia", visible, function() { renderGuide(); });
     }
 
     // ---------- Ficha del programa ----------
@@ -1461,8 +1533,8 @@
         } else if (recordings.length === 0) {
             h += '<div style="color:#666;padding:20px;">Todavia no hay grabaciones</div>';
         } else {
-            var visible = 11;
-            var start = Math.max(0, recIdx - 5);
+            var visible = filasDe("grabaciones", 11);
+            var start = Math.max(0, recIdx - Math.floor((visible - 1) / 2));
             var end = Math.min(recordings.length, start + visible);
             if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
@@ -1483,6 +1555,7 @@
         h += '<div class="help">' + ayuda + ' <span data-tecla="39">▶</span> Borrar <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
+        medirFilas("grabaciones", visible, function() { renderRecordings(null); });
     }
 
     function statusLabel(s) {
