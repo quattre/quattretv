@@ -47,6 +47,28 @@ Toca produccion, asi que con calma y canal por canal:
 Esto no es solo para Samsung: la normativa española de accesibilidad audiovisual
 pide lo mismo, con app o sin ella.
 
+## Como se hace sin romper produccion
+
+cdn10 y cdn11 estan sirviendo a espectadores en directo ahora mismo. Las reglas,
+antes de tocar nada:
+
+1. **No se cambia lo que ya consumen los clientes.** El `index.m3u8` de cada
+   canal se queda EXACTAMENTE como esta. Las pistas nuevas van en una lista
+   maestra aparte, con otro nombre. Es añadir, no modificar: si la lista nueva
+   sale mal, nadie se entera porque nadie la esta pidiendo todavia.
+2. **Un canal, y de los de menos audiencia.** Cada canal es su propia unidad de
+   systemd (`ffmpeg-hls@<canal>`) con su fichero de entorno, asi que se puede
+   cambiar uno sin rozar los otros 80. Eso es una suerte y hay que aprovecharla.
+3. **Con la vuelta atras preparada antes de empezar**: copia del fichero de
+   entorno y el comando de restaurar escrito y probado, no improvisado.
+4. **El portal no estrena la lista nueva hasta que este comprobada**, y cuando
+   lo haga, primero solo en los aparatos de prueba. Un MAG de un cliente no
+   puede ser el primero en encontrarse una lista distinta.
+5. **A una hora tranquila**, no en horario de maxima audiencia.
+
+Y una comprobacion previa que no cuesta nada: mirar cuanta gente hay viendo el
+canal elegido antes de tocarlo.
+
 ## Estado
 
 - 07/09/2026: detectado. El envio a Samsung se deja en borrador hasta tenerlo.
