@@ -94,15 +94,16 @@
     // llama tambien, que no estorba.
     function abrirTeclado(input) {
         if (!input) return;
-        // El soltar-y-volver-a-coger el foco es un apaño para webOS: alli el
-        // teclado solo sale cuando un campo LO RECIBE, y si ya lo tenia no pasa
-        // nada. En Tizen no hace falta -- el teclado sale igual -- y ademas es
-        // dañino: al soltar el foco, el teclado del televisor se queda
-        // escribiendo en el vacio y no llega ni una letra al campo.
-        var esTizen = (typeof tizen !== 'undefined');
-        if (!esTizen) {
-            try { input.blur(); } catch(e) {}
-        }
+        // En Tizen, el teclado propio. El del televisor va a rachas: unas veces
+        // sale y escribe y otras sale y no llega ni una letra al campo, sin
+        // patron y sin forma de forzarlo desde aqui.
+        if (esTizen()) { abrirTecladoPropio(input); return; }
+
+        // En webOS y en los decos se sigue usando el del aparato, que ahi
+        // funciona y ya paso la revision de LG. El soltar-y-volver-a-coger el
+        // foco es un apaño para webOS: alli el teclado solo sale cuando un campo
+        // LO RECIBE, y si ya lo tenia no pasa nada.
+        try { input.blur(); } catch(e) {}
         try { input.focus(); } catch(e) {}
         try {
             if (typeof(gSTB) !== 'undefined' && gSTB.ShowVirtualKeyboard) {
@@ -111,6 +112,120 @@
                 stb.ShowVirtualKeyboard();
             }
         } catch(e) {}
+    }
+
+
+    // ---------- Teclado propio ----------
+    //
+    // El televisor tiene el suyo, pero en Tizen no es de fiar: unas veces sale y
+    // escribe, otras sale y no llega ni una letra al campo, y desde la
+    // aplicacion no hay forma de obligarlo. Es el peor sitio posible para un
+    // fallo intermitente -- si un revisor no consigue teclear su usuario,
+    // rechaza la app sin haber visto nada mas.
+    //
+    // Este se dibuja aqui y solo necesita flechas y OK. En webOS y en los decos
+    // se sigue usando el del aparato, que ahi funciona y ya paso la revision de
+    // LG: no se toca lo que esta en revision.
+    var FILAS_TECLADO = [
+        ['1','2','3','4','5','6','7','8','9','0'],
+        ['q','w','e','r','t','y','u','i','o','p'],
+        ['a','s','d','f','g','h','j','k','l','n'],
+        ['z','x','c','v','b','m','@','.','-','_'],
+        [{t:'MAYUS', a:'mayus'}, {t:'ESPACIO', a:'car', v:' '},
+         {t:'BORRAR', a:'borrar'}, {t:'LISTO', a:'cerrar'}]
+    ];
+    var tecladoAbierto = false;
+    var tFila = 1, tCol = 0, tMayus = false, tCampo = null;
+
+    // Ojo: NO vale preguntar por el objeto 'tizen'. Solo existe en la pagina
+    // que va dentro del paquete de la aplicacion; esta se sirve desde nuestro
+    // servidor y aqui es una pagina web normal, asi que 'tizen' no esta y la
+    // comprobacion daba siempre que no. Es la misma trampa que dejo sin
+    // funcionar el registro de los botones de color.
+    function esTizen() {
+        return (navigator.userAgent || '').toLowerCase().indexOf('tizen') >= 0;
+    }
+
+    function abrirTecladoPropio(input) {
+        tCampo = input;
+        tecladoAbierto = true;
+        tFila = 1; tCol = 0; tMayus = false;
+        document.body.className = 'con-teclado';
+        document.getElementById('teclado').style.display = 'block';
+        // Se le quita el foco al campo a proposito: si lo conserva, Tizen saca
+        // ademas SU teclado encima del nuestro y se pisan.
+        try { input.blur(); } catch (e) {}
+        pintarTeclado();
+    }
+
+    function cerrarTecladoPropio() {
+        tecladoAbierto = false;
+        document.body.className = '';
+        document.getElementById('teclado').style.display = 'none';
+        if (tCampo) { try { tCampo.focus(); } catch (e) {} }
+    }
+
+    function pintarTeclado() {
+        var h = '';
+        for (var f = 0; f < FILAS_TECLADO.length; f++) {
+            h += '<div class="fila">';
+            for (var c = 0; c < FILAS_TECLADO[f].length; c++) {
+                var k = FILAS_TECLADO[f][c];
+                var rotulo = (typeof k === 'string') ? (tMayus ? k.toUpperCase() : k) : k.t;
+                var clases = 'tec' + (typeof k === 'string' ? '' : ' ancha') +
+                             ((f === tFila && c === tCol) ? ' sel' : '');
+                h += '<div class="' + clases + '">' + rotulo + '</div>';
+            }
+            h += '</div>';
+        }
+        document.getElementById('teclado-teclas').innerHTML = h;
+        var nombre = (tCampo && tCampo.id === 'password') ? 'Contrasena' : 'Usuario';
+        var escrito = tCampo ? tCampo.value : '';
+        if (tCampo && tCampo.id === 'password') escrito = escrito.replace(/./g, '*');
+        document.getElementById('teclado-destino').innerHTML =
+            nombre + ': ' + (escrito ? escrito : '(vacio)');
+    }
+
+    function moverTeclado(df, dc) {
+        tFila += df;
+        if (tFila < 0) tFila = 0;
+        if (tFila > FILAS_TECLADO.length - 1) tFila = FILAS_TECLADO.length - 1;
+        tCol += dc;
+        if (tCol < 0) tCol = 0;
+        if (tCol > FILAS_TECLADO[tFila].length - 1) tCol = FILAS_TECLADO[tFila].length - 1;
+        pintarTeclado();
+    }
+
+    function pulsarTecla() {
+        var k = FILAS_TECLADO[tFila][tCol];
+        if (typeof k === 'string') {
+            if (tCampo) tCampo.value += (tMayus ? k.toUpperCase() : k);
+        } else if (k.a === 'mayus') {
+            tMayus = !tMayus;
+        } else if (k.a === 'car') {
+            if (tCampo) tCampo.value += k.v;
+        } else if (k.a === 'borrar') {
+            if (tCampo) tCampo.value = tCampo.value.slice(0, -1);
+        } else if (k.a === 'cerrar') {
+            cerrarTecladoPropio();
+            return;
+        }
+        pintarTeclado();
+    }
+
+    // Devuelve true si la tecla era para el teclado y ya se ha atendido.
+    function tecladoAtiende(key) {
+        if (!tecladoAbierto) return false;
+        if (key === 37) { moverTeclado(0, -1); return true; }
+        if (key === 39) { moverTeclado(0, 1); return true; }
+        if (key === 38) { moverTeclado(-1, 0); return true; }
+        if (key === 40) { moverTeclado(1, 0); return true; }
+        if (key === 13) { pulsarTecla(); return true; }
+        // Atras: 461 en LG, 10009 en Samsung, 8 y 27 en teclado normal.
+        if (key === 461 || key === 10009 || key === 8 || key === 27) {
+            cerrarTecladoPropio(); return true;
+        }
+        return false;
     }
 
     function showKeyboard(inputId) {
@@ -255,6 +370,12 @@
     document.onkeydown = function(e) {
         var key = e.keyCode;
         apuntarTecla(e);
+        // El teclado propio va primero: mientras esta abierto se queda con las
+        // flechas y con OK, que si no moverian el foco del formulario de detras.
+        if (tecladoAtiende(key)) {
+            if (e.preventDefault) e.preventDefault();
+            return false;
+        }
         if (quizaDiagnostico(key)) return;
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
 
@@ -262,7 +383,8 @@
         // se enfoca el de usuario. Sin esto, en un televisor que no haya hecho
         // caso al foco inicial no se puede escribir nada y no hay forma de
         // saber por que: las teclas se pierden en silencio.
-        if (!campoConFoco() && document.activeElement.tagName !== 'BUTTON') {
+        if (!tecladoAbierto && !campoConFoco() &&
+                document.activeElement.tagName !== 'BUTTON') {
             enfocar('username');
         }
 
@@ -322,6 +444,37 @@
            centrado sobre 1080, el campo se iba fuera de la vista: se escribia
            bien pero no se veia nada, y parecia que el teclado no funcionaba.
            Con poca altura se sube todo arriba y se aprieta. */
+        /* ---------- Teclado propio ----------
+           Se dibuja aqui dentro en vez de pedirle el suyo al televisor.
+           El de Tizen va a rachas: unas veces sale y escribe, otras sale y no
+           llega ni una letra al campo, y no hay forma de forzarlo desde la
+           aplicacion. Un revisor que no consiga teclear su usuario rechaza la
+           app sin llegar a ver nada mas, asi que no puede depender de eso.
+           Este solo necesita las flechas y OK, que existen en cualquier mando. */
+        #teclado {
+            display: none; position: fixed; left: 50%; bottom: 40px;
+            transform: translateX(-50%);
+            background: #10161a; border: 1px solid #2b373d; border-radius: 16px;
+            padding: 18px 20px; z-index: 40;
+        }
+        #teclado .fila { white-space: nowrap; }
+        #teclado .tec {
+            display: inline-block; min-width: 74px; margin: 5px;
+            padding: 14px 10px; border-radius: 10px;
+            background: rgba(255,255,255,.05); color: #e8edee;
+            font-size: 30px; text-align: center; vertical-align: middle;
+        }
+        #teclado .tec.ancha { min-width: 150px; font-size: 22px; letter-spacing: 1px; }
+        #teclado .tec.sel {
+            background: #81ba26; color: #0c1113; font-weight: bold;
+            box-shadow: 0 0 0 3px rgba(154,214,47,.35);
+        }
+        #teclado .destino {
+            color: #8a9497; font-size: 20px; margin-bottom: 10px; text-align: center;
+        }
+        /* Con el teclado abierto el formulario se sube, para que se siga viendo
+           lo que se escribe. Sin esto queda tapado y se teclea a ciegas. */
+        body.con-teclado .container { transform: translateY(-170px); }
         @media (max-height: 800px) {
             .container { justify-content: flex-start; padding-top: 20px; min-height: 0; }
             h1 { font-size: 30px; margin-bottom: 2px; }
@@ -330,7 +483,8 @@
             button { padding: 8px 20px; }
             #ayuda { font-size: 13px; margin-top: 10px; }
             #msg { margin: 8px; }
-            #diag { display: none !important; }
+    
+        #diag { display: none !important; }
         }
         /* A tamaño de television. Esto se mira a tres metros, no a medio
            metro, y es la primera pantalla que ve un cliente nuevo. */
@@ -389,6 +543,8 @@
                  que esta pasando es que la propia app lo escriba en pantalla y
                  alguien lo lea en voz alta. -->
             <div id="diag"></div>
+        </div>
+        <div id="teclado"><div class="destino" id="teclado-destino"></div><div id="teclado-teclas"></div>
         </div>
     </div>
 </body>
