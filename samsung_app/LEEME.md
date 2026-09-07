@@ -42,9 +42,16 @@ sola**, sin reempaquetar ni volver a pasar por ninguna tienda.
 Antes de dar por bueno lo que decidimos para LG, hay que mirar si Samsung tiene
 las mismas reglas en dos puntos concretos:
 
-- **Contenido para adultos.** LG lo prohíbe sin un contrato aparte, y por eso el
-  canal +18 no viaja a sus televisores. Si Samsung es igual, se activa su casilla
-  en el panel y listo.
+- ~~**Contenido para adultos.**~~ **Resuelto el 07/09/2026: Samsung es más
+  estricto que LG.** Su política de clasificación por edades dice que *«las
+  aplicaciones no pueden contener contenido violento o pornográfico»*, sin
+  excepciones y **sin la vía del contrato aparte que sí ofrece LG**. Sí admite
+  temática adulta en la categoría 18+ —referencias al sexo, comportamiento
+  sexual sin detalle—, pero pornografía no, con ninguna clasificación.
+
+  El canal 29 ya está oculto para `samsung` además de para `lg`: un MAG ve 81
+  canales y una LG o una Samsung, 80. Se cambia con un clic en la ficha del
+  canal, en `/channels/`.
 - **Caducidad del modo desarrollador.** El de LG dura 50 horas y al caducar
   **borra la app del televisor**. Conviene saber si el de Samsung hace lo mismo
   antes de dejar pruebas a medias.
