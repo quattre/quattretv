@@ -1,10 +1,18 @@
 # Accesos y datos de las apps de QuattreTV
 
-**Este fichero está fuera del repositorio a propósito.** Vive en
-`/home/sergio/envio-lg/`, que no es un git, así que nada de esto se sube a
-GitHub. Si algún día se mueve, que no acabe dentro de `quattretv/`.
+> **CUIDADO: esta copia SÍ está en el repositorio y se sube a GitHub.**
+> Aquí van los datos que no son secretos: direcciones, cuentas, modelos, rutas,
+> el orden de los pasos. **Ninguna contraseña, ni claves, ni passphrases.**
+>
+> Las claves viven en la copia de `/home/sergio/envio-lg/ACCESOS.md`, que está
+> fuera de git. Cuando este fichero necesite referirse a una, se pone «ver la
+> copia local» y nada más.
+>
+> El aviso va aquí arriba porque la cabecera anterior decía justo lo contrario
+> —que el fichero estaba fuera del repositorio— y una vez ya se colaron las
+> contraseñas por creerselo.
 
-Última revisión: 31/08/2026.
+Última revisión: 07/09/2026.
 
 ---
 
