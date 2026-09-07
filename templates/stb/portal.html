@@ -686,7 +686,7 @@
         // guia y desde las grabaciones, asi que hay que dejarlo dicho.
         view = "list";
         guiaDesdeFullscreen = false;
-        fichaDesdeFullscreen = false;
+        fichaVieneDe = "guia";
         graficosDelanteInsistiendo();
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
@@ -1246,11 +1246,18 @@
     var fichaScrollMax = 0;
     var PASO_FICHA = 90;        // px que se desplaza cada pulsacion
 
-    var fichaDesdeFullscreen = false;
+    // De donde se abrio la ficha, para saber a donde devolver al cerrarla:
+    // "guia", "lista" o "fullscreen". Antes esto era un si/no de pantalla
+    // completa y la lista no estaba contemplada: abrir la informacion desde el
+    // listado de canales y volver atras dejaba al usuario en la guia, en un
+    // sitio en el que no habia estado. Y encima en una guia falsa, porque
+    // mostrarInfoPrograma reescribe 'guide' con los dos programas del canal.
+    var fichaVieneDe = "guia";
     var guiaDesdeFullscreen = false;
 
-    function abrirFicha() {
+    function abrirFicha(origen) {
         if (!guide[guideIdx]) return;
+        fichaVieneDe = origen || "guia";
         view = "ficha";
         fichaScroll = 0;
         renderFicha();
@@ -1259,11 +1266,18 @@
     // Volver de la ficha al sitio del que se vino, que no siempre es la guia:
     // desde pantalla completa hay que devolver el video, no la lista.
     function salirDeFicha() {
-        if (fichaDesdeFullscreen) {
-            fichaDesdeFullscreen = false;
+        var de = fichaVieneDe;
+        fichaVieneDe = "guia";
+
+        if (de === "fullscreen") {
             view = "list";
             document.getElementById("content").style.display = "none";
             graficosDelanteInsistiendo();
+            return;
+        }
+        if (de === "lista") {
+            view = "list";
+            showChannels();
             return;
         }
         view = "guide";
@@ -1275,7 +1289,7 @@
     // en ese canal.
     function mostrarInfoPrograma() {
         if (view === "ficha") return;
-        if (view === "guide") { abrirFicha(); return; }
+        if (view === "guide") { abrirFicha("guia"); return; }
 
         var idx = (isFullscreen && playingChannelIdx >= 0) ? playingChannelIdx : currentChannel;
         var ch = channels[idx];
@@ -1288,11 +1302,10 @@
             guideChannel = ch;
             guide = lista;
             guideIdx = 0;
-            fichaDesdeFullscreen = isFullscreen;
             if (isFullscreen) {
                 document.getElementById("content").style.display = "block";
             }
-            abrirFicha();
+            abrirFicha(isFullscreen ? "fullscreen" : "lista");
         });
     }
 

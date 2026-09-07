@@ -10,7 +10,15 @@
     function setMacAndReload(mac) {
         mac = mac.replace(/%3A/g, ':').replace(/-/g, ':').toUpperCase().trim();
         document.cookie = 'mac=' + mac + '; path=/; max-age=31536000';
-        setTimeout(function() { location.reload(); }, 200);
+        // Se va a la direccion limpia, sin lo que llevara detras.
+        //
+        // Antes se recargaba la misma, y si llevaba '?logout=1' -- que es como
+        // se cierra sesion -- el servidor volvia a cerrarla nada mas entrar y
+        // devolvia al formulario. Bucle: se metia usuario y contraseña, se
+        // aceptaba, y aparecia otra vez la pantalla de acceso sin decir nada.
+        setTimeout(function() {
+            location.replace(location.pathname);
+        }, 200);
     }
 
     // Cuando el servidor nos dice que la MAC no esta dada de alta, hay que pedir
@@ -317,9 +325,12 @@
             #msg { margin: 8px; }
             #diag { display: none !important; }
         }
-        h1 { color: #81ba26; font-size: 42px; margin-bottom: 5px; }
-        h2 { color: #888; font-weight: normal; font-size: 16px; margin-bottom: 40px; }
-        #ayuda { color: #6d7679; font-size: 15px; margin-top: 18px; }
+        /* A tamaño de television. Esto se mira a tres metros, no a medio
+           metro, y es la primera pantalla que ve un cliente nuevo. */
+        h1 { color: #81ba26; font-size: 88px; margin-bottom: 8px;
+             font-family: Antonio, 'Segoe UI', Arial, sans-serif; letter-spacing: 1px; }
+        h2 { color: #98a3a6; font-weight: normal; font-size: 26px; margin-bottom: 50px; }
+        #ayuda { color: #8a9497; font-size: 22px; margin-top: 26px; }
         #diag {
             display: none; margin-top: 22px; padding: 14px 18px;
             background: #0c1113; border: 1px solid #2b373d; border-radius: 8px;
@@ -327,14 +338,18 @@
             text-align: left; line-height: 1.6; max-width: 760px;
         }
         #diag b { color: #e6ebe8; font-weight: normal; }
-        #msg { color: #81ba26; font-size: 16px; margin: 15px; min-height: 20px; }
+        #msg { color: #81ba26; font-size: 24px; margin: 20px; min-height: 30px; }
         #login { display: none; text-align: center; }
-        input { font-size: 20px; padding: 12px 20px; width: 280px; margin: 8px 0; border: 2px solid #333; border-radius: 8px;
+        input { font-size: 30px; padding: 16px 26px; width: 520px; margin: 12px 0; border: 2px solid #333; border-radius: 10px;
                 background: #0f0f23; color: #fff; }
         input:focus { outline: none; border-color: #81ba26; }
-        button { font-size: 18px; padding: 12px 50px; margin-top: 15px; background: #81ba26; color: #fff;
-                 border: none; border-radius: 8px; cursor: pointer; }
-        button:hover, button:focus { background: #6fa11f; }
+        button { font-size: 28px; padding: 16px 64px; margin-top: 22px; background: #81ba26; color: #fff;
+                 border: 3px solid transparent; border-radius: 10px; cursor: pointer; }
+        button:hover { background: #6fa11f; }
+        /* El foco tiene que verse a distancia: con el mando es lo unico que
+           dice donde estas, y antes solo cambiaba un poco el verde. */
+        button:focus { background: #6fa11f; border-color: #f2f5f3; outline: none; }
+        input:focus { outline: none; border-color: #9ad62f; }
     </style>
 </head>
 <body>
