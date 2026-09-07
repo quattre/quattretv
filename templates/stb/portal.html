@@ -597,6 +597,38 @@
         renderGenres();
     }
 
+    // ---------- Por donde va asomada la lista ----------
+    //
+    // Una television normal no lleva el cursor clavado en el centro: la fila
+    // marcada baja por las filas y la lista se queda quieta, y solo cuando el
+    // cursor llega al borde de abajo empieza a correr. Al subir, igual.
+    //
+    // Antes se recalculaba la ventana en cada paso para dejar la fila marcada
+    // en medio. Con seis filas eso deja el cursor pegado a la tercera: parecia
+    // que se quedaba clavado ahi mientras los nombres se movian solos por
+    // debajo, que no es como se comporta ninguna tele.
+    //
+    // Asi que la ventana se guarda y solo se mueve cuando el cursor se sale por
+    // un borde. Se recentra cuando la lista se abre de nuevas o cuando cambia
+    // de contenido —otro genero, otro canal en la guia—, para que lo marcado no
+    // aparezca pegado a un extremo.
+    var ventanas = {};
+
+    function ventanaDe(lista, idx, visible, total) {
+        var v = ventanas[lista];
+        var start;
+        if (!v || v.total !== total) {
+            start = idx - Math.floor((visible - 1) / 2);
+        } else {
+            start = v.start;
+            if (idx < start) start = idx;
+            else if (idx > start + visible - 1) start = idx - visible + 1;
+        }
+        start = Math.max(0, Math.min(start, Math.max(0, total - visible)));
+        ventanas[lista] = { start: start, total: total };
+        return start;
+    }
+
     // ---------- Cuantas filas caben de verdad ----------
     //
     // Cada lista llevaba escrito a mano cuantas filas pintaba: 11 canales, 9
@@ -668,9 +700,8 @@
         h += '<div class="header"><div class="logo">Categorias</div></div>';
         h += '<div class="list">';
         var visible = filasDe("generos", 11);
-        var start = Math.max(0, genreIdx - Math.floor((visible - 1) / 2));
+        var start = ventanaDe("generos", genreIdx, visible, genres.length);
         var end = Math.min(genres.length, start + visible);
-        if (end - start < visible) start = Math.max(0, end - visible);
         for (var i = start; i < end; i++) {
             var g = genres[i];
             var cls = (i === genreIdx) ? "item sel" : "item";
@@ -867,9 +898,8 @@
             h += '<div style="color:#666;padding:20px;">No hay peliculas en el catalogo</div>';
         } else {
             var visible = filasDe("peliculas", 9);
-            var start = Math.max(0, vodIdx - Math.floor((visible - 1) / 2));
+            var start = ventanaDe("peliculas", vodIdx, visible, vod.length);
             var end = Math.min(vod.length, start + visible);
-            if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
                 var p = vod[i];
                 var cls = (i === vodIdx) ? "item sel" : "item";
@@ -934,9 +964,8 @@
             h += '<div style="color:#666;padding:20px;">No hay series en el catalogo</div>';
         } else {
             var visible = filasDe("series", 10);
-            var start = Math.max(0, serieIdx - Math.floor((visible - 1) / 2));
+            var start = ventanaDe("series", serieIdx, visible, series.length);
             var end = Math.min(series.length, start + visible);
-            if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
                 var s = series[i];
                 var cls = (i === serieIdx) ? "item sel" : "item";
@@ -983,9 +1012,8 @@
             h += '<div style="color:#666;padding:20px;">Esta serie no tiene capitulos cargados</div>';
         } else {
             var visible = filasDe("capitulos", 10);
-            var start = Math.max(0, capIdx - Math.floor((visible - 1) / 2));
+            var start = ventanaDe("capitulos", capIdx, visible, capitulos.length);
             var end = Math.min(capitulos.length, start + visible);
-            if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
                 var cap = capitulos[i];
                 var cls = (i === capIdx) ? "item sel" : "item";
@@ -1140,9 +1168,8 @@
 
         h += '<div class="list">';
         var visible = filasDe("canales", 11);
-        var start = Math.max(0, currentChannel - Math.floor((visible - 1) / 2));
+        var start = ventanaDe("canales", currentChannel, visible, channels.length);
         var end = Math.min(channels.length, start + visible);
-        if (end - start < visible) start = Math.max(0, end - visible);
         for (var i = start; i < end; i++) {
             var c = channels[i];
             var cls = (i === currentChannel) ? "item sel" : "item";
@@ -1205,6 +1232,7 @@
         guideChannel = ch;
         guide = [];
         guideIdx = 0;
+        delete ventanas["guia"];
         view = "guide";
         document.getElementById("content").innerHTML =
             '<div class="panel"><div class="header"><div class="logo">Guia</div></div>' +
@@ -1259,9 +1287,8 @@
         } else {
             h += '<div class="list">';
             var visible = filasDe("guia", 9);
-            var start = Math.max(0, guideIdx - Math.floor((visible - 1) / 2));
+            var start = ventanaDe("guia", guideIdx, visible, guide.length);
             var end = Math.min(guide.length, start + visible);
-            if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
                 var p = guide[i];
                 var cls = (i === guideIdx) ? "item sel" : "item";
@@ -1534,9 +1561,8 @@
             h += '<div style="color:#666;padding:20px;">Todavia no hay grabaciones</div>';
         } else {
             var visible = filasDe("grabaciones", 11);
-            var start = Math.max(0, recIdx - Math.floor((visible - 1) / 2));
+            var start = ventanaDe("grabaciones", recIdx, visible, recordings.length);
             var end = Math.min(recordings.length, start + visible);
-            if (end - start < visible) start = Math.max(0, end - visible);
             for (var i = start; i < end; i++) {
                 var r = recordings[i];
                 var cls = (i === recIdx) ? "item sel" : "item";
