@@ -56,10 +56,13 @@ if [ -f "$WGT" ]; then
     echo "  sdb connect <ip-del-televisor>"
     echo "  tizen install -n QuattreTV.wgt -- \"$SALIDA\""
     echo
-    echo "OJO: este paquete va firmado con el certificado de pruebas que trae"
-    echo "Tizen Studio. Sirve para el Remote Test Lab y para un televisor en modo"
-    echo "desarrollador, NO para publicar. Para la tienda hace falta el"
-    echo "certificado de distribucion de Samsung, y poner en config.xml el"
-    echo "identificador de paquete que ellos asignen -- ahora lleva 'QuattreTV0',"
-    echo "que es de mentira."
+    echo "OJO: este paquete va firmado con el certificado de desarrollo de
+Samsung. Sirve para un televisor en modo desarrollador y para subirlo
+al Seller Office: la firma de distribucion la vuelve a poner la propia
+tienda al recibir la aplicacion.
+
+El identificador de paquete 'QuattreTV0' es el definitivo. Lo elegimos
+nosotros -- diez caracteres alfanumericos, unicos -- y no tiene nada que
+ver con el numero de trece digitos que Samsung asigna a la ficha de la
+tienda."
 fi

@@ -120,9 +120,19 @@
             return n;
         }
 
+        // La lista admite varios servidores y se prueban por orden. Hoy solo
+        // hay uno de verdad.
+        //
+        // Aqui figuraba tambien 'https://iptv1.quattre.com' como respaldo, y no
+        // podia funcionar: iptv1 es la plataforma vieja, no atiende por HTTPS
+        // -- ni siquiera acepta la conexion -- y aunque la atendiera no sirve
+        // este portal, que solo vive en iptv2. Lo unico que conseguia era
+        // gastar los 8 segundos de espera antes de dar el error, dando la falsa
+        // sensacion de que habia una red de seguridad detras.
+        //
+        // Cuando exista un segundo servidor de verdad, se añade aqui.
         var SERVIDORES = [
-            'https://iptv2.quattre.com',
-            'https://iptv1.quattre.com'
+            'https://iptv2.quattre.com'
         ];
         var RUTA_PORTAL = '/quattretv/stb/';
         var ESPERA = 8000;   // ms que se le dan a cada servidor para contestar
