@@ -33,16 +33,57 @@ El problema esta en dos sitios, los dos nuestros:
 
 O sea: **el contenido accesible llega hasta el CDN y ahi se pierde.**
 
+## Lo probado el 07/09/2026 (sin tocar nada de produccion)
+
+**Correccion de lo escrito arriba: las pistas NO se pierden en el CDN.** El
+empaquetado ya las mapea todas -- `-map 0:v? -map 0:a? -map 0:d?` -- asi que los
+tres audios y el teletexto viajan dentro de los segmentos. El problema esta mas
+adelante.
+
+Se probaron dos cosas en el Samsung TU32H5005:
+
+1. **Con la lista plana de hoy**, el reproductor dice `audioTracks: 0` y
+   `textTracks: 0`, aunque los segmentos lleven tres audios.
+2. **Con una lista maestra en condiciones**, generada aqui en local desde el HLS
+   publico y declarando las tres pistas con `#EXT-X-MEDIA` -- servida como
+   ficheros estaticos desde iptv2 y borrada despues --, el televisor **sigue
+   diciendo 0**.
+
+O sea: **no basta con empaquetarlo bien**. El reproductor web de Tizen no expone
+la API estandar de pistas por muy correcta que sea la lista.
+
+Y el ffmpeg de cdn10 y cdn11 es un **8.0 compilado a mano SIN libzvbi**, asi que
+tampoco puede decodificar el teletexto para sacar los subtitulos. Habria que
+recompilarlo en las dos maquinas. cdn10 estaba con **carga 14,9**.
+
 ## Por donde iria el arreglo
 
 Toca produccion, asi que con calma y canal por canal:
 
-- En el empaquetado de cdn10/cdn11 (`ffmpeg-hls@`), mapear todas las pistas de
-  audio y declararlas en una lista maestra con `#EXT-X-MEDIA`. El teletexto se
-  puede convertir a WebVTT con ffmpeg.
-- En el portal, un selector de audio y de subtitulos. Los televisores exponen
-  `audioTracks` y `textTracks` cuando la lista los declara.
-- Probar primero en **un solo canal** y con un aparato de pruebas.
+Hay dos caminos y ninguno es de una tarde:
+
+**a) El reproductor nativo de Samsung (`webapis.avplay`).** Si expone las pistas
+y deja elegirlas. Problema: como el objeto `tizen`, **solo existe dentro del
+paquete**, y nuestro portal se sirve desde el servidor. Habria que meter la
+reproduccion en el envoltorio, con lo que se pierde justo lo que hace comoda
+esta arquitectura: que un arreglo llegue a todas las teles sin pasar por la
+tienda. Y habria que hacerlo distinto en cada marca.
+
+**b) Reproducir con hls.js en la propia pagina.** Ahi el cambio de pista de
+audio y los subtitulos WebVTT los gestiona el JavaScript, sin depender de la API
+del televisor, y vale igual para Samsung, LG y los decos. Es el camino que
+mantiene una sola aplicacion. El riesgo es que se pasa de la reproduccion nativa
+del televisor a una por software: hay que medir consumo y fluidez en los
+aparatos mas flojos antes de cambiar nada.
+
+Ademas, para los subtitulos:
+
+- Recompilar ffmpeg con `--enable-libzvbi` en cdn10 y cdn11, y convertir el
+  teletexto a WebVTT.
+- Declarar las pistas en una lista maestra, **con otro nombre**, sin tocar el
+  `index.m3u8` de hoy.
+- Ojo con el coste: hoy se codifica un AAC por canal; exponer tres audios son
+  tres codificaciones. Con cdn10 en carga 14,9 eso hay que medirlo antes.
 
 Esto no es solo para Samsung: la normativa española de accesibilidad audiovisual
 pide lo mismo, con app o sin ella.
