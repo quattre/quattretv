@@ -1190,12 +1190,21 @@
             // Sin simbolo de archivo: ver el comentario en osdFor.
             if (c.locked) h += ' <span class="lock">🔒</span>';
             h += '</div>';
-            if (c.cur_playing) {
-                h += '<div class="epg">' + esc(c.cur_playing);
-                if (c.epg_cur_end) h += ' <span class="t">hasta ' + esc(c.epg_cur_end) + '</span>';
-                h += '</div>';
-                h += '<div class="bar"><i style="width:' + (c.epg_progress || 0) + '%"></i></div>';
-            }
+            // El programa y la barra de avance van SIEMPRE, haya programacion o
+            // no. Pintandolos solo cuando hay EPG, las filas de los canales que
+            // no la tienen salen mas bajas, y entonces la lista pega un salto
+            // cada vez que el cursor pasa por una: subiendo y bajando se nota
+            // mucho. Se reserva el sitio y se oculta el contenido, que es lo
+            // mismo que se hizo con las pistas de la barra de informacion.
+            //
+            // Se puede reservar sin miedo porque las dos lineas son de una sola
+            // linea de alto: .name y .epg van con nowrap y puntos suspensivos,
+            // asi que un titulo largo no cambia la altura de la fila.
+            var sinEpg = c.cur_playing ? '' : ' style="visibility:hidden"';
+            h += '<div class="epg"' + sinEpg + '>' + esc(c.cur_playing || '-');
+            if (c.epg_cur_end) h += ' <span class="t">hasta ' + esc(c.epg_cur_end) + '</span>';
+            h += '</div>';
+            h += '<div class="bar"' + sinEpg + '><i style="width:' + (c.epg_progress || 0) + '%"></i></div>';
             h += '</div></div>';
         }
         h += '</div>';
