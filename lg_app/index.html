@@ -120,19 +120,19 @@
             return n;
         }
 
-        // La lista admite varios servidores y se prueban por orden. Hoy solo
-        // hay uno de verdad.
+        // Los servidores, por orden de preferencia.
         //
-        // Aqui figuraba tambien 'https://iptv1.quattre.com' como respaldo, y no
-        // podia funcionar: iptv1 es la plataforma vieja, no atiende por HTTPS
-        // -- ni siquiera acepta la conexion -- y aunque la atendiera no sirve
-        // este portal, que solo vive en iptv2. Lo unico que conseguia era
-        // gastar los 8 segundos de espera antes de dar el error, dando la falsa
-        // sensacion de que habia una red de seguridad detras.
+        // Van los dos a proposito, aunque hoy solo conteste iptv2: este fichero
+        // viaja DENTRO del paquete que se sube a la tienda, y cambiarlo obliga a
+        // reenviar la aplicacion y a esperar otra revision. Cuando el servicio
+        // de los decos se migre, la app ya sabra encontrarlo sin tocar nada.
         //
-        // Cuando exista un segundo servidor de verdad, se añade aqui.
+        // Hoy iptv1 es la plataforma vieja: solo tiene el puerto 80 y lo que
+        // sirve es el portal de Ministra, otro sistema. No pasa nada porque este
+        // en la lista, porque no basta con contestar -- ver comprobarSondeo.
         var SERVIDORES = [
-            'https://iptv2.quattre.com'
+            'https://iptv2.quattre.com',
+            'https://iptv1.quattre.com'
         ];
         var RUTA_PORTAL = '/quattretv/stb/';
         var ESPERA = 8000;   // ms que se le dan a cada servidor para contestar
@@ -229,13 +229,25 @@
                     return;
                 }
 
+                // No basta con que conteste: tiene que decir que es de los
+                // nuestros. Antes valia cualquier estado entre 200 y 499, o sea
+                // que un simple 404 de cualquier servidor web pasaba por bueno.
+                // Y eso importa: iptv1 responde 404 a /ping y redirige nuestra
+                // ruta al portal de Ministra, asi que el dia que se le pusiera
+                // HTTPS la aplicacion se habria ido al sistema viejo -- otro
+                // aspecto, otra sesion, y el cliente sin entender nada. Peor que
+                // no arrancar. El /ping de los nuestros devuelve {"ok": true}.
+                var js = null;
+                try { js = JSON.parse(pet.responseText); } catch (e) {}
+                if (!js || js.ok !== true) {
+                    probar(indice + 1, lista);
+                    return;
+                }
+
                 // Si el servidor dice a donde ir, se le hace caso. Asi se puede
                 // mover a los clientes sin tocar la app.
                 var destino = base + RUTA_PORTAL;
-                try {
-                    var js = JSON.parse(pet.responseText);
-                    if (js && js.portal) { destino = js.portal; }
-                } catch (e) {}
+                if (js.portal) { destino = js.portal; }
 
                 // Se recuerda cual ha contestado para empezar por el la
                 // proxima vez y ahorrarse el recorrido.
