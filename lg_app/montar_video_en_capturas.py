@@ -70,16 +70,21 @@ def es_pantalla_completa(captura):
     return blancos < (120 * 120) * 0.5
 
 
-# Las capturas de emisoras de radio no llevan video: en su sitio va la tarjeta
-# con el nombre de la emisora y las barras. Meterles un fotograma de television
-# encima tapa la tarjeta y ademas es mentira -- una emisora no tiene imagen.
-SIN_VIDEO = ('radio',)
+# Capturas que no llevan video y a las que no hay que montarles nada:
+#
+#   - las emisoras de radio, que en vez de imagen tienen una tarjeta con el
+#     nombre y las barras; el fotograma la tapaba, y ademas es mentira porque
+#     una emisora no tiene imagen.
+#   - la pantalla de acceso, que es anterior a cualquier reproduccion. Aqui el
+#     fallo era mas llamativo: salia un partido de futbol incrustado detras del
+#     formulario de usuario y contraseña.
+SIN_VIDEO = ('radio', 'acceso')
 
 
 def montar(ruta_captura, fotograma, destino):
     if any(m in os.path.basename(ruta_captura).lower() for m in SIN_VIDEO):
         shutil.copyfile(ruta_captura, destino)
-        return 'sin video (emisora de radio), se copia tal cual'
+        return 'sin video en esta pantalla, se copia tal cual'
 
     captura = Image.open(ruta_captura).convert('RGB')
     ancho, alto = captura.size

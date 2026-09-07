@@ -2,6 +2,13 @@
 <html>
 <head>
     <title>QuattreTV</title>
+    <!-- La tipografia de la marca. Estaba declarada abajo en el h1 pero no se
+         cargaba en ningun sitio, asi que caia siempre en Arial: la primera
+         pantalla que ve un cliente era justo la unica sin la letra de Quattre.
+         El portal la carga asi desde el principio; esto lo iguala. Con
+         'display=swap', si Google no contesta se ve igual que hasta hoy. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap" rel="stylesheet">
     <script>
     function log(msg) {
         document.getElementById('msg').innerHTML = msg;

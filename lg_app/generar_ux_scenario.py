@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Genera el UX Scenario en el formato que pide LG.
+Genera el UX Scenario en el formato que pide LG, y el equivalente de Samsung.
+
+Es el mismo documento con otros datos: cambia el sistema, el mando, la cuenta de
+pruebas y poco mas. Se pasa la plataforma como tercer argumento -- 'lg' o
+'samsung' -- en vez de tener dos ficheros que se van separando solos.
 
 LG entrega una plantilla en PowerPoint (ux_scenario_document_4.4.ppt) y lo que
 espera no es un texto: es un documento visual. Cada pantalla con su captura, un
@@ -33,6 +37,44 @@ import tempfile
 
 from PIL import Image, ImageDraw, ImageFont
 
+# Lo que cambia de una tienda a otra. Todo lo demas del documento es igual
+# porque la aplicacion es la misma: un envoltorio fino sobre el mismo portal.
+PLATAFORMAS = {
+    'lg': {
+        'sistema': 'webOS',
+        'sdk': 'webOS 1.1.0 &mdash; 2014 and all later platforms',
+        'usuario': 'lgreview',
+        'aparato': 'a webOS television',
+        'teclado': 'Focus opens the webOS on-screen keyboard.',
+        'mando': ('Works with both the Magic Remote and a standard remote. Every '
+                  'screen is operable with the 4-way pad, OK and BACK; no pointer is '
+                  'required. With the Magic Remote, rows respond to the pointer '
+                  '&mdash; a single click does the same as moving to the row and '
+                  'pressing OK &mdash; and the wheel scrolls long lists.'),
+        'atras': ('Handled by the app (<code>disableBackHistoryAPI</code> is true). '
+                  'BACK always leads back towards the channel list; from the channel '
+                  'list it opens the main menu. No screen can be got stuck in.'),
+    },
+    'samsung': {
+        'sistema': 'Tizen',
+        'sdk': 'Tizen 4.0 &mdash; 2018 and all later platforms',
+        'usuario': 'samsungreview',
+        'aparato': 'a Tizen television',
+        'teclado': 'Focus opens the television on-screen keyboard.',
+        # Samsung no usa mando con puntero, asi que aqui no se promete ninguno.
+        'mando': ('Every screen is operable with the 4-way pad, OK and RETURN. The '
+                  'four colour buttons are registered with '
+                  '<code>tizen.tvinputdevice.registerKey</code> at start-up, so they '
+                  'reach the application: red records, green marks a favourite, '
+                  'yellow filters favourites and blue opens the guide.'),
+        'atras': ('RETURN (key code 10009) is handled by the app and always leads '
+                  'back towards the channel list; from the channel list it opens the '
+                  'main menu. EXIT (10182) closes the application. No screen can be '
+                  'got stuck in.'),
+    },
+}
+PLATAFORMA = 'lg'          # lo fija main() con el argumento
+
 VERDE = (129, 186, 38)
 ROJO = (214, 45, 45)
 
@@ -47,7 +89,7 @@ PANTALLAS = [
                  'customer\'s device has been removed from their account. On every '
                  'later start the app goes straight to the channel list.',
         'puntos': [
-            (960, 458, 'User name field. Focus opens the webOS on-screen keyboard. '
+            (960, 458, 'User name field. {teclado} '
                        'Move between fields with the up and down keys.'),
             (960, 525, 'Password field, masked. Same keyboard behaviour.'),
             (960, 596, 'Sign-in button. OK on the remote signs in. If the credentials '
@@ -193,9 +235,19 @@ table.datos td:first-child { width: 55mm; background: #f6f8f4; font-weight: 600;
 """
 
 
+def rellenar(texto, datos):
+    for clave, valor in datos.items():
+        texto = texto.replace('{%s}' % clave, valor)
+    return texto
+
+
 def tabla_puntos(puntos):
+    # Las marcas tipo {teclado} se rellenan aqui y no al definir PANTALLAS: esa
+    # lista se construye al importar el fichero, cuando main() todavia no ha
+    # leido que plataforma toca, asi que ahi se quedaba siempre la de LG.
+    datos = PLATAFORMAS[PLATAFORMA]
     filas = ''.join(
-        '<tr><td class="n">%d</td><td>%s</td></tr>' % (n, texto)
+        '<tr><td class="n">%d</td><td>%s</td></tr>' % (n, rellenar(texto, datos))
         for n, (_, _, texto) in enumerate(puntos, 1))
     return ('<table><tr><th colspan="2">Description</th></tr>%s</table>' % filas)
 
@@ -224,13 +276,13 @@ def construir(carpeta, destino):
   <tr><td>Service Area Information</td><td>Spain</td></tr>
   <tr><td>App Service Language</td><td>Spanish</td></tr>
   <tr><td>Geo-IP Block</td><td>No</td></tr>
-  <tr><td>SDK Version</td><td>webOS 1.1.0 &mdash; 2014 and all later platforms</td></tr>
+  <tr><td>SDK Version</td><td>{sdk}</td></tr>
   <tr><td>In-App Ad</td><td>Not Applicable</td></tr>
   <tr><td>Paid Content</td><td>Subscription &mdash; arranged outside the app, at
       quattre.com or in the operator's shops. Nothing can be purchased from the
       television.</td></tr>
   <tr><td>Service URL</td><td>https://iptv2.quattre.com/quattretv/stb/</td></tr>
-  <tr><td>Service Platform</td><td>webOS</td></tr>
+  <tr><td>Service Platform</td><td>{sistema}</td></tr>
 </table>
 <div class="aviso">
 <strong>The service is subscription-only.</strong> Every screen beyond sign-in
@@ -271,12 +323,12 @@ There is no user-generated content, no advertising and no link out of the app.
 <div class="seccion">
 <h2>4. Test account and parental control</h2>
 <table class="datos">
-  <tr><td>User</td><td>lgreview</td></tr>
-  <tr><td>Password</td><td>' + CLAVE_PRUEBA + '</td></tr>
+  <tr><td>User</td><td>{usuario}</td></tr>
+  <tr><td>Password</td><td>{clave}</td></tr>
   <tr><td>Expiry</td><td>None. The account does not expire.</td></tr>
   <tr><td>Devices</td><td>5, with 2 concurrent streams</td></tr>
   <tr><td>Adult content</td><td>None. See below.</td></tr>
-  <tr><td>Subscription</td><td>Live TV: the 80 channels served to webOS, and the
+  <tr><td>Subscription</td><td>Live TV: the 80 channels served to {sistema}, and the
       programme guide. Films, series and recordings are <strong>not</strong>
       enabled on this account, so those menu options do not appear.</td></tr>
   <tr><td>Radio stations</td><td>Channels 1001 to 1016 are radio: audio only, no
@@ -286,17 +338,17 @@ There is no user-generated content, no advertising and no link out of the app.
 <h3 style="margin-top:5mm">Adult content: none</h3>
 <p class="intro"><strong>This application contains no adult material.</strong> Our
 television line-up does include one channel rated for adults; it is
-<strong>excluded from the webOS line-up on the server</strong>, per device type,
+<strong>excluded from the {sistema} line-up on the server</strong>, per device type,
 so it cannot be reached from this app at all.</p>
 <table class="datos" style="max-width:250mm">
-  <tr><td>Not in the list</td><td>The channel is not returned to a webOS television.
-      A webOS set receives 80 channels; the same account on a set-top box receives
+  <tr><td>Not in the list</td><td>The channel is not returned to {aparato}.
+      Such a set receives 80 channels; the same account on a set-top box receives
       81.</td></tr>
   <tr><td>Not by any other route</td><td>Asking for its guide or its address by
       channel id returns an error, not the content. The filter is applied on the
       server, not in the application.</td></tr>
   <tr><td>During this review</td><td><strong>No channel will ask for a PIN</strong>,
-      because none of the 80 channels served to webOS is rated for adults.</td></tr>
+      because none of the 80 channels served to {sistema} is rated for adults.</td></tr>
   <tr><td>The mechanism remains</td><td>The app still ships a PIN lock for the day a
       channel is rated for adults. While a channel is locked the server sends its
       entry <strong>with an empty address</strong>: there is no stream URL on the
@@ -316,7 +368,7 @@ never left black.</p>
 it</strong>. There is no payment screen, no account upgrade and no link to one.</p>
 <p class="intro">The television service itself is a subscription, arranged and paid
 for outside the application &mdash; at quattre.com or in the operator's shops.
-Following LG's guidance, the app is therefore declared as <strong>Subscription</strong>
+Following the store's guidance, the app is therefore declared as <strong>Subscription</strong>
 with third-party billing, even though no payment process exists within the app.</p>
 
 <h2 style="margin-top:8mm">8. In-App Ad</h2>
@@ -325,14 +377,8 @@ kind, no banner ads and no AVOD.</p>
 
 <h2 style="margin-top:8mm">Remote control and behaviour when the network fails</h2>
 <table class="datos" style="max-width:250mm">
-  <tr><td>Remote</td><td>Works with both the Magic Remote and a standard remote. Every
-      screen is operable with the 4-way pad, OK and BACK; no pointer is required.
-      With the Magic Remote, rows respond to the pointer &mdash; a single click does
-      the same as moving to the row and pressing OK &mdash; and the wheel scrolls
-      long lists.</td></tr>
-  <tr><td>BACK key</td><td>Handled by the app (<code>disableBackHistoryAPI</code> is
-      true). BACK always leads back towards the channel list; from the channel list
-      it opens the main menu. No screen can be got stuck in.</td></tr>
+  <tr><td>Remote</td><td>{mando}</td></tr>
+  <tr><td>BACK key</td><td>{atras}</td></tr>
   <tr><td>Colour buttons</td><td>Red records, green marks a favourite, yellow filters
       favourites, blue opens the guide. INFO opens the programme details.</td></tr>
   <tr><td>No network at start</td><td>The app asks the service before loading anything.
@@ -346,8 +392,21 @@ kind, no banner ads and no AVOD.</p>
 </div>
 """)
 
+    # Las marcas {sistema}, {mando}, {usuario}... se rellenan aqui, sobre el
+    # documento ya montado. Se probo a cortar las cadenas y concatenar el valor,
+    # y no vale: los bloques van entre comillas dobles triples y el corte se
+    # escribia con simples, asi que la expresion de Python salia impresa tal
+    # cual en el PDF. Con marcas da igual como este entrecomillado cada trozo.
     html = ('<!DOCTYPE html><html><head><meta charset="utf-8"><style>%s</style>'
             '</head><body>%s</body></html>' % (ESTILO, ''.join(partes)))
+    html = rellenar(html, PLATAFORMAS[PLATAFORMA])
+    # La contraseña de la cuenta de pruebas, por la misma via. Iba cortando
+    # la cadena con comillas simples dentro de un bloque de comillas dobles,
+    # asi que en el PDF salia impreso "' + CLAVE_PRUEBA + '" en vez de la
+    # clave: el revisor no habria podido entrar. En el documento que se envio
+    # a LG estaba bien, o sea que se rompio despues, y no se ve sin abrir el
+    # PDF y mirar esa fila.
+    html = html.replace('{clave}', CLAVE_PRUEBA)
     with tempfile.NamedTemporaryFile('w', suffix='.html', delete=False,
                                      encoding='utf-8') as t:
         t.write(html)
@@ -361,4 +420,8 @@ kind, no banner ads and no AVOD.</p>
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         raise SystemExit(__doc__)
+    if len(sys.argv) > 3:
+        if sys.argv[3] not in PLATAFORMAS:
+            raise SystemExit('Plataforma desconocida: %s. Vale lg o samsung.' % sys.argv[3])
+        PLATAFORMA = sys.argv[3]
     construir(sys.argv[1], sys.argv[2])

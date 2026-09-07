@@ -184,6 +184,16 @@ def main():
         # La MAC es la credencial del portal: sin ella devuelve el formulario de
         # acceso en vez de la aplicacion.
         dominio = url.split('/')[2]
+        # Primero la pantalla de acceso, ANTES de poner la MAC: sin ella el
+        # servidor devuelve el formulario en vez del portal, que es justo lo que
+        # se quiere retratar. Es la seccion 4 del documento para los revisores,
+        # la unica pantalla que ven antes de tener cuenta.
+        nav.manda('Page.navigate', url=url + '?logout=1')
+        time.sleep(4)
+        destino = os.path.join(carpeta, '00-acceso.png')
+        tam = nav.foto(destino)
+        print('  %-16s %-46s %6.1f KB' % ('00-acceso.png', 'La pantalla de acceso', tam / 1024.0))
+
         nav.manda('Network.setCookie', name='mac', value=mac, domain=dominio, path='/')
         nav.manda('Page.navigate', url=url)
         time.sleep(8)
