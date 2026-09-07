@@ -53,9 +53,15 @@ Esto no se puede hacer desde aqui, hace falta entrar en el Seller Office:
 1. **Darse de alta en el TV Seller Office**, que es
    **https://seller.samsungapps.com/tv** y no el portal general de Samsung. Con
    la misma cuenta Samsung, pero es un alta aparte: correo, pais y zona
-   horaria. De ahi sale el **identificador de paquete** de la aplicacion, diez
-   caracteres, que va en dos sitios de `samsung_app/config.xml`, lineas 23 y
-   24, donde ahora pone `QuattreTV0`, que es de mentira.
+   horaria.
+
+   **Cuidado con los dos identificadores, que no son lo mismo.** Al crear la
+   aplicacion, Samsung asigna uno **de trece digitos** —el de QuattreTV es
+   `3202609048187`— y ese es el de la tienda: sirve para la ficha, el soporte y
+   las estadisticas. El **identificador de paquete**, el de diez caracteres que
+   va en `config.xml`, **no lo da Samsung: lo elegimos nosotros** y solo tiene
+   que ser unico. El nuestro es `QuattreTV0`, que son diez caracteres
+   alfanumericos y es valido tal cual. No hay que cambiarlo.
 
    **AVISO IMPORTANTE, y esto cambia el plan.** El alta normal deja en
    *Public Seller*, y un Public Seller **solo puede publicar en Estados
