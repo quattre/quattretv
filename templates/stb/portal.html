@@ -385,6 +385,221 @@
     var relojMudo = null;
     var ESPERAS_VIDEO = [700, 1500, 3000];
 
+    // ---------- Ver el portal en un navegador de escritorio ----------
+    //
+    // El portal esta hecho para un televisor y ahi funciona tal cual. En un
+    // Chrome o un Firefox de mesa fallan dos cosas, y las dos estorban para
+    // probar cambios sin tener la tele delante:
+    //
+    //   1. No reproducen HLS. El televisor si, de forma nativa. Aqui se carga
+    //      hls.js, pero SOLO si hace falta -- en la television no se descarga
+    //      siquiera, porque no se pide.
+    //   2. El lienzo es de 1920x1080 fijo y no cabe en una ventana normal. Se
+    //      escala. En la tele NO se hace: ya se probo y rompia el video, que
+    //      alli va en un plano de hardware aparte y no se deja transformar.
+    //
+    // Todo lo de aqui esta condicionado a que NO sea un televisor, asi que no
+    // puede afectar a los aparatos de los clientes.
+    // En un navegador de mesa el fondo transparente sale blanco, porque no hay
+    // ningun plano de video detras. Solo eso: NO se escala nada.
+    //
+    // Se intento encajar el lienzo de 1920x1080 en la ventana, con transform y
+    // con zoom, y las dos veces salio peor: 'position: fixed' se mide contra la
+    // ventana, y ademas el portal YA trae una maquetacion alternativa para
+    // pantallas de menos de 800 px de alto -- la de los televisores de 720p --
+    // que encaja sola en una ventana normal. Escalar encima la encogia otra vez
+    // y descuadraba el panel contra la barra de informacion.
+    // En un navegador de mesa pasan dos cosas que en un televisor no:
+    //
+    //   - El fondo transparente sale blanco, porque no hay ningun plano de
+    //     video detras.
+    //   - El portal esta hecho a dos tamaños fijos, 1920x1080 y 1280x720, que
+    //     son los dos formatos de television. Una ventana intermedia -- un
+    //     portatil de 1600x900 -- coge la de 720p y la dibuja a su tamaño: todo
+    //     pequeño, arriba a la izquierda, con hueco por abajo y por la derecha.
+    //
+    // Se arregla metiendo la pagina en un lienzo del tamaño para el que esta
+    // diseñada y escalando ESE. Dos avisos, que costaron dos intentos:
+    //
+    //   1. El lienzo tiene que ser un elemento, no el <html>. Un elemento
+    //      transformado establece el marco de referencia de lo que lleva
+    //      dentro, asi que los 'position: fixed' pasan a medirse contra el. Con
+    //      el transform puesto en <html>, o con zoom, se miden contra la
+    //      ventana y la barra de informacion se descoloca.
+    //   2. El tamaño del lienzo tiene que ser el que la consulta de medios haya
+    //      elegido de verdad. Si se escala 1920 cuando el CSS ha aplicado el de
+    //      720p, se encoge dos veces y el panel sale a la mitad.
+    var lienzo = null;
+    function ajustarLienzo() {
+        if (esTelevisor()) return;
+        document.documentElement.style.background = '#0c1113';
+        document.body.style.background = '#0c1113';
+        document.body.style.margin = '0';
+        document.body.style.overflow = 'hidden';
+
+        if (!lienzo) {
+            lienzo = document.createElement('div');
+            lienzo.id = 'lienzo';
+            lienzo.style.cssText = 'position:absolute;top:0;left:0;' +
+                                   'transform-origin:top left;';
+            while (document.body.firstChild) {
+                lienzo.appendChild(document.body.firstChild);
+            }
+            document.body.appendChild(lienzo);
+        }
+
+        // Lo que el CSS ha decidido, no lo que nos parezca.
+        var compacto = window.matchMedia('(max-width: 1919px)').matches;
+        var ancho = compacto ? 1280 : 1920;
+        var alto = compacto ? 720 : 1080;
+        var k = Math.min(window.innerWidth / ancho, window.innerHeight / alto);
+
+        lienzo.style.width = ancho + 'px';
+        lienzo.style.height = alto + 'px';
+        lienzo.style.transform = 'scale(' + k + ')';
+        // Centrado, para que el hueco sobrante quede repartido y no todo a un lado.
+        lienzo.style.left = Math.round((window.innerWidth - ancho * k) / 2) + 'px';
+        lienzo.style.top = Math.round((window.innerHeight - alto * k) / 2) + 'px';
+    }
+
+    function esTelevisor() {
+        var ua = (navigator.userAgent || '').toLowerCase();
+        return ua.indexOf('tizen') >= 0 || ua.indexOf('web0s') >= 0 ||
+               ua.indexOf('webos') >= 0 || ua.indexOf('smart-tv') >= 0 ||
+               ua.indexOf('mag') >= 0 || typeof gSTB !== 'undefined';
+    }
+
+    function sabeHlsSolo() {
+        var v = document.createElement('video');
+        return !!(v.canPlayType('application/vnd.apple.mpegurl') ||
+                  v.canPlayType('application/x-mpegURL'));
+    }
+
+    var hlsCargando = null;
+    function conHls(alListo) {
+        if (window.Hls) { alListo(); return; }
+        if (hlsCargando) { hlsCargando.push(alListo); return; }
+        hlsCargando = [alListo];
+        var s = document.createElement('script');
+        s.src = '/static/js/hls.min.js';
+        s.onload = function() {
+            var cola = hlsCargando; hlsCargando = null;
+            for (var i = 0; i < cola.length; i++) cola[i]();
+        };
+        s.onerror = function() { hlsCargando = null; };
+        document.head.appendChild(s);
+    }
+
+    var hlsActual = null;
+    var relojHls = null;
+
+    // Los navegadores no dejan que un video empiece a sonar solo: hasta que el
+    // usuario no toca algo, play() se rechaza. Se notaba al entrar -- la vista
+    // previa se quedaba congelada -- y en cuanto se abria un canal a pantalla
+    // completa, que es pulsar OK, ya funcionaba todo el rato.
+    //
+    // Lo que si dejan es arrancar SIN sonido. Asi que se arranca mudo y se le
+    // devuelve el sonido en cuanto llega la primera tecla o el primer clic. En
+    // un televisor no se pasa por aqui: alli no hay tal restriccion.
+    var sonidoDevuelto = false;
+    function devolverSonido() {
+        if (sonidoDevuelto) return;
+        sonidoDevuelto = true;
+        try { htmlPlayer.muted = false; htmlPlayer.play(); } catch (e) {}
+    }
+
+    function arrancarEnNavegador() {
+        var p;
+        try { p = htmlPlayer.play(); } catch (e) { return; }
+        if (!p || !p.catch) return;
+        p.catch(function() {
+            // Rechazado por no haber tocado nada todavia: mudo y otra vez.
+            try { htmlPlayer.muted = true; htmlPlayer.play(); } catch (e) {}
+            document.addEventListener('keydown', devolverSonido, true);
+            document.addEventListener('click', devolverSonido, true);
+        });
+    }
+    function ponerConHls(url, alFallar) {
+        conHls(function() {
+            if (!window.Hls || !window.Hls.isSupported()) {
+                if (alFallar) alFallar('el navegador no puede reproducir HLS');
+                return;
+            }
+            if (hlsActual) { try { hlsActual.destroy(); } catch (e) {} }
+            // Ajustes para emision en directo. Sin ellos la imagen se queda
+            // congelada: se acumula buffer viejo, el reproductor se va quedando
+            // atras del directo y acaba parado esperando datos que ya no
+            // existen -- los segmentos se borran del servidor a los 10.
+            hlsActual = new window.Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                liveDurationInfinity: true,
+                backBufferLength: 30,
+                liveSyncDurationCount: 3,
+                maxBufferLength: 30
+            });
+            hlsActual.loadSource(url);
+            hlsActual.attachMedia(htmlPlayer);
+            hlsActual.on(window.Hls.Events.MANIFEST_PARSED, function() {
+                arrancarEnNavegador();
+            });
+            // Sin esto, un fallo de hls.js deja el recuadro en negro y no hay
+            // forma de saber si es la red, el formato o un canal caido.
+            hlsActual.on(window.Hls.Events.ERROR, function(ev, d) {
+                if (!d || !d.fatal) return;   // de los leves se apaña solo
+                // Antes de rendirse se intenta lo que la propia libreria
+                // recomienda: reenganchar la descarga si fue la red, y rehacer
+                // el buffer si fue el video. Un canal en directo se recupera
+                // casi siempre con esto.
+                if (d.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+                    hlsActual.startLoad();
+                    return;
+                }
+                if (d.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+                    hlsActual.recoverMediaError();
+                    return;
+                }
+                if (alFallar) alFallar('hls: ' + d.details);
+            });
+
+            // Vigilante: si el reloj del video no avanza y no esta en pausa, es
+            // que se ha quedado atascado. Se le empuja al borde del directo.
+            clearInterval(relojHls);
+            var ultimo = -1, quieto = 0;
+            relojHls = setInterval(function() {
+                if (!hlsActual || htmlPlayer.paused) return;
+                var t = htmlPlayer.currentTime;
+                if (Math.abs(t - ultimo) < 0.05) {
+                    quieto++;
+                    if (quieto >= 3) {
+                        quieto = 0;
+                        try {
+                            var b = htmlPlayer.buffered;
+                            if (b.length) htmlPlayer.currentTime = b.end(b.length - 1) - 0.5;
+                            htmlPlayer.play();
+                        } catch (e) {}
+                    }
+                } else {
+                    quieto = 0;
+                }
+                ultimo = t;
+            }, 2000);
+        });
+    }
+
+    // El lienzo mide 1920x1080; en una ventana de navegador se encoge para que
+    // quepa entero, sin recortar y sin deformar.
+    //
+    // Se usa 'zoom' y NO 'transform: scale'. Con transform el navegador pinta
+    // mas pequeño pero no recalcula la maquetacion: los elementos con
+    // 'position: fixed' -- la barra de informacion, los avisos -- dejan de
+    // medirse contra el lienzo de 1920 y se descolocan. Se veia: la barra
+    // quedaba en 19..1346 cuando le tocaba 28..1338. Con zoom el navegador
+    // rehace las cuentas y todo cae donde debe.
+    //
+    // Y el fondo hay que ponerlo aqui: el portal deja la pagina transparente a
+    // proposito, para que en el televisor asome el plano de video. En un
+    // navegador eso sale blanco.
     function arrancarVideo(url) {
         clearTimeout(relojVideo);
         var mio = ++testigoVideo;
@@ -417,6 +632,13 @@
         function probar() {
             if (mio !== testigoVideo) return;   // ya se ha cambiado de canal
             htmlPlayer.style.display = 'block';
+            // En un navegador de mesa el HLS no lo entiende el propio
+            // reproductor: se lo damos masticado con hls.js. En el televisor no
+            // se entra aqui nunca.
+            if (!esTelevisor() && !sabeHlsSolo() && /\.m3u8(\?|$)/.test(url)) {
+                ponerConHls(url, rendirse);
+                return;
+            }
             htmlPlayer.src = url;
             var p;
             try { p = htmlPlayer.play(); } catch (err) { rendirse('excepcion'); return; }
@@ -675,13 +897,21 @@
         // abajo en cada una. Con once filas eso es medio centimetro de mas, y
         // por eso la ultima se salia aunque el reparto pareciera correcto. Se
         // coge el paso mas grande de la muestra, que es el caso peor.
+        // Con offsetTop y NO con getBoundingClientRect, aunque parezca lo mismo.
+        //
+        // getBoundingClientRect devuelve pixeles de PANTALLA: si algo escala la
+        // pagina —el lienzo que se usa al verla en un navegador— vienen ya
+        // multiplicados. clientHeight, en cambio, va en pixeles de maquetacion.
+        // Mezclarlos daba una cuenta absurda: un hueco de 487 dividido entre un
+        // paso de 91 (que en realidad eran 68 por 1,344) daba 5 filas donde
+        // caben 7. En un televisor no se notaba porque no hay escala y los dos
+        // numeros coinciden.
         var paso = 0;
         for (var i = 1; i < filas.length; i++) {
-            var d = filas[i].getBoundingClientRect().top -
-                    filas[i - 1].getBoundingClientRect().top;
+            var d = filas[i].offsetTop - filas[i - 1].offsetTop;
             if (d > paso) paso = d;
         }
-        if (paso <= 0 && filas[0]) paso = filas[0].getBoundingClientRect().height;
+        if (paso <= 0 && filas[0]) paso = filas[0].offsetHeight;
         if (paso <= 0) return;
 
         var caben = Math.max(3, Math.floor(hueco / paso));
@@ -694,6 +924,22 @@
     // Si cambia el tamaño de la ventana —el teclado del televisor la encoge—
     // las medidas de antes ya no valen.
     window.addEventListener("resize", function() { filasCaben = {}; });
+
+    // Y tampoco valen las que se tomaron antes de que llegara la tipografia.
+    //
+    // La letra de la marca se descarga aparte, asi que el primer pintado sale
+    // con la de reserva. Si las filas miden otra cosa en ese momento, se guarda
+    // un numero equivocado y, como se mide una sola vez, ahi se queda para
+    // siempre: se vio una lista enseñando 5 canales en un hueco donde caben 7.
+    // Cuando el navegador avisa de que las fuentes estan listas, se olvida lo
+    // medido y se vuelve a pintar.
+    if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+        document.fonts.ready.then(function() {
+            filasCaben = {};
+            if (view === "list") showChannels();
+            else if (view === "guide") renderGuide();
+        });
+    }
 
     function renderGenres() {
         var h = '<div class="panel">';
@@ -2346,7 +2592,11 @@
     document.onwheel = manejarRueda;
     document.onmousewheel = manejarRueda;      // teles con Chromium antiguo
     window.onresize = fitScreen;
-    window.onload = init;
+    window.onload = function() {
+        ajustarLienzo();
+        init();
+    };
+    window.addEventListener('resize', ajustarLienzo);
 
     // La television avisa cuando pierde y cuando recupera la red. Hacerle caso
     // vale mas que esperar al siguiente reintento: en cuanto vuelve el cable,
@@ -2805,7 +3055,13 @@
            con una consulta de medios y no con zoom: el navegador lo resuelve una
            sola vez, mientras que el zoom le obliga a recomponer la pagina en
            cada repintado y deja el aparato lento. */
-        @media (max-width: 1400px) {
+        /* Hasta 1919: cualquier pantalla que no sea un 1080p entero usa la
+           maquetacion compacta. Antes el corte estaba en 1400 y las ventanas de
+           entre 1401 y 1919 px -- un portatil de 1440, 1600 o 1680 -- se
+           quedaban con la de 1920: el panel cabia, pero la ventana del video va
+           en left:749 con 1131 de ancho y se salia por la derecha.
+           Un televisor de 1920 no entra aqui y no cambia nada. */
+        @media (max-width: 1919px) {
             .panel { top: 27px; left: 27px; width: 440px; height: 667px;
                      border-radius: 15px; padding: 21px 20px; }
             .header { margin-bottom: 15px; padding-bottom: 13px; }
