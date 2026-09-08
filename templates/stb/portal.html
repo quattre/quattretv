@@ -501,11 +501,25 @@
     //   - NO es el numero de pistas de audio. Se probo el mismo canal con una,
     //     dos y tres, y las tres versiones se reproducen.
     //
-    // Lo que pasa de verdad: al engancharse al BORDE del directo, a veces toca
-    // un segmento que el servidor todavia esta escribiendo. Llega incompleto,
-    // no se puede procesar, y el reproductor se queda esperando indefinidamente
-    // -- sin dar ningun error, con el buffer vacio. Es intermitente: el mismo
-    // canal arranca a la primera o no arranca nunca, segun el momento.
+    // Lo que pasa de verdad, hasta donde se pudo llegar: los fragmentos se
+    // descargan, se procesan y se dan por añadidos -- todos los avisos de
+    // hls.js salen bien -- pero Chrome los descarta en silencio y el buffer se
+    // queda vacio. El video queda con 'seekable' de 0 a 139 s y 'buffered'
+    // ninguno, que es lo que pasa cuando las marcas de tiempo del segmento no
+    // cuadran con la ventana que el reproductor calcula desde la lista: se
+    // recorta todo.
+    //
+    // Depende del canal, y no de nuestra configuracion -- La 1 y Dark van los
+    // dos en copia directa, sin transcodificar. Depende de como emita cada
+    // cadena: Dark llega con cortes regulares de 10 s y La 1 con cortes
+    // irregulares, porque sus fotogramas clave caen donde caen y el troceador
+    // corta donde puede.
+    //
+    // Probado y descartado: hls.js 1.7.2 (igual), sin hilo aparte, forzando el
+    // codec de audio, empezando por el principio de la lista y mas atras del
+    // directo. Arreglarlo de verdad obligaria a transcodificar para forzar
+    // cortes regulares, en maquinas que ya van con carga 15, y no compensa por
+    // poder probar desde el escritorio.
     //
     // El televisor y Firefox se lo tragan; Chrome no. Por eso aqui se vigila y
     // se vuelve a empezar en vez de dejar un recuadro negro para siempre.
