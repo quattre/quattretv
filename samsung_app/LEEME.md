@@ -54,7 +54,8 @@ CLAVE_PRUEBA=... python3 lg_app/generar_ux_scenario.py capturas/con-video salida
 | 07/09/2026 | Aplicacion dada de alta. Identificador de tienda `3202609048187` | hecho |
 | 07/09/2026 | Paquete subido: **Pre-Test Pass** | hecho |
 | 07/09/2026 | 1:1 Q&A pidiendo el Content Manager para el partnership | contestado |
-| 08/09/2026 | Samsung da contacto: **Nagore Bilbao, n.bilbao@samsung.com**, responsable de la region de España | **escribir** |
+| 08/09/2026 | Samsung da contacto: **Nagore Bilbao, n.bilbao@samsung.com**, responsable de la region de España | hecho |
+| 08/09/2026 | Correo a Samsung España pidiendo el paso a Partner Seller | **enviado, esperando** |
 
 El partnership es el que manda en el calendario: sin el, un Public Group solo
 puede publicar en Estados Unidos, y para conseguirlo hace falta contrato con
