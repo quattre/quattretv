@@ -490,8 +490,29 @@
         document.head.appendChild(s);
     }
 
+    // AVISO PARA QUIEN VUELVA POR AQUI: en Chrome esto NO reproduce nuestros
+    // canales, y no es un fallo que se pueda arreglar en la aplicacion.
+    //
+    // Nuestras emisiones son 1080i ENTRELAZADAS, como toda la TDT española
+    // (interlaced_frame=1, comprobado con ffprobe). Chrome no soporta H.264
+    // entrelazado a traves de Media Source Extensions, que es lo que usa
+    // hls.js. El sintoma engaña mucho: los segmentos se descargan sin un solo
+    // fallo, se procesan, se dan por añadidos... y el buffer se queda vacio
+    // para siempre, sin ningun error.
+    //
+    // Comprobado que no es cosa del navegador ni de nuestra configuracion: en
+    // el mismo Chrome, un flujo de prueba publico y progresivo se reproduce
+    // perfectamente.
+    //
+    // Firefox si los reproduce, y el televisor tambien -- ahi decodifica el
+    // aparato, no el navegador. Para probar en el ordenador, Firefox.
+    //
+    // Arreglarlo obligaria a desentrelazar en el CDN, o sea a transcodificar 81
+    // canales en maquinas que ya van cargadas. No compensa por poder probar
+    // desde el escritorio.
     var hlsActual = null;
     var relojHls = null;
+    var ultimoFalloHls = null;
 
     // Los navegadores no dejan que un video empiece a sonar solo: hasta que el
     // usuario no toca algo, play() se rechaza. Se notaba al entrar -- la vista
@@ -600,7 +621,9 @@
             // Sin esto, un fallo de hls.js deja el recuadro en negro y no hay
             // forma de saber si es la red, el formato o un canal caido.
             hlsActual.on(window.Hls.Events.ERROR, function(ev, d) {
-                if (!d || !d.fatal) return;   // de los leves se apaña solo
+                if (!d) return;
+                ultimoFalloHls = (d.fatal ? 'GRAVE ' : '') + d.type + '/' + d.details;
+                if (!d.fatal) return;   // de los leves se apaña solo
                 // Antes de rendirse se intenta lo que la propia libreria
                 // recomienda: reenganchar la descarga si fue la red, y rehacer
                 // el buffer si fue el video. Un canal en directo se recupera
@@ -615,6 +638,20 @@
                 }
                 if (alFallar) alFallar('hls: ' + d.details);
             });
+
+            // Si a los 12 segundos no ha entrado nada en el buffer, es el caso
+            // del entrelazado: se dice, en vez de dejar un recuadro negro.
+            setTimeout(function() {
+                if (!hlsActual) return;
+                if (htmlPlayer.buffered && htmlPlayer.buffered.length) return;
+                var caja = document.getElementById('preview');
+                if (caja && !isFullscreen) {
+                    caja.innerHTML = 'Este navegador no puede reproducir estos canales' +
+                        '<div style="font-size:15px;color:#6d7679;margin-top:10px;">' +
+                        'Las emisiones son 1080i entrelazadas y Chrome no las admite. ' +
+                        'Se ven en Firefox y en el televisor.</div>';
+                }
+            }, 12000);
 
             // Vigilante: si el reloj del video no avanza y no esta en pausa, es
             // que se ha quedado atascado. Se le empuja al borde del directo.
@@ -2303,6 +2340,22 @@
             'video: <b>' + (v ? (v.videoWidth + 'x' + v.videoHeight +
                 '  estado=' + v.readyState + '  sonando=' + !v.paused +
                 '  error=' + (v.error ? v.error.code : 'no')) : 'sin elemento') + '</b><br>' +
+            // En el navegador, el video va por hls.js y hace falta ver por
+            // donde se atasca: si descarga, si procesa, y si llega a haber algo
+            // en el buffer. Sin esto no hay forma de distinguir "no descarga"
+            // de "descarga y no decodifica", que se arreglan de maneras
+            // distintas. En un televisor esta linea no sale.
+            (window.Hls ? ('reproductor: <b>hls.js' +
+                '  buffer=' + (function() {
+                    if (!v || !v.buffered || !v.buffered.length) return 'vacio';
+                    return (v.buffered.end(v.buffered.length - 1) -
+                            v.currentTime).toFixed(1) + 's';
+                })() +
+                '  t=' + (v ? v.currentTime.toFixed(1) : '?') +
+                '  mudo=' + (v ? v.muted : '?') +
+                '  gesto=' + (typeof hayGesto !== 'undefined' ? hayGesto : '?') +
+                '  ultimoFallo=' + (ultimoFalloHls || 'ninguno') +
+                '</b><br>') : '') +
             'ultimas teclas: <b>' + (teclasVistas.join('  ') || 'ninguna') + '</b><br>' +
             'ventana: <b>' + window.innerWidth + 'x' + window.innerHeight + '</b>' +
             '   red: <b>' + (hayRed ? 'si' : 'NO') + '</b>';
