@@ -490,29 +490,30 @@
         document.head.appendChild(s);
     }
 
-    // AVISO PARA QUIEN VUELVA POR AQUI: en Chrome esto NO reproduce nuestros
-    // canales, y no es un fallo que se pueda arreglar en la aplicacion.
+    // Por que a veces, en el navegador, un canal se queda sin arrancar.
     //
-    // Nuestras emisiones son 1080i ENTRELAZADAS, como toda la TDT española
-    // (interlaced_frame=1, comprobado con ffprobe). Chrome no soporta H.264
-    // entrelazado a traves de Media Source Extensions, que es lo que usa
-    // hls.js. El sintoma engaña mucho: los segmentos se descargan sin un solo
-    // fallo, se procesan, se dan por añadidos... y el buffer se queda vacio
-    // para siempre, sin ningun error.
+    // Se persiguio un buen rato y las dos primeras explicaciones eran FALSAS,
+    // asi que quedan descartadas por escrito para no volver a ellas:
     //
-    // Comprobado que no es cosa del navegador ni de nuestra configuracion: en
-    // el mismo Chrome, un flujo de prueba publico y progresivo se reproduce
-    // perfectamente.
+    //   - NO es el entrelazado. Nuestras emisiones son 1080i, si, pero los
+    //     mismos segmentos servidos como fichero estatico se reproducen
+    //     perfectamente en el mismo Chrome.
+    //   - NO es el numero de pistas de audio. Se probo el mismo canal con una,
+    //     dos y tres, y las tres versiones se reproducen.
     //
-    // Firefox si los reproduce, y el televisor tambien -- ahi decodifica el
-    // aparato, no el navegador. Para probar en el ordenador, Firefox.
+    // Lo que pasa de verdad: al engancharse al BORDE del directo, a veces toca
+    // un segmento que el servidor todavia esta escribiendo. Llega incompleto,
+    // no se puede procesar, y el reproductor se queda esperando indefinidamente
+    // -- sin dar ningun error, con el buffer vacio. Es intermitente: el mismo
+    // canal arranca a la primera o no arranca nunca, segun el momento.
     //
-    // Arreglarlo obligaria a desentrelazar en el CDN, o sea a transcodificar 81
-    // canales en maquinas que ya van cargadas. No compensa por poder probar
-    // desde el escritorio.
+    // El televisor y Firefox se lo tragan; Chrome no. Por eso aqui se vigila y
+    // se vuelve a empezar en vez de dejar un recuadro negro para siempre.
     var hlsActual = null;
     var relojHls = null;
     var ultimoFalloHls = null;
+    var relojArranqueHls = null;
+    var reintentosHls = 0;
 
     // Los navegadores no dejan que un video empiece a sonar solo: hasta que el
     // usuario no toca algo, play() se rechaza. Se notaba al entrar -- la vista
@@ -572,6 +573,7 @@
     }
 
     function ponerConHls(url, alFallar) {
+        if (url !== ultimaUrlHls) reintentosHls = 0;   // canal nuevo, cuenta nueva
         ultimaUrlHls = url;
         conHls(function() {
             if (!window.Hls || !window.Hls.isSupported()) {
@@ -639,19 +641,21 @@
                 if (alFallar) alFallar('hls: ' + d.details);
             });
 
-            // Si a los 12 segundos no ha entrado nada en el buffer, es el caso
-            // del entrelazado: se dice, en vez de dejar un recuadro negro.
-            setTimeout(function() {
+            // Si a los 10 segundos no ha entrado NADA en el buffer, es que se
+            // engancho a un segmento a medio escribir: no se recupera solo, hay
+            // que volver a empezar. Se reintenta un par de veces antes de
+            // rendirse y decirlo.
+            clearTimeout(relojArranqueHls);
+            relojArranqueHls = setTimeout(function() {
                 if (!hlsActual) return;
                 if (htmlPlayer.buffered && htmlPlayer.buffered.length) return;
-                var caja = document.getElementById('preview');
-                if (caja && !isFullscreen) {
-                    caja.innerHTML = 'Este navegador no puede reproducir estos canales' +
-                        '<div style="font-size:15px;color:#6d7679;margin-top:10px;">' +
-                        'Las emisiones son 1080i entrelazadas y Chrome no las admite. ' +
-                        'Se ven en Firefox y en el televisor.</div>';
+                if (reintentosHls < 3) {
+                    reintentosHls++;
+                    ponerConHls(url, alFallar);
+                    return;
                 }
-            }, 12000);
+                if (alFallar) alFallar('no arranca tras varios intentos');
+            }, 10000);
 
             // Vigilante: si el reloj del video no avanza y no esta en pausa, es
             // que se ha quedado atascado. Se le empuja al borde del directo.
