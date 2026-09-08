@@ -53,6 +53,16 @@ urlpatterns = [
     path('quattretv/stb/', include('apps.stalker_api.urls')),
     path('quattretv/stb/portal.php', include('apps.stalker_api.portal_urls')),
 
+    # Atajo para abrirlo a mano desde un navegador. Es la MISMA aplicacion, no
+    # una copia: el modulo esta escrito para colgarse de varias rutas -- por eso
+    # no lleva app_name -- y ya lo hace desde stalker_portal/ y quattretv/stb/.
+    #
+    # La larga se queda como esta y es la buena: la llevan grabada dentro el
+    # paquete de LG, que esta en revision y no se puede tocar, el de Samsung, y
+    # los decos MAG, que se configuran uno a uno. Esto solo añade, no cambia.
+    path('stb/', include('apps.stalker_api.urls')),
+    path('stb/portal.php', include('apps.stalker_api.portal_urls')),
+
     # Portal Admin (en la raíz - al final para no interferir con APIs)
     path('', include('apps.core.portal_urls')),
 ]
