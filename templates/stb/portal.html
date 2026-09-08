@@ -508,13 +508,28 @@
     // se quedaban todos los canales sin sonido, y solo volvia yendo a pantalla
     // completa y atras. Ahora lo que se recuerda es si el usuario ya ha tocado
     // algo, y con eso se decide en CADA arranque.
+    // Y ojo con Firefox, que no se comporta como Chrome: no rechaza el
+    // arranque, simplemente reproduce con el AUDIO BLOQUEADO. Como no hay
+    // rechazo, el codigo no se entera de nada -- el video no esta mudo, es el
+    // navegador el que no lo deja sonar -- y quitar el mute no sirve de nada.
+    //
+    // Lo unico que lo desbloquea es volver a arrancar la reproduccion ya con un
+    // gesto hecho. Es exactamente lo que pasaba al abrir un canal a pantalla
+    // completa, que era la unica forma de oir algo. Asi que al primer toque se
+    // rearranca el canal.
     var hayGesto = false;
     var gestoEscuchado = false;
+    var ultimaUrlHls = null;
 
     function marcarGesto() {
         if (hayGesto) return;
         hayGesto = true;
-        try { htmlPlayer.muted = false; htmlPlayer.play(); } catch (e) {}
+        try { htmlPlayer.muted = false; } catch (e) {}
+        if (ultimaUrlHls) {
+            ponerConHls(ultimaUrlHls);
+        } else {
+            try { htmlPlayer.play(); } catch (e) {}
+        }
     }
 
     function arrancarEnNavegador() {
@@ -536,12 +551,26 @@
     }
 
     function ponerConHls(url, alFallar) {
+        ultimaUrlHls = url;
         conHls(function() {
             if (!window.Hls || !window.Hls.isSupported()) {
                 if (alFallar) alFallar('el navegador no puede reproducir HLS');
                 return;
             }
             if (hlsActual) { try { hlsActual.destroy(); } catch (e) {} }
+            // Limpiar el elemento antes de volver a engancharlo.
+            //
+            // Se queda con el tiempo de la reproduccion anterior, y en una
+            // emision en directo ese punto ya no existe: hls.js se pone a
+            // esperar un fragmento que nunca va a llegar y no descarga ni uno.
+            // El sintoma era exacto: la lista se cargaba (LEVEL_LOADED) y ahi
+            // se acababa todo, con el buffer vacio y el reloj del video clavado
+            // en el segundo de la vez anterior.
+            try {
+                htmlPlayer.pause();
+                htmlPlayer.removeAttribute('src');
+                htmlPlayer.load();
+            } catch (e) {}
             // Ajustes para emision en directo. Sin ellos la imagen se queda
             // congelada: se acumula buffer viejo, el reproductor se va quedando
             // atras del directo y acaba parado esperando datos que ya no
@@ -549,6 +578,15 @@
             hlsActual = new window.Hls({
                 enableWorker: true,
                 lowLatencyMode: false,
+                // Sin esto, en Chrome no se veia NADA: los segmentos se
+                // descargaban bien -- se comprobo en el registro de red, sin un
+                // solo fallo -- pero no se procesaba ninguno y el buffer se
+                // quedaba vacio. Nuestros canales llevan TRES pistas de audio
+                // dentro del mismo flujo, y el reproductor no consigue deducir
+                // el codec: se queda esperando. Diciendoselo, los fragmentos
+                // pasan a procesarse y a entrar en el buffer. Firefox no lo
+                // necesitaba, y de ahi que funcionara en uno y no en el otro.
+                defaultAudioCodec: 'mp4a.40.2',
                 liveDurationInfinity: true,
                 backBufferLength: 30,
                 liveSyncDurationCount: 3,
