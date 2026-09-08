@@ -496,29 +496,45 @@
     // Los navegadores no dejan que un video empiece a sonar solo: hasta que el
     // usuario no toca algo, play() se rechaza. Se notaba al entrar -- la vista
     // previa se quedaba congelada -- y en cuanto se abria un canal a pantalla
-    // completa, que es pulsar OK, ya funcionaba todo el rato.
+    // completa, que es pulsar OK, ya funcionaba.
     //
-    // Lo que si dejan es arrancar SIN sonido. Asi que se arranca mudo y se le
-    // devuelve el sonido en cuanto llega la primera tecla o el primer clic. En
-    // un televisor no se pasa por aqui: alli no hay tal restriccion.
-    var sonidoDevuelto = false;
-    function devolverSonido() {
-        if (sonidoDevuelto) return;
-        sonidoDevuelto = true;
+    // Lo que si dejan es arrancar SIN sonido. Asi que mientras no haya habido
+    // un gesto se arranca mudo, y en cuanto llega la primera tecla o el primer
+    // clic se le devuelve el sonido.
+    //
+    // OJO con la version anterior de esto, que parecia funcionar y no: solo se
+    // desmutaba una vez. Si al cambiar de canal el navegador rechazaba el
+    // arranque un instante, se volvia a poner mudo y ya no se quitaba nunca --
+    // se quedaban todos los canales sin sonido, y solo volvia yendo a pantalla
+    // completa y atras. Ahora lo que se recuerda es si el usuario ya ha tocado
+    // algo, y con eso se decide en CADA arranque.
+    var hayGesto = false;
+    var gestoEscuchado = false;
+
+    function marcarGesto() {
+        if (hayGesto) return;
+        hayGesto = true;
         try { htmlPlayer.muted = false; htmlPlayer.play(); } catch (e) {}
     }
 
     function arrancarEnNavegador() {
+        if (!gestoEscuchado) {
+            gestoEscuchado = true;
+            document.addEventListener('keydown', marcarGesto, true);
+            document.addEventListener('click', marcarGesto, true);
+            document.addEventListener('mousedown', marcarGesto, true);
+        }
+        try { htmlPlayer.muted = !hayGesto; } catch (e) {}
         var p;
         try { p = htmlPlayer.play(); } catch (e) { return; }
         if (!p || !p.catch) return;
         p.catch(function() {
-            // Rechazado por no haber tocado nada todavia: mudo y otra vez.
+            // Rechazado: mudo y otra vez. Si ya habia gesto esto no deberia
+            // pasar, pero si pasa es preferible verlo sin sonido que no verlo.
             try { htmlPlayer.muted = true; htmlPlayer.play(); } catch (e) {}
-            document.addEventListener('keydown', devolverSonido, true);
-            document.addEventListener('click', devolverSonido, true);
         });
     }
+
     function ponerConHls(url, alFallar) {
         conHls(function() {
             if (!window.Hls || !window.Hls.isSupported()) {
