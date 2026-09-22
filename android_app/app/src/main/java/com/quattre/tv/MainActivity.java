@@ -213,9 +213,17 @@ public class MainActivity extends Activity {
             @Override public void onVideoSizeChanged(VideoSize s) {
                 Log.i(TAG, "video " + s.width + "x" + s.height);
             }
+            // Los canales de TDT no emiten IDR: se arranca en un I-frame y los
+            // B-frames que le siguen apuntan a imagenes anteriores que el
+            // decodificador no tiene (GOP abierto). Durante unos fotogramas se
+            // ve basura. Se enseña el video medio segundo despues del primero,
+            // cuando la imagen ya se ha refrescado entera.
             @Override public void onRenderedFirstFrame() {
-                vista.setVisibility(View.VISIBLE);
                 Log.i(TAG, "video: primer fotograma");
+                final String esta = urlActual;
+                vista.postDelayed(() -> {
+                    if (esta != null && esta.equals(urlActual)) vista.setVisibility(View.VISIBLE);
+                }, 500);
             }
             // Estado en el registro: sin esto no hay forma de distinguir desde
             // fuera "esta cargando" de "se ha quedado colgado".
@@ -244,6 +252,9 @@ public class MainActivity extends Activity {
         crearPlayer();
         urlActual = url;
         Log.i(TAG, "video: " + url);
+        // Fuera el ultimo fotograma del canal anterior: si se queda mientras
+        // carga el nuevo parece que la imagen se ha congelado.
+        vista.setVisibility(View.INVISIBLE);
         // Se para y se vacia antes de cargar el siguiente: cambiando de canal
         // sobre la marcha, al cuarto se quedaba "cargando" para siempre.
         player.stop();
