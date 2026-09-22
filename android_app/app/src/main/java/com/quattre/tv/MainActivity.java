@@ -10,6 +10,8 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.ConsoleMessage;
+import android.webkit.JavascriptInterface;
+import android.widget.FrameLayout;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -18,6 +20,15 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.common.VideoSize;
+import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.ui.AspectRatioFrameLayout;
+import androidx.media3.ui.PlayerView;
 import androidx.webkit.WebViewAssetLoader;
 
 /**
@@ -54,6 +65,20 @@ public class MainActivity extends Activity {
     private WebViewAssetLoader recursos;
     private boolean estuvoParada = false;
 
+    // El video NO lo pinta el WebView. Los canales de TDT no emiten ningun
+    // IDR (solo I-frames con punto de recuperacion) y Chromium no arranca sin
+    // IDR; ExoPlayer si. Asi que el video va en un ExoPlayer POR DETRAS del
+    // WebView, que es transparente, y el portal le dice por el puente
+    // QuattreAndroid que reproducir y donde colocarlo -- igual que hace con el
+    // plano de video del deco o del televisor. La interfaz sigue siendo la
+    // pagina: cambiarla no obliga a actualizar la app.
+    private FrameLayout raiz;
+    private PlayerView vista;
+    private ExoPlayer player;
+    private String urlActual = null;
+    private float volumen = 1f;
+    private final float[] hueco = {0f, 0f, 1f, 1f};   // x, y, ancho, alto en fracciones
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle estado) {
@@ -65,9 +90,26 @@ public class MainActivity extends Activity {
                 View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 
+        raiz = new FrameLayout(this);
+        raiz.setBackgroundColor(Color.parseColor("#080b0d"));
+
+        vista = new PlayerView(this);
+        vista.setUseController(false);
+        vista.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
+        vista.setVisibility(View.INVISIBLE);
+        raiz.addView(vista, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#080b0d"));
-        setContentView(web);
+        // Transparente: el video esta debajo y solo asoma donde la pagina no pinta.
+        web.setBackgroundColor(Color.TRANSPARENT);
+        raiz.addView(web, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(raiz);
+        // Si cambia el tamaño de la ventana, el hueco del video se recalcula.
+        raiz.addOnLayoutChangeListener((v, l, tp, r, b, ol, ot, or, ob) -> {
+            if (r - l != or - ol || b - tp != ob - ot) colocarVista();
+        });
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -131,7 +173,80 @@ public class MainActivity extends Activity {
             }
         });
 
+        web.addJavascriptInterface(new Puente(), "QuattreAndroid");
         web.loadUrl(CARGADOR);
+    }
+
+    // ---- Video: ExoPlayer detras de la pagina --------------------------------
+
+    /** Lo que la pagina puede pedirle a la app. Llega en un hilo aparte: todo al hilo de la interfaz. */
+    private class Puente {
+        @JavascriptInterface public void reproducir(String url) { runOnUiThread(() -> reproducir_(url)); }
+        @JavascriptInterface public void parar() { runOnUiThread(() -> parar_()); }
+        @JavascriptInterface public void colocar(double x, double y, double ancho, double alto) {
+            runOnUiThread(() -> {
+                hueco[0] = (float) x; hueco[1] = (float) y; hueco[2] = (float) ancho; hueco[3] = (float) alto;
+                colocarVista();
+            });
+        }
+        @JavascriptInterface public void volumen(int v) {
+            runOnUiThread(() -> { volumen = Math.max(0, Math.min(100, v)) / 100f; if (player != null) player.setVolume(volumen); });
+        }
+    }
+
+    private void crearPlayer() {
+        if (player != null) return;
+        player = new ExoPlayer.Builder(this).build();
+        player.setVolume(volumen);
+        player.addListener(new Player.Listener() {
+            @Override public void onVideoSizeChanged(VideoSize s) {
+                Log.i(TAG, "video " + s.width + "x" + s.height);
+            }
+            @Override public void onRenderedFirstFrame() {
+                vista.setVisibility(View.VISIBLE);
+            }
+            // Un directo se cae de vez en cuando (un segmento que no llega,
+            // un corte). Se vuelve a enganchar al borde del directo solo.
+            @Override public void onPlayerError(PlaybackException e) {
+                Log.w(TAG, "video: " + e.getErrorCodeName() + " " + e.getMessage());
+                if (urlActual == null) return;
+                raiz.postDelayed(() -> {
+                    if (player == null || urlActual == null) return;
+                    player.seekToDefaultPosition();
+                    player.prepare();
+                }, 3000);
+            }
+        });
+        vista.setPlayer(player);
+    }
+
+    private void reproducir_(String url) {
+        crearPlayer();
+        urlActual = url;
+        Log.i(TAG, "video: " + url);
+        player.setMediaSource(new HlsMediaSource.Factory(new DefaultHttpDataSource.Factory())
+                .createMediaSource(MediaItem.fromUri(url)));
+        player.setPlayWhenReady(true);
+        player.prepare();
+        colocarVista();
+    }
+
+    private void parar_() {
+        urlActual = null;
+        if (player != null) player.stop();
+        vista.setVisibility(View.INVISIBLE);
+    }
+
+    /** Coloca el video en el hueco que ha pedido la pagina (fracciones de pantalla). */
+    private void colocarVista() {
+        int W = raiz.getWidth(), H = raiz.getHeight();
+        if (W == 0 || H == 0) return;
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) vista.getLayoutParams();
+        lp.leftMargin = Math.round(hueco[0] * W);
+        lp.topMargin = Math.round(hueco[1] * H);
+        lp.width = Math.round(hueco[2] * W);
+        lp.height = Math.round(hueco[3] * H);
+        vista.setLayoutParams(lp);
     }
 
     // ---- Teclas del mando -------------------------------------------------
@@ -225,11 +340,13 @@ public class MainActivity extends Activity {
     protected void onStop() {
         super.onStop();
         estuvoParada = true;
+        parar_();
         web.loadUrl("about:blank");
     }
 
     @Override
     protected void onDestroy() {
+        if (player != null) { player.release(); player = null; }
         web.destroy();
         super.onDestroy();
     }

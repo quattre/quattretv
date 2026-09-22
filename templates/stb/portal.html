@@ -10,6 +10,7 @@
     var stbAPI = null;
     var player = null;
     var htmlPlayer = null; // video HTML5 para LG/navegadores
+    var androidPlayer = null; // ExoPlayer de la app de Android TV, por el puente QuattreAndroid
     var allChannels = [];       // todo lo que ha llegado del servidor
     var channels = [];          // lo que se ve, ya filtrado
     var genres = [];
@@ -77,8 +78,17 @@
             player = stbPlayerManager.list[0];
         }
 
-        // Si no hay API de STB, usar video HTML5
-        if (!stbAPI && !player) {
+        // La app de Android TV expone su ExoPlayer con un puente (objeto
+        // QuattreAndroid). Va por delante del <video>: Chromium no arranca
+        // los canales de TDT, que no emiten IDR, y ExoPlayer si. La pagina
+        // sigue siendo la misma; solo cambia quien pinta el video.
+        if (!stbAPI && !player && typeof QuattreAndroid !== 'undefined' && QuattreAndroid.reproducir) {
+            androidPlayer = QuattreAndroid;
+            try { androidPlayer.volumen(volume); } catch (err) {}
+        }
+
+        // Si no hay API de STB ni puente de Android, usar video HTML5
+        if (!stbAPI && !player && !androidPlayer) {
             useHTML5 = true;
             htmlPlayer = document.getElementById('html5video');
             htmlPlayer.style.display = 'block';
@@ -338,6 +348,9 @@
         if (useHTML5) {
             htmlPlayer.style.cssText =
                 'position:fixed;' + huecoCss() + ';z-index:2;border-radius:14px;';
+        } else if (androidPlayer) {
+            // Fracciones de pantalla: la app las multiplica por su tamaño real.
+            try { androidPlayer.colocar(HUECO.x, HUECO.y, HUECO.ancho, HUECO.alto); } catch(err) {}
         } else if (stbAPI) {
             // Ojo al orden: SetViewport es (ancho, alto, x, y).
             try {
@@ -357,6 +370,8 @@
         pintarRadio(channels[playingChannelIdx >= 0 ? playingChannelIdx : currentChannel]);
         if (useHTML5) {
             htmlPlayer.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;';
+        } else if (androidPlayer) {
+            try { androidPlayer.colocar(0, 0, 1, 1); } catch(err) {}
         } else if (stbAPI) {
             // Asi lo hace el portal de siempre: PIG en modo 1 con el resto en
             // -1 (dejar como esta), y los graficos por delante.
@@ -821,6 +836,8 @@
         if (useHTML5) {
             var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
             arrancarVideo(url);
+        } else if (androidPlayer) {
+            try { androidPlayer.reproducir(ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '')); } catch(err) {}
         } else if (stbAPI) {
             try { stbAPI.Play(ch.cmd); } catch(err) {}
         } else if (player) {
@@ -859,6 +876,7 @@
         var tarjeta = document.getElementById('radio');
         if (tarjeta) tarjeta.style.display = 'none';
         try { if (useHTML5 && htmlPlayer) { htmlPlayer.pause(); htmlPlayer.style.display = 'none'; } } catch(err) {}
+        try { if (androidPlayer) androidPlayer.parar(); } catch(err) {}
         try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
         try { if (player && player.stop) player.stop(); } catch(err) {}
         playingChannelIdx = -1;
@@ -2199,6 +2217,8 @@
         volume = Math.max(0, Math.min(100, volume + delta));
         if (useHTML5 && htmlPlayer) {
             htmlPlayer.volume = volume / 100;
+        } else if (androidPlayer) {
+            try { androidPlayer.volumen(volume); } catch(err) {}
         } else if (stbAPI && stbAPI.SetVolume) {
             try { stbAPI.SetVolume(volume); } catch(err) {}
         }
