@@ -26,7 +26,9 @@ import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.PlayerView;
@@ -77,6 +79,20 @@ public class MainActivity extends Activity {
     private PlayerView vista;
     private ExoPlayer player;
     private String urlActual = null;
+    // Vigilante del video: si suena pero no llega ningun fotograma, se
+    // reengancha. Ver reproducir_().
+    private long ultimoFotograma = 0;
+    private boolean exigiendoIdr = false;
+    private final Runnable vigilante = new Runnable() {
+        @Override public void run() {
+            if (player != null && urlActual != null && player.isPlaying()
+                    && ultimoFotograma > 0 && System.currentTimeMillis() - ultimoFotograma > 5000) {
+                Log.w(TAG, "video: 5 s sin fotogramas, reenganche " + (exigiendoIdr ? "permisivo" : "exigiendo IDR"));
+                cargar(urlActual, !exigiendoIdr);
+            }
+            raiz.postDelayed(this, 2000);
+        }
+    };
     private float volumen = 1f;
     private final float[] hueco = {0f, 0f, 1f, 1f};   // x, y, ancho, alto en fracciones
 
@@ -246,23 +262,42 @@ public class MainActivity extends Activity {
             }
         });
         vista.setPlayer(player);
+        // Cada fotograma que se pinta deja su hora: es lo que mira el vigilante.
+        player.setVideoFrameMetadataListener((pts, release, formato, mf) -> ultimoFotograma = System.currentTimeMillis());
+        raiz.postDelayed(vigilante, 2000);
+    }
+
+    /**
+     * Carga un canal. Los canales de TDT no emiten IDR, solo I-frames con
+     * punto de recuperacion, asi que por defecto se admite arrancar en
+     * cualquier I-frame (permisivo). Pero hay decodificadores que no saben
+     * engancharse ahi con ciertos canales -- el de software del emulador con
+     * Dark -- y se quedan mudos de imagen hasta el siguiente IDR. Para esos, el
+     * vigilante vuelve a cargar exigiendo IDR, que es lo que hace Chromium.
+     */
+    private void cargar(String url, boolean exigirIdr) {
+        exigiendoIdr = exigirIdr;
+        ultimoFotograma = System.currentTimeMillis();
+        vista.setVisibility(View.INVISIBLE);
+        player.stop();
+        player.clearMediaItems();
+        int flags = exigirIdr ? 0 : DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES;
+        player.setMediaSource(new HlsMediaSource.Factory(new DefaultHttpDataSource.Factory())
+                .setExtractorFactory(new DefaultHlsExtractorFactory(flags, true))
+                .createMediaSource(MediaItem.fromUri(url)));
+        player.setPlayWhenReady(true);
+        player.prepare();
     }
 
     private void reproducir_(String url) {
         crearPlayer();
         urlActual = url;
         Log.i(TAG, "video: " + url);
-        // Fuera el ultimo fotograma del canal anterior: si se queda mientras
-        // carga el nuevo parece que la imagen se ha congelado.
-        vista.setVisibility(View.INVISIBLE);
-        // Se para y se vacia antes de cargar el siguiente: cambiando de canal
-        // sobre la marcha, al cuarto se quedaba "cargando" para siempre.
-        player.stop();
-        player.clearMediaItems();
-        player.setMediaSource(new HlsMediaSource.Factory(new DefaultHttpDataSource.Factory())
-                .createMediaSource(MediaItem.fromUri(url)));
-        player.setPlayWhenReady(true);
-        player.prepare();
+        // Fuera el ultimo fotograma del canal anterior (si se queda mientras
+        // carga el nuevo parece que la imagen se ha congelado), y se para y
+        // se vacia antes de cargar (cambiando de canal sobre la marcha, al
+        // cuarto se quedaba "cargando" para siempre). Todo en cargar().
+        cargar(url, false);
         colocarVista();
     }
 
