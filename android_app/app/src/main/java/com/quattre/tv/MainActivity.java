@@ -27,6 +27,7 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.AspectRatioFrameLayout;
 import androidx.media3.ui.PlayerView;
 import androidx.webkit.WebViewAssetLoader;
@@ -205,12 +206,24 @@ public class MainActivity extends Activity {
         if (player != null) return;
         player = new ExoPlayer.Builder(this).build();
         player.setVolume(volumen);
+        // Todo lo que hace por dentro (cargas, decodificadores, errores) sale
+        // en logcat con la etiqueta EventLogger. En pruebas vale su peso en oro.
+        player.addAnalyticsListener(new EventLogger());
         player.addListener(new Player.Listener() {
             @Override public void onVideoSizeChanged(VideoSize s) {
                 Log.i(TAG, "video " + s.width + "x" + s.height);
             }
             @Override public void onRenderedFirstFrame() {
                 vista.setVisibility(View.VISIBLE);
+                Log.i(TAG, "video: primer fotograma");
+            }
+            // Estado en el registro: sin esto no hay forma de distinguir desde
+            // fuera "esta cargando" de "se ha quedado colgado".
+            @Override public void onPlaybackStateChanged(int st) {
+                Log.i(TAG, "video: estado " + (st == Player.STATE_BUFFERING ? "cargando" : st == Player.STATE_READY ? "listo" : st == Player.STATE_ENDED ? "terminado" : "parado"));
+            }
+            @Override public void onIsPlayingChanged(boolean va) {
+                Log.i(TAG, "video: " + (va ? "reproduciendo" : "detenido"));
             }
             // Un directo se cae de vez en cuando (un segmento que no llega,
             // un corte). Se vuelve a enganchar al borde del directo solo.
@@ -231,6 +244,10 @@ public class MainActivity extends Activity {
         crearPlayer();
         urlActual = url;
         Log.i(TAG, "video: " + url);
+        // Se para y se vacia antes de cargar el siguiente: cambiando de canal
+        // sobre la marcha, al cuarto se quedaba "cargando" para siempre.
+        player.stop();
+        player.clearMediaItems();
         player.setMediaSource(new HlsMediaSource.Factory(new DefaultHttpDataSource.Factory())
                 .createMediaSource(MediaItem.fromUri(url)));
         player.setPlayWhenReady(true);
