@@ -123,6 +123,13 @@ public class MainActivity extends Activity {
         // maquetan a 1920x1080 y se encajan en la pantalla que haya, como en LG.
         s.setUseWideViewPort(true);
         s.setLoadWithOverviewMode(true);
+        // ...pero el modo "overview" no reduce la pagina por si solo en una
+        // pantalla de densidad 2 (el emulador de TV, muchos televisores): se
+        // veia al doble, con la lista tapando el video. Se fija la escala a
+        // mano: la rejilla de 1920 del portal = el ancho real de la pantalla.
+        // Asi las fracciones que manda colocar() coinciden con la pagina.
+        int anchoPantalla = getResources().getDisplayMetrics().widthPixels;
+        web.setInitialScale(Math.round(100f * anchoPantalla / 1920f));
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
         s.setAllowFileAccess(false);
@@ -305,6 +312,7 @@ public class MainActivity extends Activity {
         web.evaluateJavascript(
                 "(typeof enRaiz === 'function') ? String(enRaiz()) : 'fuera'",
                 valor -> {
+                    Log.i(TAG, "atras: enRaiz=" + valor);
                     if (valor == null || valor.contains("fuera") || valor.contains("true")) {
                         finish();
                     } else {
