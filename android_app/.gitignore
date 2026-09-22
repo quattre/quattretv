@@ -1,0 +1,15 @@
+# Lo que genera la compilacion
+build/
+.gradle/
+local.properties
+*.iml
+.idea/
+
+# Lo que prepara empaquetar.sh a partir de lg_app/ (no se duplica en git)
+app/src/main/assets/
+app/src/main/res/mipmap-*/
+app/src/main/res/drawable-xhdpi/
+
+# Firma: la clave vive fuera del repositorio, en ~/android-keys/
+*.jks
+*.keystore

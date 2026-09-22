@@ -1,0 +1,5 @@
+// La version del plugin de Android va emparejada con la de Gradle que baja
+// instalar_sdk.sh / empaquetar.sh (8.11.1). Si se sube una, hay que subir la otra.
+plugins {
+    id 'com.android.application' version '8.10.1' apply false
+}

@@ -1,0 +1,75 @@
+plugins {
+    id 'com.android.application'
+}
+
+// La clave de subida a Google Play. La crea empaquetar.sh la primera vez y la
+// deja FUERA del repositorio, en ~/android-keys/. Si no esta, se compila igual
+// pero solo el APK de pruebas (debug).
+def claveDir = new File(System.getProperty('user.home'), 'android-keys')
+def clave = new File(claveDir, 'quattretv-upload.jks')
+def claveProps = new Properties()
+def clavePropsFile = new File(claveDir, 'quattretv-upload.properties')
+if (clavePropsFile.exists()) {
+    clavePropsFile.withInputStream { claveProps.load(it) }
+}
+
+android {
+    namespace 'com.quattre.tv'
+    compileSdk 36
+
+    defaultConfig {
+        // Mismo identificador que en LG (appinfo.json). En Google Play no se
+        // puede cambiar una vez publicado.
+        applicationId 'com.quattre.tv'
+        // Android TV empezo en 5.0 (API 21). Por debajo no hay televisores.
+        minSdk 21
+        targetSdk 36
+        // versionCode tiene que SUBIR en cada envio a la tienda, aunque la
+        // versionName no cambie. Es lo que Google Play mira.
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        if (clave.exists() && claveProps['storePassword']) {
+            release {
+                storeFile clave
+                storePassword claveProps['storePassword']
+                keyAlias claveProps['keyAlias'] ?: 'upload'
+                keyPassword claveProps['keyPassword'] ?: claveProps['storePassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // Sin ofuscar: son cuatro clases y asi el registro de fallos de
+            // Google Play se lee sin tablas de traduccion.
+            minifyEnabled false
+            if (clave.exists() && claveProps['storePassword']) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    // BuildConfig.VERSION_NAME, para poner la version en el user-agent.
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // WebViewAssetLoader: sirve el cargador del paquete con un origen https de
+    // verdad, para que pueda preguntar a /ping sin abrir el acceso a file://.
+    implementation 'androidx.webkit:webkit:1.14.0'
+    // PRUEBA (22/09/2026): reproductor nativo para los canales de TDT sin IDR,
+    // que ni Chromium ni el MediaPlayer del sistema arrancan.
+    implementation 'androidx.media3:media3-exoplayer:1.5.1'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.5.1'
+    implementation 'androidx.media3:media3-ui:1.5.1'
+}

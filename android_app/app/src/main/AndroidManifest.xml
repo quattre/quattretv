@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  La ficha de la app para Android TV / Google TV. Es el equivalente al
+  appinfo.json de LG y al config.xml de Samsung.
+
+  Es una app SOLO para televisores: leanback obligatorio y pantalla tactil no
+  necesaria. Con eso Google Play la ofrece a Sony, Philips, TCL, Hisense,
+  Xiaomi, Chromecast, Nvidia Shield... y no a los moviles, donde el portal no
+  esta pensado para usarse.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.software.leanback" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <!-- Sin esto Google Play excluye a los aparatos sin estas cosas, y ninguna
+         television las tiene. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:theme="@style/Theme.QuattreTV">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- PRUEBA: reproductor ExoPlayer con un canal dado (-e url ...) -->
+        <activity android:name=".PruebaExo" android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" />
+    </application>
+</manifest>

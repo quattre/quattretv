@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sin barra de titulo y con el fondo del splash desde el primer
+         fotograma, para que no se vea un flash blanco antes del cargador. -->
+    <style name="Theme.QuattreTV" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/fondo</item>
+        <item name="android:colorBackground">@color/fondo</item>
+    </style>
+</resources>

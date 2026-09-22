@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- El mismo fondo que el splash de LG (bgColor de appinfo.json). -->
+    <color name="fondo">#080b0d</color>
+</resources>
