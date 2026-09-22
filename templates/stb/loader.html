@@ -337,6 +337,7 @@
         var f = document.activeElement;
         var plataforma = (typeof tizen !== 'undefined') ? 'Samsung (Tizen)'
                        : (typeof webOS !== 'undefined' || navigator.userAgent.indexOf('Web0S') >= 0) ? 'LG (webOS)'
+                       : (navigator.userAgent.indexOf('QuattreTV-AndroidTV') >= 0) ? 'Android TV'
                        : (typeof gSTB !== 'undefined') ? 'deco MAG'
                        : 'navegador';
         d.innerHTML =
