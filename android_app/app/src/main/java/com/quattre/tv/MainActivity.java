@@ -12,6 +12,7 @@ import android.view.WindowManager;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -85,6 +86,11 @@ public class MainActivity extends Activity {
     private View cortina;
     private ExoPlayer player;
     private String urlActual = null;
+    // Atras en la pantalla principal cierra la app, que es lo que se espera en
+    // Android. Pero estando en la lista de canales es facil pulsarlo sin
+    // querer creyendo que sube un nivel, y te saca al escritorio de Google.
+    // Se pide confirmacion: dos veces seguidas.
+    private long atrasEnRaiz = 0;
     // Vigilante del video: si suena pero no llega ningun fotograma, se
     // reengancha. Ver reproducir_().
     private long ultimoFotograma = 0;
@@ -414,7 +420,13 @@ public class MainActivity extends Activity {
                 valor -> {
                     Log.i(TAG, "atras: enRaiz=" + valor);
                     if (valor == null || valor.contains("fuera") || valor.contains("true")) {
-                        finish();
+                        long ahora = System.currentTimeMillis();
+                        if (ahora - atrasEnRaiz < 3000) {
+                            finish();
+                        } else {
+                            atrasEnRaiz = ahora;
+                            Toast.makeText(this, "Pulsa atras otra vez para salir", Toast.LENGTH_SHORT).show();
+                        }
                     } else {
                         inyectarTecla(461);
                     }

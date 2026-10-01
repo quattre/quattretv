@@ -1058,7 +1058,18 @@
         if (paso <= 0 && filas[0]) paso = filas[0].offsetHeight;
         if (paso <= 0) return;
 
-        var caben = Math.max(3, Math.floor(hueco / paso));
+        // El paso lleva dentro la separacion que va DEBAJO de cada fila, y la
+        // ultima no necesita la suya: siete filas de 99 px con 7 de separacion
+        // ocupan 735, no 742. Sin descontarlo se perdia una fila entera y
+        // quedaba un hueco al final de la lista donde cabia otro canal --
+        // medido en una Xiaomi TV Box S: hueco 739, paso 106, daba 6 filas
+        // cuando caben 7.
+        var alto = 0;
+        for (var j = 0; j < filas.length; j++) {
+            if (filas[j].offsetHeight > alto) alto = filas[j].offsetHeight;
+        }
+        var sobra = (alto > 0 && paso > alto) ? paso - alto : 0;
+        var caben = Math.max(3, Math.floor((hueco + sobra) / paso));
         filasCaben[lista] = caben;
         if (caben === usadas) return;
         midiendoFilas = true;
