@@ -82,10 +82,15 @@ public class MainActivity extends Activity {
     // Vigilante del video: si suena pero no llega ningun fotograma, se
     // reengancha. Ver reproducir_().
     private long ultimoFotograma = 0;
+    // ¿Este aparato avisa de cada fotograma que pinta? Los decodificadores por
+    // hardware (el Amlogic de las cajas Xiaomi, por ejemplo) no lo hacen, y sin
+    // esto el vigilante creia que la imagen estaba congelada yendo perfecta: se
+    // reenganchaba cada 5 s, en todos los canales.
+    private boolean hayContadorFotogramas = false;
     private boolean exigiendoIdr = false;
     private final Runnable vigilante = new Runnable() {
         @Override public void run() {
-            if (player != null && urlActual != null && player.isPlaying()
+            if (player != null && urlActual != null && player.isPlaying() && hayContadorFotogramas
                     && ultimoFotograma > 0 && System.currentTimeMillis() - ultimoFotograma > 5000) {
                 Log.w(TAG, "video: 5 s sin fotogramas, reenganche " + (exigiendoIdr ? "permisivo" : "exigiendo IDR"));
                 cargar(urlActual, !exigiendoIdr);
@@ -263,7 +268,13 @@ public class MainActivity extends Activity {
         });
         vista.setPlayer(player);
         // Cada fotograma que se pinta deja su hora: es lo que mira el vigilante.
-        player.setVideoFrameMetadataListener((pts, release, formato, mf) -> ultimoFotograma = System.currentTimeMillis());
+        player.setVideoFrameMetadataListener((pts, release, formato, mf) -> {
+            if (!hayContadorFotogramas) {
+                hayContadorFotogramas = true;
+                Log.i(TAG, "video: el aparato cuenta fotogramas, vigilante activo");
+            }
+            ultimoFotograma = System.currentTimeMillis();
+        });
         raiz.postDelayed(vigilante, 2000);
     }
 
@@ -278,6 +289,7 @@ public class MainActivity extends Activity {
     private void cargar(String url, boolean exigirIdr) {
         exigiendoIdr = exigirIdr;
         ultimoFotograma = System.currentTimeMillis();
+        hayContadorFotogramas = false;
         vista.setVisibility(View.INVISIBLE);
         player.stop();
         player.clearMediaItems();
