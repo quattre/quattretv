@@ -77,6 +77,12 @@ public class MainActivity extends Activity {
     // pagina: cambiarla no obliga a actualizar la app.
     private FrameLayout raiz;
     private PlayerView vista;
+    // Tapa el video al cambiar de canal. Va ENCIMA del reproductor y debajo de
+    // la pagina: ocultar el propio reproductor no vale, porque al hacerlo
+    // Android destruye su superficie de video, y sin superficie no se pinta
+    // ningun fotograma -- ni siquiera el que haria falta para volver a
+    // enseñarlo. Se quedaba en negro para siempre.
+    private View cortina;
     private ExoPlayer player;
     private String urlActual = null;
     // Vigilante del video: si suena pero no llega ningun fotograma, se
@@ -118,8 +124,12 @@ public class MainActivity extends Activity {
         vista = new PlayerView(this);
         vista.setUseController(false);
         vista.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
-        vista.setVisibility(View.INVISIBLE);
         raiz.addView(vista, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
+        cortina = new View(this);
+        cortina.setBackgroundColor(Color.parseColor("#080b0d"));
+        raiz.addView(cortina, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
         web = new WebView(this);
@@ -241,15 +251,13 @@ public class MainActivity extends Activity {
             // cuando la imagen ya se ha refrescado entera.
             @Override public void onRenderedFirstFrame() {
                 Log.i(TAG, "video: primer fotograma");
-                final String esta = urlActual;
-                vista.postDelayed(() -> {
-                    if (esta != null && esta.equals(urlActual)) vista.setVisibility(View.VISIBLE);
-                }, 500);
+                revelar();
             }
             // Estado en el registro: sin esto no hay forma de distinguir desde
             // fuera "esta cargando" de "se ha quedado colgado".
             @Override public void onPlaybackStateChanged(int st) {
                 Log.i(TAG, "video: estado " + (st == Player.STATE_BUFFERING ? "cargando" : st == Player.STATE_READY ? "listo" : st == Player.STATE_ENDED ? "terminado" : "parado"));
+                if (st == Player.STATE_READY) revelar();
             }
             @Override public void onIsPlayingChanged(boolean va) {
                 Log.i(TAG, "video: " + (va ? "reproduciendo" : "detenido"));
@@ -290,7 +298,7 @@ public class MainActivity extends Activity {
         exigiendoIdr = exigirIdr;
         ultimoFotograma = System.currentTimeMillis();
         hayContadorFotogramas = false;
-        vista.setVisibility(View.INVISIBLE);
+        cortina.setVisibility(View.VISIBLE);
         player.stop();
         player.clearMediaItems();
         int flags = exigirIdr ? 0 : DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES;
@@ -316,7 +324,24 @@ public class MainActivity extends Activity {
     private void parar_() {
         urlActual = null;
         if (player != null) player.stop();
-        vista.setVisibility(View.INVISIBLE);
+        cortina.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Vuelve a enseñar el video medio segundo despues de que haya imagen, que
+     * los canales de TDT entran pixelados (no emiten IDR: los primeros
+     * fotogramas apuntan a imagenes que el decodificador no tiene).
+     *
+     * Lo dispara lo que llegue primero: el aviso de primer fotograma o el
+     * estado "listo" del reproductor. Hace falta porque **hay aparatos que no
+     * avisan del primer fotograma**: en una Xiaomi TV Box S (Amlogic) no se
+     * dispara nunca, y el video se quedaba invisible aunque sonara.
+     */
+    private void revelar() {
+        final String esta = urlActual;
+        cortina.postDelayed(() -> {
+            if (esta != null && esta.equals(urlActual)) cortina.setVisibility(View.GONE);
+        }, 500);
     }
 
     /** Coloca el video en el hueco que ha pedido la pagina (fracciones de pantalla). */
