@@ -15,78 +15,69 @@ transmitir **integros** los componentes de accesibilidad —subtitulos para
 sordos, audiodescripcion— y **permitir seleccionarlos**. Ademas de una guia de
 programacion accesible, que eso si lo tenemos.
 
-## Que pasa hoy
+## Que pasa hoy — MEDIDO EL 06/10/2026, y dos cosas que teniamos mal
 
-Las emisiones **si** llevan la accesibilidad. Comprobado el 07/09/2026 con
-ffprobe sobre el HLS de La 1, Antena 3, Telecinco y Teledeporte: cada canal
-lleva **tres pistas de audio** —la principal, un segundo idioma y lo que muy
-probablemente es la audiodescripcion— y **dos pistas de datos**, que es por
-donde viaja el teletexto con los subtitulos.
+**Lo que lleva la fuente** (multicast de La 1, `udp://234.5.2.174:20000`,
+leido con ffprobe desde cdn10):
 
-El problema esta en dos sitios, los dos nuestros:
+| Flujo | Que es |
+|---|---|
+| h264 | video |
+| eac3 `spa` | audio principal |
+| eac3 `qaa` | version original |
+| eac3 `spa` **(visual impaired) (descriptions)** | **audiodescripcion, etiquetada en origen** |
+| dvb_subtitle `spa` | subtitulos en imagen |
+| **dvb_teletext `spa`** | **teletexto — aqui van los subtitulos para sordos, pagina 888** |
+| dvb_subtitle `qaa`, scte_35, epg | lo demas |
 
-1. **La lista HLS que servimos es plana.** No declara ni una sola pista
-   alternativa: no hay `#EXT-X-MEDIA` en ningun sitio. El televisor coge el
-   primer audio y no sabe que existe nada mas.
-2. **El reproductor del portal no tiene soporte de pistas.** Ni subtitulos ni
-   seleccion de audio; no existe en el codigo.
+**ERROR 1 QUE TENIAMOS APUNTADO: los subtitulos no se pierden "mas adelante",
+es que NO LOS COPIAMOS.** La plantilla de systemd mapea
+`-map 0:v? -map 0:a? -map 0:d?` — video, audio y **datos**. No hay `-map 0:s?`,
+asi que los tres flujos de subtitulos se quedan fuera en nuestro ffmpeg. Lo que
+llegaba al HLS como `bin_data` era el SCTE-35 y la EPG, no los subtitulos.
 
-O sea: **el contenido accesible llega hasta el CDN y ahi se pierde.**
+**ERROR 2: el ffmpeg de los CDN es el 6.1.1 de la distribucion, no un 8.0
+compilado a mano, y SI lleva `libzvbi`.** No hay que recompilar nada.
 
-## Lo probado el 07/09/2026 (sin tocar nada de produccion)
+**Y una tercera cosa, esta a favor:** los tres audios **ya se recodifican a AAC
+hoy** (`-c:a aac -b:a 128k -ac 2` se aplica a todos los mapeados). Exponerlos no
+cuesta ni un ciclo mas de CPU.
 
-**Correccion de lo escrito arriba: las pistas NO se pierden en el CDN.** El
-empaquetado ya las mapea todas -- `-map 0:v? -map 0:a? -map 0:d?` -- asi que los
-tres audios y el teletexto viajan dentro de los segmentos. El problema esta mas
-adelante.
+## Probado entero el 06/10/2026, sin tocar produccion
 
-Se probaron dos cosas en el Samsung TU32H5005:
+Con una muestra de 30 s del multicast traida a local, **una sola orden de ffmpeg**
+produce lo que exige la norma:
 
-1. **Con la lista plana de hoy**, el reproductor dice `audioTracks: 0` y
-   `textTracks: 0`, aunque los segmentos lleven tres audios.
-2. **Con una lista maestra en condiciones**, generada aqui en local desde el HLS
-   publico y declarando las tres pistas con `#EXT-X-MEDIA` -- servida como
-   ficheros estaticos desde iptv2 y borrada despues --, el televisor **sigue
-   diciendo 0**.
+```
+ffmpeg -txt_format text -txt_page 888 -fix_sub_duration -i <fuente> \
+  -map 0:v:0 -map 0:a:0 -map 0:a:1 -map 0:a:2 -c:v copy -c:a aac -b:a 128k -ac 2 \
+  -f hls -hls_time 10 -hls_segment_type mpegts -master_pl_name master.m3u8 \
+  -var_stream_map "v:0,agroup:aud a:0,agroup:aud,language:spa \
+                   a:1,agroup:aud,language:qaa a:2,agroup:aud,language:spa" \
+  -hls_segment_filename "s%v_%03d.ts" "s%v.m3u8" \
+  -map 0:s:1 -c:s webvtt \
+  -f segment -segment_time 10 -segment_format webvtt \
+  -segment_list subtitulos.m3u8 -segment_list_type m3u8 "sub_%03d.vtt"
+```
 
-O sea: **no basta con empaquetarlo bien**. El reproductor web de Tizen no expone
-la API estandar de pistas por muy correcta que sea la lista.
+Tres detalles que costaron encontrarlos:
+- **`-txt_page 888`**. Sin eso, el teletexto vuelca TODAS las paginas: el indice,
+  el tiempo, la loteria. La 888 es la de subtitulos en España, y sale limpia y
+  con los tiempos bien. El primer subtitulo de la muestra es `(MUSICA)`, que es
+  la marca de los subtitulos para sordos.
+- **El muxer de HLS no sabe escribir una salida solo de subtitulos**, y mezclar
+  `agroup` con `sgroup` en `-var_stream_map` da *"No streams to mux"*. Se saca
+  con el muxer **segment**, en la misma orden: una decodificacion, dos salidas.
+- **La lista maestra se escribe a mano.** ffmpeg no junta las dos salidas, y
+  ademas pone `DEFAULT=YES` en los tres audios. Escribiendola nosotros se
+  controlan los idiomas, cual manda y —lo importante— las marcas de
+  accesibilidad: `CHARACTERISTICS="public.accessibility.describes-video"` en la
+  audiodescripcion y `describes-music-and-sound` en los subtitulos.
 
-Y el ffmpeg de cdn10 y cdn11 es un **8.0 compilado a mano SIN libzvbi**, asi que
-tampoco puede decodificar el teletexto para sacar los subtitulos. Habria que
-recompilarlo en las dos maquinas. cdn10 estaba con **carga 14,9**.
-
-## Por donde iria el arreglo
-
-Toca produccion, asi que con calma y canal por canal:
-
-Hay dos caminos y ninguno es de una tarde:
-
-**a) El reproductor nativo de Samsung (`webapis.avplay`).** Si expone las pistas
-y deja elegirlas. Problema: como el objeto `tizen`, **solo existe dentro del
-paquete**, y nuestro portal se sirve desde el servidor. Habria que meter la
-reproduccion en el envoltorio, con lo que se pierde justo lo que hace comoda
-esta arquitectura: que un arreglo llegue a todas las teles sin pasar por la
-tienda. Y habria que hacerlo distinto en cada marca.
-
-**b) Reproducir con hls.js en la propia pagina.** Ahi el cambio de pista de
-audio y los subtitulos WebVTT los gestiona el JavaScript, sin depender de la API
-del televisor, y vale igual para Samsung, LG y los decos. Es el camino que
-mantiene una sola aplicacion. El riesgo es que se pasa de la reproduccion nativa
-del televisor a una por software: hay que medir consumo y fluidez en los
-aparatos mas flojos antes de cambiar nada.
-
-Ademas, para los subtitulos:
-
-- Recompilar ffmpeg con `--enable-libzvbi` en cdn10 y cdn11, y convertir el
-  teletexto a WebVTT.
-- Declarar las pistas en una lista maestra, **con otro nombre**, sin tocar el
-  `index.m3u8` de hoy.
-- Ojo con el coste: hoy se codifica un AAC por canal; exponer tres audios son
-  tres codificaciones. Con cdn10 en carga 14,9 eso hay que medirlo antes.
-
-Esto no es solo para Samsung: la normativa española de accesibilidad audiovisual
-pide lo mismo, con app o sin ella.
+**Comprobado en ExoPlayer** (muestra servida por HTTPS desde iptv2): ve los tres
+audios y los subtitulos, con `roles=512` en la audiodescripcion y `roles=1024`
+en los subtitulos. O sea que el reproductor no solo las lista: **sabe para que
+sirve cada una**, que es justo lo que pide el Anexo I.
 
 ## Como se hace sin romper produccion
 
