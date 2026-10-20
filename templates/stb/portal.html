@@ -2286,6 +2286,16 @@
     var TECLA_ATRAS_TIZEN = 10009;
     var TECLA_SALIR_TIZEN = 10182;
 
+    // Lo que pide la guia de LG para el atras de la pantalla principal (ver
+    // la pantalla de acceso, que tiene la misma funcion y el porque).
+    function salirALaBarraDeInicio() {
+        try {
+            if (window.webOS && window.webOS.platformBack) { window.webOS.platformBack(); return; }
+            if (window.PalmSystem && window.PalmSystem.platformBack) { window.PalmSystem.platformBack(); return; }
+        } catch (e) {}
+        try { window.close(); } catch (e) {}
+    }
+
     function normalizarTecla(k) {
         if (k === TECLA_ATRAS) return 27;          // atras del mando de LG
         if (k === TECLA_ATRAS_TIZEN) return 27;    // atras del mando de Samsung
@@ -2619,6 +2629,11 @@
                 openGuide();
             } else if (k === 37) {
                 openMenu();
+            } else if (e.keyCode === TECLA_ATRAS) {
+                // La lista es la pantalla principal: atras en LG saca la barra
+                // de inicio, igual que en la pantalla de acceso. Solo el 461:
+                // en los decos el atras sigue contando para la configuracion.
+                salirALaBarraDeInicio();
             } else {
                 accesoConfiguracion(k);
             }

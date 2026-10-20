@@ -228,6 +228,19 @@
         return false;
     }
 
+    // Atras en la pantalla de acceso tiene que sacar la barra de inicio de
+    // LG. Con disableBackHistoryAPI en true el sistema no hace nada por su
+    // cuenta, y la revision de LG lo rechazo por eso (TVAPPQA-64299): pulsaban
+    // atras y no pasaba nada. platformBack es lo que pide su guia; PalmSystem
+    // lo inyecta el televisor tambien en las paginas de nuestro servidor.
+    function salirALaBarraDeInicio() {
+        try {
+            if (window.webOS && window.webOS.platformBack) { window.webOS.platformBack(); return; }
+            if (window.PalmSystem && window.PalmSystem.platformBack) { window.PalmSystem.platformBack(); return; }
+        } catch (e) {}
+        try { window.close(); } catch (e) {}
+    }
+
     function showKeyboard(inputId) {
         abrirTeclado(document.getElementById(inputId));
     }
@@ -379,6 +392,13 @@
         }
         if (quizaDiagnostico(key)) return;
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
+
+        // Solo el atras de LG: el 8 del teclado borra letras en los campos.
+        if (key === 461) {
+            salirALaBarraDeInicio();
+            if (e.preventDefault) e.preventDefault();
+            return false;
+        }
 
         // Red de seguridad: si llega una tecla y no hay ningun campo enfocado,
         // se enfoca el de usuario. Sin esto, en un televisor que no haya hecho
