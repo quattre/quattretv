@@ -52,8 +52,11 @@ PLATAFORMAS = {
                   '&mdash; a single click does the same as moving to the row and '
                   'pressing OK &mdash; and the wheel scrolls long lists.'),
         'atras': ('Handled by the app (<code>disableBackHistoryAPI</code> is true). '
-                  'BACK always leads back towards the channel list; from the channel '
-                  'list it opens the main menu. No screen can be got stuck in.'),
+                  'BACK always leads back towards the channel list. On the sign-in '
+                  'screen and on the channel list, the first screens of the app, BACK '
+                  'shows the webOS Launcher bar (<code>platformBack</code>); if the '
+                  'on-screen keyboard is open, the first BACK closes it. No screen can '
+                  'be got stuck in.'),
     },
     'samsung': {
         'sistema': 'Tizen',
@@ -117,7 +120,7 @@ PANTALLAS = [
         'fichero': '02-menu.png',
         'seccion': '6. Sub Page Description',
         'titulo': 'Main menu',
-        'intro': 'Opened with the LEFT key or BACK from the channel list. The menu is '
+        'intro': 'Opened with the LEFT key from the channel list. The menu is '
                  'built from what the subscription includes: with the review account it '
                  'shows three options. Accounts with films, series or recordings see '
                  'those as well. An option that does not apply is never shown.',
@@ -379,8 +382,10 @@ kind, no banner ads and no AVOD.</p>
 <table class="datos" style="max-width:250mm">
   <tr><td>Remote</td><td>{mando}</td></tr>
   <tr><td>BACK key</td><td>{atras}</td></tr>
-  <tr><td>Colour buttons</td><td>Red records, green marks a favourite, yellow filters
-      favourites, blue opens the guide. INFO opens the programme details.</td></tr>
+  <tr><td>Colour buttons</td><td>Green marks a favourite, yellow filters favourites,
+      blue opens the guide. Red is reserved for recordings: where the subscription
+      does not include them, as on the review account, it shows a short notice
+      saying recordings are not available. INFO opens the programme details.</td></tr>
   <tr><td>No network at start</td><td>The app asks the service before loading anything.
       If nothing answers it shows a plain message and a retry button that holds the
       focus &mdash; never a blank screen. It also retries by itself, and reconnects
