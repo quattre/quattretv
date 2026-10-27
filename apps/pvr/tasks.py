@@ -63,11 +63,12 @@ def dispatch_due_recordings():
             recording.save(update_fields=['status', 'error_message'])
             continue
 
-        source = recording.channel.multicast_url
+        source = recording.channel.origen_para_grabar
         if not source:
             recording.status = RecordingStatus.FAILED
             recording.error_message = (
-                'El canal no tiene origen multicast configurado (multicast_url)'
+                'El canal no tiene origen para el grabador '
+                '(origen_grabador ni multicast_url)'
             )
             recording.save(update_fields=['status', 'error_message'])
             continue

@@ -93,7 +93,7 @@
                 <td class="px-4 py-2 text-gray-500">{{ c.number }}</td>
                 <td class="px-4 py-2 font-medium text-gray-900">
                     {{ c.name }}
-                    {% if not c.multicast_url %}<span class="text-xs text-red-500 ml-1" title="Sin origen multicast: no se puede grabar">sin origen</span>{% endif %}
+                    {% if not c.origen_para_grabar %}<span class="text-xs text-red-500 ml-1" title="Sin origen multicast: no se puede grabar">sin origen</span>{% endif %}
                     {% if not c.ministra_id %}<span class="text-xs text-gray-400 ml-1">no está en Ministra</span>{% endif %}
                 </td>
                 <td class="px-4 py-2">

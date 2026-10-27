@@ -205,6 +205,18 @@ class Channel(TimeStampedModel, ActivableModel):
         null=True, blank=True, unique=True,
         help_text='id interno del canal en Ministra (tabla itv)'
     )
+    # Los grabadores de record1 y storage1 no leen el multicast que tenga el
+    # CDN: llevan una tabla propia (linktv en dumpstream) que traduce las
+    # direcciones de Ministra a la HLS del CDN. Con otra direccion no graban.
+    origen_grabador = models.CharField(
+        max_length=200, blank=True,
+        help_text='Origen que se manda a los grabadores (mc_cmd de Ministra, '
+                  'p. ej. udp://239.20.20.4:5004). Vacio = multicast_url.'
+    )
+
+    @property
+    def origen_para_grabar(self):
+        return self.origen_grabador or self.multicast_url
 
     # Metadata
     description = models.TextField(blank=True)

@@ -242,7 +242,7 @@ def archive_channels():
     """
     return Channel.objects.filter(
         is_active=True, has_catchup=True, archive_hls_since__isnull=True
-    ).exclude(multicast_url='').order_by('number')
+    ).exclude(multicast_url='', origen_grabador='').order_by('number')
 
 
 @csrf_exempt
@@ -262,7 +262,7 @@ def tv_archive_tasks(request, storage_name):
     results = [
         {
             'ch_id': id_en_archivo(channel),
-            'cmd': channel.multicast_url,
+            'cmd': channel.origen_para_grabar,
             'parts_number': channel.timeshift_hours,
         }
         for channel in archive_channels()

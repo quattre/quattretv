@@ -89,7 +89,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         try:
             viejos = ministra.consultar(
-                'SELECT id, number, name, status FROM itv ORDER BY number')
+                'SELECT id, number, name, status, mc_cmd FROM itv ORDER BY number')
         except ministra.MinistraError as exc:
             raise CommandError(str(exc))
 
@@ -133,7 +133,8 @@ class Command(BaseCommand):
                 f'{mid:>8}  {viejo["number"]:>3}  {viejo["name"][:28]:<28} ->  '
                 f'{canal.number} {canal.name} ({como}){apagado}')
 
-            if canal.ministra_id == mid:
+            origen = (viejo.get('mc_cmd') or '').strip()
+            if canal.ministra_id == mid and canal.origen_grabador == origen:
                 sin_cambios += 1
                 continue
             if options['simular']:
@@ -142,7 +143,9 @@ class Command(BaseCommand):
             # El campo es unico: si otro canal tenia este id, se le quita.
             Channel.objects.filter(ministra_id=mid).exclude(pk=canal.pk).update(ministra_id=None)
             canal.ministra_id = mid
-            canal.save(update_fields=['ministra_id'])
+            # Lo que entienden los grabadores es la direccion de Ministra.
+            canal.origen_grabador = origen
+            canal.save(update_fields=['ministra_id', 'origen_grabador'])
             unidos += 1
 
         verbo = 'Se unirían' if options['simular'] else 'Unidos'

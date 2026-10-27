@@ -799,7 +799,7 @@ def handle_get_ordered_list(request):
         # verdad: hace falta el catchup activado en el canal, un multicast del
         # que grabarlo, y un grabador que este dando señales de vida. Faltaba lo
         # ultimo, y por eso 81 canales anunciaban un archivo que no existia.
-        has_archive = bool(ch.has_catchup and ch.multicast_url and archivo_en_marcha)
+        has_archive = bool(ch.has_catchup and ch.origen_para_grabar and archivo_en_marcha)
         # Un canal de adultos bloqueado no viaja con su URL: si se mandara,
         # pedir el PIN en pantalla seria un adorno que cualquiera se salta.
         bloqueado = bool(ch.is_adult and tiene_pin and not desbloqueado)
@@ -1368,7 +1368,7 @@ def handle_archive_link(request):
     if parental_blocked(device, channel):
         return stalker_response({'error': 'Canal bloqueado, introduce el PIN'})
 
-    if not channel.has_catchup or not channel.multicast_url:
+    if not channel.has_catchup or not channel.origen_para_grabar:
         return stalker_response({'error': 'Archivo no disponible para este canal'})
 
     # La lista de canales ya no lo ofrece si no hay grabador vivo, pero el deco

@@ -2,8 +2,8 @@
 Client for the Ministra-style storage servers (record1 / storage1).
 
 We reuse the recorders that are already in production instead of writing our
-own: they expose /rest.php (rewritten as <api_url>/<resource>/<identifiers>)
-and run `dumpstream` against the channel multicast.
+own: they expose /rest.php?q=<resource>/<identifiers> and run `dumpstream`
+against the channel source.
 
 Wire format, taken from the storage's RESTRequest.php:
   - resource + identifiers travel in the path
@@ -30,7 +30,10 @@ def _request(storage, method, resource, identifiers=None, data=None):
     if identifiers:
         path = f"{resource}/{','.join(str(i) for i in identifiers)}"
 
-    url = storage.build_url(path)
+    # Los grabadores no tienen mod_rewrite activo, asi que la ruta bonita
+    # (<api_url>/recorder) da 404: hay que ir a rest.php con ?q=, que es
+    # justo lo que hace Ministra.
+    url = storage.build_url('rest.php') + '?q=' + path
     headers = {}
     if storage.token:
         headers['Authorization'] = f'Bearer {storage.token}'
