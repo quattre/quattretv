@@ -545,7 +545,8 @@ def handle_get_modules(request):
     # Que el grabador este dado de alta no significa que grabe: se le pregunta.
     # Es la misma comprobacion que se hace al programar, para que el menu no
     # ofrezca una seccion que luego contesta que no esta disponible.
-    if hay_grabador_de_clientes() and (not tarifa or tarifa.has_pvr):
+    if (device and puede_reproducir_grabaciones(device) and hay_grabador_de_clientes()
+            and (not tarifa or tarifa.has_pvr)):
         modulos.append('records')
 
     return stalker_response({
@@ -1478,7 +1479,8 @@ def hay_grabador_de_clientes():
 
     hay = False
     for storage in StorageServer.objects.filter(
-        is_active=True, role__in=[StorageRole.RECORDS, StorageRole.BOTH]
+        is_active=True, role__in=[StorageRole.RECORDS, StorageRole.BOTH],
+        controlado_por_ministra=False,
     ):
         try:
             respuesta = requests.get(
@@ -1499,12 +1501,33 @@ def hay_grabador_de_clientes():
     return hay
 
 
+def puede_reproducir_grabaciones(device):
+    """
+    Si este aparato sabe reproducir lo que graban nuestros grabadores.
+
+    Hoy graban MPEG-TS crudo, que solo entiende el deco: la tele de LG o de
+    Samsung recibiria un fichero que no abre. Hasta que el grabador escriba
+    HLS (records_hls), a las teles se les dice que no hay grabaciones, que es
+    lo que ya veian, en vez de dejarles grabar algo que no podran ver.
+    """
+    from apps.pvr.models import StorageServer
+
+    if device.device_type == 'mag':
+        return True
+    return StorageServer.objects.filter(
+        is_active=True, records_hls=True, controlado_por_ministra=False
+    ).exists()
+
+
 def _pvr_device(request, exige_grabador=False):
     device = get_device_from_request(request)
     if not device:
         return None, stalker_response({'error': 'Not authenticated'})
     if device.user.tariff and not device.user.tariff.has_pvr:
         return None, stalker_response({'error': 'Grabaciones no incluidas en tu tarifa'})
+    if not puede_reproducir_grabaciones(device):
+        return None, stalker_response({
+            'error': 'Las grabaciones no estan disponibles todavia'})
 
     if exige_grabador and not hay_grabador_de_clientes():
         return None, stalker_response({
@@ -1565,6 +1588,9 @@ def handle_pvr_create(request):
         except Program.DoesNotExist:
             return stalker_response({'error': 'Programa no encontrado'})
 
+        if not program.channel.has_recording:
+            return stalker_response({'error': 'Este canal no se puede grabar'})
+
         if Recording.objects.filter(user=device.user, program=program).exists():
             return stalker_response({'error': 'Ya está programada'})
 
@@ -1587,6 +1613,8 @@ def handle_pvr_create(request):
     ).first()
     if not channel:
         return stalker_response({'error': 'Canal no encontrado'})
+    if not channel.has_recording:
+        return stalker_response({'error': 'Este canal no se puede grabar'})
 
     try:
         start = datetime.fromtimestamp(int(request.GET.get('start', 0)), tz=dt_timezone.utc)
@@ -1632,6 +1660,12 @@ def handle_pvr_delete(request):
         except (Recording.DoesNotExist, ValueError):
             return stalker_response({'error': 'Grabación no encontrada'})
 
+    if recording.storage and recording.storage.controlado_por_ministra:
+        # Mientras Ministra siga mandando, la grabacion es suya: si se borrara
+        # aqui, la copia de esta noche la volveria a traer.
+        return stalker_response({
+            'error': 'Esta grabacion se borra desde la plataforma antigua'})
+
     if recording.status == RecordingStatus.RECORDING and recording.storage:
         try:
             storage_client.stop_recording(recording.storage, recording.id)
@@ -1666,8 +1700,13 @@ def handle_pvr_link(request):
         return stalker_response({'error': 'La grabación aún no está lista'})
 
     url = recording.stream_url
-    if not url and recording.storage and recording.filename:
-        url = recording.storage.build_url(recording.filename, public=True)
+    if recording.storage and recording.filename and (
+            recording.storage.secure_link_secret or not url):
+        # El nginx de los grabadores solo sirve el fichero con un enlace
+        # firmado para la IP de quien lo pide, asi que se firma en cada
+        # peticion y no se guarda.
+        from .throttle import client_ip
+        url = recording.storage.enlace_firmado(recording.filename, client_ip(request))
 
     if not url:
         return stalker_response({'error': 'Grabación sin fichero'})

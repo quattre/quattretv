@@ -56,6 +56,18 @@ class StorageServer(TimeStampedModel):
                   'Se activa canal a canal; mientras esté desactivado todo sigue '
                   'como hasta ahora.'
     )
+    controlado_por_ministra = models.BooleanField(
+        default=False,
+        help_text='Lo sigue mandando Ministra: aqui solo se leen sus ficheros '
+                  '(grabaciones antiguas, archivo) y nunca se le da una orden.'
+    )
+    secure_link_secret = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Secreto del secure_link del nginx del grabador, si sirve los '
+                  '.mpg firmados (en los de Ministra viene "supersecret"). '
+                  'Vacio = enlaces sin firmar.'
+    )
     is_active = models.BooleanField(default=True)
     last_sync = models.DateTimeField(
         null=True,
@@ -87,6 +99,30 @@ class StorageServer(TimeStampedModel):
     def build_url(self, path, public=False):
         base = (self.playback_url if public and self.playback_url else self.api_url)
         return f"{base.rstrip('/')}/{path.lstrip('/')}"
+
+    def enlace_firmado(self, fichero, ip_cliente, validez=6 * 3600):
+        """
+        Direccion de un fichero servido con el secure_link de nginx.
+
+        Es la misma cuenta que hace el nginx de los grabadores de Ministra:
+        md5(secreto + uri + ip + caducidad) en base64 para url. Va atada a la
+        IP del aparato, asi que el enlace no sirve si se pasa a otro.
+        """
+        import base64
+        import hashlib
+        import time
+        from urllib.parse import urlparse
+
+        url = self.build_url(fichero, public=True)
+        if not self.secure_link_secret:
+            return url
+        caduca = int(time.time()) + validez
+        uri = urlparse(url).path
+        firma = hashlib.md5(
+            f'{self.secure_link_secret}{uri}{ip_cliente}{caduca}'.encode()
+        ).digest()
+        firma = base64.urlsafe_b64encode(firma).decode().rstrip('=')
+        return f'{url}?st={firma}&e={caduca}'
 
 
 class RecordingStatus(models.TextChoices):
@@ -158,6 +194,14 @@ class Recording(TimeStampedModel):
     file_size = models.BigIntegerField(null=True, blank=True)
     stream_url = models.URLField(max_length=500, blank=True)
     duration = models.PositiveIntegerField(null=True, blank=True, help_text='Duration in seconds')
+
+    # Las grabaciones que se hicieron en Ministra se importan para que el
+    # cliente no las pierda. Estas no se mandan nunca a ningun grabador: el
+    # fichero ya existe, o lo esta haciendo Ministra.
+    ministra_id = models.IntegerField(
+        null=True, blank=True, unique=True,
+        help_text='id de la grabacion en Ministra (tabla users_rec)'
+    )
 
     # Options
     pre_padding = models.PositiveIntegerField(default=0, help_text='Minutes before start')

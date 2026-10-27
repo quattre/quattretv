@@ -31,6 +31,14 @@ class User(AbstractUser):
     # Parental control
     parental_password = models.CharField(max_length=10, blank=True)
 
+    # Mientras conviven las dos plataformas, la cuenta se copia de Ministra cada
+    # noche y este es el hilo que la une con su original. Vacio = cuenta creada
+    # aqui, que la importacion no toca nunca.
+    ministra_id = models.IntegerField(
+        null=True, blank=True, unique=True,
+        help_text='id de la cuenta en Ministra (tabla users) si viene de alli'
+    )
+
     class Meta:
         verbose_name = 'User'
         verbose_name_plural = 'Users'

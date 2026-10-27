@@ -114,6 +114,17 @@ AUTH_PASSWORD_VALIDATORS = [
 # Custom user model
 AUTH_USER_MODEL = 'accounts.User'
 
+# El primero es con el que se guarda; el de Ministra solo sirve para comprobar
+# las contraseñas copiadas de alli, que se pasan al primero al entrar.
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    'django.contrib.auth.hashers.ScryptPasswordHasher',
+    'apps.accounts.hashers.MinistraPasswordHasher',
+]
+
 # Cabeceras de seguridad
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'

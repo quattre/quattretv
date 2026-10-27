@@ -198,6 +198,13 @@ class Channel(TimeStampedModel, ActivableModel):
                   'en MPEG-TS, asi que la migracion no deja huecos. Vacio = '
                   'todavia se archiva en MPEG-TS.'
     )
+    # Ministra numera sus canales por dentro con otro id, y con ese id estan
+    # guardados el archivo de storage1 (archive/<id>/) y las grabaciones
+    # antiguas. Sin esta correspondencia el catchup saldria de otro canal.
+    ministra_id = models.IntegerField(
+        null=True, blank=True, unique=True,
+        help_text='id interno del canal en Ministra (tabla itv)'
+    )
 
     # Metadata
     description = models.TextField(blank=True)

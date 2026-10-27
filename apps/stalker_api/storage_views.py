@@ -16,7 +16,7 @@ import requests
 from django.conf import settings
 from django.core import signing
 from django.core.cache import cache
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, QueryDict
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
@@ -37,9 +37,22 @@ def make_archive_token(device_id, channel_id):
 
 
 def archive_storage():
+    # Si hay una copia del grabador que nos obedece, esa: el get.php del de
+    # Ministra valida los tokens con Ministra y no se tragaria los nuestros.
     return StorageServer.objects.filter(
         is_active=True, role__in=['archive', 'both']
-    ).first()
+    ).order_by('controlado_por_ministra').first()
+
+
+def id_en_archivo(channel):
+    """
+    Con que numero esta guardado el canal en el archivo de storage1.
+
+    El archivo en MPEG-TS lo empezo Ministra y sus carpetas llevan el id interno
+    de alli (archive/<id>/). Se sigue usando para no perder ni una hora al
+    cambiar; un canal nuevo, que Ministra no tuvo nunca, usa el id de aqui.
+    """
+    return channel.ministra_id or channel.id
 
 
 def build_catchup_url(channel, start, duration, device=None):
@@ -69,7 +82,7 @@ def build_ts_catchup_url(storage, channel, start, duration, device=None):
     """
     local_start = timezone.localtime(start)
     params = {
-        'ch_id': channel.id,
+        'ch_id': id_en_archivo(channel),
         'filename': local_start.strftime('%Y%m%d-%H') + '.mpg',
         'start_time': local_start.minute * 60 + local_start.second,
         'duration': int(duration),
@@ -248,7 +261,7 @@ def tv_archive_tasks(request, storage_name):
 
     results = [
         {
-            'ch_id': channel.id,
+            'ch_id': id_en_archivo(channel),
             'cmd': channel.multicast_url,
             'parts_number': channel.timeshift_hours,
         }
@@ -267,11 +280,16 @@ def stream_recorder_callback(request, rec_id):
     dumpstream tells us when a client recording starts and ends.
 
     It sends the parameters as a plain HTTP request, so accept them from the
-    query string or the body indistinctly.
+    query string or the body indistinctly. dumpstream manda un PUT con el
+    cuerpo en form-urlencoded, y Django solo rellena request.POST en los POST:
+    sin leer el cuerpo a mano, el aviso llegaba vacio y la grabacion se quedaba
+    en "grabando" hasta que la cerraba reconcile_recordings.
     """
     params = {}
     params.update(request.GET.dict())
     params.update(request.POST.dict())
+    if request.method in ('PUT', 'PATCH') and request.body:
+        params.update(QueryDict(request.body).dict())
 
     action = params.get('action', '')
 

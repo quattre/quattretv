@@ -26,7 +26,10 @@ def pick_storage(role='records'):
 
     roles = [StorageRole.BOTH]
     roles.append(StorageRole.RECORDS if role == 'records' else StorageRole.ARCHIVE)
-    return StorageServer.objects.filter(is_active=True, role__in=roles).first()
+    # Al de Ministra no se le manda nunca una orden: sigue siendo suyo.
+    return StorageServer.objects.filter(
+        is_active=True, role__in=roles, controlado_por_ministra=False
+    ).first()
 
 
 @shared_task
@@ -42,8 +45,9 @@ def dispatch_due_recordings():
         return 0
 
     sent = 0
+    # Las copiadas de Ministra las graba Ministra.
     pending = Recording.objects.filter(
-        status=RecordingStatus.SCHEDULED
+        status=RecordingStatus.SCHEDULED, ministra_id__isnull=True
     ).select_related('channel')
 
     for recording in pending:
@@ -189,7 +193,10 @@ def reconcile_recordings():
     now = timezone.now()
     stuck = 0
 
-    for recording in Recording.objects.filter(status=RecordingStatus.RECORDING):
+    # Las de Ministra las pone al dia la importacion de cada noche.
+    for recording in Recording.objects.filter(
+        status=RecordingStatus.RECORDING, ministra_id__isnull=True
+    ):
         if recording.actual_end_time + CALLBACK_GRACE > now:
             continue
         recording.status = RecordingStatus.COMPLETED

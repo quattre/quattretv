@@ -939,6 +939,87 @@ def servidores_list(request):
     return render(request, 'portal/pages/servidores.html', context)
 
 
+# Grabaciones
+@staff_member_required
+def grabaciones(request):
+    """
+    Archivo de catchup y grabaciones de clientes, de las dos plataformas.
+
+    Mientras conviva con Ministra se ve todo, se toque o no desde aqui: lo que
+    graba Ministra se lee del disco y de la copia de cada noche, y lo que graba
+    la plataforma nueva sale de sus propias fichas.
+    """
+    from apps.pvr import archivo
+    from apps.pvr.models import Recording, RecordingStatus, StorageServer
+
+    if request.method == 'POST':
+        # Dos interruptores por canal: si los clientes ven su catchup y si lo
+        # pueden grabar. Los dos se aplican al momento, sin tocar el grabador.
+        canal = get_object_or_404(Channel, id=request.POST.get('channel_id'))
+        campo = request.POST.get('campo')
+        nombres = {'has_catchup': 'Catchup', 'has_recording': 'Grabar'}
+        if campo in nombres:
+            setattr(canal, campo, not getattr(canal, campo))
+            canal.save(update_fields=[campo])
+            messages.success(request, f'{nombres[campo]} en {canal.name}: '
+                                      f'{"activado" if getattr(canal, campo) else "desactivado"}.')
+        return redirect(request.get_full_path())
+
+    grabadores = list(StorageServer.objects.filter(is_active=True))
+    for grabador in grabadores:
+        grabador.n_grabando = Recording.objects.filter(
+            storage=grabador, status=RecordingStatus.RECORDING).count()
+        grabador.n_guardadas = Recording.objects.filter(
+            storage=grabador, status=RecordingStatus.COMPLETED).count()
+
+    # El archivo en TS es el de Ministra: sus carpetas van por el id de alli.
+    de_archivo = next((g for g in grabadores if g.records_archive and g.ssh_host), None)
+    en_disco = archivo.ventanas(de_archivo)
+    canales = list(Channel.objects.filter(is_radio=False).order_by('number'))
+    for canal in canales:
+        canal.ventana = (en_disco or {}).get(canal.ministra_id or canal.id)
+        canal.interruptores = [('has_catchup', canal.has_catchup),
+                               ('has_recording', canal.has_recording)]
+
+    grabaciones = Recording.objects.select_related('user', 'channel', 'storage')
+    q = request.GET.get('q', '').strip()
+    if q:
+        grabaciones = grabaciones.filter(
+            Q(user__username__icontains=q) | Q(title__icontains=q) | Q(channel__name__icontains=q))
+    origen = request.GET.get('origen', '')
+    if origen == 'ministra':
+        grabaciones = grabaciones.exclude(ministra_id=None)
+    elif origen == 'nueva':
+        grabaciones = grabaciones.filter(ministra_id=None)
+    estado = request.GET.get('estado', '')
+    if estado:
+        grabaciones = grabaciones.filter(status=estado)
+
+    pagina = Paginator(grabaciones.order_by('-start_time'), 50).get_page(request.GET.get('page'))
+    resumen = {
+        'ministra': Recording.objects.exclude(ministra_id=None).count(),
+        'nueva': Recording.objects.filter(ministra_id=None).count(),
+        'clientes': Recording.objects.values('user').distinct().count(),
+        'grabando': Recording.objects.filter(status=RecordingStatus.RECORDING).count(),
+        'programadas': Recording.objects.filter(status=RecordingStatus.SCHEDULED).count(),
+    }
+
+    context = {
+        'active_page': 'grabaciones',
+        'stats': get_base_stats(),
+        'grabadores': grabadores,
+        'canales': canales,
+        'archivo_visto': en_disco is not None,
+        'de_archivo': de_archivo,
+        'canales_con_archivo': sum(1 for c in canales if c.ventana),
+        'pagina': pagina,
+        'resumen': resumen,
+        'estados': RecordingStatus.choices,
+        'filtros': {'q': q, 'origen': origen, 'estado': estado},
+    }
+    return render(request, 'portal/pages/grabaciones.html', context)
+
+
 # CDNs
 @staff_member_required
 def cdns_list(request):

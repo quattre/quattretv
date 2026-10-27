@@ -44,6 +44,9 @@ urlpatterns = [
     # Servidores
     path('servidores/', views.servidores_list, name='servidores'),
 
+    # Grabaciones y archivo
+    path('grabaciones/', views.grabaciones, name='grabaciones'),
+
     # CDNs
     path('cdns/', views.cdns_list, name='cdns'),
     path('cdns/<int:cdn_id>/delete/', views.cdn_delete, name='cdn_delete'),
