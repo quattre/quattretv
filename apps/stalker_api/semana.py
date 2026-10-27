@@ -12,6 +12,7 @@ Las guias casi nunca dicen de que tipo es un programa (de 9.413 de una semana,
 si no unas palabras del titulo, y si no el tipo de canal.
 """
 import hashlib
+import re
 import unicodedata
 from datetime import timedelta
 
@@ -75,6 +76,15 @@ CANALES = {
     'entretenimiento': 'entretenimiento',
     'lifestyle': 'entretenimiento',
 }
+
+
+# Alguna fuente pone la temporada en el titulo: "Chicago Fire (T9)",
+# "Estadio 2.0 (T2026)". Asi el mismo programa salia en dos tarjetas.
+TEMPORADA = re.compile(r'\s*\(T\d+\)\s*$')
+
+
+def sin_temporada(titulo):
+    return TEMPORADA.sub('', titulo or '').strip()
 
 
 def plano(texto):
@@ -193,17 +203,18 @@ def emisiones(canales, con_ocultos=False):
                'episode_title', 'year', 'icon')
         for p in programas:
             minutos = int((p.end_time - p.start_time).total_seconds() // 60)
-            if minutos < DURACION_MINIMA_INFANTIL or not p.title:
+            titulo = sin_temporada(p.title)
+            if minutos < DURACION_MINIMA_INFANTIL or not titulo:
                 continue
-            grupo, seguro = grupo_de(p.title, p.category, minutos, p.year, tipo_canal)
+            grupo, seguro = grupo_de(titulo, p.category, minutos, p.year, tipo_canal)
             if not grupo:
                 continue
             if seguro:
-                seguros.setdefault(plano(p.title), grupo)
+                seguros.setdefault(plano(titulo), grupo)
             salida.append({
                 'seguro': seguro,
                 'grupo': grupo,
-                'titulo': p.title.strip(),
+                'titulo': titulo,
                 'sub': p.episode_title or '',
                 'descr': (p.description or '')[:400],
                 'anio': p.year or '',
