@@ -1,0 +1,255 @@
+"""
+"Ultimos 7 dias": lo emitido que esta en el archivo, ordenado por programa.
+
+Es el mismo archivo de siempre (el catchup de cada canal), solo que en vez de
+buscarlo canal a canal y hora a hora en la guia, se presenta como un catalogo
+con caratulas: peliculas, series, deportes... Se arma con la guia de los
+canales que tienen archivo para este aparato, asi que se renueva solo a medida
+que el archivo avanza y lo viejo se borra.
+
+Las guias casi nunca dicen de que tipo es un programa (de 9.413 de una semana,
+117 lo decian), asi que el tipo se deduce: la categoria de la guia si la hay,
+si no unas palabras del titulo, y si no el tipo de canal.
+"""
+import hashlib
+import unicodedata
+from datetime import timedelta
+
+from django.core.cache import cache
+from django.utils import timezone
+
+GRUPOS = [
+    ('peliculas', 'Peliculas'),
+    ('series', 'Series'),
+    ('deportes', 'Deportes'),
+    ('infantil', 'Infantil'),
+    ('documentales', 'Documentales'),
+    ('entretenimiento', 'Entretenimiento'),
+    ('noticias', 'Noticias'),
+]
+
+POR_GRUPO = 40          # tarjetas por fila: el deco no puede con miles
+# Minutos. Lo mas corto son el tiempo, avances y cortinillas; los dibujos si
+# duran poco de verdad.
+DURACION_MINIMA = 15
+DURACION_MINIMA_INFANTIL = 7
+CACHE_SEGUNDOS = 300
+
+# Generos de ficcion: segun lo que dure es una pelicula o un capitulo.
+FICCION = ('drama', 'comedia', 'comedy', 'suspense', 'thriller', 'accion',
+           'action', 'terror', 'horror', 'western', 'romance', 'romant',
+           'aventura', 'adventure', 'ciencia ficcion', 'sci-fi', 'fantas',
+           'policiac', 'crimen', 'crime', 'belic', 'misterio')
+
+# Por categoria de la guia, en este orden.
+PALABRAS = [
+    ('peliculas', ('cine', 'film', 'pelicula', 'movie')),
+    ('series', ('serie',)),
+    ('deportes', ('deporte', 'sport')),
+    ('infantil', ('infantil', 'kids', 'children', 'animacion', 'dibujos')),
+    ('noticias', ('news', 'informa', 'noticia')),
+    ('documentales', ('document', 'naturaleza', 'nature', 'cultur', 'historia',
+                      'ciencia', 'viaje')),
+    ('entretenimiento', ('entreten', 'entertain', 'programa', 'music', 'musica',
+                         'concurso', 'magazine', 'reality', 'humor', 'cocina',
+                         'estilo', 'lifestyle', 'otros')),
+]
+
+# Por titulo, cuando la guia no dice nada.
+TITULOS = [
+    ('noticias', ('telediario', 'noticias', 'informativo', 'diario de la',
+                  'telenoticies', 'news')),
+    ('deportes', ('futbol', 'laliga', 'la liga', 'champions', 'motogp',
+                  'formula 1', 'baloncesto', 'tenis', 'ciclismo', 'estadio')),
+]
+
+# Lo que no es un programa que alguien quiera volver a ver.
+FUERA = ('teletienda', 'televenta', 'tienda en casa', 'cierre de emision', 'el tiempo',
+         'fin de emision', 'programacion de cierre')
+
+# Por el tipo de canal, como ultimo recurso.
+CANALES = {
+    'infantil': 'infantil',
+    'deportes': 'deportes',
+    'documentales': 'documentales',
+    'entretenimiento': 'entretenimiento',
+    'lifestyle': 'entretenimiento',
+}
+
+
+def plano(texto):
+    """Minusculas y sin acentos, para comparar."""
+    texto = unicodedata.normalize('NFKD', texto or '')
+    return ''.join(c for c in texto if not unicodedata.combining(c)).lower().strip()
+
+
+def grupo_de(titulo, categoria, minutos, anio, tipo_canal):
+    """
+    (grupo, seguro) de un programa, o (None, True) si no vale la pena
+    ofrecerlo. "seguro" es que lo dice la guia o el canal es de cine y series;
+    si no, es una suposicion que otra emision del mismo titulo puede corregir.
+    """
+    t, c, canal = plano(titulo), plano(categoria), plano(tipo_canal)
+    if any(p in t for p in FUERA):
+        return None, True
+    largo = minutos >= 75
+
+    if c:
+        if any(p in c for p in FICCION):
+            return ('peliculas' if largo else 'series'), True
+        for grupo, palabras in PALABRAS:
+            if any(p in c for p in palabras):
+                return grupo, True
+
+    for grupo, palabras in TITULOS:
+        if any(p in t for p in palabras):
+            return grupo, True
+
+    if 'cine' in canal or 'serie' in canal:
+        return ('peliculas' if largo else 'series'), True
+    if canal in CANALES:
+        return CANALES[canal], False
+    # Una pelicula en un canal generalista solo se reconoce por el año.
+    if anio and minutos >= 70:
+        return 'peliculas', False
+    return 'entretenimiento', False
+
+
+def canales_con_archivo(device):
+    """{canal: horas de archivo} de lo que este aparato puede ver en diferido."""
+    from apps.channels.models import Channel
+    from .views import archivo_del_canal, canales_visibles, ventanas_de_archivo
+
+    if device and device.user.tariff and not device.user.tariff.has_catchup:
+        return {}
+    canales = canales_visibles(
+        Channel.objects.filter(is_active=True, has_catchup=True, is_adult=False)
+        .select_related('category'), device)
+    if device and device.user.tariff:
+        from django.db.models import Q
+        paquetes = device.user.tariff.channel_packages.values_list('id', flat=True)
+        canales = canales.filter(
+            Q(packages__id__in=paquetes) | Q(packages__isnull=True)).distinct()
+
+    ventanas = ventanas_de_archivo()
+    resultado = {}
+    for canal in canales:
+        tiene, horas = archivo_del_canal(canal, device, ventanas)
+        if tiene:
+            resultado[canal] = horas
+    return resultado
+
+
+def emisiones(canales):
+    """Lo ya emitido que sigue en el archivo de esos canales, lo mas nuevo antes."""
+    from apps.epg.models import Program
+
+    ahora = timezone.now()
+    salida = []
+    seguros = {}
+    for canal, horas in canales.items():
+        desde = ahora - timedelta(hours=horas)
+        tipo_canal = canal.category.name if canal.category else ''
+        programas = Program.objects.filter(
+            channel=canal, start_time__gte=desde,
+            end_time__lte=ahora - timedelta(minutes=2),
+        ).only('title', 'description', 'start_time', 'end_time', 'category',
+               'episode_title', 'year', 'icon')
+        for p in programas:
+            minutos = int((p.end_time - p.start_time).total_seconds() // 60)
+            if minutos < DURACION_MINIMA_INFANTIL or not p.title:
+                continue
+            grupo, seguro = grupo_de(p.title, p.category, minutos, p.year, tipo_canal)
+            if not grupo:
+                continue
+            if seguro:
+                seguros.setdefault(plano(p.title), grupo)
+            salida.append({
+                'seguro': seguro,
+                'grupo': grupo,
+                'titulo': p.title.strip(),
+                'sub': p.episode_title or '',
+                'descr': (p.description or '')[:400],
+                'anio': p.year or '',
+                'img': p.icon or '',
+                'ch_id': str(canal.id),
+                'canal': canal.name,
+                'logo': canal.logo_display_url,
+                'ini': int(p.start_time.timestamp()),
+                'fin': int(p.end_time.timestamp()),
+                'min': minutos,
+            })
+
+    # Big Bang en Neox salia como entretenimiento, porque la guia no lo dice y
+    # Neox es un canal de entretenimiento; en Warner, que es de series, si se
+    # sabe. Lo que se sabe de un titulo vale para todas sus emisiones.
+    for e in salida:
+        if not e.pop('seguro'):
+            e['grupo'] = seguros.get(plano(e['titulo']), e['grupo'])
+    salida = [e for e in salida
+              if e['min'] >= DURACION_MINIMA or e['grupo'] == 'infantil']
+    salida.sort(key=lambda e: -e['ini'])
+    return salida
+
+
+def catalogo(device):
+    """
+    Las filas del catalogo. Cada tarjeta es un titulo: si se ha emitido varias
+    veces (los capitulos de una serie, los telediarios) se juntan y la tarjeta
+    lleva la emision mas reciente y cuantas hay.
+    """
+    canales = canales_con_archivo(device)
+    if not canales:
+        return []
+
+    firma = ','.join(f'{c.id}:{h}' for c, h in sorted(canales.items(), key=lambda x: x[0].id))
+    clave = 'semana:' + hashlib.md5(firma.encode()).hexdigest()
+    try:
+        guardado = cache.get(clave)
+        if guardado is not None:
+            return guardado
+    except Exception:
+        pass
+
+    filas = {g: {} for g, _ in GRUPOS}
+    for e in emisiones(canales):
+        tarjetas = filas[e['grupo']]
+        clave_titulo = plano(e['titulo'])
+        if clave_titulo in tarjetas:
+            tarjetas[clave_titulo]['n'] += 1
+            # Si la mas reciente no tiene caratula, vale la de otra emision.
+            if not tarjetas[clave_titulo]['img'] and e['img']:
+                tarjetas[clave_titulo]['img'] = e['img']
+        elif len(tarjetas) < POR_GRUPO:
+            tarjetas[clave_titulo] = dict(e, n=1)
+
+    from . import caratulas
+    caratulas.completar([t for fila in filas.values() for t in fila.values()])
+
+    resultado = [
+        {'id': g, 'nombre': nombre, 'items': list(filas[g].values())}
+        for g, nombre in GRUPOS if filas[g]
+    ]
+    try:
+        cache.set(clave, resultado, CACHE_SEGUNDOS)
+    except Exception:
+        pass
+    return resultado
+
+
+def emisiones_de(device, grupo, titulo):
+    """Todas las emisiones de un titulo (los capitulos de una serie)."""
+    from . import caratulas
+    buscado = plano(titulo)
+    lista = [e for e in emisiones(canales_con_archivo(device))
+             if e['grupo'] == grupo and plano(e['titulo']) == buscado]
+    caratulas.completar(lista)
+    return lista
+
+
+def todas_las_emisiones():
+    """Lo emitido de todos los canales con archivo, sin mirar el aparato."""
+    from apps.channels.models import Channel
+    canales = Channel.objects.filter(is_active=True, has_catchup=True, is_adult=False) \
+        .exclude(origen_grabador='').select_related('category')
+    return emisiones({c: c.timeshift_hours or 168 for c in canales})

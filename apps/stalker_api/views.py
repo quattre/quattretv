@@ -552,6 +552,13 @@ def handle_get_modules(request):
             and (device.user.recordings.exists() or hay_grabador_de_clientes())):
         modulos.append('records')
 
+    # "Ultimos 7 dias": el archivo presentado como catalogo. Solo donde el
+    # archivo se puede ver (de momento, el deco) y la tarifa lo incluye.
+    if (device and device.device_type == 'mag'
+            and (not tarifa or tarifa.has_catchup)
+            and hay_archivo_en_marcha()):
+        modulos.append('semana')
+
     return stalker_response({
         'result': {
             'all_modules': modulos,
@@ -1409,8 +1416,36 @@ def handle_tv_archive(request, action):
     """Handle TV archive/timeshift actions."""
     if action == 'create_link':
         return handle_archive_link(request)
+    if action == 'get_catalog':
+        return handle_archive_catalog(request)
+    if action == 'get_title':
+        return handle_archive_title(request)
 
     return stalker_response({'error': 'Unknown action'})
+
+
+def handle_archive_catalog(request):
+    """Lo emitido que sigue en el archivo, por filas: peliculas, series..."""
+    from . import semana
+
+    device, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
+    return stalker_response({'data': semana.catalogo(device)})
+
+
+def handle_archive_title(request):
+    """Todas las emisiones de un titulo, para elegir capitulo."""
+    from . import semana
+
+    device, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
+    grupo = request.GET.get('group', '')
+    titulo = request.GET.get('title', '')
+    if not titulo:
+        return stalker_response({'error': 'title required'})
+    return stalker_response({'data': semana.emisiones_de(device, grupo, titulo)})
 
 
 def handle_archive_link(request):

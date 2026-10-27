@@ -78,6 +78,7 @@ def update_epg_source(source_id):
                     category=xmltv_text(prog.get('category')),
                     episode_title=xmltv_text(prog.get('sub-title')),
                     icon=xmltv_imagen(prog.get('icon')),
+                    year=xmltv_anio(prog.get('date')),
                 ))
 
         if programs_to_create:
@@ -126,14 +127,34 @@ def _replace_programs(programs):
             max(end, prog.end_time),
         )
 
+    # Cada fuente trae cosas distintas del mismo programa: una la caratula,
+    # otra la categoria, otra el año. Como la ultima en cargar pisaba a las
+    # demas, de 9.413 programas de una semana solo 117 tenian categoria aunque
+    # dos de las fuentes la traen. Lo que la nueva no trae se toma de lo que
+    # habia en esa misma franja.
+    anteriores = {}
     for channel_id, (start, end) in windows.items():
-        Program.objects.filter(
+        franja = Program.objects.filter(
             channel_id=channel_id,
             start_time__gte=start,
             start_time__lte=end,
-        ).delete()
+        )
+        for viejo in franja.values('channel_id', 'start_time', *COMPLEMENTOS):
+            anteriores[(viejo['channel_id'], viejo['start_time'])] = viejo
+        franja.delete()
+
+    for prog in programs:
+        viejo = anteriores.get((prog.channel_id, prog.start_time))
+        if viejo:
+            for campo in COMPLEMENTOS:
+                if not getattr(prog, campo) and viejo[campo]:
+                    setattr(prog, campo, viejo[campo])
 
     Program.objects.bulk_create(programs, batch_size=1000)
+
+
+# Lo que una fuente puede completar de otra.
+COMPLEMENTOS = ('category', 'icon', 'description', 'episode_title', 'year')
 
 
 @shared_task
@@ -144,6 +165,13 @@ def update_all_epg_sources():
     sources = EpgSource.objects.filter(is_active=True, auto_update=True)
     for source in sources:
         update_epg_source.delay(source.id)
+
+
+@shared_task
+def buscar_caratulas():
+    """Caratulas de TMDB para lo del archivo que la guia trae sin imagen."""
+    from apps.stalker_api.caratulas import buscar_las_que_faltan
+    return buscar_las_que_faltan()
 
 
 @shared_task
@@ -187,6 +215,14 @@ def xmltv_imagen(node):
     if not src.startswith(('http://', 'https://')) or len(src) > 500:
         return ''
     return src
+
+
+def xmltv_anio(node):
+    """El año de <date>, que puede venir como '2019' o '20190314'."""
+    texto = xmltv_text(node)[:4]
+    if texto.isdigit() and 1900 <= int(texto) <= 2100:
+        return int(texto)
+    return None
 
 
 def xmltv_text(node):

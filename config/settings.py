@@ -229,6 +229,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.pvr.tasks.apply_recording_rules',
         'schedule': crontab(minute=25),
     },
+    'archivo-buscar-caratulas': {
+        'task': 'apps.epg.tasks.buscar_caratulas',
+        'schedule': crontab(minute='*/30'),
+    },
     'pvr-reconciliar-grabaciones': {
         'task': 'apps.pvr.tasks.reconcile_recordings',
         'schedule': 300.0,
@@ -264,4 +268,7 @@ QUATTRETV = {
     # 3 horas, y cada cliente tiene 30 horas entre todas las que guarda.
     'PVR_MAX_MINUTOS': int(os.getenv('PVR_MAX_MINUTOS', '180')),
     'PVR_CUOTA_MINUTOS': int(os.getenv('PVR_CUOTA_MINUTOS', '1800')),
+    # Para las caratulas de "Ultimos 7 dias" que la guia no trae. Vacio, no se
+    # busca nada. Ojo: el uso comercial de TMDB pide su licencia comercial.
+    'TMDB_API_KEY': os.getenv('TMDB_API_KEY', ''),
 }
