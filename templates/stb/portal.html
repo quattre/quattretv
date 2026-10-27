@@ -1590,6 +1590,23 @@
         return d + ' ' + dosCifras(a.getHours()) + ':' + dosCifras(a.getMinutes());
     }
 
+    // Lo que se dice bajo cada tarjeta. En una pelicula o una serie importa
+    // cuanto le queda antes de desaparecer, como en un videoclub; en noticias,
+    // deporte y programas, de cuando es.
+    var SEMANA_POR_FECHA = {noticias: 1, deportes: 1, entretenimiento: 1};
+
+    function quedan(caduca) {
+        var seg = (caduca || 0) - new Date().getTime() / 1000;
+        if (seg <= 3600) return 'Ultima hora';
+        if (seg < 86400) return 'Quedan ' + Math.floor(seg / 3600) + ' h';
+        var dias = Math.floor(seg / 86400);
+        return dias === 1 ? 'Queda 1 dia' : 'Quedan ' + dias + ' dias';
+    }
+
+    function pieTarjeta(it, grupo) {
+        return SEMANA_POR_FECHA[grupo] ? cuandoCorto(it.ini) : quedan(it.caduca);
+    }
+
     function heroSemana(it) {
         if (!it) return '';
         var h = '<div class="sem-hero">';
@@ -1600,6 +1617,7 @@
         h += '<div class="sem-titulo">' + esc(it.titulo) + '</div>';
         var meta = [it.canal, cuandoFue(it.ini, it.fin), it.min + ' min'];
         if (it.anio) meta.push(it.anio);
+        if (it.caduca) meta.push(quedan(it.caduca).toLowerCase());
         h += '<div class="sem-meta">' + esc(meta.join('  ·  ')) + '</div>';
         if (it.sub) h += '<div class="sem-sub">' + esc(it.sub) + '</div>';
         if (it.descr) h += '<div class="sem-descr">' + esc(it.descr) + '</div>';
@@ -1624,7 +1642,8 @@
                 h += '<div class="sem-ep' + (i === semana.epIdx ? ' sel' : '') + '">' +
                      '<div class="sem-mini"' + estiloImagen(e) + '></div>' +
                      '<div class="sem-ep-txt"><div class="t">' + esc(e.sub || e.titulo) + '</div>' +
-                     '<div class="m">' + esc(e.canal + '  ·  ' + cuandoFue(e.ini, e.fin)) + '</div></div></div>';
+                     '<div class="m">' + esc(cuandoFue(e.ini, e.fin) + '  ·  ' + e.canal +
+                     (e.caduca ? '  ·  ' + quedan(e.caduca).toLowerCase() : '')) + '</div></div></div>';
             }
             h += '</div>';
         } else {
@@ -1641,7 +1660,7 @@
                          estiloImagen(it) + '>' + (it.img ? '' : sinImagen(it)) +
                          (it.n > 1 ? '<span class="sem-n">' + it.n + '</span>' : '') +
                          '<div class="sem-pie"><div class="t">' + esc(it.titulo) + '</div>' +
-                         '<div class="m">' + esc(it.canal + '  ·  ' + cuandoCorto(it.ini)) + '</div></div></div>';
+                         '<div class="m">' + esc(pieTarjeta(it, f.id)) + '</div></div></div>';
                 }
                 h += '</div></div>';
             }
@@ -2013,6 +2032,9 @@
         var etiqueta = channels.length + ' canales';
         if (favOnly) etiqueta = 'Favoritos: ' + channels.length;
         else if (genreFilter) etiqueta = generoActual() + ': ' + channels.length;
+        // El acceso directo al videoclub va arriba, siempre a la vista. Al pie
+        // de la ayuda no cabia y quedaba fuera del panel.
+        if (haySemana()) h += '<div class="boton-semana" data-tecla="405"><i></i>Videoclub 7 dias</div>';
         h += '<div class="counter">' + esc(etiqueta) + '</div></div>';
 
         h += '<div class="list">';
@@ -2066,7 +2088,6 @@
 
         // Grabar ya no va aqui: sale junto al canal, debajo de la imagen.
         h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu <span>0-9</span> Ir al canal';
-        if (haySemana()) h += ' <span class="amarillo" data-tecla="405">●</span> Videoclub 7 dias';
         h += '<br>';
         h += 'Grabaciones, favoritos y peliculas estan en el <span data-tecla="37">Menu</span></div>';
         h += '</div>';
@@ -3741,7 +3762,15 @@
             border-radius: 8px; margin: 0 7px; color: #e6ece8;
             font-size: 21px; font-weight: 600;
         }
-        .help span.amarillo { background: #fdeb00; color: #1a1a1a; }
+        .boton-semana {
+            background: #fdeb00; color: #1a1a1a; font-size: 19px; font-weight: 700;
+            padding: 8px 16px; border-radius: 20px; white-space: nowrap; cursor: pointer;
+        }
+        /* El punto amarillo dice que tecla es; el boton entero ya es amarillo. */
+        .boton-semana i {
+            display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+            background: #1a1a1a; margin-right: 8px; vertical-align: middle;
+        }
         /* Solo los que llevan data-tecla hacen algo al pulsarlos. Los que no
            —"0-9" o "▲▼", que no son una tecla sola— se quedan como estaban, sin
            cursor ni respuesta, para que no prometan lo que no dan. */
@@ -4093,6 +4122,8 @@
             .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
             #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
             #preview-cap .sep { width: 18px; }
+            .boton-semana { font-size: 13px; padding: 5px 11px; border-radius: 14px; }
+            .boton-semana i { width: 8px; height: 8px; margin-right: 5px; }
             #semana { padding: 33px 40px; }
             .sem-vacio { font-size: 20px; padding: 53px; }
             .sem-hero { height: 253px; margin-bottom: 23px; }

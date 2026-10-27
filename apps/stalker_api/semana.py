@@ -226,6 +226,8 @@ def emisiones(canales, con_ocultos=False):
                 'logo': canal.logo_display_url,
                 'ini': int(p.start_time.timestamp()),
                 'fin': int(p.end_time.timestamp()),
+                # Cuando lo borra el grabador: lo que dura el archivo del canal.
+                'caduca': int(p.start_time.timestamp()) + horas * 3600,
                 'min': minutos,
             })
 
@@ -331,6 +333,12 @@ def filas_de(lista, por_grupo=POR_GRUPO):
                 if cola:
                     quedan.append(cola)
             colas = quedan
+        if g == 'peliculas':
+            # Una pelicula repetida es la misma pelicula: una tarjeta sin
+            # contador, que abre directamente la emision mas reciente, que es
+            # la que mas tarda en desaparecer.
+            for tarjeta in elegidas:
+                tarjeta['n'] = 1
         caratulas.completar(elegidas)
         filas.append({'id': g, 'nombre': nombre, 'items': elegidas})
     return filas
