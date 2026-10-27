@@ -855,6 +855,9 @@
     }
 
     function playChannel(ch) {
+        // Un canal de verdad (con id) es el directo; {cmd: url} es el archivo,
+        // una grabacion o el videoclub, que ponen su propio estado.
+        if (ch && ch.id) diferido = null;
         pintarRadio(ch);
         if (useHTML5) {
             var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
@@ -1197,8 +1200,50 @@
 
     // ---------- Reproducir algo que no es un canal ----------
 
-    function reproducirPantallaCompleta(url, titulo, subtitulo) {
+    // Lo que se esta viendo cuando no es el directo: un programa del archivo o
+    // una grabacion. Sin esto la barra solo decia el titulo, y al pulsar
+    // informacion volvia a pintar el canal en directo, asi que no habia forma
+    // de saber que se estaba viendo algo ya emitido ni de cuando era.
+    var diferido = null;
+    var DIAS_SEMANA = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+
+    function dosCifras(n) { return ('0' + n).slice(-2); }
+
+    // "lunes 26/10  21:30 - 22:15" (u "hoy"/"ayer" en vez del dia).
+    function cuandoFue(inicio, fin) {
+        if (!inicio) return '';
+        var a = new Date(inicio * 1000);
+        var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        var dia = new Date(a.getTime()); dia.setHours(0, 0, 0, 0);
+        var dif = Math.round((hoy.getTime() - dia.getTime()) / 86400000);
+        var cuando = dif === 0 ? 'hoy' : (dif === 1 ? 'ayer' :
+            DIAS_SEMANA[a.getDay()] + ' ' + dosCifras(a.getDate()) + '/' + dosCifras(a.getMonth() + 1));
+        cuando += '  ' + dosCifras(a.getHours()) + ':' + dosCifras(a.getMinutes());
+        if (fin) {
+            var b = new Date(fin * 1000);
+            cuando += ' - ' + dosCifras(b.getHours()) + ':' + dosCifras(b.getMinutes());
+        }
+        return cuando;
+    }
+
+    function osdDiferido(d) {
+        var ahora = new Date();
+        var h = '<div class="osd-fila"><div class="osd-datos">';
+        h += '<div class="osd-ch"><span class="dif">' + esc(d.etiqueta) + '</span>' +
+             (d.canal ? ' ' + esc(d.canal) : '') + '</div>';
+        h += '<div class="osd-prog">' + (d.cuando ? '<b>' + esc(d.cuando) + '</b>' : '') +
+             esc(d.titulo || '') + '</div>';
+        if (d.descr) h += '<div class="osd-descr">' + esc(d.descr) + '</div>';
+        h += '</div>';
+        h += '<div class="osd-reloj">' + dosCifras(ahora.getHours()) + ':' + dosCifras(ahora.getMinutes()) + '</div>';
+        h += '</div>';
+        h += '<div class="osd-pistas"><span data-tecla="38">▲▼</span> Volver al directo</div>';
+        return h;
+    }
+
+    function reproducirPantallaCompleta(url, titulo, subtitulo, info) {
         playChannel({cmd: url});
+        diferido = info || null;
         playingChannelIdx = -1;   // ya no suena el canal de la lista
         isFullscreen = true;
         setViewportFullscreen();
@@ -1213,10 +1258,15 @@
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
-        document.getElementById("osd").style.display = "block";
-        document.getElementById("osd").innerHTML =
+        var osd = document.getElementById("osd");
+        osd.style.display = "block";
+        osd.innerHTML = diferido ? osdDiferido(diferido) :
             '<div class="osd-ch">' + esc(titulo) + '</div>' +
             (subtitulo ? '<div class="osd-epg">' + esc(subtitulo) + '</div>' : '');
+        if (diferido) {
+            clearTimeout(osdTimeout);
+            osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 12000);
+        }
     }
 
     // ---------- Menu principal ----------
@@ -2001,10 +2051,8 @@
     function etiquetasCanal(ch) {
         var h = '';
         if (seGraba(ch)) h += ' <span class="rec">REC</span>';
-        if (ch.archive) {
-            var dias = Math.floor((ch.archive_range || 0) / 24);
-            h += ' <span class="arch-t">ARCHIVO' + (dias > 0 ? ' ' + dias + 'D' : '') + '</span>';
-        }
+        // Los dias van en la leyenda del canal; aqui con la palabra basta.
+        if (ch.archive) h += ' <span class="arch-t">ARCHIVO</span>';
         return h;
     }
 
@@ -2029,7 +2077,10 @@
         api("type=tv_archive&action=create_link&ch_id=" + guideChannel.id +
             "&utc=" + p.start_timestamp + "&lutc=" + p.stop_timestamp, function(js) {
             if (js && js.cmd) {
-                reproducirPantallaCompleta(js.cmd, guideChannel.name + ' · archivo', p.name);
+                reproducirPantallaCompleta(js.cmd, guideChannel.name + ' · archivo', p.name, {
+                    etiqueta: 'EN DIFERIDO', canal: guideChannel.name, titulo: p.name,
+                    descr: p.descr, cuando: cuandoFue(p.start_timestamp, p.stop_timestamp)
+                });
             } else {
                 toast((js && js.error) ? js.error : 'Archivo no disponible');
             }
@@ -2101,7 +2152,10 @@
         if (r.status !== 'completed') { toast('La grabacion aun no esta lista'); return; }
         api("type=pvr&action=create_link&cmd=" + r.id, function(js) {
             if (js && js.cmd) {
-                reproducirPantallaCompleta(js.cmd, 'Grabacion', r.name);
+                reproducirPantallaCompleta(js.cmd, 'Grabacion', r.name, {
+                    etiqueta: 'GRABACION', canal: r.ch_name, titulo: r.name,
+                    descr: r.descr, cuando: cuandoFue(r.start_ts, r.end_ts)
+                });
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo reproducir');
             }
@@ -2308,7 +2362,7 @@
     function mostrarOsd(ch) {
         var osd = document.getElementById("osd");
         graficosDelanteInsistiendo();
-        osd.innerHTML = osdFor(ch);
+        osd.innerHTML = diferido ? osdDiferido(diferido) : osdFor(ch);
         osd.style.display = "block";
         clearTimeout(osdTimeout);
         osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 12000);
@@ -2661,7 +2715,16 @@
         // canal y el boton de atras salia a la miniatura en vez de devolver la
         // imagen.
         if (isFullscreen && view === "list") {
-            if (k === 38) {
+            if (diferido && (k === 38 || k === 40)) {
+                // Viendo el archivo o una grabacion, la primera flecha vuelve
+                // al directo del mismo canal; la siguiente ya cambia de canal.
+                var vivo = channels[currentChannel];
+                if (vivo) {
+                    playChannel(vivo);
+                    playingChannelIdx = currentChannel;
+                    mostrarOsd(vivo);
+                }
+            } else if (k === 38) {
                 // Cambiar canal en fullscreen
                 if (currentChannel > 0) {
                     currentChannel--;
@@ -2683,7 +2746,7 @@
                 // otra vez entra en la ficha del programa. Es el mismo gesto
                 // que en la guia — derecha es entrar mas adentro — asi que no
                 // hay que aprender nada nuevo ni buscar un boton raro.
-                if (document.getElementById("osd").style.display === "block") {
+                if (document.getElementById("osd").style.display === "block" && !diferido) {
                     mostrarInfoPrograma();
                 } else {
                     mostrarOsd(channels[currentChannel]);
@@ -2852,7 +2915,7 @@
         // pantalla completa era un callejon sin salida — apuntabas, pulsabas y
         // no pasaba nada.
         if (isFullscreen && view === "list") {
-            if (document.getElementById("osd").style.display === "block") {
+            if (document.getElementById("osd").style.display === "block" && !diferido) {
                 mostrarInfoPrograma();
             } else {
                 mostrarOsd(channels[currentChannel]);
@@ -3296,6 +3359,16 @@
         }
         .osd-prog b { color: #9ad62f; font-weight: 600; margin-right: 14px; }
         .osd-epg { font-size: 19px; color: #98a3a6; margin-top: 8px; }
+        .dif {
+            display: inline-block; font-size: 15px; font-weight: 700; letter-spacing: 1px;
+            padding: 4px 10px; margin-right: 12px; border-radius: 5px;
+            background: #fdeb00; color: #1a1a1a; vertical-align: middle;
+        }
+        /* La sinopsis, a dos lineas como mucho: la barra no puede crecer. */
+        .osd-descr {
+            font-size: 18px; line-height: 24px; max-height: 48px; overflow: hidden;
+            color: #c9d1cb; margin-top: 8px;
+        }
         #osd .bar { width: 55%; max-width: 780px; height: 7px; margin-top: 10px; }
         .osd-singuia { color: #6d7679; font-style: italic; }
         .osd-reloj {
