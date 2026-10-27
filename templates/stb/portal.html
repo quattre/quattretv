@@ -1283,6 +1283,18 @@
     // un enlace por pulsacion atascaria el deco. Cada pulsacion seguida en la
     // misma direccion salta mas, para poder cruzar un programa largo rapido.
     var PASOS_SALTO = [30, 60, 120, 300, 600];
+
+    // La guia no es exacta: los programas empiezan unos minutos antes o
+    // despues, y en las generalistas acaban tarde a menudo. Se puede ir hasta
+    // 15 minutos antes de la hora de la guia para buscar el principio, y lo
+    // que se pide al archivo sigue 20 minutos despues de la hora de fin para
+    // que no se corte el final.
+    var ARCHIVO_ANTES = 15 * 60, ARCHIVO_DESPUES = 20 * 60;
+
+    function finConMargen(fin) {
+        var ya = Math.floor(new Date().getTime() / 1000) - 60;
+        return Math.max(fin, Math.min(fin + ARCHIVO_DESPUES, ya));
+    }
     var salto = null;   // {dir, n, destino, timer}
 
     // Instante del programa (segundos UTC) que se esta viendo ahora.
@@ -1329,9 +1341,12 @@
         }
         salto.destino += dir * PASOS_SALTO[salto.n];
         // Lo que se esta emitiendo aun no esta entero en el archivo.
-        var techo = Math.min(d.fin - 5, new Date().getTime() / 1000 - 60);
+        var archivo = d.tipo === 'archivo';
+        var techo = Math.min((archivo ? finConMargen(d.fin) : d.fin) - 5,
+                             new Date().getTime() / 1000 - 60);
+        var suelo = archivo ? d.inicio - ARCHIVO_ANTES : d.inicio;
         if (salto.destino > techo) salto.destino = techo;
-        if (salto.destino < d.inicio) salto.destino = d.inicio;
+        if (salto.destino < suelo) salto.destino = suelo;
         mostrarOsd(null);
         clearTimeout(salto.timer);
         salto.timer = setTimeout(aplicarSalto, 1500);
@@ -1356,7 +1371,7 @@
             return;
         }
         api("type=tv_archive&action=create_link&ch_id=" + d.chId +
-            "&utc=" + destino + "&lutc=" + d.fin, function(js) {
+            "&utc=" + destino + "&lutc=" + finConMargen(d.fin), function(js) {
             if (diferido !== d) return;   // ya se ha ido a otra cosa
             if (js && js.cmd) {
                 playChannel({cmd: js.cmd});
@@ -1420,7 +1435,7 @@
     // grabador, la opcion de grabaciones ni aparece.
     var MENU_COMPLETO = [
         {id: 'canales',     titulo: 'Canales',        modulo: 'tv'},
-        {id: 'semana',      titulo: 'Ultimos 7 dias', modulo: 'semana'},
+        {id: 'semana',      titulo: 'Videoclub 7 dias', modulo: 'semana'},
         {id: 'categorias',  titulo: 'Categorias',     modulo: 'tv'},
         {id: 'favoritos',   titulo: 'Solo favoritos', modulo: 'tv'},
         {id: 'peliculas',   titulo: 'Peliculas',      modulo: 'vod'},
@@ -1580,7 +1595,7 @@
         var h = '<div class="sem-hero">';
         h += '<div class="sem-img"' + estiloImagen(it) + '>' + (it.img ? '' : sinImagen(it)) + '</div>';
         h += '<div class="sem-txt">';
-        h += '<div class="sem-kicker">ULTIMOS 7 DIAS' +
+        h += '<div class="sem-kicker">VIDEOCLUB 7 DIAS' +
              (semana.episodios ? '  ·  ' + semana.episodios.length + ' EMISIONES' : '') + '</div>';
         h += '<div class="sem-titulo">' + esc(it.titulo) + '</div>';
         var meta = [it.canal, cuandoFue(it.ini, it.fin), it.min + ' min'];
@@ -1640,6 +1655,7 @@
             else if (k === 40 && semana.epIdx < semana.episodios.length - 1) { semana.epIdx++; renderSemana(); }
             else if (k === 13) verDeSemana(semana.episodios[semana.epIdx]);
             else if (k === 37 || k === 8 || k === 27) { semana.episodios = null; renderSemana(); }
+            else if (k === TECLA_AMARILLO || k === 114) cerrarSemana();
             return;
         }
         var f = semana.filas[semana.fila];
@@ -1650,8 +1666,9 @@
         else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; renderSemana(); }
         else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; renderSemana(); }
         else if (k === 37 && col > 0) { semana.cols[semana.fila]--; renderSemana(); }
-        // Izquierda en la primera tarjeta sale, como en el resto de pantallas.
-        else if (k === 37 || k === 8 || k === 27) cerrarSemana();
+        // Izquierda en la primera tarjeta sale, como en el resto de pantallas;
+        // el amarillo, que lo abre, tambien lo cierra.
+        else if (k === 37 || k === 8 || k === 27 || k === TECLA_AMARILLO || k === 114) cerrarSemana();
         else if (k === 13) {
             var it = itemSemana();
             if (!it) return;
@@ -1675,7 +1692,7 @@
     function verDeSemana(it) {
         if (!it) return;
         api("type=tv_archive&action=create_link&ch_id=" + it.ch_id +
-            "&utc=" + it.ini + "&lutc=" + it.fin, function(js) {
+            "&utc=" + it.ini + "&lutc=" + finConMargen(it.fin), function(js) {
             if (view !== "semana") return;
             if (js && js.cmd) {
                 document.getElementById("semana").style.display = "none";
@@ -2049,6 +2066,7 @@
 
         // Grabar ya no va aqui: sale junto al canal, debajo de la imagen.
         h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu <span>0-9</span> Ir al canal';
+        if (haySemana()) h += ' <span class="amarillo" data-tecla="405">●</span> Videoclub 7 dias';
         h += '<br>';
         h += 'Grabaciones, favoritos y peliculas estan en el <span data-tecla="37">Menu</span></div>';
         h += '</div>';
@@ -2352,6 +2370,13 @@
     // de modulos: ahi solo aparece 'records' si la tarifa lo incluye y hay un
     // grabador que conteste. Preguntarselo aqui evita ofrecer al usuario algo
     // que va a terminar en un mensaje de error.
+    function haySemana() {
+        for (var i = 0; i < MODULOS.length; i++) {
+            if (MODULOS[i] === 'semana') return true;
+        }
+        return false;
+    }
+
     function hayGrabaciones() {
         for (var i = 0; i < MODULOS.length; i++) {
             if (MODULOS[i] === 'records') return true;
@@ -2460,7 +2485,7 @@
     function playCatchup(p) {
         if (!guideChannel.archive) { toast('Este canal no tiene archivo'); return; }
         api("type=tv_archive&action=create_link&ch_id=" + guideChannel.id +
-            "&utc=" + p.start_timestamp + "&lutc=" + p.stop_timestamp, function(js) {
+            "&utc=" + p.start_timestamp + "&lutc=" + finConMargen(p.stop_timestamp), function(js) {
             if (js && js.cmd) {
                 reproducirPantallaCompleta(js.cmd, guideChannel.name + ' · archivo', p.name, {
                     etiqueta: 'EN DIFERIDO', canal: guideChannel.name, titulo: p.name,
@@ -2987,7 +3012,13 @@
             return true;
         }
         if (k === TECLA_VERDE || k === 115) { toggleFavorite(); return true; }
-        if (k === TECLA_AMARILLO || k === 114) { toggleFavOnly(); return true; }
+        if (k === TECLA_AMARILLO || k === 114) {
+            // Acceso directo al videoclub de 7 dias donde lo hay (el deco). En
+            // las teles sigue siendo "solo favoritos", que tambien esta en el menu.
+            if (haySemana()) openSemana();
+            else toggleFavOnly();
+            return true;
+        }
         if (k === 83 || k === 113) { openRecordings(); return true; }
         if (k === TECLA_AZUL) {
             // Conmuta: abre la guia, y si ya estas en ella vuelve a la lista.
@@ -3710,6 +3741,7 @@
             border-radius: 8px; margin: 0 7px; color: #e6ece8;
             font-size: 21px; font-weight: 600;
         }
+        .help span.amarillo { background: #fdeb00; color: #1a1a1a; }
         /* Solo los que llevan data-tecla hacen algo al pulsarlos. Los que no
            —"0-9" o "▲▼", que no son una tecla sola— se quedan como estaban, sin
            cursor ni respuesta, para que no prometan lo que no dan. */

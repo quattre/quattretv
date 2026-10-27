@@ -65,7 +65,7 @@ TITULOS = [
 ]
 
 # Lo que no es un programa que alguien quiera volver a ver.
-FUERA = ('teletienda', 'televenta', 'tienda en casa', 'cierre de emision', 'el tiempo',
+FUERA = ('teletienda', 'televenta', 'tienda en casa', 'juwelo', 'cierre de emision', 'el tiempo',
          'fin de emision', 'programacion de cierre')
 
 # Por el tipo de canal, como ultimo recurso.
@@ -119,9 +119,9 @@ def grupo_de(titulo, categoria, minutos, anio, tipo_canal):
         return ('peliculas' if largo else 'series'), True
     if canal in CANALES:
         return CANALES[canal], False
-    # Una pelicula en un canal generalista solo se reconoce por el año.
-    if anio and minutos >= 70:
-        return 'peliculas', False
+    # Aqui se miraba "largo y con año = pelicula", pero desde que las guias
+    # traen el año de casi todo, Masterchef o El hormiguero salian como
+    # peliculas. En una generalista sin categoria no se puede saber.
     return 'entretenimiento', False
 
 
@@ -188,6 +188,7 @@ def correcciones():
 
 def emisiones(canales, con_ocultos=False):
     """Lo ya emitido que sigue en el archivo de esos canales, lo mas nuevo antes."""
+    from apps.epg.completar import generico
     from apps.epg.models import Program
 
     ahora = timezone.now()
@@ -204,7 +205,8 @@ def emisiones(canales, con_ocultos=False):
         for p in programas:
             minutos = int((p.end_time - p.start_time).total_seconds() // 60)
             titulo = sin_temporada(p.title)
-            if minutos < DURACION_MINIMA_INFANTIL or not titulo:
+            # "Cine" o "Documental" a secas no dicen que es: mejor no ofrecerlo.
+            if minutos < DURACION_MINIMA_INFANTIL or not titulo or generico(titulo):
                 continue
             grupo, seguro = grupo_de(titulo, p.category, minutos, p.year, tipo_canal)
             if not grupo:
@@ -286,24 +288,52 @@ def catalogo(device):
 
 
 def filas_de(lista, por_grupo=POR_GRUPO):
-    """Junta las emisiones en tarjetas, una por titulo, y las reparte en filas."""
+    """
+    Junta las emisiones en tarjetas, una por titulo, y las reparte en filas.
+
+    Cada fila se llena por turnos de canal: lo ultimo de cada canal, luego lo
+    penultimo de cada uno... Por orden de emision a secas, los canales de cine,
+    que echan peliculas sin parar, llenaban la fila y las de La 1 o Antena 3 no
+    salian nunca; con un tope fijo por canal, las filas de un solo canal
+    (deportes, casi todo Teledeporte) se quedaban medio vacias.
+    """
     from . import caratulas
 
-    filas = {g: {} for g, _ in GRUPOS}
-    for e in lista:
-        tarjetas = filas[e['grupo']]
+    tarjetas = {g: {} for g, _ in GRUPOS}
+    for e in lista:                              # lo mas nuevo primero
+        de_fila = tarjetas[e['grupo']]
         clave_titulo = plano(e['titulo'])
-        if clave_titulo in tarjetas:
-            tarjetas[clave_titulo]['n'] += 1
+        if clave_titulo in de_fila:
+            de_fila[clave_titulo]['n'] += 1
             # Si la mas reciente no tiene caratula, vale la de otra emision.
-            if not tarjetas[clave_titulo]['img'] and e['img']:
-                tarjetas[clave_titulo]['img'] = e['img']
-        elif por_grupo is None or len(tarjetas) < por_grupo:
-            tarjetas[clave_titulo] = dict(e, n=1)
+            if not de_fila[clave_titulo]['img'] and e['img']:
+                de_fila[clave_titulo]['img'] = e['img']
+        else:
+            de_fila[clave_titulo] = dict(e, n=1)
 
-    caratulas.completar([t for fila in filas.values() for t in fila.values()])
-    return [{'id': g, 'nombre': nombre, 'items': list(filas[g].values())}
-            for g, nombre in GRUPOS]
+    filas = []
+    for g, nombre in GRUPOS:
+        por_canal = {}
+        orden = []
+        for tarjeta in tarjetas[g].values():
+            if tarjeta['canal'] not in por_canal:
+                por_canal[tarjeta['canal']] = []
+                orden.append(tarjeta['canal'])
+            por_canal[tarjeta['canal']].append(tarjeta)
+        colas = [por_canal[c] for c in orden]
+        elegidas = []
+        while colas and (por_grupo is None or len(elegidas) < por_grupo):
+            quedan = []
+            for cola in colas:
+                if por_grupo is not None and len(elegidas) >= por_grupo:
+                    break
+                elegidas.append(cola.pop(0))
+                if cola:
+                    quedan.append(cola)
+            colas = quedan
+        caratulas.completar(elegidas)
+        filas.append({'id': g, 'nombre': nombre, 'items': elegidas})
+    return filas
 
 
 def emisiones_de(device, grupo, titulo):

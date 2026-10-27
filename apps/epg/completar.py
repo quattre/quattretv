@@ -57,7 +57,8 @@ ALIAS = {
 # el de verdad ("Dodge, ciudad sin ley"). En una tarjeta de "Ultimos 7 dias"
 # un "Cine" no sirve de nada.
 GENERICOS = {'cine', 'documental', 'documentales', 'pelicula', 'serie', 'series',
-             'programa por determinar', 'por determinar', 'programacion'}
+             'programa por determinar', 'por determinar', 'programacion',
+             'multicine', 'sesion de tarde', 'el peliculon'}
 
 
 def generico(titulo):
