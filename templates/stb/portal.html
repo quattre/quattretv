@@ -254,9 +254,32 @@
         setInterval(latido, 60000);
     }
 
+    // Cuando se cargo este portal, para que el panel pueda recargar de golpe
+    // todos los que tengan una version anterior.
+    var PORTAL_CARGADO = Math.floor(new Date().getTime() / 1000);
+
     function latido() {
         var ch = channels[playingChannelIdx >= 0 ? playingChannelIdx : currentChannel];
-        api("type=watchdog&action=get_events" + (ch ? "&ch_id=" + ch.id : ""), function() {});
+        api("type=watchdog&action=get_events&cargado=" + PORTAL_CARGADO +
+            (ch ? "&ch_id=" + ch.id : ""), function(js) {
+            if (js && js.event) ordenDelPanel(js.event);
+        });
+    }
+
+    // Ordenes que llegan desde el panel en el latido (apps/devices/eventos.py).
+    function ordenDelPanel(evento) {
+        if (evento === 'reiniciar') {
+            try {
+                if (typeof gSTB !== 'undefined' && gSTB.ExecAction) {
+                    gSTB.ExecAction('reboot');
+                    return;
+                }
+            } catch (e) {}
+            // Lo que no es un deco no se puede reiniciar desde aqui: se recarga.
+            location.reload();
+        } else if (evento === 'recargar') {
+            location.reload();
+        }
     }
 
     // El listado va paginado de 50 en 50: antes solo se pedia la primera

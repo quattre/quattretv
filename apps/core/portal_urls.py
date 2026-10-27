@@ -23,6 +23,8 @@ urlpatterns = [
     path('devices/create/', views.device_create, name='device_create'),
     path('devices/<int:device_id>/', views.device_edit, name='device_edit'),
     path('devices/<int:device_id>/refresh-token/', views.device_refresh_token, name='device_refresh_token'),
+    path('devices/<int:device_id>/evento/', views.device_evento, name='device_evento'),
+    path('devices/recargar-todos/', views.devices_recargar_todos, name='devices_recargar_todos'),
     path('devices/<int:device_id>/delete/', views.device_delete, name='device_delete'),
 
     # Channels

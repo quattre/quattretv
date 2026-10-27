@@ -1789,7 +1789,10 @@ def handle_watchdog(request, action):
     esto un aparato que lleva media hora con un canal puesto no vuelve a pedir
     nada y parece apagado.
     """
+    from apps.devices import eventos
+
     device = get_device_from_request(request)
+    respuesta = {'result': True}
 
     if device:
         ch_id = request.GET.get('ch_id', '')
@@ -1798,7 +1801,13 @@ def handle_watchdog(request, action):
             if canal:
                 device.update_activity(channel=canal)
 
-    return stalker_response({'result': True})
+        # Ordenes del panel (recargar, reiniciar): ver apps/devices/eventos.py.
+        cargado = request.GET.get('cargado', '')
+        evento = eventos.recoger(device, int(cargado) if cargado.isdigit() else None)
+        if evento:
+            respuesta['event'] = evento
+
+    return stalker_response(respuesta)
 
 
 def handle_account_info(request, action):

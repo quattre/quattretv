@@ -10,6 +10,14 @@
         </h1>
         <p class="text-gray-500 mt-1">Gestion de STBs y dispositivos registrados</p>
     </div>
+    <div class="flex gap-2">
+    <form method="post" action="{% url 'portal:devices_recargar_todos' %}"
+          onsubmit="return confirm('¿Recargar el portal en todos los decos? Los que estén viendo la tele verán un corte de unos segundos.')">
+        {% csrf_token %}
+        <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2">
+            <i class="bi bi-arrow-clockwise"></i> Recargar todos los decos
+        </button>
+    </form>
     <button
         x-data
         @click="$dispatch('open-add-device-modal')"
@@ -17,7 +25,9 @@
     >
         <i class="bi bi-plus-lg"></i> Nuevo Dispositivo
     </button>
+    </div>
 </div>
+
 
 <!-- Stats -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

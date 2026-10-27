@@ -93,6 +93,19 @@
                     {% endif %}
                 </p>
             </div>
+            <div class="px-6 pb-6">
+                <p class="text-xs text-gray-500 mb-2">Lo hace en menos de un minuto si está encendido, o al encenderse.</p>
+                <form method="post" action="{% url 'portal:device_evento' device.id %}" class="flex gap-2">
+                    {% csrf_token %}
+                    <button name="evento" value="recargar" class="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+                        <i class="bi bi-arrow-clockwise"></i> Recargar portal
+                    </button>
+                    <button name="evento" value="reiniciar" class="flex-1 px-3 py-2 text-sm bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition"
+                            onclick="return confirm('¿Reiniciar el aparato?')">
+                        <i class="bi bi-power"></i> Reiniciar
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>

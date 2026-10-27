@@ -384,6 +384,37 @@ def device_edit(request, device_id):
 
 
 @staff_member_required
+def device_evento(request, device_id):
+    """Recargar el portal o reiniciar un aparato en su proximo latido."""
+    from apps.devices import eventos
+
+    device = get_object_or_404(Device, id=device_id)
+    if request.method == 'POST':
+        evento = request.POST.get('evento', '')
+        if evento in eventos.EVENTOS:
+            if eventos.pedir(device, evento):
+                messages.success(request, f'{eventos.EVENTOS[evento]}: lo hará en menos de '
+                                          'un minuto si está encendido, o al encenderse.')
+            else:
+                messages.error(request, 'No se ha podido apuntar la orden: la caché (Redis) no responde.')
+    return redirect('portal:device_edit', device_id=device.id)
+
+
+@staff_member_required
+def devices_recargar_todos(request):
+    """Recarga el portal de todos los decos, por ejemplo tras actualizarlo."""
+    from apps.devices import eventos
+
+    if request.method == 'POST':
+        if eventos.pedir_recarga_general():
+            messages.success(request, 'Todos los decos recargarán el portal en el próximo '
+                                      'minuto. Las apps de las teles no se tocan.')
+        else:
+            messages.error(request, 'No se ha podido apuntar la orden: la caché (Redis) no responde.')
+    return redirect('portal:devices')
+
+
+@staff_member_required
 def device_refresh_token(request, device_id):
     """Refresh device token."""
     if request.method == 'POST':
