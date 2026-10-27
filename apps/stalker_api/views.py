@@ -545,8 +545,11 @@ def handle_get_modules(request):
     # Que el grabador este dado de alta no significa que grabe: se le pregunta.
     # Es la misma comprobacion que se hace al programar, para que el menu no
     # ofrezca una seccion que luego contesta que no esta disponible.
-    if (device and puede_reproducir_grabaciones(device) and hay_grabador_de_clientes()
-            and (not tarifa or tarifa.has_pvr)):
+    # Tambien sale si el cliente ya tiene grabaciones aunque hoy no haya
+    # grabador nuestro: las copiadas de Ministra se pueden ver igual.
+    if (device and puede_reproducir_grabaciones(device)
+            and (not tarifa or tarifa.has_pvr)
+            and (device.user.recordings.exists() or hay_grabador_de_clientes())):
         modulos.append('records')
 
     return stalker_response({

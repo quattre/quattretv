@@ -22,7 +22,7 @@ if ! avdmanager list avd 2>/dev/null | grep -q "Name: $AVD"; then
     echo no | avdmanager create avd -n "$AVD" -k "$IMAGEN" -d "tv_1080p" >/dev/null
     # GPU del PC de verdad (host). NUNCA swiftshader: pinta por software y el
     # 10/09/2026 dejo el PC colgado (rtkit: "canary thread starving").
-    printf 'hw.ramSize=3072\nhw.gpu.enabled=yes\nhw.gpu.mode=host\ndisk.dataPartition.size=6G\n' >> "$HOME/.android/avd/$AVD.avd/config.ini"
+    printf 'hw.keyboard=yes\nhw.ramSize=3072\nhw.gpu.enabled=yes\nhw.gpu.mode=host\ndisk.dataPartition.size=6G\n' >> "$HOME/.android/avd/$AVD.avd/config.ini"
 fi
 
 if ! adb devices | grep -q '^emulator-.*device$'; then
