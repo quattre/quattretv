@@ -216,7 +216,12 @@ class Channel(TimeStampedModel, ActivableModel):
 
     @property
     def origen_para_grabar(self):
-        return self.origen_grabador or self.multicast_url
+        # Sin la direccion de Ministra no se puede grabar: los grabadores que
+        # tenemos (dumpstream) no saben que hacer con el multicast del CDN y la
+        # grabacion sale vacia. Asi le pasaba a 19 canales, que salian con
+        # "Grabar" sin poder grabarse. El multicast_url lo usa el archivo en
+        # HLS, que va por otro lado.
+        return self.origen_grabador
 
     # Metadata
     description = models.TextField(blank=True)

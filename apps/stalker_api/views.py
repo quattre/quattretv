@@ -758,7 +758,10 @@ def archivo_del_canal(channel, device, ventanas):
     """
     from .storage_views import id_en_archivo
 
-    if not (channel.has_catchup and channel.origen_para_grabar):
+    # El archivo en HLS lo graba otro proceso desde el multicast del CDN; el de
+    # Ministra necesita su direccion.
+    origen = channel.origen_para_grabar or (channel.archive_hls_since and channel.multicast_url)
+    if not (channel.has_catchup and origen):
         return False, 0
     if not puede_ver_archivo(device, channel):
         return False, 0
@@ -1437,7 +1440,7 @@ def handle_archive_link(request):
     if parental_blocked(device, channel):
         return stalker_response({'error': 'Canal bloqueado, introduce el PIN'})
 
-    if not channel.has_catchup or not channel.origen_para_grabar:
+    if not channel.has_catchup:
         return stalker_response({'error': 'Archivo no disponible para este canal'})
 
     # La lista de canales ya no lo ofrece si no hay grabador vivo, pero el deco

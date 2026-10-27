@@ -242,7 +242,7 @@ def archive_channels():
     """
     return Channel.objects.filter(
         is_active=True, has_catchup=True, archive_hls_since__isnull=True
-    ).exclude(multicast_url='', origen_grabador='').order_by('number')
+    ).exclude(origen_grabador='').order_by('number')
 
 
 @csrf_exempt
