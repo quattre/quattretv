@@ -1623,17 +1623,13 @@
             h += '<div class="info"><div class="name">' + esc(c.name);
             if (c.hd) h += ' <span class="hd">HD</span>';
             if (c.fav) h += ' <span class="fav">★</span>';
-            // Se esta grabando para este cliente. Va por hora y no por un si o
-            // un no, para que se apague sola al terminar sin pedir nada.
-            if (c.rec_until && c.rec_until * 1000 > new Date().getTime()) {
-                h += ' <span class="rec">REC</span>';
-            }
-            // El simbolo que habia (ver osdFor) se quito porque salia en casi
-            // todos los canales sin que hubiera archivo de verdad. Ahora el
-            // servidor solo lo manda si el canal esta grabado en disco y el
-            // aparato lo puede abrir, y va en texto, que se lee en cualquier
-            // tele.
-            if (c.archive) h += ' <span class="arch-t">ARCHIVO</span>';
+            // REC si el cliente lo esta grabando (va por hora, para que se
+            // apague sola al terminar) y ARCHIVO si tiene catchup. El simbolo
+            // que habia (ver osdFor) se quito porque salia en casi todos los
+            // canales sin que hubiera archivo de verdad; ahora el servidor solo
+            // lo manda si el canal esta grabado en disco y el aparato lo puede
+            // abrir, y va en texto, que se lee en cualquier tele.
+            h += etiquetasCanal(c);
             if (c.locked) h += ' <span class="lock">🔒</span>';
             h += '</div>';
             // El programa y la barra de avance van SIEMPRE, haya programacion o
@@ -1655,7 +1651,12 @@
         }
         h += '</div>';
 
-        h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu <span>0-9</span> Ir al canal<br>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu <span>0-9</span> Ir al canal';
+        if (hayGrabaciones() && ch && ch.pvr) {
+            h += seGraba(ch) ? ' <span class="rojo" data-tecla="403">●</span> Parar grabacion'
+                             : ' <span class="rojo" data-tecla="403">●</span> Grabar';
+        }
+        h += '<br>';
         h += 'Grabaciones, favoritos y peliculas estan en el <span data-tecla="37">Menu</span></div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
@@ -1727,8 +1728,9 @@
             return (guideChannel && guideChannel.archive)
                 ? '<span data-tecla="13">OK</span> Ver desde el archivo' : '';
         }
+        if (p.rec && p.current) return '<span data-tecla="13">OK</span> Parar la grabacion';
         if (p.rec) return '<span data-tecla="13">OK</span> Quitar la grabacion';
-        if (hayGrabaciones()) return '<span data-tecla="13">OK</span> Grabar';
+        if (hayGrabaciones() && guideChannel && guideChannel.pvr) return '<span data-tecla="13">OK</span> Grabar';
         return '';
     }
 
@@ -1930,6 +1932,10 @@
         if (!p) return;
         if (p.past) {
             playCatchup(p);
+        } else if (p.rec && p.current) {
+            // Lo que ya se esta grabando se para y se conserva; quitarlo
+            // borraba tambien lo grabado hasta ese momento.
+            pararGrabacion(guideChannel, p);
         } else if (p.rec) {
             quitarGrabacion(p);
         } else {
@@ -1966,17 +1972,44 @@
             toast('Las grabaciones no estan disponibles');
             return;
         }
+        for (var i = 0; i < allChannels.length; i++) {
+            if (String(allChannels[i].id) === String(p.ch_id) && !allChannels[i].pvr) {
+                toast('Este canal no se puede grabar');
+                return;
+            }
+        }
         api("type=pvr&action=create_task&program_id=" + p.id, function(js) {
             if (js && js.result) {
                 p.rec = 1;
                 toast('Grabacion programada: ' + p.name);
                 marcarGrabando(p);
-                if (view === "guide") renderGuide();
-                else if (view === "list") showChannels();
+                refrescarTrasGrabar();
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo programar');
             }
         });
+    }
+
+    // Si el cliente esta grabando este canal ahora mismo.
+    function seGraba(ch) {
+        return !!(ch && ch.rec_until && ch.rec_until * 1000 > new Date().getTime());
+    }
+
+    // Lo que se puede hacer en este canal, en texto, para la lista y la barra:
+    // si se graba, si se puede grabar y cuanto archivo tiene. Solo sale lo que
+    // el servidor ofrece a este aparato (en las teles, nada de esto).
+    function etiquetasCanal(ch) {
+        var h = '';
+        if (seGraba(ch)) h += ' <span class="rec">REC</span>';
+        if (ch.archive) {
+            var dias = Math.floor((ch.archive_range || 0) / 24);
+            h += ' <span class="arch-t">ARCHIVO' + (dias > 0 ? ' ' + dias + 'D' : '') + '</span>';
+        }
+        return h;
+    }
+
+    function desmarcarGrabando(ch) {
+        if (ch) ch.rec_until = 0;
     }
 
     // Si lo que se acaba de programar ya esta en emision, el canal sale con REC
@@ -2045,8 +2078,9 @@
         }
         h += '</div>';
         var r2 = recordings[recIdx];
-        var ayuda = (r2 && r2.status === 'completed')
-            ? '<span data-tecla="13">OK</span> Ver' : '<span data-tecla="13">OK</span> Quitar de la lista';
+        var ayuda = '';
+        if (r2 && r2.status === 'completed') ayuda = '<span data-tecla="13">OK</span> Ver';
+        else if (r2 && r2.status === 'recording') ayuda = 'Grabando hasta las ' + esc(r2.end_hhmm || '');
         h += '<div class="help">' + ayuda + ' <span data-tecla="39">▶</span> Borrar <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
@@ -2074,9 +2108,20 @@
         });
     }
 
+    // Borrar pide confirmacion pulsando otra vez: es lo unico que no se puede
+    // deshacer, y estaba a una tecla de distancia de ver la grabacion.
+    var borrarPendiente = null;
     function deleteRecording() {
         var r = recordings[recIdx];
         if (!r) return;
+        var ahora = new Date().getTime();
+        if (!borrarPendiente || borrarPendiente.id !== r.id || ahora - borrarPendiente.cuando > 4000) {
+            borrarPendiente = {id: r.id, cuando: ahora};
+            toast(r.status === 'recording' ? 'Pulsa otra vez para parar y borrar'
+                                           : 'Pulsa otra vez para borrar');
+            return;
+        }
+        borrarPendiente = null;
         api("type=pvr&action=delete_task&id=" + r.id, function(js) {
             if (js && js.result) {
                 recordings.splice(recIdx, 1);
@@ -2092,11 +2137,40 @@
     function recordCurrent() {
         var ch = channels[currentChannel];
         if (!ch) return;
+        if (!hayGrabaciones()) { toast('Las grabaciones no estan disponibles'); return; }
+        if (!ch.pvr) { toast('Este canal no se puede grabar'); return; }
         api("type=itv&action=get_short_epg&ch_id=" + ch.id, function(js) {
             var list = (js && js.data) ? js.data : [];
             if (list.length === 0) { toast('Sin EPG para grabar este canal'); return; }
-            recordProgram(list[0]);
+            // El mismo boton graba y para. Antes, en un canal que ya se
+            // estaba grabando, decia otra vez "Grabacion programada" y no
+            // habia forma de pararla sin ir a buscarla.
+            if (seGraba(ch) || list[0].rec) pararGrabacion(ch, list[0]);
+            else recordProgram(list[0]);
         });
+    }
+
+    function pararGrabacion(ch, p) {
+        api("type=pvr&action=stop_task&program_id=" + p.id, function(js) {
+            if (js && js.result) {
+                p.rec = 0;
+                desmarcarGrabando(ch);
+                toast(js.kept ? 'Grabacion parada: esta en Mis grabaciones' : 'Grabacion quitada');
+                refrescarTrasGrabar();
+            } else {
+                toast((js && js.error) ? js.error : 'No se pudo parar');
+            }
+        });
+    }
+
+    // Lo que hay en pantalla tiene que reflejar el cambio al momento.
+    function refrescarTrasGrabar() {
+        if (view === "guide") renderGuide();
+        else if (view === "list") showChannels();
+        if (isFullscreen) {
+            var osd = document.getElementById("osd");
+            if (osd && osd.style.display === "block") mostrarOsd(channels[currentChannel]);
+        }
     }
 
     function updatePreviewCap(ch) {
@@ -2123,6 +2197,15 @@
         if (ch.epg_next) {
             html += '<div class="e">Despues: ' + esc(ch.epg_next_start) + ' ' + esc(ch.epg_next) + '</div>';
         }
+        // Que se puede hacer con este canal. Solo cuando este aparato graba:
+        // en las teles no se ofrece y no tiene sentido decir que no se puede.
+        if (hayGrabaciones()) {
+            var puede = [];
+            if (seGraba(ch)) puede.push('Grabando ahora');
+            else puede.push(ch.pvr ? 'Se puede grabar' : 'No se puede grabar');
+            if (ch.archive) puede.push('Archivo de ' + Math.max(1, Math.floor((ch.archive_range || 0) / 24)) + ' dias');
+            html += '<div class="e">' + esc(puede.join(' · ')) + '</div>';
+        }
         html += '</div>';
         cap.innerHTML = html;
     }
@@ -2138,6 +2221,7 @@
         h += '<div class="osd-datos">';
         h += '<div class="osd-ch">' + esc(ch.name);
         if (ch.hd) h += ' <span class="hd">HD</span>';
+        h += etiquetasCanal(ch);
         // El simbolo de archivo se quitó: en la tele quedaba como una cajita
         // pequeña que no comunicaba nada, y ademas salia en casi todas las
         // filas, asi que tampoco distinguia unos canales de otros.
@@ -2181,7 +2265,10 @@
         // hasta aqui, y ademas vuelve a decirse dentro de la ficha.
         var pistas = '';
         if (ch.cur_playing) pistas += '<span data-tecla="39">▶</span> Informacion ';
-        if (hayGrabaciones()) pistas += '<span class="rojo" data-tecla="403">●</span> Grabar';
+        if (hayGrabaciones() && ch.pvr) {
+            pistas += seGraba(ch) ? '<span class="rojo" data-tecla="403">●</span> Parar grabacion'
+                                  : '<span class="rojo" data-tecla="403">●</span> Grabar';
+        }
         // La fila de pistas se pinta SIEMPRE, aunque no haya nada que decir. Si
         // no, en un canal sin guia desaparecia -- con su borde y sus margenes,
         // unos 45 px -- y como la barra va anclada por abajo, todo lo de arriba
@@ -2659,9 +2746,14 @@
                 recIdx++;
                 renderRecordings(null);
             } else if (k === 13) {
+                // OK nunca borra: antes, en una grabacion en curso o programada
+                // OK la quitaba de la lista, y con ella lo grabado.
                 var sel = recordings[recIdx];
-                if (sel && sel.status === 'completed') playRecording();
-                else deleteRecording();
+                if (!sel) return;
+                if (sel.status === 'completed') playRecording();
+                else if (sel.status === 'recording') toast('Se esta grabando hasta las ' + (sel.end_hhmm || ''));
+                else if (sel.status === 'scheduled') toast('Programada: empieza a las ' + sel.start_time.substring(11));
+                else toast('Esta grabacion no salio bien');
             } else if (k === 39 || k === 82 || k === 112) {
                 deleteRecording();
             } else if (k === 37 || k === 8 || k === 27) {

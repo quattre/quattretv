@@ -837,6 +837,14 @@ def handle_get_ordered_list(request):
 
     # Lo que este cliente esta grabando ahora, para marcarlo en la lista:
     # {canal: hasta cuando}. Las programadas que ya han empezado cuentan.
+    # Si este aparato puede grabar algo: tarifa, tipo de aparato y un grabador
+    # que conteste. Luego cada canal dice si se puede grabar en el.
+    puede_grabar = bool(
+        device and puede_reproducir_grabaciones(device)
+        and (not device.user.tariff or device.user.tariff.has_pvr)
+        and hay_grabador_de_clientes()
+    )
+
     grabando = {}
     if device and puede_reproducir_grabaciones(device):
         from apps.pvr.models import Recording, RecordingStatus
@@ -875,6 +883,8 @@ def handle_get_ordered_list(request):
             'archive_range': horas_archivo,
             # Hasta cuando esta grabando este cliente el canal (0 = nada).
             'rec_until': grabando.get(ch.id, 0),
+            # Si se puede grabar en este canal desde este aparato.
+            'pvr': 1 if (puede_grabar and ch.has_recording and ch.origen_para_grabar) else 0,
             'genre_id': str(ch.category_id) if ch.category_id else '',
         }
         entry.update(epg.get(ch.id, EMPTY_EPG))
@@ -1474,7 +1484,9 @@ def handle_pvr(request, action):
         return handle_pvr_list(request)
     elif action in ('create_task', 'add_task', 'record'):
         return handle_pvr_create(request)
-    elif action in ('delete_task', 'stop_task', 'remove'):
+    elif action == 'stop_task':
+        return handle_pvr_stop(request)
+    elif action in ('delete_task', 'remove'):
         return handle_pvr_delete(request)
     elif action == 'create_link':
         return handle_pvr_link(request)
@@ -1621,6 +1633,7 @@ def handle_pvr_list(request):
             'start_time': timezone.localtime(rec.start_time).strftime('%Y-%m-%d %H:%M'),
             'end_time': timezone.localtime(rec.end_time).strftime('%Y-%m-%d %H:%M'),
             'status': rec.status,
+            'end_hhmm': timezone.localtime(rec.actual_end_time).strftime('%H:%M'),
             'ready': 1 if rec.status == 'completed' else 0,
             'length': rec.duration or 0,
             'cmd': str(rec.id),
@@ -1743,6 +1756,58 @@ def handle_pvr_delete(request):
 
     recording.delete()
     return stalker_response({'result': True})
+
+
+def handle_pvr_stop(request):
+    """
+    Para una grabacion en curso y se queda con lo grabado hasta ahora.
+
+    Es lo que espera quien pulsa el rojo en un canal que se esta grabando:
+    antes, el mismo boton borraba la grabacion entera, fichero incluido.
+    Una grabacion que aun no ha empezado no tiene nada que conservar: se quita.
+    """
+    from apps.pvr.models import Recording, RecordingStatus
+    from apps.pvr import storage_client
+
+    device, error = _pvr_device(request)
+    if error:
+        return error
+
+    program_id = request.GET.get('program_id')
+    rec_id = request.GET.get('id') or request.GET.get('cmd')
+    recordings = Recording.objects.filter(user=device.user)
+    if program_id:
+        recording = recordings.filter(program_id=program_id).first()
+    else:
+        recording = recordings.filter(id=rec_id).first() if str(rec_id).isdigit() else None
+    if not recording:
+        return stalker_response({'error': 'Grabación no encontrada'})
+
+    if recording.storage and recording.storage.controlado_por_ministra:
+        return stalker_response({
+            'error': 'Esta grabacion se gestiona desde la plataforma antigua'})
+
+    if recording.status != RecordingStatus.RECORDING:
+        recording.delete()
+        return stalker_response({'result': True, 'kept': 0})
+
+    if recording.storage:
+        try:
+            storage_client.stop_recording(recording.storage, recording.id)
+        except storage_client.StorageError:
+            pass
+
+    # Al pararlo a mano, dumpstream muere sin mandar el aviso de fin: se cierra
+    # aqui, con lo que dure lo grabado.
+    ahora = timezone.now()
+    recording.end_time = max(recording.start_time, ahora)
+    recording.post_padding = 0
+    recording.duration = int((ahora - recording.actual_start_time).total_seconds())
+    recording.status = RecordingStatus.COMPLETED
+    if recording.filename and recording.storage and not recording.stream_url:
+        recording.stream_url = recording.storage.build_url(recording.filename, public=True)
+    recording.save(update_fields=['end_time', 'post_padding', 'duration', 'status', 'stream_url'])
+    return stalker_response({'result': True, 'kept': 1})
 
 
 def handle_pvr_link(request):
