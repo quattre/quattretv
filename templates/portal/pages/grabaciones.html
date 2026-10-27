@@ -32,9 +32,16 @@
             {% endif %}
         </div>
         <p class="text-xs text-gray-500 mt-1">{{ g.get_role_display }}</p>
+        {% if g.records_archive and not g.records_clients %}
+        <p class="text-sm text-gray-600 mt-3">Archivo de catchup: el estado de cada canal está en la tabla de abajo.</p>
+        {% elif g.controlado_por_ministra and not g.n_grabando and not g.n_guardadas %}
+        <p class="text-sm text-gray-600 mt-3">Sigue grabando para Ministra. Sus grabaciones aparecerán aquí al copiar las cuentas.</p>
+        {% else %}
         <p class="text-sm text-gray-600 mt-3">
             {{ g.n_grabando }} grabando ahora · {{ g.n_guardadas }} guardadas
+            {% if g.controlado_por_ministra %}<span class="text-xs text-gray-400">(copiadas de Ministra)</span>{% endif %}
         </p>
+        {% endif %}
         {% if g.records_archive and not g.controlado_por_ministra %}
         <p class="text-xs text-gray-400 mt-1">
             {% if g.last_sync %}Pidió sus tareas hace {{ g.last_sync|timesince }}{% else %}Nunca ha pedido tareas{% endif %}
