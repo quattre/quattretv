@@ -290,6 +290,23 @@ def user_devices(request, user_id):
 @staff_member_required
 def devices_list(request):
     """Devices list view."""
+    if request.method == 'POST' and request.POST.get('device_id'):
+        # El formulario de "Enviar mensaje". Antes no lo atendia nadie: se
+        # rellenaba, se enviaba y no pasaba nada.
+        from apps.devices import eventos
+        device = get_object_or_404(Device, id=request.POST.get('device_id'))
+        if request.POST.get('message_type') == 'reload':
+            hecho = eventos.pedir(device, 'recargar')
+        else:
+            hecho = eventos.pedir_mensaje(device, request.POST.get('title', '').strip(),
+                                          request.POST.get('message', '').strip())
+        if hecho:
+            messages.success(request, f'Enviado a {device.name or device.mac_address}: '
+                                      'le llega en menos de un minuto si está encendido.')
+        else:
+            messages.error(request, 'No se ha podido enviar: la caché (Redis) no responde.')
+        return redirect(request.get_full_path())
+
     now = timezone.now()
     online_threshold = now - timedelta(minutes=5)
 
@@ -397,6 +414,8 @@ def device_evento(request, device_id):
                                           'un minuto si está encendido, o al encenderse.')
             else:
                 messages.error(request, 'No se ha podido apuntar la orden: la caché (Redis) no responde.')
+    if request.POST.get('volver') == 'lista':
+        return redirect('portal:devices')
     return redirect('portal:device_edit', device_id=device.id)
 
 

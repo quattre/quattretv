@@ -262,12 +262,12 @@
         var ch = channels[playingChannelIdx >= 0 ? playingChannelIdx : currentChannel];
         api("type=watchdog&action=get_events&cargado=" + PORTAL_CARGADO +
             (ch ? "&ch_id=" + ch.id : ""), function(js) {
-            if (js && js.event) ordenDelPanel(js.event);
+            if (js && js.event) ordenDelPanel(js.event, js);
         });
     }
 
     // Ordenes que llegan desde el panel en el latido (apps/devices/eventos.py).
-    function ordenDelPanel(evento) {
+    function ordenDelPanel(evento, js) {
         if (evento === 'reiniciar') {
             try {
                 if (typeof gSTB !== 'undefined' && gSTB.ExecAction) {
@@ -279,7 +279,26 @@
             location.reload();
         } else if (evento === 'recargar') {
             location.reload();
+        } else if (evento === 'mensaje' && js && js.msg) {
+            mostrarMensaje(js.msg.titulo, js.msg.texto);
         }
+    }
+
+    // Un aviso mandado desde el panel. Se queda hasta que se pulse una tecla:
+    // si se fuera solo, quien no estuviera mirando no lo veria nunca.
+    var mensajeAbierto = false;
+    function mostrarMensaje(titulo, texto) {
+        var caja = document.getElementById("mensaje");
+        caja.innerHTML = (titulo ? '<div class="m-t">' + esc(titulo) + '</div>' : '') +
+            '<div class="m-x">' + esc(texto || '') + '</div>' +
+            '<div class="m-p"><span data-tecla="13">OK</span> Cerrar</div>';
+        graficosDelanteInsistiendo();
+        caja.style.display = "block";
+        mensajeAbierto = true;
+    }
+    function cerrarMensaje() {
+        document.getElementById("mensaje").style.display = "none";
+        mensajeAbierto = false;
     }
 
     // El listado va paginado de 50 en 50: antes solo se pedia la primera
@@ -2686,6 +2705,8 @@
 
     function handleKey(e) {
         apuntarTecla(e);
+        // Con un aviso del panel en pantalla, la primera tecla solo lo cierra.
+        if (mensajeAbierto) { cerrarMensaje(); return false; }
         if (quizaDiagnostico(normalizarTecla(e.keyCode))) return false;
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
         var k = normalizarTecla(e.keyCode);
@@ -3464,6 +3485,16 @@
         }
         #diag b { color: #e6ebe8; font-weight: normal; }
 
+        #mensaje {
+            position: fixed; z-index: 40; display: none;
+            top: 50%; left: 50%; transform: translate(-50%,-50%);
+            width: 60%; max-width: 980px; padding: 40px 50px; border-radius: 18px;
+            background: #10161a; border: 2px solid #81ba26;
+            box-shadow: 0 18px 80px rgba(0,0,0,.9); color: #fff;
+        }
+        #mensaje .m-t { font-family: Antonio, sans-serif; font-size: 40px; font-weight: 600; color: #9ad62f; }
+        #mensaje .m-x { font-size: 26px; line-height: 36px; margin-top: 16px; white-space: pre-wrap; }
+        #mensaje .m-p { font-size: 20px; color: #98a3a6; margin-top: 28px; text-align: right; }
         #vol, #toast, #numjump {
             position: fixed; z-index: 30; display: none;
             background: #10161a;
@@ -3593,6 +3624,7 @@
     <div id="diag"></div>
     <div id="vol" style="z-index:20;"></div>
     <div id="toast"></div>
+    <div id="mensaje"></div>
     <div id="numjump"></div>
     <div id="sinred">
         <div class="titulo">Se ha perdido la conexion</div>

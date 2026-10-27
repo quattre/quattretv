@@ -1941,7 +1941,11 @@ def handle_watchdog(request, action):
         # Ordenes del panel (recargar, reiniciar): ver apps/devices/eventos.py.
         cargado = request.GET.get('cargado', '')
         evento = eventos.recoger(device, int(cargado) if cargado.isdigit() else None)
-        if evento:
+        if isinstance(evento, dict):
+            respuesta['event'] = 'mensaje'
+            respuesta['msg'] = {'titulo': evento.get('titulo', ''),
+                                'texto': evento.get('texto', '')}
+        elif evento:
             respuesta['event'] = evento
 
     return stalker_response(respuesta)

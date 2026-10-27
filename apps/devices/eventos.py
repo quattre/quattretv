@@ -41,6 +41,16 @@ def pedir(device, evento):
     return True
 
 
+def pedir_mensaje(device, titulo, texto):
+    """Un aviso que el aparato enseña en pantalla hasta que se pulse una tecla."""
+    try:
+        cache.set(_clave(device), {'tipo': 'mensaje', 'titulo': titulo[:80],
+                                   'texto': texto[:500]}, CADUCA)
+    except Exception:
+        return False
+    return True
+
+
 def pedir_recarga_general():
     try:
         cache.set(CLAVE_GENERAL, int(time.time()), CADUCA * 7)
@@ -50,7 +60,10 @@ def pedir_recarga_general():
 
 
 def recoger(device, cargado=None):
-    """La orden pendiente para este aparato, o None. Se entrega una sola vez."""
+    """
+    La orden pendiente para este aparato, o None. Se entrega una sola vez.
+    Es el nombre de la orden o, si es un mensaje, un diccionario con el texto.
+    """
     try:
         evento = cache.get(_clave(device))
         if evento:

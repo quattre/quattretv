@@ -196,9 +196,17 @@
                             <a href="{% url 'portal:device_edit' device.id %}" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <button class="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition" onclick="refreshToken({{ device.id }})" title="Regenerar token">
-                                <i class="bi bi-key"></i>
-                            </button>
+                            <form method="post" action="{% url 'portal:device_evento' device.id %}" class="inline-flex">
+                                {% csrf_token %}
+                                <input type="hidden" name="volver" value="lista">
+                                <button name="evento" value="recargar" class="p-2 text-green-600 hover:bg-green-50 rounded-lg transition" title="Recargar portal">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                                <button name="evento" value="reiniciar" class="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition" title="Reiniciar"
+                                        onclick="return confirm('¿Reiniciar este aparato?')">
+                                    <i class="bi bi-power"></i>
+                                </button>
+                            </form>
                             <button
                                 class="p-2 text-cyan-500 hover:bg-cyan-50 rounded-lg transition"
                                 @click="$dispatch('open-message-modal', { deviceId: {{ device.id }} })"
@@ -370,7 +378,7 @@
                             <option value="info">Informacion</option>
                             <option value="warning">Advertencia</option>
                             <option value="error">Error</option>
-                            <option value="reload">Recargar Portal</option>
+
                         </select>
                     </div>
                     <div>
