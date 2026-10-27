@@ -1253,16 +1253,142 @@
         h += '<div class="osd-prog">' + (d.cuando ? '<b>' + esc(d.cuando) + '</b>' : '') +
              esc(d.titulo || '') + '</div>';
         if (d.descr) h += '<div class="osd-descr">' + esc(d.descr) + '</div>';
+        if (d.inicio && d.fin > d.inicio) {
+            // Donde se esta, o adonde se va a saltar mientras se pulsan las
+            // flechas: sin esto avanzar era a ciegas.
+            var punto = salto ? salto.destino : momentoDiferido();
+            var pct = Math.max(0, Math.min(100, (punto - d.inicio) * 100 / (d.fin - d.inicio)));
+            h += '<div class="osd-salto"><div class="bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+                 '<span>' + esc(textoPosicion(d, punto)) + '</span>' +
+                 (salto ? '<b>' + (salto.dir > 0 ? '▶▶ ' : '◀◀ ') + esc(textoSalto(salto)) + '</b>' : '') +
+                 (d.pausaDesde && !salto ? '<b>II Pausa</b>' : '') + '</div>';
+        }
         h += '</div>';
         h += '<div class="osd-reloj">' + dosCifras(ahora.getHours()) + ':' + dosCifras(ahora.getMinutes()) + '</div>';
         h += '</div>';
-        h += '<div class="osd-pistas"><span data-tecla="38">▲▼</span> Volver al directo</div>';
+        h += '<div class="osd-pistas">';
+        if (d.inicio) h += '<span data-tecla="37">◀</span><span data-tecla="39">▶</span> Retroceder / avanzar ';
+        h += '<span data-tecla="38">▲▼</span> Volver al directo</div>';
         return h;
+    }
+
+    // ---------- Avanzar y retroceder en diferido ----------
+    //
+    // En el archivo el deco no puede saltar por su cuenta: get.php sirve un
+    // trozo de la hora y nada mas. Se hace como Ministra, pidiendo otro enlace
+    // que empiece en el punto nuevo. En una grabacion el fichero entero esta en
+    // el disco y basta con mover el reproductor.
+    //
+    // Las pulsaciones se acumulan y se aplican cuando se deja de pulsar: pedir
+    // un enlace por pulsacion atascaria el deco. Cada pulsacion seguida en la
+    // misma direccion salta mas, para poder cruzar un programa largo rapido.
+    var PASOS_SALTO = [30, 60, 120, 300, 600];
+    var salto = null;   // {dir, n, destino, timer}
+
+    // Instante del programa (segundos UTC) que se esta viendo ahora.
+    function momentoDiferido() {
+        var d = diferido;
+        if (!d || !d.inicio) return 0;
+        if (d.tipo === 'grabacion' && stbAPI && stbAPI.GetPosTime) {
+            try {
+                var pos = stbAPI.GetPosTime();
+                if (pos > 0) return d.inicio + pos;
+            } catch (err) {}
+        }
+        var ms = (d.pausaDesde || new Date().getTime()) - d.arrancado;
+        return d.base + Math.max(0, ms / 1000);
+    }
+
+    function textoPosicion(d, punto) {
+        if (d.tipo === 'grabacion') {
+            var dur = Math.round((d.fin - d.inicio) / 60);
+            var va = Math.round((punto - d.inicio) / 60);
+            return Math.floor(va / 60) + ':' + dosCifras(va % 60) + ' / ' +
+                   Math.floor(dur / 60) + ':' + dosCifras(dur % 60);
+        }
+        var t = new Date(punto * 1000);
+        return dosCifras(t.getHours()) + ':' + dosCifras(t.getMinutes()) + ':' + dosCifras(t.getSeconds());
+    }
+
+    function textoSalto(s) {
+        var seg = Math.abs(Math.round(s.destino - s.desde));
+        return (seg < 60 ? seg + ' s' : Math.round(seg / 60) + ' min');
+    }
+
+    function saltar(dir) {
+        var d = diferido;
+        if (!d || !d.inicio) return;
+        if (!salto) {
+            var aqui = momentoDiferido();
+            salto = {dir: dir, n: 0, desde: aqui, destino: aqui};
+        } else if (salto.dir !== dir) {
+            salto.dir = dir;
+            salto.n = 0;
+        } else {
+            salto.n = Math.min(salto.n + 1, PASOS_SALTO.length - 1);
+        }
+        salto.destino += dir * PASOS_SALTO[salto.n];
+        // Lo que se esta emitiendo aun no esta entero en el archivo.
+        var techo = Math.min(d.fin - 5, new Date().getTime() / 1000 - 60);
+        if (salto.destino > techo) salto.destino = techo;
+        if (salto.destino < d.inicio) salto.destino = d.inicio;
+        mostrarOsd(null);
+        clearTimeout(salto.timer);
+        salto.timer = setTimeout(aplicarSalto, 1500);
+    }
+
+    function aplicarSalto() {
+        var s = salto, d = diferido;
+        salto = null;
+        if (!s || !d) return;
+        var destino = Math.floor(s.destino);
+        if (d.tipo === 'grabacion') {
+            var hecho = false;
+            try {
+                if (stbAPI && stbAPI.SetPosTime) { stbAPI.SetPosTime(destino - d.inicio); hecho = true; }
+                else if (player) { player.position = destino - d.inicio; hecho = true; }
+                else if (htmlPlayer) { htmlPlayer.currentTime = destino - d.inicio; hecho = true; }
+            } catch (err) {}
+            if (!hecho) { toast('Este aparato no puede avanzar'); return; }
+            if (d.pausaDesde) { try { stbAPI.Continue(); } catch (err) {} }
+            d.base = destino; d.arrancado = new Date().getTime(); d.pausaDesde = 0;
+            mostrarOsd(null);
+            return;
+        }
+        api("type=tv_archive&action=create_link&ch_id=" + d.chId +
+            "&utc=" + destino + "&lutc=" + d.fin, function(js) {
+            if (diferido !== d) return;   // ya se ha ido a otra cosa
+            if (js && js.cmd) {
+                playChannel({cmd: js.cmd});
+                d.base = destino; d.arrancado = new Date().getTime(); d.pausaDesde = 0;
+                mostrarOsd(null);
+            } else {
+                toast((js && js.error) ? js.error : 'No se pudo avanzar');
+            }
+        });
+    }
+
+    function pausarDiferido() {
+        var d = diferido;
+        if (!d || !stbAPI) return;
+        try {
+            if (d.pausaDesde) {
+                stbAPI.Continue();
+                d.arrancado += new Date().getTime() - d.pausaDesde;
+                d.pausaDesde = 0;
+            } else {
+                stbAPI.Pause();
+                d.pausaDesde = new Date().getTime();
+            }
+        } catch (err) {}
+        mostrarOsd(null);
     }
 
     function reproducirPantallaCompleta(url, titulo, subtitulo, info) {
         playChannel({cmd: url});
         diferido = info || null;
+        if (diferido) { diferido.arrancado = new Date().getTime(); diferido.pausaDesde = 0; }
+        salto = null;
         playingChannelIdx = -1;   // ya no suena el canal de la lista
         isFullscreen = true;
         setViewportFullscreen();
@@ -1720,11 +1846,8 @@
         }
         h += '</div>';
 
+        // Grabar ya no va aqui: sale junto al canal, debajo de la imagen.
         h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu <span>0-9</span> Ir al canal';
-        if (hayGrabaciones() && ch && ch.pvr) {
-            h += seGraba(ch) ? ' <span class="rojo" data-tecla="403">●</span> Parar grabacion'
-                             : ' <span class="rojo" data-tecla="403">●</span> Grabar';
-        }
         h += '<br>';
         h += 'Grabaciones, favoritos y peliculas estan en el <span data-tecla="37">Menu</span></div>';
         h += '</div>';
@@ -2017,7 +2140,7 @@
             if (js && js.result) {
                 p.rec = 0;
                 toast('Grabacion quitada');
-                if (view === "guide") renderGuide();
+                refrescarTrasGrabar();
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo quitar');
             }
@@ -2085,13 +2208,39 @@
         // grabando ni cuanto faltaba para el corte de las 3 horas.
         if (seGraba(ch)) h += ' <span class="rec">REC' +
             (ch.rec_from ? ' ' + duracionDesde(ch.rec_from) : '') + '</span>';
-        // Los dias van en la leyenda del canal; aqui con la palabra basta.
-        if (ch.archive) h += ' <span class="arch-t">ARCHIVO</span>';
+        // El archivo, con un reloj amarillo y no con la palabra: "ARCHIVO" no
+        // se entendia. Lo que significa se explica en la leyenda del canal.
+        if (ch.archive) h += ' <i class="ico-arch"></i>';
         return h;
     }
 
     function desmarcarGrabando(ch) {
-        if (ch) ch.rec_until = 0;
+        if (ch) { ch.rec_until = 0; ch.rec_from = 0; }
+    }
+
+    // Lo que se esta grabando lo sabe el servidor. Tras grabar, parar o borrar
+    // se le pregunta en vez de adivinarlo aqui: borrar desde "Mis grabaciones"
+    // o desde la guia dejaba el REC puesto en la lista de canales.
+    function sincronizarGrabando(despues) {
+        api("type=pvr&action=get_ordered_list", function(js) {
+            if (!js || !js.data) { if (despues) despues(); return; }
+            var ahora = Math.floor(new Date().getTime() / 1000);
+            var por = {};
+            for (var i = 0; i < js.data.length; i++) {
+                var r = js.data[i];
+                if ((r.status === 'recording' || r.status === 'scheduled') &&
+                    r.start_ts <= ahora && r.rec_until > ahora &&
+                    (!por[r.ch_id] || r.rec_until > por[r.ch_id].hasta)) {
+                    por[r.ch_id] = {hasta: r.rec_until, desde: r.rec_from};
+                }
+            }
+            for (var j = 0; j < allChannels.length; j++) {
+                var g = por[String(allChannels[j].id)];
+                allChannels[j].rec_until = g ? g.hasta : 0;
+                allChannels[j].rec_from = g ? g.desde : 0;
+            }
+            if (despues) despues();
+        });
     }
 
     // Si lo que se acaba de programar ya esta en emision, el canal sale con REC
@@ -2114,7 +2263,9 @@
             if (js && js.cmd) {
                 reproducirPantallaCompleta(js.cmd, guideChannel.name + ' · archivo', p.name, {
                     etiqueta: 'EN DIFERIDO', canal: guideChannel.name, titulo: p.name,
-                    descr: p.descr, cuando: cuandoFue(p.start_timestamp, p.stop_timestamp)
+                    descr: p.descr, cuando: cuandoFue(p.start_timestamp, p.stop_timestamp),
+                    tipo: 'archivo', chId: guideChannel.id,
+                    inicio: p.start_timestamp, fin: p.stop_timestamp, base: p.start_timestamp
                 });
             } else {
                 toast((js && js.error) ? js.error : 'Archivo no disponible');
@@ -2208,9 +2359,14 @@
         if (r.status !== 'completed') { toast('La grabacion aun no esta lista'); return; }
         api("type=pvr&action=create_link&cmd=" + r.id, function(js) {
             if (js && js.cmd) {
+                // El fichero empieza cuando arranco la grabacion, que no
+                // siempre es el principio del programa.
+                var desde = r.rec_from || r.start_ts;
                 reproducirPantallaCompleta(js.cmd, 'Grabacion', r.name, {
                     etiqueta: 'GRABACION', canal: r.ch_name, titulo: r.name,
-                    descr: r.descr, cuando: cuandoFue(r.start_ts, r.end_ts)
+                    descr: r.descr, cuando: cuandoFue(r.start_ts, r.end_ts),
+                    tipo: 'grabacion', inicio: desde, base: desde,
+                    fin: desde + (r.length || Math.max(60, r.end_ts - desde))
                 });
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo reproducir');
@@ -2238,6 +2394,7 @@
                 if (recIdx >= recordings.length) recIdx = Math.max(0, recordings.length - 1);
                 toast('Grabacion borrada');
                 renderRecordings(null);
+                sincronizarGrabando();
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo borrar');
             }
@@ -2275,6 +2432,11 @@
 
     // Lo que hay en pantalla tiene que reflejar el cambio al momento.
     function refrescarTrasGrabar() {
+        repintarGrabando();
+        sincronizarGrabando(repintarGrabando);
+    }
+
+    function repintarGrabando() {
         if (view === "guide") renderGuide();
         else if (view === "list") showChannels();
         if (isFullscreen) {
@@ -2309,12 +2471,23 @@
         }
         // Que se puede hacer con este canal. Solo cuando este aparato graba:
         // en las teles no se ofrece y no tiene sentido decir que no se puede.
+        // El boton de grabar va aqui, al lado, y no en la ayuda de abajo: alli
+        // no se relacionaba con el canal.
         if (hayGrabaciones()) {
-            var puede = [];
-            if (seGraba(ch)) puede.push('Grabando ahora');
-            else puede.push(ch.pvr ? 'Se puede grabar' : 'No se puede grabar');
-            if (ch.archive) puede.push('Archivo de ' + Math.max(1, Math.floor((ch.archive_range || 0) / 24)) + ' dias');
-            html += '<div class="e">' + esc(puede.join(' · ')) + '</div>';
+            html += '<div class="e acciones">';
+            if (ch.pvr) {
+                html += seGraba(ch)
+                    ? '<span class="boton rojo" data-tecla="403">■ Parar grabacion</span>' +
+                      ' Grabando' + (ch.rec_from ? ' ' + esc(duracionDesde(ch.rec_from)) : '')
+                    : '<span class="boton rojo" data-tecla="403">● Grabar</span>';
+            } else {
+                html += 'No se puede grabar';
+            }
+            if (ch.archive) {
+                html += '<span class="sep"></span><i class="ico-arch"></i> Puedes ver lo emitido hasta hace ' +
+                        Math.max(1, Math.floor((ch.archive_range || 0) / 24)) + ' dias, desde la guia';
+            }
+            html += '</div>';
         }
         html += '</div>';
         cap.innerHTML = html;
@@ -2607,7 +2780,7 @@
         if (view === "pin" || view === "recordings") return false;
         var k = e.keyCode;
 
-        if (k === TECLA_ROJO || k === 82 || k === 112) {
+        if (k === TECLA_ROJO || k === 112 || (k === 82 && !e.altKey) || (k === 87 && e.altKey)) {
             if (view === "guide" || view === "ficha") recordProgram(guide[guideIdx]);
             else recordCurrent();
             return true;
@@ -2773,7 +2946,13 @@
         // canal y el boton de atras salia a la miniatura en vez de devolver la
         // imagen.
         if (isFullscreen && view === "list") {
-            if (diferido && (k === 38 || k === 40)) {
+            if (diferido && diferido.inicio && (k === 37 || k === 39 ||
+                    (e.altKey && (k === 66 || k === 70)))) {
+                // Flechas, o rebobinar y avanzar del mando de los MAG (Alt+B/F).
+                saltar((k === 37 || k === 66) ? -1 : 1);
+            } else if (diferido && e.altKey && k === 82) {
+                pausarDiferido();             // reproducir/pausa del MAG (Alt+R)
+            } else if (diferido && (k === 38 || k === 40)) {
                 // Viendo el archivo o una grabacion, la primera flecha vuelve
                 // al directo del mismo canal; la siguiente ya cambia de canal.
                 var vivo = channels[currentChannel];
@@ -3201,11 +3380,24 @@
         .live { background: #9ad62f; color: #0d1505; }
         .fav  { color: #fdeb00; font-size: 19px; margin-left: 7px; }
         .arch { color: #c9d1cb; font-size: 19px; margin-left: 7px; }
-        .arch-t {
-            font-size: 11px; font-weight: 700; padding: 2px 6px; margin-left: 8px;
-            border: 1px solid #81ba26; color: #9ad62f; border-radius: 5px;
-            vertical-align: middle; letter-spacing: .5px;
+        /* Reloj amarillo del archivo, dibujado con CSS: no depende de que la
+           fuente del deco tenga el simbolo. */
+        .ico-arch {
+            display: inline-block; position: relative; vertical-align: middle;
+            width: 18px; height: 18px; margin-left: 9px;
+            border: 3px solid #fdeb00; border-radius: 50%; box-sizing: border-box;
         }
+        .ico-arch:before, .ico-arch:after {
+            content: ''; position: absolute; background: #fdeb00;
+        }
+        .ico-arch:before { left: 5px; top: 1px; width: 2px; height: 6px; }
+        .ico-arch:after  { left: 6px; top: 5px; width: 4px; height: 2px; }
+        #preview-cap .acciones .ico-arch { margin-left: 0; margin-right: 6px; }
+        #preview-cap .boton {
+            display: inline-block; padding: 5px 14px; margin-right: 12px; border-radius: 8px;
+            background: #e60000; color: #fff; font-weight: 600;
+        }
+        #preview-cap .sep { display: inline-block; width: 28px; }
         .lock { color: #ff7900; font-size: 18px; margin-left: 7px; }
         .item.past { opacity: .5; }
 
@@ -3428,6 +3620,9 @@
             color: #c9d1cb; margin-top: 8px;
         }
         #osd .bar { width: 55%; max-width: 780px; height: 7px; margin-top: 10px; }
+        .osd-salto { display: flex; align-items: center; margin-top: 10px; font-size: 21px; color: #c9d1cb; }
+        #osd .osd-salto .bar { margin: 0 18px 0 0; }
+        .osd-salto b { color: #fdeb00; margin-left: 18px; font-weight: 700; }
         .osd-singuia { color: #6d7679; font-style: italic; }
         .osd-reloj {
             font-family: Antonio, sans-serif;
@@ -3566,7 +3761,11 @@
             .name { font-size: 18px; }
             .epg { font-size: 11px; margin-top: 3px; }
             .hd, .rec, .live, .st { font-size: 9px; padding: 2px 5px; margin-left: 5px; }
-            .arch-t { font-size: 8px; padding: 1px 4px; margin-left: 5px; }
+            .ico-arch { width: 12px; height: 12px; border-width: 2px; margin-left: 5px; }
+            .ico-arch:before { left: 3px; top: 1px; width: 2px; height: 4px; }
+            .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
+            #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
+            #preview-cap .sep { width: 18px; }
             .fav, .arch, .lock { font-size: 13px; margin-left: 5px; }
             .bar { height: 3px; margin-top: 6px; }
             .descr { font-size: 12px; padding: 11px 4px; }

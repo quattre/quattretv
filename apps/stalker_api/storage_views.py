@@ -84,7 +84,9 @@ def build_ts_catchup_url(storage, channel, start, duration, device=None):
     params = {
         'ch_id': id_en_archivo(channel),
         'filename': local_start.strftime('%Y%m%d-%H') + '.mpg',
-        'start_time': local_start.minute * 60 + local_start.second,
+        # get.php lee 'start'. Con otro nombre lo ignoraba y todo empezaba en
+        # la hora en punto, no donde empieza el programa.
+        'start': local_start.minute * 60 + local_start.second,
         'duration': int(duration),
         'token': make_archive_token(device.id if device else 0, channel.id),
     }
