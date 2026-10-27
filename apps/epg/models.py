@@ -89,3 +89,42 @@ class Program(models.Model):
         elapsed = (now - self.start_time).total_seconds()
         total = (self.end_time - self.start_time).total_seconds()
         return int((elapsed / total) * 100)
+
+
+class FilaSemana(models.Model):
+    """
+    Una fila de "Ultimos 7 dias" (peliculas, series...) y si se ofrece.
+
+    Solo existen las que se han tocado desde el panel: una fila sin ficha se
+    ve, que es lo normal.
+    """
+    grupo = models.CharField(max_length=20, unique=True)
+    visible = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.grupo} ({'visible' if self.visible else 'oculta'})"
+
+
+class TituloSemana(models.Model):
+    """
+    Correccion a mano de un titulo de "Ultimos 7 dias".
+
+    El tipo se adivina con la guia y a veces falla: una serie que sale como
+    entretenimiento, una teletienda que se cuela. Aqui se le dice a que fila
+    va, que no salga, o que caratula lleva. Vale para todas sus emisiones,
+    tambien las de las semanas que vienen.
+    """
+    clave = models.CharField(max_length=300, unique=True,
+                             help_text='Titulo en minusculas y sin acentos')
+    titulo = models.CharField(max_length=500)
+    grupo = models.CharField(max_length=20, blank=True,
+                             help_text='Vacio: la que le toque sola')
+    oculto = models.BooleanField(default=False)
+    imagen = models.URLField(max_length=500, blank=True)
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-actualizado']
+
+    def __str__(self):
+        return self.titulo

@@ -1,0 +1,146 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Últimos 7 días - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900"><i class="bi bi-collection-play"></i> Últimos 7 días</h1>
+        <p class="text-gray-500">Lo emitido que sigue en el archivo, como lo ven los decos. Se arma solo con la guía de {{ n_canales }} canales con catchup.</p>
+    </div>
+    <a href="?" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+    </a>
+</div>
+
+<!-- Caratulas -->
+<div class="bg-white rounded-xl shadow-sm p-5 mb-8 flex flex-wrap items-center justify-between gap-4">
+    <div>
+        <h2 class="font-semibold text-gray-900"><i class="bi bi-image"></i> Carátulas</h2>
+        {% if tmdb %}
+        <p class="text-sm text-gray-600 mt-1">Las que la guía no trae se buscan en TMDB cada media hora.</p>
+        {% else %}
+        <p class="text-sm text-gray-600 mt-1">Solo las que trae la guía. Para buscar las que faltan en TMDB hace falta poner
+            <code class="text-xs bg-gray-100 px-1 rounded">TMDB_API_KEY</code> en el .env (su uso comercial pide licencia de TMDB).</p>
+        {% endif %}
+    </div>
+    <form method="post">{% csrf_token %}
+        <input type="hidden" name="accion" value="caratulas">
+        <button class="px-4 py-2 rounded-lg text-sm {% if tmdb %}bg-gray-800 text-white hover:bg-gray-700{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}"
+                {% if not tmdb %}disabled{% endif %}>
+            <i class="bi bi-search"></i> Buscar carátulas ahora
+        </button>
+    </form>
+</div>
+
+<!-- Filas -->
+{% for fila in filas %}
+<div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6 {% if not fila.visible %}opacity-60{% endif %}">
+    <div class="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900">{{ fila.nombre }}
+                {% if not fila.visible %}<span class="ml-2 text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600 align-middle">Oculta en los decos</span>{% endif %}
+            </h2>
+            <p class="text-sm text-gray-500">
+                {% if fila.total %}
+                    {{ fila.total }} títulos{% if fila.total > por_grupo %}; al deco llegan los {{ por_grupo }} más recientes{% endif %}
+                    · {{ fila.sin_imagen }} sin carátula
+                {% else %}
+                    Ahora mismo no hay nada en esta fila.
+                {% endif %}
+            </p>
+        </div>
+        <form method="post">{% csrf_token %}
+            <input type="hidden" name="accion" value="fila">
+            <input type="hidden" name="grupo" value="{{ fila.id }}">
+            <button class="px-3 py-1 rounded-full text-xs {% if fila.visible %}bg-green-100 text-green-700 hover:bg-green-200{% else %}bg-gray-100 text-gray-500 hover:bg-gray-200{% endif %}">
+                {% if fila.visible %}<i class="bi bi-toggle-on"></i> Se ve{% else %}<i class="bi bi-toggle-off"></i> Oculta{% endif %}
+            </button>
+        </form>
+    </div>
+    {% if fila.items %}
+    <div class="p-4 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4">
+        {% for item in fila.items %}
+        <div class="rounded-lg border border-gray-200 overflow-hidden">
+            <div class="relative bg-gray-800" style="aspect-ratio: 16/9;">
+                {% if item.img %}
+                <img src="{{ item.img }}" alt="" loading="lazy" class="w-full h-full object-cover">
+                {% else %}
+                <div class="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sin carátula</div>
+                {% endif %}
+                {% if item.n > 1 %}<span class="absolute top-1 right-1 text-xs font-bold px-2 rounded bg-black/70 text-yellow-300">{{ item.n }}</span>{% endif %}
+                {% if item.correccion %}<span class="absolute top-1 left-1 text-xs px-2 rounded bg-blue-600 text-white">Corregido</span>{% endif %}
+            </div>
+            <div class="p-2">
+                <div class="text-sm font-medium text-gray-900 truncate" title="{{ item.titulo }}">{{ item.titulo }}</div>
+                <div class="text-xs text-gray-500 truncate">{{ item.canal }} · {{ item.inicio|date:"D d/m H:i" }}</div>
+                <details class="mt-1">
+                    <summary class="text-xs text-blue-600 cursor-pointer">Corregir</summary>
+                    <form method="post" class="mt-2 space-y-2">{% csrf_token %}
+                        <input type="hidden" name="accion" value="titulo">
+                        <input type="hidden" name="titulo" value="{{ item.titulo }}">
+                        <select name="grupo" class="w-full px-2 py-1 border border-gray-200 rounded text-xs">
+                            <option value="">Fila: automática</option>
+                            {% for g, nombre in grupos %}
+                            <option value="{{ g }}" {% if item.correccion.grupo == g %}selected{% endif %}>Fila: {{ nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="url" name="imagen" value="{{ item.correccion.imagen|default:'' }}" placeholder="Carátula (https://...)"
+                               class="w-full px-2 py-1 border border-gray-200 rounded text-xs">
+                        <label class="flex items-center gap-1 text-xs text-gray-600">
+                            <input type="checkbox" name="oculto" value="1" {% if item.correccion.oculto %}checked{% endif %}> No mostrarlo
+                        </label>
+                        <button class="w-full px-2 py-1 bg-gray-800 text-white rounded text-xs">Guardar</button>
+                    </form>
+                </details>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+
+<!-- Correcciones -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900"><i class="bi bi-pencil-square"></i> Correcciones hechas</h2>
+        <p class="text-sm text-gray-500">Valen para todas las emisiones del título, también las de las próximas semanas. Los ocultos solo se ven aquí.</p>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr>
+                <th class="px-4 py-2 text-left">Título</th>
+                <th class="px-4 py-2 text-left">Fila</th>
+                <th class="px-4 py-2 text-left">Carátula</th>
+                <th class="px-4 py-2 text-left">Cuándo</th>
+                <th class="px-4 py-2"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+        {% for c in correcciones %}
+            <tr>
+                <td class="px-4 py-2 font-medium text-gray-900">
+                    {{ c.titulo }}
+                    {% if c.oculto %}<span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">No se muestra</span>{% endif %}
+                </td>
+                <td class="px-4 py-2 text-gray-600">{% if c.grupo %}{% for g, nombre in grupos %}{% if g == c.grupo %}{{ nombre }}{% endif %}{% endfor %}{% else %}<span class="text-gray-400">automática</span>{% endif %}</td>
+                <td class="px-4 py-2">{% if c.imagen %}<img src="{{ c.imagen }}" alt="" class="h-10 rounded">{% else %}<span class="text-gray-400">-</span>{% endif %}</td>
+                <td class="px-4 py-2 text-gray-500">{{ c.actualizado|date:"d/m H:i" }}</td>
+                <td class="px-4 py-2 text-right">
+                    <form method="post" class="inline">{% csrf_token %}
+                        <input type="hidden" name="accion" value="deshacer">
+                        <input type="hidden" name="id" value="{{ c.id }}">
+                        <button class="text-xs text-red-600 hover:underline">Deshacer</button>
+                    </form>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Todavía no se ha corregido nada: todo es automático.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

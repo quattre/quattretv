@@ -1071,6 +1071,85 @@ def grabaciones(request):
 
 
 # CDNs
+# Ultimos 7 dias
+@staff_member_required
+def ultimos7(request):
+    """
+    Lo que ven los decos en "Ultimos 7 dias", y las correcciones a mano.
+
+    El tipo de cada programa se adivina con la guia y a veces falla. Aqui se
+    quita una fila entera, se pasa un titulo a otra fila, se oculta o se le
+    pone caratula. Todo vale para todas sus emisiones y se aplica al momento.
+    """
+    from types import SimpleNamespace
+    from django.conf import settings
+    from apps.epg.models import FilaSemana, TituloSemana
+    from apps.stalker_api import semana
+
+    nombres = dict(semana.GRUPOS)
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        if accion == 'fila' and request.POST.get('grupo') in nombres:
+            fila, _ = FilaSemana.objects.get_or_create(grupo=request.POST['grupo'])
+            fila.visible = not fila.visible
+            fila.save(update_fields=['visible'])
+            messages.success(request, f'Fila {nombres[fila.grupo]}: '
+                                      f'{"se ve" if fila.visible else "oculta"}.')
+        elif accion == 'titulo':
+            titulo = request.POST.get('titulo', '').strip()
+            grupo = request.POST.get('grupo', '')
+            grupo = grupo if grupo in nombres else ''
+            oculto = request.POST.get('oculto') == '1'
+            imagen = request.POST.get('imagen', '').strip()
+            clave = semana.plano(titulo)
+            if imagen and not imagen.startswith(('http://', 'https://')):
+                messages.error(request, 'La carátula tiene que ser una dirección http(s).')
+            elif clave:
+                # Sin nada que corregir, la ficha sobra: vuelve a ser automatico.
+                if not (grupo or oculto or imagen):
+                    TituloSemana.objects.filter(clave=clave).delete()
+                else:
+                    TituloSemana.objects.update_or_create(clave=clave, defaults={
+                        'titulo': titulo, 'grupo': grupo, 'oculto': oculto, 'imagen': imagen})
+                messages.success(request, f'«{titulo}» corregido.')
+        elif accion == 'deshacer':
+            TituloSemana.objects.filter(id=request.POST.get('id')).delete()
+            messages.success(request, 'Corrección quitada: vuelve a ser automático.')
+        elif accion == 'caratulas':
+            from apps.epg.tasks import buscar_caratulas
+            buscar_caratulas.delay()
+            messages.success(request, 'Buscando carátulas en TMDB. Tarda unos minutos.')
+        semana.invalidar()
+        return redirect(request.get_full_path())
+
+    # Lo que veria un deco cualquiera con todo contratado.
+    deco = SimpleNamespace(device_type='mag', user=SimpleNamespace(tariff=None))
+    canales = semana.canales_con_archivo(deco)
+    ocultas, _ = semana.correcciones()
+    corregidos = {t.clave: t for t in TituloSemana.objects.all()}
+    filas = semana.filas_de(semana.emisiones(canales), por_grupo=None)
+    for fila in filas:
+        fila['visible'] = fila['id'] not in ocultas
+        fila['total'] = len(fila['items'])
+        fila['sin_imagen'] = sum(1 for i in fila['items'] if not i['img'])
+        fila['items'] = fila['items'][:semana.POR_GRUPO]     # lo que llega al deco
+        for item in fila['items']:
+            item['correccion'] = corregidos.get(semana.plano(item['titulo']))
+            item['inicio'] = timezone.datetime.fromtimestamp(item['ini'], tz=timezone.get_default_timezone())
+
+    context = {
+        'active_page': 'ultimos7',
+        'filas': filas,
+        'grupos': semana.GRUPOS,
+        'n_canales': len(canales),
+        'por_grupo': semana.POR_GRUPO,
+        'correcciones': list(corregidos.values()),
+        'nombres': nombres,
+        'tmdb': bool(settings.QUATTRETV.get('TMDB_API_KEY')),
+    }
+    return render(request, 'portal/pages/ultimos7.html', context)
+
+
 @staff_member_required
 def cdns_list(request):
     """Panel de CDNs: qué canales lleva cada uno y cuáles están emitiendo."""

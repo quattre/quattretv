@@ -140,7 +140,43 @@ def canales_con_archivo(device):
     return resultado
 
 
-def emisiones(canales):
+# ---------- Correcciones del panel ----------
+
+def version():
+    """Cambia cada vez que se corrige algo en el panel: invalida la cache."""
+    try:
+        return cache.get('semana:version') or 0
+    except Exception:
+        return 0
+
+
+def invalidar():
+    try:
+        cache.set('semana:version', int(timezone.now().timestamp() * 1000), None)
+    except Exception:
+        pass
+
+
+def correcciones():
+    """(filas ocultas, {clave del titulo: TituloSemana})."""
+    from apps.epg.models import FilaSemana, TituloSemana
+    clave = 'semana:correcciones:%s' % version()
+    try:
+        guardado = cache.get(clave)
+        if guardado is not None:
+            return guardado
+    except Exception:
+        pass
+    ocultas = set(FilaSemana.objects.filter(visible=False).values_list('grupo', flat=True))
+    titulos = {t.clave: t for t in TituloSemana.objects.all()}
+    try:
+        cache.set(clave, (ocultas, titulos), CACHE_SEGUNDOS)
+    except Exception:
+        pass
+    return ocultas, titulos
+
+
+def emisiones(canales, con_ocultos=False):
     """Lo ya emitido que sigue en el archivo de esos canales, lo mas nuevo antes."""
     from apps.epg.models import Program
 
@@ -186,6 +222,23 @@ def emisiones(canales):
     for e in salida:
         if not e.pop('seguro'):
             e['grupo'] = seguros.get(plano(e['titulo']), e['grupo'])
+
+    # Lo que se ha corregido a mano en el panel manda sobre lo adivinado.
+    _, corregidos = correcciones()
+    if corregidos:
+        quedan = []
+        for e in salida:
+            c = corregidos.get(plano(e['titulo']))
+            if c:
+                if c.oculto and not con_ocultos:
+                    continue
+                if c.grupo:
+                    e['grupo'] = c.grupo
+                if c.imagen:
+                    e['img'] = c.imagen
+            quedan.append(e)
+        salida = quedan
+
     salida = [e for e in salida
               if e['min'] >= DURACION_MINIMA or e['grupo'] == 'infantil']
     salida.sort(key=lambda e: -e['ini'])
@@ -203,7 +256,7 @@ def catalogo(device):
         return []
 
     firma = ','.join(f'{c.id}:{h}' for c, h in sorted(canales.items(), key=lambda x: x[0].id))
-    clave = 'semana:' + hashlib.md5(firma.encode()).hexdigest()
+    clave = 'semana:%s:%s' % (version(), hashlib.md5(firma.encode()).hexdigest())
     try:
         guardado = cache.get(clave)
         if guardado is not None:
@@ -211,8 +264,22 @@ def catalogo(device):
     except Exception:
         pass
 
+    ocultas, _ = correcciones()
+    resultado = [f for f in filas_de(emisiones(canales))
+                 if f['items'] and f['id'] not in ocultas]
+    try:
+        cache.set(clave, resultado, CACHE_SEGUNDOS)
+    except Exception:
+        pass
+    return resultado
+
+
+def filas_de(lista, por_grupo=POR_GRUPO):
+    """Junta las emisiones en tarjetas, una por titulo, y las reparte en filas."""
+    from . import caratulas
+
     filas = {g: {} for g, _ in GRUPOS}
-    for e in emisiones(canales):
+    for e in lista:
         tarjetas = filas[e['grupo']]
         clave_titulo = plano(e['titulo'])
         if clave_titulo in tarjetas:
@@ -220,21 +287,12 @@ def catalogo(device):
             # Si la mas reciente no tiene caratula, vale la de otra emision.
             if not tarjetas[clave_titulo]['img'] and e['img']:
                 tarjetas[clave_titulo]['img'] = e['img']
-        elif len(tarjetas) < POR_GRUPO:
+        elif por_grupo is None or len(tarjetas) < por_grupo:
             tarjetas[clave_titulo] = dict(e, n=1)
 
-    from . import caratulas
     caratulas.completar([t for fila in filas.values() for t in fila.values()])
-
-    resultado = [
-        {'id': g, 'nombre': nombre, 'items': list(filas[g].values())}
-        for g, nombre in GRUPOS if filas[g]
-    ]
-    try:
-        cache.set(clave, resultado, CACHE_SEGUNDOS)
-    except Exception:
-        pass
-    return resultado
+    return [{'id': g, 'nombre': nombre, 'items': list(filas[g].values())}
+            for g, nombre in GRUPOS]
 
 
 def emisiones_de(device, grupo, titulo):

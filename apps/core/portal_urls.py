@@ -48,6 +48,7 @@ urlpatterns = [
 
     # Grabaciones y archivo
     path('grabaciones/', views.grabaciones, name='grabaciones'),
+    path('ultimos-7-dias/', views.ultimos7, name='ultimos7'),
 
     # CDNs
     path('cdns/', views.cdns_list, name='cdns'),
