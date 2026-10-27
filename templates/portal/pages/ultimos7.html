@@ -17,17 +17,19 @@
 <div class="bg-white rounded-xl shadow-sm p-5 mb-8 flex flex-wrap items-center justify-between gap-4">
     <div>
         <h2 class="font-semibold text-gray-900"><i class="bi bi-image"></i> Carátulas</h2>
-        {% if tmdb %}
-        <p class="text-sm text-gray-600 mt-1">Las que la guía no trae se buscan en TMDB cada media hora.</p>
-        {% else %}
-        <p class="text-sm text-gray-600 mt-1">Solo las que trae la guía. Para buscar las que faltan en TMDB hace falta poner
-            <code class="text-xs bg-gray-100 px-1 rounded">TMDB_API_KEY</code> en el .env (su uso comercial pide licencia de TMDB).</p>
+        <p class="text-sm text-gray-600 mt-1">
+            La guía se completa cada hora con la de <a href="https://github.com/davidmuma/EPG_dobleM" class="text-blue-600 hover:underline" target="_blank">dobleM</a>
+            (carátula, tipo, año y el título de verdad donde la nuestra pone «Cine» o «Documental»).
+            Lo que siga sin carátula se busca cada media hora: las series en
+            <a href="https://www.tvmaze.com" class="text-blue-600 hover:underline" target="_blank">TVmaze</a>{% if tmdb %} y todo en TMDB{% endif %}.
+        </p>
+        {% if not tmdb %}
+        <p class="text-xs text-gray-400 mt-1">Para las películas haría falta <code class="bg-gray-100 px-1 rounded">TMDB_API_KEY</code> en el .env (su uso comercial pide licencia de TMDB).</p>
         {% endif %}
     </div>
     <form method="post">{% csrf_token %}
         <input type="hidden" name="accion" value="caratulas">
-        <button class="px-4 py-2 rounded-lg text-sm {% if tmdb %}bg-gray-800 text-white hover:bg-gray-700{% else %}bg-gray-100 text-gray-400 cursor-not-allowed{% endif %}"
-                {% if not tmdb %}disabled{% endif %}>
+        <button class="px-4 py-2 rounded-lg text-sm bg-gray-800 text-white hover:bg-gray-700">
             <i class="bi bi-search"></i> Buscar carátulas ahora
         </button>
     </form>
@@ -64,7 +66,7 @@
         <div class="rounded-lg border border-gray-200 overflow-hidden">
             <div class="relative bg-gray-800" style="aspect-ratio: 16/9;">
                 {% if item.img %}
-                <img src="{{ item.img }}" alt="" loading="lazy" class="w-full h-full object-cover">
+                <img src="{{ item.img }}" alt="" loading="lazy" class="w-full h-full object-contain">
                 {% else %}
                 <div class="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sin carátula</div>
                 {% endif %}

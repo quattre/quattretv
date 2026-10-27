@@ -109,6 +109,11 @@ def descomprimir(contenido):
     return contenido
 
 
+def generico(titulo):
+    from .completar import generico as _generico
+    return _generico(titulo)
+
+
 def _replace_programs(programs):
     """
     Replace the programs covered by this feed.
@@ -139,13 +144,17 @@ def _replace_programs(programs):
             start_time__gte=start,
             start_time__lte=end,
         )
-        for viejo in franja.values('channel_id', 'start_time', *COMPLEMENTOS):
+        for viejo in franja.values('channel_id', 'start_time', 'title', *COMPLEMENTOS):
             anteriores[(viejo['channel_id'], viejo['start_time'])] = viejo
         franja.delete()
 
     for prog in programs:
         viejo = anteriores.get((prog.channel_id, prog.start_time))
         if viejo:
+            # "Cine" o "Documental" no pisan el titulo de verdad que puso la
+            # guia complementaria (ver completar.py).
+            if generico(prog.title) and not generico(viejo['title']):
+                prog.title = viejo['title']
             for campo in COMPLEMENTOS:
                 if not getattr(prog, campo) and viejo[campo]:
                     setattr(prog, campo, viejo[campo])
@@ -154,7 +163,8 @@ def _replace_programs(programs):
 
 
 # Lo que una fuente puede completar de otra.
-COMPLEMENTOS = ('category', 'icon', 'description', 'episode_title', 'year')
+COMPLEMENTOS = ('category', 'icon', 'description', 'episode_title', 'year',
+                'season', 'episode')
 
 
 @shared_task
@@ -165,6 +175,13 @@ def update_all_epg_sources():
     sources = EpgSource.objects.filter(is_active=True, auto_update=True)
     for source in sources:
         update_epg_source.delay(source.id)
+
+
+@shared_task
+def completar_guia():
+    """Rellena lo que le falta a la guia con la de dobleM (ver completar.py)."""
+    from .completar import completar
+    return completar()
 
 
 @shared_task

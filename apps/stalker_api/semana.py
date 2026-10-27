@@ -52,7 +52,7 @@ PALABRAS = [
                       'ciencia', 'viaje')),
     ('entretenimiento', ('entreten', 'entertain', 'programa', 'music', 'musica',
                          'concurso', 'magazine', 'reality', 'humor', 'cocina',
-                         'estilo', 'lifestyle', 'otros')),
+                         'estilo', 'lifestyle', 'ocio', 'otros')),
 ]
 
 # Por titulo, cuando la guia no dice nada.

@@ -229,6 +229,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.pvr.tasks.apply_recording_rules',
         'schedule': crontab(minute=25),
     },
+    'epg-completar-guia': {
+        'task': 'apps.epg.tasks.completar_guia',
+        'schedule': crontab(minute=45),
+    },
     'archivo-buscar-caratulas': {
         'task': 'apps.epg.tasks.buscar_caratulas',
         'schedule': crontab(minute='*/30'),
@@ -271,4 +275,7 @@ QUATTRETV = {
     # Para las caratulas de "Ultimos 7 dias" que la guia no trae. Vacio, no se
     # busca nada. Ojo: el uso comercial de TMDB pide su licencia comercial.
     'TMDB_API_KEY': os.getenv('TMDB_API_KEY', ''),
+    # Guia con la que se completa la nuestra (caratulas, tipo, año...) sin
+    # sustituirla. Vacio: la de dobleM.
+    'EPG_COMPLETAR': os.getenv('EPG_COMPLETAR', ''),
 }

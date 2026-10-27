@@ -1118,7 +1118,7 @@ def ultimos7(request):
         elif accion == 'caratulas':
             from apps.epg.tasks import buscar_caratulas
             buscar_caratulas.delay()
-            messages.success(request, 'Buscando carátulas en TMDB. Tarda unos minutos.')
+            messages.success(request, 'Buscando las carátulas que faltan. Tarda unos minutos.')
         semana.invalidar()
         return redirect(request.get_full_path())
 

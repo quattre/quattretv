@@ -1,8 +1,13 @@
 """
-Caratulas para lo que la guia no trae, buscadas en TMDB.
+Caratulas para lo que la guia no trae.
 
-Las guias traen imagen en el 71 % de los programas, pero en las peliculas,
-que es donde mas se nota, solo en un tercio. TMDB tiene casi todas.
+Las guias traen imagen en el 71 % de los programas (y mas desde que se
+completan con dobleM, ver apps/epg/completar.py). Para lo que sigue sin ella:
+
+- TVmaze, gratis y sin clave, para series e infantiles. Solo pide que se le
+  cite, y se hace en la pagina del panel.
+- TMDB, si hay TMDB_API_KEY, para todo y sobre todo para las peliculas. Su
+  uso comercial pide su licencia comercial.
 
 La busqueda la hace una tarea periodica y no la peticion del deco: TMDB tarda
 y el catalogo tiene que salir al momento. Lo encontrado se guarda en la cache
@@ -16,6 +21,7 @@ hace nada y el catalogo sale con las imagenes de la guia.
 import hashlib
 import logging
 import re
+import time
 
 import requests
 from django.conf import settings
@@ -26,6 +32,7 @@ from .semana import plano
 logger = logging.getLogger(__name__)
 
 API = 'https://api.themoviedb.org/3'
+TVMAZE = 'https://api.tvmaze.com'
 IMAGENES = 'https://image.tmdb.org/t/p/w780'
 SI_DIAS, NO_DIAS = 30, 7
 # Las noticias y el deporte son de un dia: no estan en TMDB.
@@ -33,9 +40,15 @@ GRUPOS = {'peliculas': 'movie', 'series': 'tv', 'infantil': 'tv',
           'documentales': 'tv', 'entretenimiento': 'tv'}
 
 
+def proveedores():
+    return (['tmdb'] if settings.QUATTRETV.get('TMDB_API_KEY') else []) + ['tvmaze']
+
+
 def clave_de(grupo, titulo):
-    return 'caratula:v1:%s:%s' % (GRUPOS.get(grupo, ''),
-                                  hashlib.md5(plano(titulo).encode()).hexdigest())
+    # Con los proveedores en la clave, lo que no encontro uno se vuelve a
+    # buscar el dia que se añade otro.
+    return 'caratula:v2:%s:%s:%s' % ('+'.join(proveedores()), GRUPOS.get(grupo, ''),
+                                     hashlib.md5(plano(titulo).encode()).hexdigest())
 
 
 def completar(items):
@@ -74,7 +87,40 @@ def _pedir(ruta, parametros):
     return r.json()
 
 
+def buscar_tvmaze(titulo):
+    """
+    El cartel de la serie en TVmaze, o ''. El pequeño (210x295, unos 20 KB):
+    las imagenes horizontales que tiene son de 1920x1080 y 350 KB, y diez de
+    esas en pantalla son demasiado para un MAG.
+    """
+    consulta = limpiar(titulo)
+    if len(consulta) < 2:
+        return ''
+    r = requests.get(TVMAZE + '/search/shows', params={'q': consulta}, timeout=10)
+    r.raise_for_status()
+    buscado = plano(consulta)
+    for resultado in r.json()[:5]:
+        serie = resultado.get('show') or {}
+        if plano(serie.get('name')) == buscado:
+            cartel = serie.get('image') or {}
+            return cartel.get('medium') or cartel.get('original') or ''
+    return ''
+
+
 def buscar(titulo, anio, tipo):
+    """La caratula de quien la tenga, o '' si nadie tiene una que encaje seguro."""
+    if 'tmdb' in proveedores():
+        url = buscar_tmdb(titulo, anio, tipo)
+        if url:
+            return url
+    if tipo == 'tv':
+        # TVmaze pide no pasar de 20 peticiones cada 10 segundos.
+        time.sleep(1)
+        return buscar_tvmaze(titulo)
+    return ''
+
+
+def buscar_tmdb(titulo, anio, tipo):
     """La URL de la imagen en TMDB, o '' si no hay una que encaje seguro."""
     consulta = limpiar(titulo)
     if len(consulta) < 2:
@@ -99,14 +145,15 @@ def buscar(titulo, anio, tipo):
 
 
 def buscar_las_que_faltan(maximo=200):
-    """Busca en TMDB las caratulas que faltan en lo que hay en el archivo."""
+    """Busca las caratulas que faltan en lo que hay en el archivo."""
     from .semana import todas_las_emisiones
 
-    if not settings.QUATTRETV.get('TMDB_API_KEY'):
-        return 0
     pendientes = {}
     for e in todas_las_emisiones():
         if e['img'] or e['grupo'] not in GRUPOS:
+            continue
+        # Sin TMDB solo hay donde buscar series.
+        if GRUPOS[e['grupo']] == 'movie' and 'tmdb' not in proveedores():
             continue
         pendientes.setdefault(clave_de(e['grupo'], e['titulo']), e)
     try:
@@ -120,10 +167,10 @@ def buscar_las_que_faltan(maximo=200):
             continue
         try:
             url = buscar(e['titulo'], e['anio'], GRUPOS[e['grupo']])
-        except requests.RequestException as error:
-            logger.warning('TMDB no contesta: %s', error)
+        except (requests.RequestException, ValueError) as error:
+            logger.warning('No se pudo buscar la caratula de %s: %s', e['titulo'], error)
             break
         cache.set(clave, url, (SI_DIAS if url else NO_DIAS) * 86400)
         hechas += 1
-    logger.info('Caratulas buscadas en TMDB: %s', hechas)
+    logger.info('Caratulas buscadas (%s): %s', '+'.join(proveedores()), hechas)
     return hechas
