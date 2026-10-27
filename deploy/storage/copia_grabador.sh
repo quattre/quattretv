@@ -91,6 +91,14 @@ hacer sed -i -E \
     -e "s#conn = http\.client\.HTTPConnection\(url\.hostname\)#conn = (http.client.HTTPSConnection if url.scheme == 'https' else http.client.HTTPConnection)(url.hostname, url.port)#" \
     "$COPIA/dumpstream"
 
+#    Y lo que mas importa: dumpstream copia todas las pistas (-map 0), y algunos
+#    canales (La 1, por ejemplo) llevan pistas de datos con marcas de tiempo
+#    rotas. ffmpeg se para al primer segundo ("non monotonically increasing
+#    dts"), el reintento choca con el compactador y la grabacion se queda en
+#    unos pocos KB. Al de Ministra le pasa igual: de 25 grabaciones de octubre,
+#    varias vacias o cortadas. Solo video y audio.
+hacer sed -i 's/-sn -map 0 -t/-sn -map 0:v? -map 0:a? -t/g' "$COPIA/dumpstream"
+
 # 4. Sus carpetas. Las del original tienen permisos abiertos y se copian igual.
 hacer mkdir -p "$GRABACIONES" "$CASAS"
 hacer chown www-data:www-data "$GRABACIONES" "$CASAS"
@@ -110,6 +118,7 @@ hacer chown -h www-data:www-data "$SERVIR" "$SERVIR/ministra" "$SERVIR/nuevas"
 echo
 grep -E "define\('(STORAGE_NAME|RECORDS_DIR|API_URL|PORTAL_URL)'" "$COPIA/config.php"
 grep -q "HTTPSConnection" "$COPIA/dumpstream" || { echo "ERROR: no se pudo parchear el aviso de dumpstream"; exit 1; }
+grep -q -- "-map 0:v? -map 0:a?" "$COPIA/dumpstream" || { echo "ERROR: no se pudo parchear las pistas de dumpstream"; exit 1; }
 diff -q "$ORIGEN/config.php" "$COPIA/config.php" >/dev/null && { echo "ERROR: la copia sigue igual que el original"; exit 1; }
 respuesta=$(curl -s -m 5 "http://127.0.0.1:88/stalker_portal/quattretv_storage/rest.php" || true)
 echo "rest.php del nuevo contesta: ${respuesta:0:120}"
