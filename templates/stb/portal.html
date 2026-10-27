@@ -1211,7 +1211,7 @@
     var MODULOS = ['tv', 'epg', 'vod', 'settings'];
     var MENU = MENU_COMPLETO.slice();
 
-    function cargarModulos() {
+    function cargarModulos(despues) {
         api("type=stb&action=get_modules", function(js) {
             if (js && js.result && js.result.all_modules) {
                 MODULOS = js.result.all_modules;
@@ -1223,6 +1223,7 @@
                     if (MODULOS[j] === op.modulo) { MENU.push(op); break; }
                 }
             }
+            if (despues) despues();
         });
     }
     var menuIdx = 0;
@@ -1231,6 +1232,17 @@
         view = "menu";
         menuIdx = 0;
         renderMenu();
+        // Lo que hay disponible se pregunta solo al arrancar, asi que un deco
+        // encendido antes de que hubiera grabador no veia nunca "Mis
+        // grabaciones" aunque grabar ya funcionase. Se repregunta al abrir el
+        // menu y se repinta si ha cambiado algo.
+        var antes = MENU.length;
+        cargarModulos(function() {
+            if (view === "menu" && MENU.length !== antes) {
+                if (menuIdx >= MENU.length) menuIdx = 0;
+                renderMenu();
+            }
+        });
     }
 
     function renderMenu() {
@@ -1588,7 +1600,17 @@
             h += '<div class="info"><div class="name">' + esc(c.name);
             if (c.hd) h += ' <span class="hd">HD</span>';
             if (c.fav) h += ' <span class="fav">★</span>';
-            // Sin simbolo de archivo: ver el comentario en osdFor.
+            // Se esta grabando para este cliente. Va por hora y no por un si o
+            // un no, para que se apague sola al terminar sin pedir nada.
+            if (c.rec_until && c.rec_until * 1000 > new Date().getTime()) {
+                h += ' <span class="rec">REC</span>';
+            }
+            // El simbolo que habia (ver osdFor) se quito porque salia en casi
+            // todos los canales sin que hubiera archivo de verdad. Ahora el
+            // servidor solo lo manda si el canal esta grabado en disco y el
+            // aparato lo puede abrir, y va en texto, que se lee en cualquier
+            // tele.
+            if (c.archive) h += ' <span class="arch-t">ARCHIVO</span>';
             if (c.locked) h += ' <span class="lock">🔒</span>';
             h += '</div>';
             // El programa y la barra de avance van SIEMPRE, haya programacion o
@@ -1925,11 +1947,25 @@
             if (js && js.result) {
                 p.rec = 1;
                 toast('Grabacion programada: ' + p.name);
+                marcarGrabando(p);
                 if (view === "guide") renderGuide();
+                else if (view === "list") showChannels();
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo programar');
             }
         });
+    }
+
+    // Si lo que se acaba de programar ya esta en emision, el canal sale con REC
+    // en la lista sin esperar a que se vuelva a pedir.
+    function marcarGrabando(p) {
+        var ahora = new Date().getTime() / 1000;
+        if (!p.start_timestamp || p.start_timestamp > ahora) return;
+        for (var i = 0; i < allChannels.length; i++) {
+            if (String(allChannels[i].id) === String(p.ch_id)) {
+                allChannels[i].rec_until = Math.max(allChannels[i].rec_until || 0, p.stop_timestamp);
+            }
+        }
     }
 
     function playCatchup(p) {
@@ -2929,6 +2965,11 @@
         .live { background: #9ad62f; color: #0d1505; }
         .fav  { color: #fdeb00; font-size: 19px; margin-left: 7px; }
         .arch { color: #c9d1cb; font-size: 19px; margin-left: 7px; }
+        .arch-t {
+            font-size: 11px; font-weight: 700; padding: 2px 6px; margin-left: 8px;
+            border: 1px solid #81ba26; color: #9ad62f; border-radius: 5px;
+            vertical-align: middle; letter-spacing: .5px;
+        }
         .lock { color: #ff7900; font-size: 18px; margin-left: 7px; }
         .item.past { opacity: .5; }
 
@@ -3269,6 +3310,7 @@
             .name { font-size: 18px; }
             .epg { font-size: 11px; margin-top: 3px; }
             .hd, .rec, .live, .st { font-size: 9px; padding: 2px 5px; margin-left: 5px; }
+            .arch-t { font-size: 8px; padding: 1px 4px; margin-left: 5px; }
             .fav, .arch, .lock { font-size: 13px; margin-left: 5px; }
             .bar { height: 3px; margin-top: 6px; }
             .descr { font-size: 12px; padding: 11px 4px; }

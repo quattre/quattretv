@@ -9,17 +9,28 @@
 # Ademas deja las grabaciones de las dos plataformas servidas por Apache bajo
 # /stalker_portal/quattretv_grab/, que es por donde las pide el deco.
 #
+# En storage1 se instala en modo archivo (ARCHIVO=1): ahi no se graba nada
+# nuevo, la copia solo sirve con su get.php el catchup que ya escribe el de
+# Ministra, validando los enlaces con la plataforma nueva. Lee la misma carpeta
+# y no escribe en ella.
+#
 # Uso, en record1 y como root:
 #   sudo bash copia_grabador.sh            instala (o rehace) la copia
 #   sudo bash copia_grabador.sh --probar   solo dice lo que haria
 #   sudo bash copia_grabador.sh --deshacer quita la copia y los enlaces; las
 #                                          grabaciones hechas se quedan en disco
+#   sudo ARCHIVO=1 bash copia_grabador.sh  en storage1
 #
 # Volver atras es seguro en cualquier momento: no hay nada compartido con el de
 # Ministra salvo el disco y el procesador.
 set -euo pipefail
 
-NOMBRE="${NOMBRE:-record1n}"                         # StorageServer.name en el panel
+ARCHIVO="${ARCHIVO:-0}"
+if [ "$ARCHIVO" = 1 ]; then
+    NOMBRE="${NOMBRE:-storage1n}"                    # StorageServer.name en el panel
+else
+    NOMBRE="${NOMBRE:-record1n}"
+fi
 API_URL="${API_URL:-https://iptv2.quattre.com/storage_api/}"
 PORTAL_URL="${PORTAL_URL:-https://iptv2.quattre.com}"
 
@@ -30,6 +41,9 @@ BASE=$(sed -nE "s/.*define\('RECORDS_DIR', *'([^']+)'.*/\1/p" "$ORIGEN/config.ph
 BASE=${BASE%/}                                       # /mnt/record1/quattretv/records
 GRABACIONES="$(dirname "$BASE")/records_quattretv"
 CASAS="$(dirname "$BASE")/mac_quattretv"
+# En modo archivo get.php tiene que leer el archivo de Ministra, que esta en
+# <RECORDS_DIR>/archive/<canal>/: la misma carpeta, solo para leer.
+[ "$ARCHIVO" = 1 ] && GRABACIONES="$BASE"
 
 MODO=instalar
 case "${1:-}" in
@@ -55,7 +69,11 @@ if [ "$MODO" = deshacer ]; then
 fi
 
 echo "Grabador de Ministra:  $ORIGEN  (graba en $BASE, no se toca)"
-echo "Grabador nuevo:        $COPIA  (graba en $GRABACIONES)"
+if [ "$ARCHIVO" = 1 ]; then
+    echo "Copia nueva:           $COPIA  (sirve el archivo de $BASE/archive, solo lee)"
+else
+    echo "Grabador nuevo:        $COPIA  (graba en $GRABACIONES)"
+fi
 echo "Obedece a:             $API_URL"
 
 # 1. La copia, sin los dumpstream_* de recambio, sin su cache de tareas ni el
@@ -100,17 +118,26 @@ hacer sed -i -E \
 hacer sed -i 's/-sn -map 0 -t/-sn -map 0:v? -map 0:a? -t/g' "$COPIA/dumpstream"
 
 # 4. Sus carpetas. Las del original tienen permisos abiertos y se copian igual.
-hacer mkdir -p "$GRABACIONES" "$CASAS"
-hacer chown www-data:www-data "$GRABACIONES" "$CASAS"
-hacer chmod 777 "$GRABACIONES" "$CASAS"
+#    En modo archivo la de grabaciones es la de Ministra y no se toca.
+if [ "$ARCHIVO" = 1 ]; then
+    hacer mkdir -p "$CASAS"
+    hacer chown www-data:www-data "$CASAS"
+else
+    hacer mkdir -p "$GRABACIONES" "$CASAS"
+    hacer chown www-data:www-data "$GRABACIONES" "$CASAS"
+    hacer chmod 777 "$GRABACIONES" "$CASAS"
+fi
 hacer chown -R www-data:www-data "$COPIA"
 
 # 5. Desde donde se reproducen. Dentro de stalker_portal/ porque ahi Apache no
 #    lista directorios (-Indexes): en /var/www cualquiera veria la lista.
-hacer mkdir -p "$SERVIR"
-hacer ln -sfn "$BASE" "$SERVIR/ministra"
-hacer ln -sfn "$GRABACIONES" "$SERVIR/nuevas"
-hacer chown -h www-data:www-data "$SERVIR" "$SERVIR/ministra" "$SERVIR/nuevas"
+#    El archivo no hace falta: lo sirve get.php.
+if [ "$ARCHIVO" != 1 ]; then
+    hacer mkdir -p "$SERVIR"
+    hacer ln -sfn "$BASE" "$SERVIR/ministra"
+    hacer ln -sfn "$GRABACIONES" "$SERVIR/nuevas"
+    hacer chown -h www-data:www-data "$SERVIR" "$SERVIR/ministra" "$SERVIR/nuevas"
+fi
 
 [ "$MODO" = probar ] && { echo "(simulacro: no se ha cambiado nada)"; exit 0; }
 
@@ -124,6 +151,5 @@ respuesta=$(curl -s -m 5 "http://127.0.0.1:88/stalker_portal/quattretv_storage/r
 echo "rest.php del nuevo contesta: ${respuesta:0:120}"
 curl -s -o /dev/null -m 5 -w "Plataforma nueva: %{http_code}\n" "${PORTAL_URL%/}/health" || true
 echo
-echo "Listo. En el panel nuevo, el grabador '$NOMBRE' tiene que tener:"
-echo "  api_url      = http://185.25.27.50:2222/stalker_portal/quattretv_storage/"
-echo "  playback_url = http://185.25.27.50:2222/stalker_portal/quattretv_grab/nuevas/"
+echo "Listo. Grabador '$NOMBRE' instalado; en el panel se da de alta con"
+echo "  manage.py preparar_grabadores"

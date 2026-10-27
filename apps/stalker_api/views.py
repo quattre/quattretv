@@ -692,41 +692,83 @@ def epg_now_next(channel_ids):
 ARCHIVO_SIN_CONTACTO_MIN = 15
 
 
-def hay_archivo_en_marcha():
+def ventanas_de_archivo():
     """
-    Si hay ahora mismo algun grabador capaz de servir el archivo.
+    Qué canales tienen archivo que se pueda servir ahora mismo, y desde cuándo.
 
-    Que este dado de alta no basta: mientras no venga a pedir sus tareas no
-    esta grabando nada. Anunciar un archivo que no existe acaba con el usuario
-    pulsando sobre un programa ya emitido y llevandose un "Archivo no
-    disponible", que es peor que no ofrecerlo.
+    Devuelve None si un grabador nuestro esta pidiendo sus tareas (entonces
+    graba justo los canales con catchup), o un diccionario {id en el archivo:
+    {'desde', 'hasta', 'grabando'}} si el archivo lo sigue escribiendo Ministra
+    y lo servimos con nuestra copia de get.php. Un diccionario vacio es que no
+    hay archivo que ofrecer.
 
-    Se cachea un minuto porque la lista de canales se pide a menudo y esto no
-    cambia de un segundo a otro. Si la cache no responde se pregunta a la base
-    de datos, que aqui es barato: un exists() sobre un puñado de filas.
+    Que el grabador este dado de alta no basta: anunciar un archivo que no
+    existe acaba con el usuario pulsando sobre un programa ya emitido y
+    llevandose un "Archivo no disponible", que es peor que no ofrecerlo.
     """
     from datetime import timedelta
+    from apps.pvr import archivo
     from apps.pvr.models import StorageServer, StorageRole
 
     try:
-        cacheado = cache.get('archivo:en_marcha')
+        cacheado = cache.get('archivo:ventanas')
         if cacheado is not None:
-            return bool(cacheado)
+            return None if cacheado == 'todos' else cacheado
     except Exception:
         pass
 
+    de_archivo = StorageServer.objects.filter(
+        is_active=True, role__in=[StorageRole.ARCHIVE, StorageRole.BOTH])
     limite = timezone.now() - timedelta(minutes=ARCHIVO_SIN_CONTACTO_MIN)
-    hay = StorageServer.objects.filter(
-        is_active=True,
-        role__in=[StorageRole.ARCHIVE, StorageRole.BOTH],
-        last_sync__gte=limite,
-    ).exists()
+
+    if de_archivo.filter(last_sync__gte=limite).exists():
+        resultado = None
+    else:
+        sirve = de_archivo.filter(controlado_por_ministra=False).exists()
+        de_ministra = de_archivo.filter(controlado_por_ministra=True).exclude(ssh_host='').first()
+        resultado = {}
+        if sirve and de_ministra:
+            resultado = {k: v for k, v in (archivo.ventanas(de_ministra) or {}).items()
+                         if v['grabando']}
 
     try:
-        cache.set('archivo:en_marcha', 1 if hay else 0, 60)
+        cache.set('archivo:ventanas', 'todos' if resultado is None else resultado, 60)
     except Exception:
         pass
-    return hay
+    return resultado
+
+
+def hay_archivo_en_marcha():
+    return ventanas_de_archivo() != {}
+
+
+def puede_ver_archivo(device, channel):
+    """
+    El archivo de Ministra es MPEG-TS crudo y solo lo abre el deco. Una tele
+    solo lo ve en los canales que ya se archivan en HLS.
+    """
+    if device and device.device_type == 'mag':
+        return True
+    return bool(channel.archive_hls_since)
+
+
+def archivo_del_canal(channel, device, ventanas):
+    """
+    (tiene archivo, horas que se pueden ver) para este canal y este aparato.
+    """
+    from .storage_views import id_en_archivo
+
+    if not (channel.has_catchup and channel.origen_para_grabar):
+        return False, 0
+    if not puede_ver_archivo(device, channel):
+        return False, 0
+    if ventanas is None:
+        return True, channel.timeshift_hours
+    ventana = ventanas.get(id_en_archivo(channel))
+    if not ventana:
+        return False, 0
+    horas = int((timezone.now() - ventana['desde']).total_seconds() // 3600)
+    return True, max(1, horas)
 
 
 def canales_visibles(qs, device):
@@ -791,7 +833,20 @@ def handle_get_ordered_list(request):
     tiene_pin = bool(device and device.user.parental_password)
     desbloqueado = parental_unlocked(device) if tiene_pin else True
     # Lo mismo: una sola vez por peticion en vez de una por canal.
-    archivo_en_marcha = hay_archivo_en_marcha()
+    ventanas = ventanas_de_archivo()
+
+    # Lo que este cliente esta grabando ahora, para marcarlo en la lista:
+    # {canal: hasta cuando}. Las programadas que ya han empezado cuentan.
+    grabando = {}
+    if device and puede_reproducir_grabaciones(device):
+        from apps.pvr.models import Recording, RecordingStatus
+        ahora = timezone.now()
+        for rec in Recording.objects.filter(
+            user=device.user, start_time__lte=ahora, end_time__gte=ahora,
+            status__in=[RecordingStatus.RECORDING, RecordingStatus.SCHEDULED],
+        ):
+            hasta = int(rec.actual_end_time.timestamp())
+            grabando[rec.channel_id] = max(grabando.get(rec.channel_id, 0), hasta)
 
     data = []
     for ch in channels:
@@ -799,7 +854,7 @@ def handle_get_ordered_list(request):
         # verdad: hace falta el catchup activado en el canal, un multicast del
         # que grabarlo, y un grabador que este dando señales de vida. Faltaba lo
         # ultimo, y por eso 81 canales anunciaban un archivo que no existia.
-        has_archive = bool(ch.has_catchup and ch.origen_para_grabar and archivo_en_marcha)
+        has_archive, horas_archivo = archivo_del_canal(ch, device, ventanas)
         # Un canal de adultos bloqueado no viaja con su URL: si se mandara,
         # pedir el PIN en pantalla seria un adorno que cualquiera se salta.
         bloqueado = bool(ch.is_adult and tiene_pin and not desbloqueado)
@@ -817,7 +872,9 @@ def handle_get_ordered_list(request):
             'radio': 1 if ch.is_radio else 0,
             'fav': 1 if ch.id in favorites else 0,
             'archive': 1 if has_archive else 0,
-            'archive_range': ch.timeshift_hours if has_archive else 0,
+            'archive_range': horas_archivo,
+            # Hasta cuando esta grabando este cliente el canal (0 = nada).
+            'rec_until': grabando.get(ch.id, 0),
             'genre_id': str(ch.category_id) if ch.category_id else '',
         }
         entry.update(epg.get(ch.id, EMPTY_EPG))
@@ -914,6 +971,7 @@ def handle_get_short_epg(request):
             # la guia pasa de esos 200 caracteres.
             'descr': prog.description or '',
             'category': prog.category or '',
+            'ch_id': str(prog.channel_id),
             'start_timestamp': int(prog.start_time.timestamp()),
             'stop_timestamp': int(prog.end_time.timestamp()),
             'progress': prog.progress_percent,
@@ -1284,6 +1342,7 @@ def handle_epg_table(request):
             'category': prog.category or '',
             'icon': prog.icon or '',
             # Extras used by our portal (MAG ignores unknown keys)
+            'ch_id': str(prog.channel_id),
             'start_timestamp': int(prog.start_time.timestamp()),
             'stop_timestamp': int(prog.end_time.timestamp()),
             'progress': prog.progress_percent,
@@ -1373,7 +1432,8 @@ def handle_archive_link(request):
 
     # La lista de canales ya no lo ofrece si no hay grabador vivo, pero el deco
     # puede pedirlo igual con una lista que tuviera en memoria.
-    if not hay_archivo_en_marcha():
+    tiene_archivo, horas_archivo = archivo_del_canal(channel, device, ventanas_de_archivo())
+    if not tiene_archivo:
         return stalker_response({'error': 'Archivo no disponible en este momento'})
 
     if device and device.user.tariff and not device.user.tariff.has_catchup:
@@ -1388,7 +1448,7 @@ def handle_archive_link(request):
         return stalker_response({'error': 'utc invalid'})
 
     # Do not serve beyond what the recorder keeps.
-    oldest = timezone.now() - timezone.timedelta(hours=channel.timeshift_hours)
+    oldest = timezone.now() - timezone.timedelta(hours=horas_archivo)
     if start < oldest:
         return stalker_response({'error': 'El programa ya no está en el archivo'})
 

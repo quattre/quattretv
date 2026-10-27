@@ -5,6 +5,10 @@ Despues de instalar deploy/storage/copia_grabador.sh hay dos grabadores en la
 misma maquina:
   - record1b, el de Ministra: aqui solo se leen sus grabaciones antiguas.
   - record1n, la copia que obedece a esta plataforma: graba lo nuevo.
+Con --archivo, lo mismo en storage1 (solo despues de instalar alli la copia
+con ARCHIVO=1, porque en cuanto existe storage1n los decos ofrecen el catchup):
+  - storage1, el de Ministra, que sigue escribiendo el archivo.
+  - storage1n, la copia que lo sirve validando con esta plataforma.
 Escribir estas direcciones a mano en el admin es facil de equivocar, y un error
 en la del de Ministra le mandaria ordenes que no son nuestras.
 """
@@ -15,6 +19,7 @@ from django.core.management.base import BaseCommand
 from apps.pvr.models import StorageRole, StorageServer
 
 PUERTA = 'http://185.25.27.50:2222/stalker_portal'
+PUERTA_ARCHIVO = 'http://185.25.27.50:2142/stalker_portal'
 
 
 class Command(BaseCommand):
@@ -22,6 +27,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--simular', action='store_true')
+        parser.add_argument('--archivo', action='store_true',
+                            help='Dar de alta tambien storage1 y storage1n')
 
     def handle(self, *args, **options):
         fichas = [
@@ -44,6 +51,27 @@ class Command(BaseCommand):
                 'is_active': True,
             }),
         ]
+        if options['archivo']:
+            fichas += [
+                ('storage1', {
+                    'role': StorageRole.ARCHIVE,
+                    'controlado_por_ministra': True,
+                    'api_url': f'{PUERTA_ARCHIVO}/storage/',
+                    'playback_url': '',
+                    'secure_link_secret': '',
+                    'ssh_host': '185.25.27.50', 'ssh_port': 2141, 'ssh_user': 'quattre',
+                    'is_active': True,
+                }),
+                ('storage1n', {
+                    'role': StorageRole.ARCHIVE,
+                    'controlado_por_ministra': False,
+                    'api_url': f'{PUERTA_ARCHIVO}/quattretv_storage/',
+                    'playback_url': f'{PUERTA_ARCHIVO}/quattretv_storage/',
+                    'secure_link_secret': '',
+                    'ssh_host': '185.25.27.50', 'ssh_port': 2141, 'ssh_user': 'quattre',
+                    'is_active': True,
+                }),
+            ]
         for nombre, datos in fichas:
             actual = StorageServer.objects.filter(name=nombre).first()
             if actual and actual.token:
