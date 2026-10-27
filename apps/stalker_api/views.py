@@ -857,7 +857,8 @@ def handle_get_ordered_list(request):
             status__in=[RecordingStatus.RECORDING, RecordingStatus.SCHEDULED],
         ):
             hasta = int(rec.actual_end_time.timestamp())
-            grabando[rec.channel_id] = max(grabando.get(rec.channel_id, 0), hasta)
+            if hasta > grabando.get(rec.channel_id, (0, 0))[0]:
+                grabando[rec.channel_id] = (hasta, int(inicio_real(rec).timestamp()))
 
     data = []
     for ch in channels:
@@ -885,7 +886,8 @@ def handle_get_ordered_list(request):
             'archive': 1 if has_archive else 0,
             'archive_range': horas_archivo,
             # Hasta cuando esta grabando este cliente el canal (0 = nada).
-            'rec_until': grabando.get(ch.id, 0),
+            'rec_until': grabando.get(ch.id, (0, 0))[0],
+            'rec_from': grabando.get(ch.id, (0, 0))[1],
             # Si se puede grabar en este canal desde este aparato.
             'pvr': 1 if (puede_grabar and ch.has_recording and ch.origen_para_grabar) else 0,
             'genre_id': str(ch.category_id) if ch.category_id else '',
@@ -1614,6 +1616,57 @@ def _pvr_device(request, exige_grabador=False):
     return device, None
 
 
+def inicio_real(rec):
+    """
+    Desde cuando se graba de verdad. Al grabar un programa que ya ha empezado,
+    la grabacion lleva la hora de inicio del programa, pero el grabador arranca
+    al pulsar: contar desde el principio del programa diria que lleva grabado
+    lo que no se grabo, y gastaria cuota de mas.
+    """
+    if rec.ministra_id or not rec.created_at:
+        return rec.actual_start_time
+    return max(rec.actual_start_time, rec.created_at)
+
+
+def minutos_grabados(user):
+    """
+    Cuanto ocupa ya un cliente, en minutos, contando como Ministra: todas sus
+    grabaciones guardadas, programadas y en curso, por lo que duran o duraran.
+    Las que fallaron no cuentan.
+    """
+    from apps.pvr.models import Recording, RecordingStatus
+
+    total = 0
+    for rec in Recording.objects.filter(user=user).exclude(
+            status__in=[RecordingStatus.FAILED, RecordingStatus.CANCELLED]):
+        if rec.status == RecordingStatus.COMPLETED and rec.duration:
+            total += rec.duration
+        else:
+            total += max(0, int((rec.actual_end_time - inicio_real(rec)).total_seconds()))
+    return total // 60
+
+
+def recortar_grabacion(user, inicio, fin):
+    """
+    Aplica los limites de grabacion. Devuelve (fin, None) con el fin recortado
+    a la duracion maxima, o (None, mensaje) si no le cabe en su cuota.
+    """
+    from datetime import timedelta
+
+    maximo = settings.QUATTRETV.get('PVR_MAX_MINUTOS', 180)
+    cuota = settings.QUATTRETV.get('PVR_CUOTA_MINUTOS', 1800)
+    desde = max(inicio, timezone.now())
+    if maximo and fin - desde > timedelta(minutes=maximo):
+        fin = desde + timedelta(minutes=maximo)
+    if cuota:
+        quedan = cuota - minutos_grabados(user)
+        pide = int((fin - desde).total_seconds() // 60)
+        if quedan <= 0 or pide > quedan:
+            return None, (f'Has llegado al limite de {cuota // 60} horas de grabaciones. '
+                          'Borra alguna para hacer sitio.')
+    return fin, None
+
+
 def handle_pvr_list(request):
     """List the user's recordings."""
     from apps.pvr.models import Recording
@@ -1638,6 +1691,8 @@ def handle_pvr_list(request):
             'status': rec.status,
             'end_hhmm': timezone.localtime(rec.actual_end_time).strftime('%H:%M'),
             'start_ts': int(rec.start_time.timestamp()),
+            'rec_from': int(inicio_real(rec).timestamp()),
+            'rec_until': int(rec.actual_end_time.timestamp()),
             'end_ts': int(rec.end_time.timestamp()),
             'descr': rec.description or '',
             'ready': 1 if rec.status == 'completed' else 0,
@@ -1649,6 +1704,9 @@ def handle_pvr_list(request):
         'total_items': len(data),
         'max_page_items': len(data),
         'data': data,
+        # Lo que lleva gastado de su cuota, para enseñarselo.
+        'used_min': minutos_grabados(device.user),
+        'quota_min': settings.QUATTRETV.get('PVR_CUOTA_MINUTOS', 1800),
     })
 
 
@@ -1676,6 +1734,10 @@ def handle_pvr_create(request):
         if Recording.objects.filter(user=device.user, program=program).exists():
             return stalker_response({'error': 'Ya está programada'})
 
+        fin, error = recortar_grabacion(device.user, program.start_time, program.end_time)
+        if error:
+            return stalker_response({'error': error})
+
         recording = Recording.objects.create(
             user=device.user,
             channel=program.channel,
@@ -1683,7 +1745,7 @@ def handle_pvr_create(request):
             title=program.title,
             description=program.description,
             start_time=program.start_time,
-            end_time=program.end_time,
+            end_time=fin,
         )
         return stalker_response({'id': recording.id, 'result': True})
 
@@ -1706,6 +1768,10 @@ def handle_pvr_create(request):
 
     if end <= start:
         return stalker_response({'error': 'Rango de tiempo inválido'})
+
+    end, error = recortar_grabacion(device.user, start, end)
+    if error:
+        return stalker_response({'error': error})
 
     recording = Recording.objects.create(
         user=device.user,

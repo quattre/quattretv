@@ -259,4 +259,9 @@ QUATTRETV = {
     'EPG_UPDATE_INTERVAL': 3600,  # seconds
     'MAX_DEVICES_PER_USER': 5,
     'MAX_CONCURRENT_STREAMS': 2,
+    # Limites de grabacion, los mismos que tenia Ministra (record_max_length y
+    # total_records_length de su custom.ini): una grabacion dura como mucho
+    # 3 horas, y cada cliente tiene 30 horas entre todas las que guarda.
+    'PVR_MAX_MINUTOS': int(os.getenv('PVR_MAX_MINUTOS', '180')),
+    'PVR_CUOTA_MINUTOS': int(os.getenv('PVR_CUOTA_MINUTOS', '1800')),
 }

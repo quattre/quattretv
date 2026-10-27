@@ -2048,9 +2048,24 @@
     // Lo que se puede hacer en este canal, en texto, para la lista y la barra:
     // si se graba, si se puede grabar y cuanto archivo tiene. Solo sale lo que
     // el servidor ofrece a este aparato (en las teles, nada de esto).
+    // "1:05" desde un instante (segundos) hasta ahora.
+    function duracionDesde(desde) {
+        var seg = Math.max(0, Math.floor(new Date().getTime() / 1000) - desde);
+        var min = Math.floor(seg / 60);
+        return Math.floor(min / 60) + ':' + dosCifras(min % 60);
+    }
+
+    function horasYMinutos(min) {
+        var h = Math.floor(min / 60), m = min % 60;
+        return h ? h + ' h' + (m ? ' ' + m + ' min' : '') : m + ' min';
+    }
+
     function etiquetasCanal(ch) {
         var h = '';
-        if (seGraba(ch)) h += ' <span class="rec">REC</span>';
+        // Con lo que lleva grabado: sin eso no se sabia si de verdad estaba
+        // grabando ni cuanto faltaba para el corte de las 3 horas.
+        if (seGraba(ch)) h += ' <span class="rec">REC' +
+            (ch.rec_from ? ' ' + duracionDesde(ch.rec_from) : '') + '</span>';
         // Los dias van en la leyenda del canal; aqui con la palabra basta.
         if (ch.archive) h += ' <span class="arch-t">ARCHIVO</span>';
         return h;
@@ -2068,6 +2083,7 @@
         for (var i = 0; i < allChannels.length; i++) {
             if (String(allChannels[i].id) === String(p.ch_id)) {
                 allChannels[i].rec_until = Math.max(allChannels[i].rec_until || 0, p.stop_timestamp);
+                if (!allChannels[i].rec_from) allChannels[i].rec_from = Math.floor(ahora);
             }
         }
     }
@@ -2099,14 +2115,30 @@
         api("type=pvr&action=get_ordered_list", function(js) {
             if (view !== "recordings") return;
             recordings = (js && js.data) ? js.data : [];
+            cuotaGrabaciones = (js && js.quota_min) ? {usado: js.used_min || 0, total: js.quota_min} : null;
             renderRecordings((js && js.error) ? js.error : null);
         });
+        // Lo que llevan las que estan en curso avanza solo mientras se mira.
+        clearInterval(relojGrabaciones);
+        relojGrabaciones = setInterval(function() {
+            if (view !== "recordings") { clearInterval(relojGrabaciones); return; }
+            for (var i = 0; i < recordings.length; i++) {
+                if (recordings[i].status === 'recording') { renderRecordings(null); return; }
+            }
+        }, 30000);
     }
+
+    var cuotaGrabaciones = null;
+    var relojGrabaciones = null;
 
     function renderRecordings(error) {
         var h = '<div class="panel">';
         h += '<div class="header"><div class="logo">Grabaciones</div>';
-        h += '<div class="counter">' + recordings.length + '</div></div>';
+        // Cuanto lleva gastado de sus horas: al llegar al limite no deja grabar
+        // y hay que saber por que.
+        h += '<div class="counter">' + (cuotaGrabaciones
+            ? esc(horasYMinutos(cuotaGrabaciones.usado) + ' de ' + horasYMinutos(cuotaGrabaciones.total))
+            : recordings.length) + '</div></div>';
         h += '<div class="list">';
         if (error) {
             h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
@@ -2123,7 +2155,12 @@
                 h += '<div class="num sm">' + esc(r.start_time.substring(11)) + '</div>';
                 h += '<div class="info"><div class="name">' + esc(r.name);
                 h += ' <span class="st ' + esc(r.status) + '">' + esc(statusLabel(r.status)) + '</span></div>';
-                h += '<div class="epg">' + esc(r.ch_name) + ' · ' + esc(r.start_time) + '</div>';
+                var detalle = r.ch_name + ' · ' + r.start_time;
+                if (r.status === 'recording' && r.rec_from) {
+                    detalle = r.ch_name + ' · lleva ' + duracionDesde(r.rec_from) +
+                              ' · termina a las ' + (r.end_hhmm || '');
+                }
+                h += '<div class="epg">' + esc(detalle) + '</div>';
                 h += '</div></div>';
             }
         }
