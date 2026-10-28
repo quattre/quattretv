@@ -1855,8 +1855,6 @@
         // Desde la primera fila se sube a las pestañas, como en Netflix.
         else if (k === 38) { semana.foco = 'pestanas'; renderSemana(); }
         else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; if (g) g.fila = semana.fila; renderSemana(); }
-        // El videoclub esta "encima" de los canales: bajando del todo se vuelve.
-        else if (k === 40) cerrarSemana();
         else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; renderSemana(); masDeFila(f); }
         else if (k === 37 && col > 0) { semana.cols[semana.fila]--; renderSemana(); }
         // Izquierda en la primera tarjeta sale, como en el resto de pantallas.
@@ -1866,7 +1864,7 @@
             if (!it) return;
             if (f.id === 'seguir') verDeSemana(it, it.pos);
             else if (it.n > 1) abrirEmisiones(it.grupo || f.id, it);
-            else abrirFicha(it);
+            else abrirFichaSemana(it);
         }
     }
 
@@ -1883,7 +1881,9 @@
 
     // ---------- La ficha: "Ver" y "Mas como esta" ----------
 
-    function abrirFicha(it) {
+    // Ojo, no "abrirFicha": ese nombre ya es el de la ficha de la guia, mas
+    // abajo, y al declararse despues pisaba este. OK no hacia nada.
+    function abrirFichaSemana(it) {
         semana.ficha = {it: it, foco: 'botones', similares: [], idx: 0, cargando: true};
         var fi = semana.ficha;
         renderSemana();
@@ -1902,7 +1902,7 @@
             if (k === 39 && fi.idx < fi.similares.length - 1) { fi.idx++; renderSemana(); }
             else if (k === 37 && fi.idx > 0) { fi.idx--; renderSemana(); }
             else if (k === 38 || k === 37) { fi.foco = 'botones'; renderSemana(); }
-            else if (k === 13) abrirFicha(fi.similares[fi.idx]);
+            else if (k === 13) abrirFichaSemana(fi.similares[fi.idx]);
             else if (salir) { semana.ficha = null; renderSemana(); }
             return;
         }
