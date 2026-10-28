@@ -185,9 +185,10 @@ def _desviada(difs, minimo):
     h = max(mal, key=lambda k: mal[k])
     if mal[h] >= minimo and mal[h] >= 3 * bien:
         return h
-    # Una sola coincidencia vale si es exacta y no hay nada en contra: con
-    # titulos que se repiten (capitulos seguidos) a veces solo hay una.
-    if minimo <= 2 and mal[h] == 1 and exactos.get(h) == 1 and not bien and len(difs) <= 2:
+    # Una sola coincidencia vale si es exacta y ninguna otra hora entera, ni
+    # la buena, le lleva la contraria: con capitulos seguidos del mismo titulo
+    # (Warner, toda la tarde Big Bang) a veces solo hay un titulo unico.
+    if minimo <= 2 and mal[h] == 1 and exactos.get(h) == 1 and not bien and len(mal) == 1:
         return h
     return 0
 
