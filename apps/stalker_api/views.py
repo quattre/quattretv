@@ -1566,11 +1566,28 @@ def handle_archive_link(request):
         except (TypeError, ValueError):
             pass
 
+    # "Ver desde el principio" pide la hora de la guia, que a menudo no es la
+    # de verdad. Si la EIT de la emision dijo cuando empezo y acabo de verdad
+    # (apps/epg/eit.py), se arranca ahi y no se corta antes del final. En
+    # pantalla sigue la hora de la guia: el deco solo se entera por "desde".
+    from apps.epg.eit import tramo_real
+    from apps.epg.models import Program
+    programa = Program.objects.filter(channel=channel, start_time=start).first()
+    if programa:
+        inicio_real, fin_real = tramo_real(programa)
+        fin = start + timezone.timedelta(seconds=duration)
+        if fin_real > programa.end_time:
+            fin = max(fin, min(fin_real + timezone.timedelta(minutes=2),
+                               timezone.now() - timezone.timedelta(minutes=1)))
+        if inicio_real >= oldest:
+            start = inicio_real
+        duration = max(60, int((fin - start).total_seconds()))
+
     url = build_catchup_url(channel, start, duration, device)
     if not url:
         return stalker_response({'error': 'No hay servidor de archivo configurado'})
 
-    return stalker_response({'cmd': url})
+    return stalker_response({'cmd': url, 'desde': int(start.timestamp())})
 
 
 # ============== PVR (Recordings) Handlers ==============

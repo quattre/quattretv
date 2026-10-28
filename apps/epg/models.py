@@ -49,6 +49,12 @@ class Program(models.Model):
     poster = models.URLField(max_length=500, blank=True)
     icon = models.URLField(max_length=500, blank=True)
 
+    # Cuando empezo y acabo de verdad, segun la EIT de la propia emision (ver
+    # apps/epg/eit.py). En pantalla se ve siempre la hora de la guia; esta
+    # solo sirve para que el archivo arranque donde empieza el programa.
+    inicio_real = models.DateTimeField(null=True, blank=True)
+    fin_real = models.DateTimeField(null=True, blank=True)
+
     # Flags
     is_live = models.BooleanField(default=False)
     is_new = models.BooleanField(default=False)

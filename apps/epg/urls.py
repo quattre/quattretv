@@ -9,5 +9,6 @@ router.register(r'sources', views.EpgSourceViewSet)
 router.register(r'programs', views.ProgramViewSet)
 
 urlpatterns = [
+    path('eit/', views.recibir_eit, name='eit'),
     path('', include(router.urls)),
 ]

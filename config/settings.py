@@ -278,4 +278,7 @@ QUATTRETV = {
     # Guia con la que se completa la nuestra (caratulas, tipo, año...) sin
     # sustituirla. Vacio: la de dobleM.
     'EPG_COMPLETAR': os.getenv('EPG_COMPLETAR', ''),
+    # Clave con la que los escuchadores de los CDN mandan la hora real de los
+    # programas (apps/epg/eit.py). Vacio: no se acepta nada.
+    'EIT_TOKEN': os.getenv('EIT_TOKEN', ''),
 }

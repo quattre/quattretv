@@ -123,3 +123,30 @@ class ProgramViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         return Response(list(grid.values()))
+
+
+from django.views.decorators.csrf import csrf_exempt  # noqa: E402
+
+
+@csrf_exempt     # no viene de un navegador: lo protege X-EIT-Token
+def recibir_eit(request):
+    """
+    Los cambios de programa que ven los escuchadores de los CDN (ver
+    apps/epg/eit.py). POST con JSON {"cambios": [...]} y la cabecera
+    X-EIT-Token.
+    """
+    import hmac
+    import json
+    from django.conf import settings
+    from django.http import JsonResponse
+    from . import eit
+
+    clave = settings.QUATTRETV.get('EIT_TOKEN', '')
+    dada = request.headers.get('X-EIT-Token', '')
+    if request.method != 'POST' or not clave or not hmac.compare_digest(clave, dada):
+        return JsonResponse({'error': 'no'}, status=403)
+    try:
+        cambios = json.loads(request.body or b'{}').get('cambios', [])
+    except ValueError:
+        return JsonResponse({'error': 'json'}, status=400)
+    return JsonResponse({'aplicados': eit.aplicar(cambios[:2000])})

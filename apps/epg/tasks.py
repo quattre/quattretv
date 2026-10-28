@@ -173,7 +173,7 @@ def _replace_programs(programs):
 
 # Lo que una fuente puede completar de otra.
 COMPLEMENTOS = ('category', 'icon', 'description', 'episode_title', 'year',
-                'season', 'episode')
+                'season', 'episode', 'inicio_real', 'fin_real')
 
 
 @shared_task

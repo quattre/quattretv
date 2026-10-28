@@ -1972,7 +1972,7 @@
                     etiqueta: 'EN DIFERIDO', canal: it.canal,
                     titulo: it.titulo + (it.sub ? ' · ' + it.sub : ''),
                     descr: it.descr, cuando: cuandoFue(it.ini, it.fin),
-                    tipo: 'archivo', chId: it.ch_id, inicio: it.ini, fin: it.fin, base: utc,
+                    tipo: 'archivo', chId: it.ch_id, inicio: it.ini, fin: it.fin, base: js.desde || utc,
                     volver: 'semana'
                 });
             } else {
@@ -2766,7 +2766,9 @@
                     etiqueta: 'EN DIFERIDO', canal: guideChannel.name, titulo: p.name,
                     descr: p.descr, cuando: cuandoFue(p.start_timestamp, p.stop_timestamp),
                     tipo: 'archivo', chId: guideChannel.id,
-                    inicio: p.start_timestamp, fin: p.stop_timestamp, base: p.start_timestamp
+                    inicio: p.start_timestamp, fin: p.stop_timestamp,
+                    // Donde empieza de verdad (EIT), si el servidor lo sabe.
+                    base: js.desde || p.start_timestamp
                 });
             } else {
                 toast((js && js.error) ? js.error : 'Archivo no disponible');
