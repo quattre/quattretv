@@ -22,6 +22,9 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 VENTANA = timedelta(minutes=60)   # cuanto puede desviarse la guia
+# Si el titulo se repite (capitulos seguidos de Big Bang Theory), por titulo
+# no se sabe cual es: solo se acepta el que esta casi a su hora.
+VENTANA_REPETIDO = timedelta(minutes=10)
 FRESCO = timedelta(minutes=10)    # un cambio de verdad, no un dato viejo
 
 
@@ -86,6 +89,8 @@ def aplicar(cambios):
         if not candidatos:
             continue
         p = min(candidatos, key=lambda x: abs((x.start_time - inicio).total_seconds()))
+        if len(candidatos) > 1 and abs(p.start_time - inicio) > VENTANA_REPETIDO:
+            continue
         if p.inicio_real != inicio:
             p.inicio_real = inicio
             p.save(update_fields=['inicio_real'])
