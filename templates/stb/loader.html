@@ -1,14 +1,7 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html>
 <head>
-    <title>QuattreTV</title>
-    <!-- La tipografia de la marca. Estaba declarada abajo en el h1 pero no se
-         cargaba en ningun sitio, asi que caia siempre en Arial: la primera
-         pantalla que ve un cliente era justo la unica sin la letra de Quattre.
-         El portal la carga asi desde el principio; esto lo iguala. Con
-         'display=swap', si Google no contesta se ve igual que hasta hoy. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Quattretv</title>
     <script>
     function log(msg) {
         document.getElementById('msg').innerHTML = msg;
@@ -457,7 +450,13 @@
     };
     </script>
     <style>
-        body { background: linear-gradient(180deg, #2c3134 0%, #1e2225 100%); margin: 0; padding: 0; font-family: Arial; min-height: 100vh; }
+        /* Como en las maquetas de Quattretv: fondo carbon, verde lima #bff102
+           y Poppins (la misma que el portal, servida desde aqui). */
+        @font-face { font-family: Poppins; font-weight: 400; src: url({% static 'stb/fuentes/poppins-regular.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 500; src: url({% static 'stb/fuentes/poppins-medium.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 800; src: url({% static 'stb/fuentes/poppins-extrabold.woff' %}) format('woff'); }
+        body { background: #2c3236 url({% static 'stb/fondo.jpg' %}) no-repeat center; background-size: cover;
+               margin: 0; padding: 0; font-family: Poppins, 'Segoe UI', Arial, sans-serif; min-height: 100vh; color: #fff; }
         .container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
 
         /* Cuando el televisor abre su teclado en pantalla, se come la mitad de
@@ -475,20 +474,20 @@
         #teclado {
             display: none; position: fixed; left: 50%; bottom: 40px;
             transform: translateX(-50%);
-            background: #10161a; border: 1px solid #2b373d; border-radius: 16px;
+            background: #2c3236; border: 1px solid rgba(217,217,217,.35); border-radius: 8px;
             padding: 18px 20px; z-index: 40;
         }
         #teclado .fila { white-space: nowrap; }
         #teclado .tec {
             display: inline-block; min-width: 74px; margin: 5px;
-            padding: 14px 10px; border-radius: 10px;
-            background: rgba(255,255,255,.05); color: #e8edee;
+            padding: 14px 10px; border-radius: 6px;
+            background: rgba(255,255,255,.06); color: #e8edee;
             font-size: 30px; text-align: center; vertical-align: middle;
         }
         #teclado .tec.ancha { min-width: 150px; font-size: 22px; letter-spacing: 1px; }
         #teclado .tec.sel {
-            background: #81ba26; color: #0c1113; font-weight: bold;
-            box-shadow: 0 0 0 3px rgba(154,214,47,.35);
+            background: #bff102; color: #1d2023; font-weight: 500;
+            box-shadow: 0 0 0 3px rgba(191,241,2,.3);
         }
         #teclado .destino {
             color: #8a9497; font-size: 20px; margin-bottom: 10px; text-align: center;
@@ -498,7 +497,8 @@
         body.con-teclado .container { transform: translateY(-170px); }
         @media (max-height: 800px) {
             .container { justify-content: flex-start; padding-top: 20px; min-height: 0; }
-            h1 { font-size: 30px; margin-bottom: 2px; }
+            h1 { margin-bottom: 6px; }
+            h1 img { height: 52px; }
             h2 { font-size: 13px; margin-bottom: 14px; }
             input { font-size: 17px; padding: 8px 14px; margin: 5px 0; }
             button { padding: 8px 20px; }
@@ -509,47 +509,52 @@
         }
         /* A tamaño de television. Esto se mira a tres metros, no a medio
            metro, y es la primera pantalla que ve un cliente nuevo. */
-        h1 { color: #81ba26; font-size: 88px; margin-bottom: 8px;
-             font-family: Antonio, 'Segoe UI', Arial, sans-serif; letter-spacing: 1px; }
-        h2 { color: #98a3a6; font-weight: normal; font-size: 26px; margin-bottom: 50px; }
-        #ayuda { color: #8a9497; font-size: 22px; margin-top: 26px; }
+        h1 { margin: 0 0 18px; }
+        h1 img { height: 110px; width: auto; }
+        h2 { color: #d9d9d9; font-weight: 400; font-size: 26px; margin-bottom: 50px; }
+        #ayuda { color: #b9bec1; font-size: 20px; margin-top: 26px; }
         #diag {
             display: none; margin-top: 22px; padding: 14px 18px;
-            background: #0c1113; border: 1px solid #2b373d; border-radius: 8px;
-            color: #9ad62f; font-family: monospace; font-size: 15px;
+            background: #1d2023; border: 1px solid #4a5257; border-radius: 6px;
+            color: #bff102; font-family: monospace; font-size: 15px;
             text-align: left; line-height: 1.6; max-width: 760px;
         }
         #diag b { color: #e6ebe8; font-weight: normal; }
-        #msg { color: #81ba26; font-size: 24px; margin: 20px; min-height: 30px; }
+        #msg { color: #bff102; font-size: 24px; margin: 20px; min-height: 30px; }
         #login { display: none; text-align: center; }
-        input { font-size: 30px; padding: 16px 26px; width: 520px; margin: 12px 0; border: 2px solid #333; border-radius: 10px;
-                background: #0f0f23; color: #fff; }
-        input:focus { outline: none; border-color: #81ba26; }
-        button { font-size: 28px; padding: 16px 64px; margin-top: 22px; background: #81ba26; color: #fff;
-                 border: 3px solid transparent; border-radius: 10px; cursor: pointer; }
-        button:hover { background: #6fa11f; }
+        /* Campos con filo blanco sobre el fondo y el boton en pastilla, como
+           en la maqueta de entrada. */
+        input { font-family: Poppins, 'Segoe UI', Arial, sans-serif;
+                font-size: 30px; padding: 18px 28px; width: 620px; margin: 12px 0;
+                border: 2px solid rgba(255,255,255,.85); border-radius: 0;
+                background: rgba(255,255,255,.04); color: #fff; box-sizing: border-box; }
+        input::placeholder { color: #9da3a6; }
+        input:focus { outline: none; border-color: #bff102; }
+        button { font-family: Poppins, 'Segoe UI', Arial, sans-serif;
+                 font-size: 28px; padding: 14px 54px; margin-top: 22px; background: transparent; color: #fff;
+                 border: 2px solid rgba(255,255,255,.85); border-radius: 40px; cursor: pointer; }
+        button:hover { background: rgba(191,241,2,.15); }
         /* El foco tiene que verse a distancia: con el mando es lo unico que
            dice donde estas, y antes solo cambiaba un poco el verde. */
-        button:focus { background: #6fa11f; border-color: #f2f5f3; outline: none; }
-        input:focus { outline: none; border-color: #9ad62f; }
+        button:focus { background: #bff102; border-color: #bff102; color: #1d2023; outline: none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>QuattreTV</h1>
-        <h2>Television de Quattre</h2>
+        <h1><img src="{% static 'stb/quattretv-anillo.svg' %}" alt="Quattretv"></h1>
+        <h2>Entra con los datos de tu cuenta Quattre</h2>
 
         <div id="auto">
-            <p style="color:#888">Conectando...</p>
+            <p style="color:#b9bec1">Conectando...</p>
         </div>
 
         <div id="login">
-            <input type="text" id="username" placeholder="Usuario"
+            <input type="text" id="username" placeholder="usuario"
                    onmousedown="showKeyboard('username')"
                    ontouchstart="showKeyboard('username')"
                    onclick="showKeyboard('username')">
             <br>
-            <input type="password" id="password" placeholder="Contrasena"
+            <input type="password" id="password" placeholder="contraseña"
                    onmousedown="showKeyboard('password')"
                    ontouchstart="showKeyboard('password')"
                    onclick="showKeyboard('password')">

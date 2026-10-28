@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap" rel="stylesheet">
-    <title>QuattreTV</title>
+    <title>Quattretv</title>
     <script type="text/javascript">
     var stbAPI = null;
     var player = null;
@@ -36,6 +34,21 @@
     var toastTimeout = null;
     var avisoCanal = null;
     var MOSTRAR_LOGOS = false;   // ponerlo a true cuando haya un juego completo
+    var LOGO = '<img src="{% static 'stb/quattretv.svg' %}" alt="Quattretv">';
+    // Iconos de linea del menu, como en las maquetas. SVG en linea: no hace
+    // falta pedir nada al servidor y se ven nitidos a cualquier tamaño.
+    var ICONOS_MENU = {
+        canales: '<rect x="3" y="4" width="26" height="18" rx="3"/><path d="M11 28h10M16 22v6"/>',
+        semana: '<rect x="3" y="6" width="26" height="20" rx="3"/><path d="M13 11.5v9l7.5-4.5z"/>',
+        categorias: '<rect x="4" y="4" width="10" height="10" rx="2"/><rect x="18" y="4" width="10" height="10" rx="2"/><rect x="4" y="18" width="10" height="10" rx="2"/><rect x="18" y="18" width="10" height="10" rx="2"/>',
+        favoritos: '<path d="M16 3.5l3.8 7.8 8.5 1.2-6.2 6 1.5 8.5L16 23l-7.6 4 1.5-8.5-6.2-6 8.5-1.2z"/>',
+        grabaciones: '<circle cx="16" cy="16" r="12.5"/><circle cx="16" cy="16" r="5" fill="currentColor"/>'
+    };
+    function iconoMenu(id) {
+        if (!ICONOS_MENU[id]) return '';
+        return '<svg class="mico" viewBox="0 0 32 32" width="40" height="40" fill="none" stroke="currentColor" ' +
+               'stroke-width="2" stroke-linejoin="round" stroke-linecap="round">' + ICONOS_MENU[id] + '</svg>';
+    }
 
     function fitScreen() {
         // No se escala nada: la pagina se adapta sola al tamano del navegador.
@@ -489,8 +502,8 @@
     var lienzo = null;
     function ajustarLienzo() {
         if (esTelevisor()) return;
-        document.documentElement.style.background = '#0c1113';
-        document.body.style.background = '#0c1113';
+        document.documentElement.style.background = '#1d2023';
+        document.body.style.background = '#1d2023';
         document.body.style.margin = '0';
         document.body.style.overflow = 'hidden';
 
@@ -1151,15 +1164,25 @@
         for (var i = start; i < end; i++) {
             var g = genres[i];
             var cls = (i === genreIdx) ? "item sel" : "item";
-            h += '<div class="' + cls + '" data-i="' + i + '"><div class="info"><div class="name">' +
+            h += '<div class="' + cls + ' menu-op" data-i="' + i + '"><div class="info"><div class="name">' +
                  esc(g.title) + (String(g.id) === String(genreFilter) ? ' <span class="live">ACTIVA</span>' : '') +
-                 '</div></div></div>';
+                 '</div></div><div class="cuantos">' + canalesDeGenero(g.id) + '</div></div>';
         }
         h += '</div>';
         h += '<div class="help"><span data-tecla="13">OK</span> Elegir <span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
         medirFilas("generos", visible, function() { renderGenres(); });
+    }
+
+    // Cuantos canales hay en cada categoria, como en la maqueta.
+    function canalesDeGenero(id) {
+        if (id === '' || id === undefined || id === null) return allChannels.length;
+        var n = 0;
+        for (var i = 0; i < allChannels.length; i++) {
+            if (String(allChannels[i].genre_id) === String(id)) n++;
+        }
+        return n || '';
     }
 
     function chooseGenre() {
@@ -1481,14 +1504,14 @@
 
     function renderMenu() {
         var h = '<div class="panel">';
-        h += '<div class="header"><div class="logo">Quattre TV</div></div>';
+        h += '<div class="header"><div class="logo">' + LOGO + '</div></div>';
         h += '<div class="list">';
         for (var i = 0; i < MENU.length; i++) {
             var cls = (i === menuIdx) ? "item sel" : "item";
             var extra = '';
             if (MENU[i].id === 'favoritos' && favOnly) extra = ' <span class="live">ACTIVO</span>';
-            h += '<div class="' + cls + '" data-i="' + i + '"><div class="info"><div class="name">' +
-                 esc(MENU[i].titulo) + extra + '</div></div></div>';
+            h += '<div class="' + cls + ' menu-op" data-i="' + i + '">' + iconoMenu(MENU[i].id) +
+                 '<div class="info"><div class="name">' + esc(MENU[i].titulo) + extra + '</div></div></div>';
         }
         h += '</div>';
         h += '<div class="help"><span data-tecla="13">OK</span> Entrar <span data-tecla="37">◀</span> Volver</div>';
@@ -1994,7 +2017,7 @@
     function cargando(titulo) {
         document.getElementById("content").innerHTML =
             '<div class="panel"><div class="header"><div class="logo">' + esc(titulo) +
-            '</div></div><div style="color:#666;padding:20px;">Cargando...</div></div>';
+            '</div></div><div style="color:#9da3a6;padding:20px;">Cargando...</div></div>';
     }
 
     function openVod() {
@@ -2014,9 +2037,9 @@
         h += '<div class="counter">' + vod.length + '</div></div>';
         h += '<div class="list">';
         if (error) {
-            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
+            h += '<div style="color:#9da3a6;padding:20px;">' + esc(error) + '</div>';
         } else if (vod.length === 0) {
-            h += '<div style="color:#666;padding:20px;">No hay peliculas en el catalogo</div>';
+            h += '<div style="color:#9da3a6;padding:20px;">No hay peliculas en el catalogo</div>';
         } else {
             var visible = filasDe("peliculas", 9);
             var start = ventanaDe("peliculas", vodIdx, visible, vod.length);
@@ -2080,9 +2103,9 @@
         h += '<div class="counter">' + series.length + '</div></div>';
         h += '<div class="list">';
         if (error) {
-            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
+            h += '<div style="color:#9da3a6;padding:20px;">' + esc(error) + '</div>';
         } else if (series.length === 0) {
-            h += '<div style="color:#666;padding:20px;">No hay series en el catalogo</div>';
+            h += '<div style="color:#9da3a6;padding:20px;">No hay series en el catalogo</div>';
         } else {
             var visible = filasDe("series", 10);
             var start = ventanaDe("series", serieIdx, visible, series.length);
@@ -2128,9 +2151,9 @@
         h += '<div class="counter">' + capitulos.length + ' cap.</div></div>';
         h += '<div class="list">';
         if (error) {
-            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
+            h += '<div style="color:#9da3a6;padding:20px;">' + esc(error) + '</div>';
         } else if (capitulos.length === 0) {
-            h += '<div style="color:#666;padding:20px;">Esta serie no tiene capitulos cargados</div>';
+            h += '<div style="color:#9da3a6;padding:20px;">Esta serie no tiene capitulos cargados</div>';
         } else {
             var visible = filasDe("capitulos", 10);
             var start = ventanaDe("capitulos", capIdx, visible, capitulos.length);
@@ -2281,7 +2304,7 @@
         graficosDelante();
         var ch = channels[currentChannel];
         var h = '<div class="panel">';
-        h += '<div class="header"><div class="logo">Quattre TV</div>';
+        h += '<div class="header"><div class="logo">' + LOGO + '</div>';
         var etiqueta = channels.length + ' canales';
         if (favOnly) etiqueta = 'Favoritos: ' + channels.length;
         else if (genreFilter) etiqueta = generoActual() + ': ' + channels.length;
@@ -2289,7 +2312,9 @@
         // de la ayuda no cabia y quedaba fuera del panel.
         if (haySemana()) h += '<div class="boton-semana' + (focoSemana ? ' sel' : '') +
                               '" data-tecla="405"><i></i>Videoclub 7 dias</div>';
-        h += '<div class="counter">' + esc(etiqueta) + '</div></div>';
+        // Cuantos canales, solo con un filtro puesto: es cuando importa saberlo.
+        if (favOnly || genreFilter) h += '<div class="counter">' + esc(etiqueta) + '</div>';
+        h += '</div>';
 
         h += '<div class="list">';
         var visible = filasDe("canales", 11);
@@ -2378,7 +2403,7 @@
         view = "guide";
         document.getElementById("content").innerHTML =
             '<div class="panel"><div class="header"><div class="logo">Guia</div></div>' +
-            '<div style="color:#666;padding:20px;">Cargando programacion...</div></div>';
+            '<div style="color:#9da3a6;padding:20px;">Cargando programacion...</div></div>';
         api("type=epg&action=get_simple_data_table&ch_id=" + ch.id, function(js) {
             if (view !== "guide") return;
             guide = (js && js.data) ? js.data : [];
@@ -2426,7 +2451,7 @@
         h += '<div class="counter">Guia</div></div>';
 
         if (guide.length === 0) {
-            h += '<div class="list"><div style="color:#666;padding:20px;">Sin datos de EPG para este canal</div></div>';
+            h += '<div class="list"><div style="color:#9da3a6;padding:20px;">Sin datos de EPG para este canal</div></div>';
         } else {
             h += '<div class="list">';
             var visible = filasDe("guia", 9);
@@ -2784,7 +2809,7 @@
         if (isFullscreen) document.getElementById("content").style.display = "block";
         document.getElementById("content").innerHTML =
             '<div class="panel"><div class="header"><div class="logo">Grabaciones</div></div>' +
-            '<div style="color:#666;padding:20px;">Cargando...</div></div>';
+            '<div style="color:#9da3a6;padding:20px;">Cargando...</div></div>';
         api("type=pvr&action=get_ordered_list", function(js) {
             if (view !== "recordings") return;
             recordings = (js && js.data) ? js.data : [];
@@ -2814,9 +2839,9 @@
             : recordings.length) + '</div></div>';
         h += '<div class="list">';
         if (error) {
-            h += '<div style="color:#666;padding:20px;">' + esc(error) + '</div>';
+            h += '<div style="color:#9da3a6;padding:20px;">' + esc(error) + '</div>';
         } else if (recordings.length === 0) {
-            h += '<div style="color:#666;padding:20px;">Todavia no hay grabaciones</div>';
+            h += '<div style="color:#9da3a6;padding:20px;">Todavia no hay grabaciones</div>';
         } else {
             var visible = filasDe("grabaciones", 11);
             var start = ventanaDe("grabaciones", recIdx, visible, recordings.length);
@@ -2955,7 +2980,8 @@
         // La caratula del programa que dan las fuentes de EPG. Si no llega o no
         // carga, el hueco desaparece y el texto ocupa todo, sin dejar marco
         // vacio: es lo que afeaba la lista cuando faltaba el logotipo.
-        var html = '';
+        // El fondo de la marca alrededor del video (ver .tapa en el CSS).
+        var html = '<i class="tapa a"></i><i class="tapa b"></i><i class="tapa i"></i><i class="tapa d"></i>';
         if (ch.epg_icon) {
             html += '<img class="cartel" src="' + esc(ch.epg_icon) +
                     '" onerror="this.style.display=\'none\'">';
@@ -2970,7 +2996,7 @@
                     (ch.epg_progress || 0) + '%"></i></div>';
         }
         if (ch.epg_next) {
-            html += '<div class="e">Despues: ' + esc(ch.epg_next_start) + ' ' + esc(ch.epg_next) + '</div>';
+            html += '<div class="e despues">Despues ' + esc(ch.epg_next_start) + ' h &nbsp; ' + esc(ch.epg_next) + '</div>';
         }
         // Que se puede hacer con este canal. Solo cuando este aparato graba:
         // en las teles no se ofrece y no tiene sentido decir que no se puede.
@@ -3779,57 +3805,77 @@
     }
     </script>
     <style>
-        /* La letra viaja con el portal: sin ella el MAG ponia la suya, y
-           Antonio, la de la marca, no se cargaba nunca. Inter (SIL OFL) para
-           el texto y Antonio para los titulos. */
-        @font-face { font-family: Inter; font-weight: 400; src: url({% static 'stb/fuentes/inter-400.woff' %}) format('woff'); }
-        @font-face { font-family: Inter; font-weight: 500; src: url({% static 'stb/fuentes/inter-500.woff' %}) format('woff'); }
-        @font-face { font-family: Inter; font-weight: 600; src: url({% static 'stb/fuentes/inter-600.woff' %}) format('woff'); }
-        @font-face { font-family: Inter; font-weight: 700; src: url({% static 'stb/fuentes/inter-700.woff' %}) format('woff'); }
-        @font-face { font-family: Antonio; src: url({% static 'stb/fuentes/Antonio.ttf' %}) format('truetype'); }
-        /* Identidad de Quattre: verde #81ba26 sobre carbon, titulares en Antonio.
-           El fondo va casi negro y no gris: en una tele los grises medios se ven
-           lavados y apagan el verde, que es justo lo que pasaba. Sobre negro el
-           verde de la marca recupera fuerza sin tener que cambiarlo.
-           El verde vivo (#9ad62f) es el mismo tono un punto mas claro, para los
-           realces en pantalla; el de la marca se reserva al logotipo. */
+        /* La letra viaja con el portal: el deco no tiene la suya. Poppins (SIL
+           OFL), la de las maquetas de la marca, recortada a los caracteres
+           latinos para que cada peso pese 10 KB. */
+        @font-face { font-family: Poppins; font-weight: 300; src: url({% static 'stb/fuentes/poppins-light.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 400; src: url({% static 'stb/fuentes/poppins-regular.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 400; font-style: italic; src: url({% static 'stb/fuentes/poppins-italic.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 500; src: url({% static 'stb/fuentes/poppins-medium.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 500; font-style: italic; src: url({% static 'stb/fuentes/poppins-mediumitalic.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 600; src: url({% static 'stb/fuentes/poppins-semibold.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 700; src: url({% static 'stb/fuentes/poppins-bold.woff' %}) format('woff'); }
+        @font-face { font-family: Poppins; font-weight: 800; src: url({% static 'stb/fuentes/poppins-extrabold.woff' %}) format('woff'); }
+        /* Identidad de las maquetas de Quattretv: verde lima #bff102 sobre
+           carbon (#383e42 en el centro, casi negro en las esquinas), lineas
+           gris claro #d9d9d9 y todo en Poppins. El fondo es una imagen y no
+           un degradado de CSS: el navegador del MAG pinta los degradados con
+           escalones, y en la imagen va un poco de grano que los disimula. */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; overflow: hidden; }
         body {
-            background: #080b0d;
-            color: #f2f5f3;
-            font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #1d2023;
+            color: #f2f4f5;
+            font-family: Poppins, 'Segoe UI', Roboto, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
         }
-        .display { font-family: Antonio, 'Segoe UI', Arial, sans-serif; letter-spacing: .5px; }
+        .display { font-family: Poppins, 'Segoe UI', Arial, sans-serif; }
 
         /* ---------- Panel lateral ---------- */
+        /* Pegado al borde y a toda altura, con el fondo de la marca y una
+           linea fina que lo separa del video, como en las maquetas. Opaco: la
+           guia tambien se abre encima del video a pantalla completa. */
         .panel {
             display: -webkit-box;
             -webkit-box-orient: vertical;
-            position: fixed; top: 40px; left: 40px; width: 660px; height: 1000px;
+            position: fixed; top: 0; left: 0; width: 705px; height: 1080px;
             display: flex; flex-direction: column;
-            background: #11171a;
-            border-radius: 22px; padding: 32px 30px;
-            border: 1px solid rgba(255,255,255,.06);
-            box-shadow: 0 30px 90px rgba(0,0,0,.75);
+            background: #2c3236 url({% static 'stb/fondo.jpg' %}) no-repeat 0 0;
+            -webkit-background-size: 1920px 1080px; background-size: 1920px 1080px;
+            padding: 46px 40px 34px 64px;
+            border-right: 1px solid rgba(217,217,217,.35);
         }
+        /* Lo que rodea al video, con el mismo fondo: sin esto el deco deja
+           negro todo lo que no es el panel. Son cuatro piezas alrededor del
+           hueco del video (el mismo HUECO del codigo: 39 %, 11,1 %, 58,9 %),
+           sin tocarlo. Van dentro de #preview-cap, asi se ven y se esconden
+           con el, y por debajo de su texto. */
+        .tapa {
+            position: fixed; z-index: -1; background: url({% static 'stb/fondo.jpg' %}) no-repeat;
+            -webkit-background-size: 1920px 1080px; background-size: 1920px 1080px;
+        }
+        .tapa.a { top: 0; left: 0; width: 100%; height: 11.1%; background-position: 0 0; }
+        .tapa.b { top: 70%; left: 0; width: 100%; height: 30%; background-position: 0 -756px; }
+        .tapa.i { top: 11.1%; left: 0; width: 39%; height: 58.9%; background-position: 0 -120px; }
+        .tapa.d { top: 11.1%; left: 97.9%; width: 2.1%; height: 58.9%; background-position: -1880px -120px; }
 
         .header {
             display: -webkit-box; -webkit-box-pack: justify; -webkit-box-align: center;
             display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 22px; padding-bottom: 20px;
-            border-bottom: 1px solid rgba(255,255,255,.09);
+            margin-bottom: 30px; min-height: 58px;
         }
         .logo {
-            font-family: Antonio, 'Segoe UI', Arial, sans-serif;
-            font-size: 46px; font-weight: 700; color: #81ba26;
-            letter-spacing: .5px; line-height: 1;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
+            font-size: 38px; font-weight: 600; color: #fff; line-height: 1.15;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
+        .logo img { display: block; height: 54px; width: auto; }
+        .header .logo { -webkit-box-flex: 1; flex: 1; }
+        .header .boton-semana { margin-left: 14px; }
         .counter {
-            background: rgba(154,214,47,.12); color: #9ad62f;
-            border: 1px solid rgba(154,214,47,.22);
-            padding: 8px 18px; border-radius: 22px; font-size: 19px; font-weight: 600;
+            color: #d9d9d9; border: 1px solid rgba(217,217,217,.45);
+            padding: 7px 18px; border-radius: 22px; font-size: 17px; font-weight: 500;
+            white-space: nowrap; margin-left: 14px;
         }
 
         /* ---------- Lista ---------- */
@@ -3840,29 +3886,34 @@
            los margenes de abajo, que funcionan en todas partes. Sin ellos, en
            la tele el numero del canal se pegaba al nombre del programa y se
            leia "1Mañaneros 360". */
+        /* Filas como en las maquetas: franjas carbon separadas por una linea
+           gris claro. */
         .item {
             display: -webkit-box; -webkit-box-align: center;
             display: flex; align-items: center; gap: 16px;
-            padding: 14px 20px; margin: 7px 0; border-radius: 14px;
-            background: rgba(255,255,255,.022);
+            padding: 14px 20px 13px; margin: 0;
+            background: #383e42;
+            border-bottom: 2px solid rgba(217,217,217,.55);
             transition: background .12s;
         }
         /* Sin franja verde al lado: la seleccion se marca subiendo el contraste
            de toda la fila, que a distancia se ve mejor que un filo fino y no
            mete una linea de color en cada pantalla. */
+        /* La elegida, como en las maquetas: texto en blanco y la linea de
+           abajo en verde. */
         .item.sel {
-            background: #2b373d;
-            box-shadow: 0 8px 26px rgba(0,0,0,.55);
+            background: #474e53;
+            border-bottom-color: #bff102;
         }
-        .item.sel .name { color: #fff; font-weight: 600; }
-        .item.sel .epg  { color: #c4cdd0; }
+        .item.sel .name { color: #fff; }
+        .item.sel .epg  { color: #e4e7e8; }
         .num {
-            font-family: Antonio, sans-serif;
-            width: 74px; font-size: 34px; font-weight: 600; color: #5c686c;
-            text-align: right; flex-shrink: 0;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
+            width: 74px; font-size: 38px; font-weight: 600; color: #b9bec1;
+            text-align: center; flex-shrink: 0; line-height: 1;
             margin-right: 16px;      /* el 'gap' no llega a la television */
         }
-        .item.sel .num { color: #9ad62f; }
+        .item.sel .num { color: #bff102; }
         /* Con el Magic Remote apuntas a una fila y, sin esto, no hay forma de
            saber cual vas a elegir hasta que ya la has elegido, ni de saber si
            la pulsacion ha entrado. Son los puntos 7 (Mouse Over-Focus) y 10
@@ -3874,46 +3925,60 @@
            de tono flojo no se ve, y subirlo hasta que se viera lo confundiria
            con la fila marcada. Va por dentro (inset) para que no mueva nada de
            sitio al aparecer. */
-        .item:hover { background: rgba(255,255,255,.075);
-                      box-shadow: inset 0 0 0 2px rgba(154,214,47,.55); }
-        .item.sel:hover { background: #33424a;
-                          box-shadow: 0 8px 26px rgba(0,0,0,.55),
-                                      inset 0 0 0 2px rgba(154,214,47,.8); }
-        .item:active, .item.sel:active { background: #465c66;
-                                         box-shadow: inset 0 0 0 3px #9ad62f; }
-        .num.sm { font-size: 22px; width: 84px; color: #98a3a6; }
+        .item:hover { background: #40474c;
+                      box-shadow: inset 0 0 0 2px rgba(191,241,2,.55); }
+        .item.sel:hover { background: #50585d;
+                          box-shadow: inset 0 0 0 2px rgba(191,241,2,.8); }
+        .item:active, .item.sel:active { background: #5a6267;
+                                         box-shadow: inset 0 0 0 3px #bff102; }
+        /* Menu y categorias, como en las maquetas: sin franja, letra fina en
+           gris, y la elegida en blanco con la linea verde debajo. */
+        .menu-op { background: transparent; border-bottom-color: transparent; padding: 18px 14px 16px; }
+        .menu-op.sel { background: transparent; border-bottom-color: #bff102; }
+        .menu-op:hover, .menu-op.sel:hover { background: rgba(255,255,255,.05); }
+        .menu-op .name { font-size: 30px; font-weight: 400; color: #b9bec1; }
+        .menu-op.sel .name { color: #fff; }
+        .mico { width: 40px; height: 40px; flex-shrink: 0; margin-right: 22px; color: #b9bec1; }
+        .menu-op.sel .mico { color: #fff; }
+        .cuantos { font-size: 26px; font-weight: 300; color: #b9bec1; margin-left: 16px; flex-shrink: 0; }
+        .menu-op.sel .cuantos { color: #fff; }
+        .num.sm { font-size: 24px; font-weight: 400; width: 84px; color: #c9cdcf; text-align: left; }
+        .item.sel .num.sm { color: #bff102; font-weight: 500; }
+        /* En la guia, los titulos en letra normal y el elegido en negrita. */
+        .num.sm ~ .info .name { font-weight: 400; }
+        .item.sel .num.sm ~ .info .name { font-weight: 600; }
 
         .ico {
             width: 54px; height: 40px; flex-shrink: 0; margin-right: 16px;
             display: flex; align-items: center; justify-content: center;
-            background: rgba(255,255,255,.06); border-radius: 8px; overflow: hidden;
+            background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden;
         }
         .ico img { max-width: 100%; max-height: 100%; }
         .ico b {
-            font-family: Antonio, 'Segoe UI', Arial, sans-serif;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
             font-size: 19px; font-weight: 600; color: #6d7679; letter-spacing: .5px;
         }
 
         .info { -webkit-box-flex: 1; flex: 1; overflow: hidden; }
         .name {
-            font-size: 27px; font-weight: 500; white-space: nowrap;
-            overflow: hidden; text-overflow: ellipsis;
+            font-size: 28px; font-weight: 600; color: #d3d7d9; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis; line-height: 1.25;
         }
         .epg {
-            font-size: 17px; color: #9ba3a8; margin-top: 5px;
+            font-size: 17px; color: #c3c8ca; margin-top: 3px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .epg .t { color: #6d7679; }
+        .epg .t { color: #9da3a6; font-size: 15px; }
 
         /* Etiquetas */
         .hd, .rec, .live, .st {
-            font-size: 12px; font-weight: 700; padding: 3px 8px;
-            border-radius: 5px; margin-left: 8px; vertical-align: middle;
+            font-size: 12px; font-weight: 600; padding: 3px 8px 2px;
+            border-radius: 3px; margin-left: 8px; vertical-align: middle;
             letter-spacing: .5px;
         }
-        .hd   { background: rgba(255,255,255,.14); color: #fff; }
+        .hd   { border: 1px solid rgba(217,217,217,.6); color: #e4e7e8; padding: 2px 7px 1px; }
         .rec  { background: #e60000; color: #fff; }
-        .live { background: #9ad62f; color: #0d1505; }
+        .live { background: #bff102; color: #1d2023; }
         .fav  { color: #fdeb00; font-size: 19px; margin-left: 7px; }
         .arch { color: #c9d1cb; font-size: 19px; margin-left: 7px; }
         /* Reloj amarillo del archivo, dibujado con CSS: no depende de que la
@@ -3930,23 +3995,22 @@
         .ico-arch:after  { left: 6px; top: 5px; width: 4px; height: 2px; }
         #preview-cap .acciones .ico-arch { margin-left: 0; margin-right: 6px; }
         #preview-cap .boton {
-            display: inline-block; padding: 5px 14px; margin-right: 12px; border-radius: 8px;
-            background: #e60000; color: #fff; font-weight: 600;
+            display: inline-block; padding: 4px 16px; margin-right: 12px; border-radius: 20px;
+            background: #e60000; color: #fff; font-weight: 600; font-size: 18px;
         }
         #preview-cap .sep { display: inline-block; width: 28px; }
         .lock { color: #ff7900; font-size: 18px; margin-left: 7px; }
         .item.past { opacity: .5; }
 
-        .bar { height: 5px; background: rgba(255,255,255,.08); border-radius: 3px; margin-top: 9px; overflow: hidden; }
-        .bar i {
-            display: block; height: 100%; border-radius: 3px;
-            background: #9ad62f;
-            background: linear-gradient(90deg, #81ba26 0%, #9ad62f 100%);
-        }
+        /* Barra de avance: gris claro en la lista, verde en lo elegido. */
+        .bar { height: 4px; background: rgba(217,217,217,.28); border-radius: 2px; margin-top: 9px; overflow: hidden; }
+        .bar i { display: block; height: 100%; border-radius: 2px; background: #d9d9d9; }
+        .item.sel .bar i, #preview-cap .bar i, #osd .bar i { background: #bff102; }
 
+        /* El "info" de la guia: una caja carbon, en cursiva como en la maqueta. */
         .descr {
-            color: #c9d1cb; font-size: 18px; line-height: 1.5;
-            padding: 16px 6px; border-top: 1px solid rgba(255,255,255,.08);
+            color: #e4e7e8; font-size: 18px; line-height: 1.55; font-style: italic;
+            padding: 16px 20px; margin-top: 18px; background: #40474c;
         }
         /* Ficha del programa. El texto largo no cabe en una pantalla de tele y
            no hay raton para arrastrar nada, asi que se desplaza con las flechas
@@ -3963,12 +4027,12 @@
             width: 108px; height: 78px; line-height: 78px;
             margin: 6px;
             font-size: 34px; font-weight: 600; text-align: center;
-            background: #18211f; border: 2px solid rgba(255,255,255,.10);
+            background: #40474c; border: 2px solid rgba(255,255,255,.10);
             border-radius: 12px; cursor: pointer; color: #f2f5f3;
         }
-        .pintecla:hover { border-color: #9ad62f; background: #1e2a24; }
-        .pintecla:active { background: #9ad62f; border-color: #9ad62f; color: #0d1505; }
-        .pintecla.aceptar { background: #9ad62f; color: #0d1505; font-size: 26px; }
+        .pintecla:hover { border-color: #bff102; background: #4a5257; }
+        .pintecla:active { background: #bff102; border-color: #bff102; color: #1d2023; }
+        .pintecla.aceptar { background: #bff102; color: #1d2023; font-size: 26px; }
         .pintecla.borrar  { font-size: 30px; color: #98a3a6; }
 
         /* Lo que se puede hacer, dentro de la barra de pantalla completa: ahi
@@ -3979,36 +4043,38 @@
             color: #a8b2b5; font-size: 21px; text-align: right;
         }
         /* Las teclas, como teclas: con canto abajo, como en un mando. */
+        /* Las teclas, con el acabado de las maquetas: filo gris claro y
+           esquinas redondas, como el boton "Entrar". */
         .osd-pistas span, .help span, .sem-pista span, .sem-ayuda span {
             display: inline-block; min-width: 1.9em; text-align: center;
-            background: rgba(255,255,255,.14); border-radius: 7px;
-            -webkit-box-shadow: inset 0 -3px 0 rgba(0,0,0,.35); box-shadow: inset 0 -3px 0 rgba(0,0,0,.35);
-            padding: 5px 12px 7px; margin: 0 6px 0 14px; color: #fff;
-            font-size: .85em; font-weight: 600; letter-spacing: .2px; line-height: 1.2;
+            background: rgba(255,255,255,.06); border: 1px solid rgba(217,217,217,.55);
+            border-radius: 6px;
+            padding: 4px 12px 5px; margin: 0 6px 0 14px; color: #fff;
+            font-size: .85em; font-weight: 500; letter-spacing: .2px; line-height: 1.2;
         }
         .osd-pistas span.rojo { background: #e60000; color: #fff; }
-        .osd-pistas span[data-tecla]:hover { background: rgba(154,214,47,.32); color: #fff; }
-        .osd-pistas span[data-tecla]:active { background: #9ad62f; color: #0d1505; }
+        .osd-pistas span[data-tecla]:hover { background: rgba(191,241,2,.32); color: #fff; }
+        .osd-pistas span[data-tecla]:active { background: #bff102; color: #1d2023; }
         .osd-pistas span.rojo[data-tecla]:hover { background: #ff3b3b; color: #fff; }
         .osd-pistas span.rojo[data-tecla]:active { background: #ff6b6b; color: #fff; }
 
         /* "Aqui se puede entrar", dicho donde el ojo ya esta mirando. */
         .entrar {
-            color: #9ad62f; font-size: 20px; margin-left: 8px;
+            color: #bff102; font-size: 20px; margin-left: 8px;
             animation: latir 1.6s ease-in-out infinite;
         }
         @keyframes latir { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
         .ver-mas {
-            color: #9ad62f; font-size: 19px; padding: 0 6px 12px;
+            color: #bff102; font-size: 19px; padding: 0 6px 12px;
         }
         .ver-mas span {
-            background: rgba(154,214,47,.14); border-radius: 6px;
+            background: rgba(191,241,2,.14); border-radius: 6px;
             padding: 2px 9px; margin-right: 8px;
         }
         .ficha-datos {
             color: #98a3a6; font-size: 17px; margin-bottom: 4px;
         }
-        .ficha-datos b { color: #9ad62f; font-weight: 600; }
+        .ficha-datos b { color: #bff102; font-weight: 600; }
         /* Altura maxima, no fija: con una sinopsis corta la caja se quedaba
            reservando 480 px de nada y el "volver" flotaba en medio del hueco. */
         .ficha-caja {
@@ -4020,17 +4086,17 @@
            la lista de canales es 18, asi que la sinopsis no tiene por que ser
            mayor que lo demas. */
         .ficha-texto {
-            color: #dfe6e0; font-size: 18px; line-height: 1.65;
+            color: #e4e7e8; font-size: 18px; line-height: 1.65; font-style: italic;
             transition: transform .12s ease-out;
         }
         .ficha-mas {
             position: absolute; right: 4px; bottom: 0;
-            color: #9ad62f; font-size: 17px;
-            background: linear-gradient(90deg, rgba(16,22,26,0), #10161a 40%);
+            color: #bff102; font-size: 17px;
+            background: linear-gradient(90deg, rgba(16,22,26,0), #2c3236 40%);
             padding: 4px 6px 4px 40px;
         }
 
-        .st.completed { background: #9ad62f; color: #0d1505; }
+        .st.completed { background: #bff102; color: #1d2023; }
         .st.recording { background: #e60000; color: #fff; }
         .st.scheduled { background: rgba(255,255,255,.16); color: #fff; }
         .st.failed    { background: #6d7679; color: #fff; }
@@ -4038,17 +4104,19 @@
         /* A tamaño de television, no de monitor: 15 px a tres metros no se leen,
            y desde que estos rotulos hacen algo al pulsarlos tienen que ser un
            blanco al que apuntar con el Magic Remote, no una nota al pie. */
-        .help { text-align: center; color: #8a9497; font-size: 20px; line-height: 2.2; }
+        .help { text-align: center; color: #b9bec1; font-size: 19px; line-height: 2.2; }
         .help span { margin: 0 7px; }
+        /* Boton de pastilla con filo, como "Entrar" en las maquetas; el punto
+           amarillo dice que tecla del mando lo abre. Elegido, en verde. */
         .boton-semana {
-            background: #fdeb00; color: #1a1a1a; font-size: 19px; font-weight: 700;
-            padding: 8px 16px; border-radius: 20px; white-space: nowrap; cursor: pointer;
+            color: #fff; font-size: 18px; font-weight: 500;
+            padding: 8px 20px; border-radius: 24px; white-space: nowrap; cursor: pointer;
+            border: 1px solid rgba(217,217,217,.7);
         }
-        /* El punto amarillo dice que tecla es; el boton entero ya es amarillo. */
-        .boton-semana.sel { box-shadow: 0 0 0 4px #fff; }
+        .boton-semana.sel { background: #bff102; border-color: #bff102; color: #1d2023; font-weight: 600; }
         .boton-semana i {
             display: inline-block; width: 12px; height: 12px; border-radius: 50%;
-            background: #1a1a1a; margin-right: 8px; vertical-align: middle;
+            background: #fdeb00; margin-right: 9px; vertical-align: middle;
         }
         /* Solo los que llevan data-tecla hacen algo al pulsarlos. Los que no
            —"0-9" o "▲▼", que no son una tecla sola— se quedan como estaban, sin
@@ -4058,12 +4126,12 @@
            fino, para que se lean como lo que son —una leyenda de que teclas del
            mando valen— y no como un boton que no responde. */
         .help span:not([data-tecla]), .osd-pistas span:not([data-tecla]) {
-            background: none; border: 1px solid rgba(255,255,255,.16);
-            color: #8a9497; font-weight: 500;
+            background: none; border: 1px solid rgba(217,217,217,.22);
+            color: #9da3a6; font-weight: 400;
         }
         [data-tecla] { cursor: pointer; transition: background .1s, color .1s; }
-        .help span[data-tecla]:hover { background: rgba(154,214,47,.32); color: #fff; }
-        .help span[data-tecla]:active { background: #9ad62f; color: #0d1505; }
+        .help span[data-tecla]:hover { background: rgba(191,241,2,.32); color: #fff; }
+        .help span[data-tecla]:active { background: #bff102; color: #1d2023; }
 
         /* ---------- Vista previa ---------- */
         #preview {
@@ -4084,10 +4152,11 @@
            vez de envolver por debajo de la caratula. */
         #preview-cap .txt { overflow: hidden; }
         #preview-cap .t {
-            font-family: Antonio, sans-serif;
-            font-size: 40px; font-weight: 600; letter-spacing: .5px;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
+            font-size: 42px; font-weight: 700; line-height: 1.15;
         }
-        #preview-cap .e { font-size: 21px; color: #98a3a6; margin-top: 9px; }
+        #preview-cap .e { font-size: 21px; color: #d9d9d9; margin-top: 8px; }
+        #preview-cap .e.despues { font-style: italic; font-size: 19px; color: #c3c8ca; }
 
         /* La caratula del programa, que ahora llega en el EPG. Cada fuente la
            manda con una forma: Movistar+ vertical 2:3 y sincroguia apaisada
@@ -4097,10 +4166,9 @@
         .cartel {
             height: 152px; width: auto; max-width: 260px;
             float: right; margin-left: 24px;
-            border-radius: 10px; display: block;
-            border: 1px solid rgba(255,255,255,.1);
-            box-shadow: 0 10px 30px rgba(0,0,0,.6);
-            background: #11171a;
+            border-radius: 4px; display: block;
+            box-shadow: 0 10px 30px rgba(0,0,0,.45);
+            background: #33393d;
         }
 
         /* ---------- Superpuestos ---------- */
@@ -4109,10 +4177,10 @@
         #osd {
             display: none; position: fixed; left: 40px; right: 40px; bottom: 40px;
             padding: 22px 34px 24px;
-            background: #10161a;
-            background: linear-gradient(180deg, #141b1f 0%, #0d1316 100%);
-            border-radius: 14px;
-            border-top: 1px solid rgba(255,255,255,.06);
+            background: #2c3236;
+            background: linear-gradient(180deg, #383e42 0%, #24292c 100%);
+            border-radius: 8px;
+            border-top: 1px solid rgba(217,217,217,.18);
             box-shadow: 0 18px 60px rgba(0,0,0,.8);
         }
         /* Centrado y no pegado al fondo: con flex-end todo lo que no fuera el
@@ -4123,8 +4191,8 @@
         .osd-fila > * { margin-right: 26px; }
         .osd-fila > *:last-child { margin-right: 0; }
         .osd-num {
-            font-family: Antonio, sans-serif;
-            font-size: 78px; font-weight: 700; color: #9ad62f;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
+            font-size: 64px; font-weight: 700; color: #bff102;
             line-height: .9; flex-shrink: 0;
         }
         /* Miniatura del programa en la barra, mismo criterio que el cartel
@@ -4134,7 +4202,7 @@
             margin-right: 28px;
             border-radius: 8px; display: block;
             border: 1px solid rgba(255,255,255,.1);
-            background: #11171a;
+            background: #33393d;
         }
         .osd-ico {
             width: 96px; height: 72px; flex-shrink: 0; border-radius: 10px;
@@ -4144,7 +4212,7 @@
         .osd-ico img { max-width: 86%; max-height: 86%; }
         .osd-datos { -webkit-box-flex: 1; flex: 1; min-width: 0; }
         .osd-ch {
-            font-family: Antonio, sans-serif;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
             font-size: 40px; font-weight: 600; letter-spacing: .5px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
@@ -4152,7 +4220,7 @@
             font-size: 25px; margin-top: 10px; color: #fff;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .osd-prog b { color: #9ad62f; font-weight: 600; margin-right: 14px; }
+        .osd-prog b { color: #bff102; font-weight: 600; margin-right: 14px; }
         .osd-epg { font-size: 19px; color: #98a3a6; margin-top: 8px; }
         .dif {
             display: inline-block; font-size: 15px; font-weight: 700; letter-spacing: 1px;
@@ -4170,8 +4238,8 @@
         .osd-salto b { color: #fdeb00; margin-left: 18px; font-weight: 700; }
         .osd-singuia { color: #6d7679; font-style: italic; }
         .osd-reloj {
-            font-family: Antonio, sans-serif;
-            font-size: 52px; font-weight: 600; color: #e6ebe8;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
+            font-size: 44px; font-weight: 500; color: #e6ebe8;
             flex-shrink: 0; line-height: 1;
             /* Sin esto el nombre del programa acaba pegado al reloj y se leen
                como si fueran la misma linea. */
@@ -4185,7 +4253,7 @@
            perfectamente. */
         #radio {
             display: none; position: fixed; z-index: 3;
-            background: linear-gradient(180deg, #141b1f 0%, #0b1013 100%);
+            background: linear-gradient(180deg, #383e42 0%, #2a2f33 100%);
             border-radius: 14px; overflow: hidden;
         }
         .radio-caja {
@@ -4195,7 +4263,7 @@
         }
         #radio-logo { max-width: 260px; max-height: 150px; margin-bottom: 26px; }
         #radio-nombre {
-            font-family: Antonio, 'Segoe UI', Arial, sans-serif;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
             font-size: 54px; font-weight: 700; color: #e6ebe8; line-height: 1.1;
         }
         #radio-prog { font-size: 24px; color: #9aa5a8; margin-top: 14px; }
@@ -4204,7 +4272,7 @@
         .radio-ondas { margin-top: 34px; height: 46px; }
         .radio-ondas i {
             display: inline-block; width: 8px; height: 14px; margin: 0 5px;
-            background: #9ad62f; border-radius: 4px;
+            background: #bff102; border-radius: 4px;
             animation: onda 1s ease-in-out infinite;
         }
         .radio-ondas i:nth-child(2) { animation-delay: .15s; }
@@ -4219,9 +4287,9 @@
         #diag {
             display: none; position: fixed; top: 40px; left: 40px; z-index: 40;
             padding: 20px 26px; max-width: 900px;
-            background: rgba(8,11,13,.96); border: 1px solid #2b373d;
+            background: rgba(36,41,44,.96); border: 1px solid #4a5257;
             border-radius: 10px;
-            color: #9ad62f; font-family: monospace; font-size: 19px; line-height: 1.7;
+            color: #bff102; font-family: monospace; font-size: 19px; line-height: 1.7;
         }
         #diag b { color: #e6ebe8; font-weight: normal; }
 
@@ -4229,15 +4297,15 @@
             position: fixed; z-index: 40; display: none;
             top: 50%; left: 50%; transform: translate(-50%,-50%);
             width: 60%; max-width: 980px; padding: 40px 50px; border-radius: 18px;
-            background: #10161a; border: 2px solid #81ba26;
+            background: #2c3236; border: 2px solid #bff102;
             box-shadow: 0 18px 80px rgba(0,0,0,.9); color: #fff;
         }
-        #mensaje .m-t { font-family: Antonio, sans-serif; font-size: 40px; font-weight: 600; color: #9ad62f; }
+        #mensaje .m-t { font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 40px; font-weight: 600; color: #bff102; }
         #mensaje .m-x { font-size: 26px; line-height: 36px; margin-top: 16px; white-space: pre-wrap; }
         #mensaje .m-p { font-size: 20px; color: #98a3a6; margin-top: 28px; text-align: right; }
         #vol, #toast, #numjump {
             position: fixed; z-index: 30; display: none;
-            background: #10161a;
+            background: #2c3236;
             border: 1px solid rgba(255,255,255,.07);
             box-shadow: 0 18px 60px rgba(0,0,0,.8);
         }
@@ -4251,9 +4319,9 @@
         }
         #numjump {
             top: 64px; right: 72px; padding: 22px 42px;
-            font-family: Antonio, sans-serif;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
             font-size: 60px; font-weight: 700; letter-spacing: 6px;
-            border-radius: 16px; color: #9ad62f;
+            border-radius: 16px; color: #bff102;
         }
         /* Aviso de que se ha caido la red. Va por encima de todo, incluso de
            la pantalla completa, porque si no el usuario se queda mirando una
@@ -4261,7 +4329,7 @@
         #sinred {
             position: fixed; z-index: 40; display: none;
             top: 50%; left: 50%; transform: translate(-50%,-50%);
-            background: #10161a; border: 1px solid rgba(255,255,255,.07);
+            background: #2c3236; border: 1px solid rgba(255,255,255,.07);
             box-shadow: 0 18px 60px rgba(0,0,0,.85);
             padding: 34px 54px; border-radius: 16px;
             text-align: center; max-width: 900px;
@@ -4270,8 +4338,8 @@
         #sinred .detalle { font-size: 19px; color: #98a3a6; line-height: 1.5; }
 
         .pinbox {
-            font-family: Antonio, sans-serif;
-            font-size: 56px; letter-spacing: 12px; color: #9ad62f; font-weight: 600;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif;
+            font-size: 56px; letter-spacing: 12px; color: #bff102; font-weight: 600;
             background: rgba(255,255,255,.04); border-radius: 14px;
             padding: 22px 32px; display: inline-block; min-width: 280px;
         }
@@ -4293,7 +4361,7 @@
            el, y con flotantes e inline-block sale igual en todos. */
         #semana {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 11; background: #080b0d; padding: 50px 60px; overflow: hidden;
+            z-index: 11; background: #24292c; padding: 50px 60px; overflow: hidden;
         }
         .sem-vacio { color: #98a3a6; font-size: 30px; padding: 80px; }
         .sem-fondo {
@@ -4303,16 +4371,16 @@
         }
         .sem-velo {
             position: absolute; top: 0; left: 0; right: 0; height: 641px;
-            background: -webkit-linear-gradient(top, rgba(8,11,13,0) 45%, #080b0d 100%),
-                        -webkit-linear-gradient(left, #080b0d 28%, rgba(8,11,13,.55) 62%, rgba(8,11,13,.15) 100%);
-            background: linear-gradient(180deg, rgba(8,11,13,0) 45%, #080b0d 100%),
-                        linear-gradient(90deg, #080b0d 28%, rgba(8,11,13,.55) 62%, rgba(8,11,13,.15) 100%);
+            background: -webkit-linear-gradient(top, rgba(36,41,44,0) 45%, #24292c 100%),
+                        -webkit-linear-gradient(left, #24292c 28%, rgba(36,41,44,.55) 62%, rgba(36,41,44,.15) 100%);
+            background: linear-gradient(180deg, rgba(36,41,44,0) 45%, #24292c 100%),
+                        linear-gradient(90deg, #24292c 28%, rgba(36,41,44,.55) 62%, rgba(36,41,44,.15) 100%);
         }
         .sem-tabs, .sem-hero, .sem-fila, .sem-eps { position: relative; }
         .sem-tabs { height: 56px; margin-bottom: 18px; white-space: nowrap; overflow: hidden; }
         .sem-tabs b {
             display: inline-block; vertical-align: middle; margin-right: 26px;
-            font-size: 18px; letter-spacing: 3px; color: #9ad62f;
+            font-size: 18px; letter-spacing: 3px; color: #bff102;
         }
         /* Pestañas: la actual en blanco y subrayada en verde; al moverse
            por ellas, la elegida en un boton blanco. */
@@ -4321,14 +4389,14 @@
             padding: 8px 18px 6px; border-radius: 8px; font-size: 24px; font-weight: 500;
             color: #8f9a9d; border-bottom: 3px solid transparent;
         }
-        .sem-tabs span.sel { color: #fff; font-weight: 600; border-bottom-color: #9ad62f; border-radius: 0; }
-        .sem-tabs.activa span.sel { background: #fff; color: #0b0f10; border-bottom-color: #fff; border-radius: 8px; }
+        .sem-tabs span.sel { color: #fff; font-weight: 600; border-bottom-color: #bff102; border-radius: 0; }
+        .sem-tabs.activa span.sel { background: #bff102; color: #1d2023; border-bottom-color: #bff102; border-radius: 24px; }
         .sem-hero { height: 330px; margin-bottom: 26px; overflow: hidden; }
         /* Enteras, sin recortar: unas caratulas son horizontales y otras
            carteles verticales (las de Movistar y TVmaze), y recortadas a 16:9
            de un cartel solo quedaba una franja del medio. */
         .sem-img, .sem-tarjeta, .sem-mini {
-            background-color: #182024; background-position: center;
+            background-color: #40474c; background-position: center;
             -webkit-background-size: contain; background-size: contain; background-repeat: no-repeat;
         }
         /* El texto a la izquierda y la caratula a la derecha, sobre su fondo. */
@@ -4337,17 +4405,17 @@
             border-radius: 18px; margin-left: 50px; background-color: transparent;
         }
         .sem-txt { overflow: hidden; height: 330px; padding-top: 6px; }
-        .sem-kicker { font-size: 18px; letter-spacing: 3px; color: #9ad62f; font-weight: 700; }
+        .sem-kicker { font-size: 18px; letter-spacing: 3px; color: #bff102; font-weight: 700; }
         .sem-titulo {
-            font-family: Antonio, 'Segoe UI', Arial, sans-serif; font-size: 50px; font-weight: 700;
-            line-height: 56px; max-height: 112px; overflow: hidden;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 44px; font-weight: 700;
+            line-height: 54px; max-height: 108px; overflow: hidden;
         }
         .sem-meta { margin-top: 14px; white-space: nowrap; overflow: hidden; }
         .sem-meta span {
-            display: inline-block; font-size: 21px; color: #d9e0dc; margin-right: 10px;
-            padding: 5px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,.22);
+            display: inline-block; font-size: 20px; color: #e4e7e8; margin-right: 10px;
+            padding: 4px 16px; border-radius: 20px; border: 1px solid rgba(217,217,217,.4);
         }
-        .sem-meta span.sem-quedan { border-color: #9ad62f; color: #9ad62f; font-weight: 700; }
+        .sem-meta span.sem-quedan { border-color: #bff102; color: #bff102; font-weight: 700; }
         .sem-meta span.sem-quedan.urgente { border-color: #ff5a4f; color: #ff5a4f; }
         .sem-sub {
             font-size: 24px; color: #fff; margin-top: 10px;
@@ -4360,11 +4428,11 @@
         .sem-pista { margin-top: 22px; font-size: 20px; color: #9aa5a8; }
         .sem-pista span { margin: 0 8px 0 24px; }
         .sem-pista span:first-child { margin-left: 0; }
-        /* "Ver", el boton de verdad: blanco, como Netflix y Prime. */
+        /* "Ver", el boton de verdad: pastilla verde de la marca. */
         .sem-pista span.play {
-            background: #fff; color: #0b0f10; font-size: 24px; font-weight: 700;
-            padding: 12px 34px; border-radius: 8px; margin-right: 18px;
-            -webkit-box-shadow: 0 8px 24px rgba(0,0,0,.45); box-shadow: 0 8px 24px rgba(0,0,0,.45);
+            background: #bff102; border-color: #bff102; color: #1d2023; font-size: 24px; font-weight: 600;
+            padding: 11px 36px; border-radius: 30px; margin-right: 18px;
+            -webkit-box-shadow: 0 8px 24px rgba(0,0,0,.35); box-shadow: 0 8px 24px rgba(0,0,0,.35);
         }
         .sem-ayuda {
             position: absolute; left: 60px; right: 60px; bottom: 24px;
@@ -4373,19 +4441,19 @@
         .sem-fila { height: 270px; opacity: .55; }
         .sem-fila.activa { opacity: 1; }
         .sem-nombre {
-            font-family: Antonio, 'Segoe UI', Arial, sans-serif; font-size: 34px;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 28px;
             font-weight: 600; margin-bottom: 14px;
         }
-        .sem-nombre span { font-size: 22px; color: #6d7679; margin-left: 12px; font-family: 'Segoe UI', Arial, sans-serif; }
+        .sem-nombre span { font-size: 22px; color: #6d7679; margin-left: 12px; font-family: Poppins, 'Segoe UI', Arial, sans-serif; }
         .sem-tarjetas { white-space: nowrap; }
         .sem-tarjeta {
             display: inline-block; position: relative; vertical-align: top; overflow: hidden;
-            width: 336px; height: 189px; margin-right: 24px; border-radius: 12px;
+            width: 336px; height: 189px; margin-right: 24px; border-radius: 6px;
             border: 4px solid transparent;
         }
         /* La elegida crece un poco, como en Netflix y Prime. */
         .sem-tarjeta.sel {
-            border-color: #fff; box-shadow: 0 18px 40px rgba(0,0,0,.8); z-index: 2;
+            border-color: #bff102; box-shadow: 0 18px 40px rgba(0,0,0,.8); z-index: 2;
             -webkit-transform: scale(1.07); transform: scale(1.07);
         }
         .sem-tarjeta { background-position: center top; }
@@ -4402,56 +4470,72 @@
         .sem-img .sem-sinimg { height: 100%; padding-top: 115px; }
         /* Lo empezado: cuanto se ha visto, como en Netflix. */
         .sem-visto { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.25); }
-        .sem-visto i { display: block; height: 100%; background: #e5322d; }
+        .sem-visto i { display: block; height: 100%; background: #bff102; }
         .sem-sinimg img { max-height: 60px; max-width: 160px; }
         .sem-img .sem-sinimg img { max-height: 110px; max-width: 300px; }
-        .sem-sinimg b { font-family: Antonio, 'Segoe UI', Arial, sans-serif; font-size: 44px; color: #4a5357; }
+        .sem-sinimg b { font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 44px; color: #4a5357; }
         .sem-n {
             position: absolute; top: 10px; right: 10px; padding: 3px 10px; border-radius: 6px;
-            background: rgba(0,0,0,.75); color: #fdeb00; font-size: 16px; font-weight: 700;
+            background: rgba(0,0,0,.75); color: #bff102; font-size: 16px; font-weight: 600;
         }
         .sem-ep {
             height: 118px; padding: 11px; margin-bottom: 10px; overflow: hidden;
-            background: #11171a; border-radius: 12px; border: 3px solid transparent;
+            background: #33393d; border-radius: 12px; border: 3px solid transparent;
         }
-        .sem-ep.sel { border-color: #9ad62f; }
+        .sem-ep.sel { border-color: #bff102; }
         .sem-mini { float: left; width: 160px; height: 90px; border-radius: 8px; margin-right: 22px; }
         .sem-ep-txt { overflow: hidden; }
         .sem-ep-txt .t { font-size: 24px; font-weight: 600; margin-top: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .sem-ep-txt .m { font-size: 19px; color: #98a3a6; margin-top: 8px; }
 
         @media (max-width: 1919px) {
-            .panel { top: 27px; left: 27px; width: 440px; height: 667px;
-                     border-radius: 15px; padding: 21px 20px; }
-            .header { margin-bottom: 15px; padding-bottom: 13px; }
-            .logo { font-size: 31px; }
-            .counter { padding: 6px 12px; border-radius: 15px; font-size: 13px; }
+            .panel { width: 470px; height: 720px; padding: 31px 27px 23px 43px;
+                     -webkit-background-size: 1280px 720px; background-size: 1280px 720px; }
+            .tapa { -webkit-background-size: 1280px 720px; background-size: 1280px 720px; }
+            .tapa.b { background-position: 0 -504px; }
+            .tapa.i { background-position: 0 -80px; }
+            .tapa.d { background-position: -1253px -80px; }
+            .header { margin-bottom: 20px; min-height: 39px; }
+            .logo { font-size: 25px; }
+            .logo img { height: 36px; }
+            .counter { padding: 5px 12px; border-radius: 15px; font-size: 12px; margin-left: 9px; }
+            .descr { margin-top: 12px; padding: 11px 13px; }
 
-            .item { padding: 9px 14px; margin: 5px 0; border-radius: 9px; gap: 11px; }
+            .item { padding: 9px 13px 8px; gap: 11px; border-bottom-width: 1px; }
             .num { margin-right: 11px; }
             .ico { margin-right: 11px; }
             .pinpad { width: 268px; }
             .pintecla { width: 78px; height: 56px; line-height: 56px; font-size: 25px; margin: 4px; }
-            .num { width: 49px; font-size: 23px; }
-            .num.sm { font-size: 15px; width: 56px; }
+            .num { width: 49px; font-size: 25px; }
+            .num.sm { font-size: 16px; width: 56px; }
+            .ver-mas { font-size: 13px; padding: 0 4px 8px; }
+            .ver-mas span { border-radius: 4px; padding: 1px 6px; margin-right: 5px; }
+            .ficha-datos { font-size: 12px; }
+            .ficha-texto { font-size: 13px; }
+            .ficha-caja { max-height: 320px; margin-top: 9px; padding-top: 11px; }
+            .menu-op { padding: 12px 9px 11px; border-bottom-width: 2px; }
+            .menu-op .name { font-size: 20px; }
+            .mico { width: 27px; height: 27px; margin-right: 15px; }
+            .cuantos { font-size: 17px; margin-left: 11px; }
             .ico { width: 36px; height: 27px; }
             .ico b { font-size: 13px; }
-            .name { font-size: 18px; }
-            .epg { font-size: 11px; margin-top: 3px; }
+            .name { font-size: 19px; }
+            .epg { font-size: 11px; margin-top: 2px; }
+            .epg .t { font-size: 10px; }
             .hd, .rec, .live, .st { font-size: 9px; padding: 2px 5px; margin-left: 5px; }
             .ico-arch { width: 12px; height: 12px; border-width: 2px; margin-left: 5px; }
             .ico-arch:before { left: 3px; top: 1px; width: 2px; height: 4px; }
             .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
             #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
             #preview-cap .sep { width: 18px; }
-            .boton-semana { font-size: 13px; padding: 5px 11px; border-radius: 14px; }
+            .boton-semana { font-size: 12px; padding: 5px 13px; border-radius: 16px; }
             .boton-semana i { width: 8px; height: 8px; margin-right: 5px; }
             #semana { padding: 33px 40px; }
             .sem-vacio { font-size: 20px; padding: 53px; }
             .sem-tabs { height: 37px; margin-bottom: 12px; }
             .sem-tabs b { font-size: 12px; letter-spacing: 2px; margin-right: 17px; }
             .sem-tabs span { font-size: 16px; padding: 5px 12px 4px; margin-right: 5px; border-bottom-width: 2px; }
-            .sem-tabs.activa span.sel { border-radius: 6px; }
+            .sem-tabs.activa span.sel { border-radius: 16px; }
             .sem-hero { height: 220px; margin-bottom: 17px; }
             .sem-img { width: 391px; height: 220px; border-radius: 12px; margin-left: 33px; }
             .sem-fondo { height: 427px; }
@@ -4459,20 +4543,20 @@
             .sem-txt { height: 220px; }
             .sem-visto { height: 4px; }
             .sem-kicker { font-size: 12px; letter-spacing: 2px; }
-            .sem-titulo { font-size: 33px; line-height: 37px; max-height: 74px; }
+            .sem-titulo { font-size: 29px; line-height: 36px; max-height: 72px; }
             .sem-meta, .sem-sub { font-size: 16px; margin-top: 8px; }
-            .sem-meta span { font-size: 14px; padding: 3px 9px; border-radius: 5px; margin-right: 7px; }
+            .sem-meta span { font-size: 13px; padding: 3px 11px; border-radius: 14px; margin-right: 7px; }
             .sem-descr { font-size: 15px; line-height: 21px; max-height: 42px; margin-top: 8px; }
             .sem-pista { font-size: 15px; margin-top: 12px; }
             .sem-pista span, .sem-ayuda span { padding: 3px 8px 5px; border-radius: 5px; margin: 0 5px 0 9px; }
-            .sem-pista span.play { font-size: 16px; padding: 8px 23px; border-radius: 6px; margin-right: 12px; }
+            .sem-pista span.play { font-size: 16px; padding: 7px 24px; border-radius: 20px; margin-right: 12px; }
             .sem-pista span { margin: 0 5px 0 17px; }
             .sem-pista span:first-child { margin-left: 0; }
             .sem-ayuda { left: 40px; right: 40px; bottom: 16px; font-size: 13px; }
             .sem-fila { height: 180px; }
-            .sem-nombre { font-size: 23px; margin-bottom: 9px; }
+            .sem-nombre { font-size: 19px; margin-bottom: 9px; }
             .sem-nombre span { font-size: 15px; margin-left: 8px; }
-            .sem-tarjeta { width: 224px; height: 126px; margin-right: 16px; border-radius: 8px; border-width: 3px; }
+            .sem-tarjeta { width: 224px; height: 126px; margin-right: 16px; border-radius: 4px; border-width: 3px; }
             .sem-pie { padding: 20px 9px 7px; }
             .sem-pie .t { font-size: 14px; }
             .sem-pie .m { font-size: 11px; margin-top: 2px; }
@@ -4488,30 +4572,32 @@
             .sem-ep-txt .m { font-size: 13px; margin-top: 5px; }
             .fav, .arch, .lock { font-size: 13px; margin-left: 5px; }
             .bar { height: 3px; margin-top: 6px; }
-            .descr { font-size: 12px; padding: 11px 4px; }
+            .descr { font-size: 12px; }
             .help { font-size: 13px; line-height: 2.2; }
-            .help span { padding: 6px 11px; margin: 0 5px; font-size: 14px; }
+            .help span { padding: 3px 9px 4px; margin: 0 5px; font-size: 13px; border-radius: 4px; }
             .osd-pistas { font-size: 14px; }
             .osd-pistas span { padding: 4px 9px; }
 
             #preview { top: 80px; left: 499px; width: 754px; height: 424px;
                        border-radius: 12px; font-size: 17px; }
             #preview-cap { top: 537px; left: 499px; width: 754px; }
-            #preview-cap .t { font-size: 27px; }
-            #preview-cap .e { font-size: 14px; margin-top: 6px; }
-            .cartel { height: 101px; max-width: 173px; margin-left: 16px; border-radius: 7px; }
+            #preview-cap .t { font-size: 28px; }
+            #preview-cap .e { font-size: 14px; margin-top: 5px; }
+            #preview-cap .e.despues { font-size: 13px; }
+            #preview-cap .boton { font-size: 12px; padding: 3px 11px; border-radius: 14px; }
+            .cartel { height: 101px; max-width: 173px; margin-left: 16px; border-radius: 3px; }
             .osd-cartel { height: 80px; max-width: 143px; margin-right: 19px; border-radius: 5px; }
 
             #osd { left: 27px; right: 27px; bottom: 27px;
-                   padding: 14px 22px 16px; border-radius: 9px; }
+                   padding: 14px 22px 16px; border-radius: 5px; }
             .osd-fila { gap: 14px; }
             .osd-fila > * { margin-right: 14px; }
-            .osd-num { font-size: 38px; }
+            .osd-num { font-size: 36px; }
             .osd-ico { width: 48px; height: 36px; border-radius: 5px; }
             .osd-ch { font-size: 21px; }
             .osd-prog { font-size: 15px; margin-top: 5px; }
             .osd-epg { font-size: 12px; margin-top: 4px; }
-            .osd-reloj { font-size: 28px; margin-left: 19px; padding-left: 16px; }
+            .osd-reloj { font-size: 27px; margin-left: 19px; padding-left: 16px; }
             #osd .bar { width: 55%; max-width: 460px; height: 5px; margin-top: 7px; }
 
             #vol { padding: 17px 35px; font-size: 20px; border-radius: 11px; }
@@ -4534,7 +4620,7 @@
         <div class="radio-ondas"><i></i><i></i><i></i><i></i><i></i></div>
     </div></div>
     <div id="preview-cap"></div>
-    <div id="content" style="position:relative;z-index:10;"><div class="panel" style="text-align:center;padding:60px 40px;"><div class="logo">QuattreTV</div><div style="color:#98a3a6;margin-top:20px;">Cargando canales...</div></div></div>
+    <div id="content" style="position:relative;z-index:10;"><div class="panel" style="padding-top:60px;"><div class="logo"><img src="{% static 'stb/quattretv-anillo.svg' %}" alt="Quattretv"></div><div style="color:#c3c8ca;margin-top:24px;">Cargando canales...</div></div></div>
     <div id="semana"></div>
     <div id="osd"></div>
     <!-- Panel de diagnostico. Se enseña tecleando 0000 y se quita igual. Existe
