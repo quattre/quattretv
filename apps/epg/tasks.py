@@ -82,8 +82,15 @@ def update_epg_source(source_id):
                 ))
 
         if programs_to_create:
+            corregir_horas(source, programs_to_create)
             _replace_programs(programs_to_create)
             logger.info(f"Created {len(programs_to_create)} programs")
+            # Los programas son nuevos: la hora real vista en la EIT se les
+            # vuelve a apuntar.
+            from . import eit
+            eit.reaplicar({p.channel_id for p in programs_to_create},
+                          min(p.start_time for p in programs_to_create),
+                          max(p.end_time for p in programs_to_create))
 
         source.last_update = timezone.now()
         source.save(update_fields=['last_update'])
@@ -91,6 +98,31 @@ def update_epg_source(source_id):
     except Exception as e:
         logger.error(f"Error updating EPG from {source.name}: {e}")
         raise
+
+
+def corregir_horas(source, programas):
+    """
+    Si la fuente va desviada horas enteras en algun canal (la EIT lo dice: ver
+    eit.desfases), se le corrige antes de guardarla. Lo hizo falta con el
+    cambio de hora de octubre de 2026, y asi vale para los que vengan.
+    """
+    from . import eit
+    try:
+        cambios = eit.desfases(programas)
+    except Exception as e:
+        logger.error(f"EPG {source.name}: no se pudo mirar el desfase: {e}")
+        return
+    for p in programas:
+        d = cambios.get(p.channel_id)
+        if d:
+            p.start_time += d
+            p.end_time += d
+    if cambios:
+        resumen = {}
+        for canal, d in cambios.items():
+            resumen.setdefault(int(d.total_seconds() // 60), []).append(canal)
+        logger.warning(f"EPG {source.name}: horas corregidas con la EIT " +
+                       ", ".join(f"{m:+d} min en {len(c)} canales" for m, c in resumen.items()))
 
 
 def descomprimir(contenido):
@@ -171,9 +203,11 @@ def _replace_programs(programs):
     Program.objects.bulk_create(programs, batch_size=1000)
 
 
-# Lo que una fuente puede completar de otra.
+# Lo que una fuente puede completar de otra. La hora real no: se vuelve a
+# sacar de lo visto en la EIT (eit.reaplicar), y arrastrarla podia pegarsela
+# a otro capitulo cuando la fuente cambia de hora.
 COMPLEMENTOS = ('category', 'icon', 'description', 'episode_title', 'year',
-                'season', 'episode', 'inicio_real', 'fin_real')
+                'season', 'episode')
 
 
 @shared_task
@@ -217,6 +251,9 @@ def cleanup_old_programs():
     cutoff = timezone.now() - timedelta(hours=keep_hours)
     deleted, _ = Program.objects.filter(end_time__lt=cutoff).delete()
     logger.info(f"Deleted {deleted} old programs")
+
+    from .models import ObservacionEit
+    ObservacionEit.objects.filter(inicio__lt=timezone.now() - timedelta(days=4)).delete()
 
 
 def xmltv_imagen(node):

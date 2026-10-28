@@ -156,3 +156,22 @@ class ProgresoArchivo(models.Model):
 
     def __str__(self):
         return f'{self.device_id} {self.channel_id} {self.inicio:%d/%m %H:%M} {self.posicion}s'
+
+
+class ObservacionEit(models.Model):
+    """
+    Un cambio de programa visto en la EIT de la señal (ver apps/epg/eit.py):
+    que empezo y cuando de verdad. Se guarda unos dias para volver a aplicarlo
+    cuando la guia se recarga y para ver si una fuente va desviada.
+    """
+    channel = models.ForeignKey('channels.Channel', on_delete=models.CASCADE, related_name='+')
+    inicio = models.DateTimeField(db_index=True)
+    nombre = models.CharField(max_length=300)
+    visto = models.DateTimeField()
+
+    class Meta:
+        unique_together = ('channel', 'inicio', 'nombre')
+        ordering = ['-inicio']
+
+    def __str__(self):
+        return f'{self.channel_id} {self.inicio:%d/%m %H:%M:%S} {self.nombre}'
