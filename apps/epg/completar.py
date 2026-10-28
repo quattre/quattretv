@@ -65,6 +65,12 @@ def generico(titulo):
     return plano(titulo).strip(' .') in GENERICOS
 
 
+def mas_completa(nueva, vieja):
+    """Si la categoria nueva dice lo mismo y algo mas: "Cine" -> "Cine,Terror"."""
+    n, v = plano(nueva), plano(vieja)
+    return bool(n) and n != v and n.startswith(v)
+
+
 def limpio(texto):
     return COLOR.sub('', texto or '').strip()
 
@@ -105,7 +111,9 @@ def leer_programa(el):
 
     sub = _texto(el, 'sub-title')
     m = GENERO.match(sub)
-    datos['category'] = m.group(1).split(',')[0].strip() if m else ''
+    # Entero: "Cine,Terror,Suspense". El tipo decide la fila y el resto, las
+    # filas por genero (ver apps/stalker_api/semana.py).
+    datos['category'] = m.group(1).strip()[:100] if m else ''
     anio = int(m.group(2)) if m else None
     datos['year'] = anio if anio and 1900 <= anio <= 2100 else None
 
@@ -191,7 +199,10 @@ def completar(url=None, guardar=True):
         cambiados = []
         for p in programas:
             sin_titulo = generico(p.title)
-            if not sin_titulo and all(getattr(p, campo) not in ('', None) for campo in CAMPOS):
+            # "Cine" a secas puede ganar el genero, asi que no se da por completo.
+            sin_genero = plano(p.category) in ('cine', 'pelicula', 'peliculas', 'series', 'serie')
+            if not sin_titulo and not sin_genero and \
+                    all(getattr(p, campo) not in ('', None) for campo in CAMPOS):
                 continue
             nuestro = plano(p.title)
             mejor = None
@@ -210,6 +221,9 @@ def completar(url=None, guardar=True):
                 if getattr(p, campo) in ('', None) and mejor[campo] not in ('', None):
                     setattr(p, campo, mejor[campo])
                     cambio = True
+            if mas_completa(mejor['category'], p.category):
+                p.category = mejor['category']
+                cambio = True
             if cambio:
                 cambiados.append(p)
         if cambiados and guardar:

@@ -1087,13 +1087,14 @@ def ultimos7(request):
     from apps.stalker_api import semana
 
     nombres = dict(semana.GRUPOS)
+    filas_genero = dict([semana.ULTIMA] + [(g, nombre) for g, nombre, _ in semana.GENEROS])
     if request.method == 'POST':
         accion = request.POST.get('accion')
-        if accion == 'fila' and request.POST.get('grupo') in nombres:
+        if accion == 'fila' and request.POST.get('grupo') in {**nombres, **filas_genero}:
             fila, _ = FilaSemana.objects.get_or_create(grupo=request.POST['grupo'])
             fila.visible = not fila.visible
             fila.save(update_fields=['visible'])
-            messages.success(request, f'Fila {nombres[fila.grupo]}: '
+            messages.success(request, f'Fila {({**nombres, **filas_genero})[fila.grupo]}: '
                                       f'{"se ve" if fila.visible else "oculta"}.')
         elif accion == 'titulo':
             titulo = request.POST.get('titulo', '').strip()
@@ -1132,7 +1133,6 @@ def ultimos7(request):
         fila['visible'] = fila['id'] not in ocultas
         fila['total'] = len(fila['items'])
         fila['sin_imagen'] = sum(1 for i in fila['items'] if not i['img'])
-        fila['items'] = fila['items'][:semana.POR_GRUPO]     # lo que llega al deco
         for item in fila['items']:
             item['correccion'] = corregidos.get(semana.plano(item['titulo']))
             item['inicio'] = timezone.datetime.fromtimestamp(item['ini'], tz=timezone.get_default_timezone())
@@ -1142,7 +1142,6 @@ def ultimos7(request):
         'filas': filas,
         'grupos': semana.GRUPOS,
         'n_canales': len(canales),
-        'por_grupo': semana.POR_GRUPO,
         'correcciones': list(corregidos.values()),
         'nombres': nombres,
         'tmdb': bool(settings.QUATTRETV.get('TMDB_API_KEY')),

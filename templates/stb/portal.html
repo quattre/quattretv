@@ -1438,8 +1438,6 @@
         {id: 'semana',      titulo: 'Videoclub 7 dias', modulo: 'semana'},
         {id: 'categorias',  titulo: 'Categorias',     modulo: 'tv'},
         {id: 'favoritos',   titulo: 'Solo favoritos', modulo: 'tv'},
-        {id: 'peliculas',   titulo: 'Peliculas',      modulo: 'vod'},
-        {id: 'series',      titulo: 'Series',         modulo: 'vod'},
         {id: 'grabaciones', titulo: 'Mis grabaciones', modulo: 'records'}
     ];
     var MODULOS = ['tv', 'epg', 'vod', 'settings'];
@@ -1652,7 +1650,10 @@
                 var f = semana.filas[r], col = semana.cols[r];
                 var desde = Math.max(0, Math.min(col - 1, f.items.length - SEMANA_VISIBLES));
                 h += '<div class="sem-fila' + (r === semana.fila ? ' activa' : '') + '">' +
-                     '<div class="sem-nombre">' + esc(f.nombre) + '<span>' + f.items.length + '</span></div>' +
+                     '<div class="sem-nombre">' + esc(f.nombre) + '<span>' +
+                     // En la fila elegida, por donde va: ahora las filas traen
+                     // todos los titulos y alguna pasa de cien.
+                     (r === semana.fila ? (col + 1) + ' / ' : '') + (f.total || f.items.length) + '</span></div>' +
                      '<div class="sem-tarjetas">';
                 for (var c = desde; c < Math.min(f.items.length, desde + SEMANA_VISIBLES); c++) {
                     var it = f.items[c];
@@ -1660,7 +1661,7 @@
                          estiloImagen(it) + '>' + (it.img ? '' : sinImagen(it)) +
                          (it.n > 1 ? '<span class="sem-n">' + it.n + '</span>' : '') +
                          '<div class="sem-pie"><div class="t">' + esc(it.titulo) + '</div>' +
-                         '<div class="m">' + esc(pieTarjeta(it, f.id)) + '</div></div></div>';
+                         '<div class="m">' + esc(pieTarjeta(it, it.grupo || f.id)) + '</div></div></div>';
                 }
                 h += '</div></div>';
             }
@@ -1683,7 +1684,7 @@
             if (k === 37 || k === 8 || k === 27) cerrarSemana();
         } else if (k === 38 && semana.fila > 0) { semana.fila--; renderSemana(); }
         else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; renderSemana(); }
-        else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; renderSemana(); }
+        else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; renderSemana(); masDeFila(f); }
         else if (k === 37 && col > 0) { semana.cols[semana.fila]--; renderSemana(); }
         // Izquierda en la primera tarjeta sale, como en el resto de pantallas;
         // el amarillo, que lo abre, tambien lo cierra.
@@ -1691,9 +1692,31 @@
         else if (k === 13) {
             var it = itemSemana();
             if (!it) return;
-            if (it.n > 1) abrirEmisiones(f.id, it);
+            if (it.n > 1) abrirEmisiones(it.grupo || f.id, it);
             else verDeSemana(it);
         }
+    }
+
+    // Las filas llegan con las primeras tarjetas: el catalogo entero pesa mas
+    // de un mega. Las siguientes se piden antes de llegar al final, para que
+    // no haya que esperar.
+    function masDeFila(f) {
+        if (f.pidiendo || !f.total || f.items.length >= f.total ||
+            semana.cols[semana.fila] < f.items.length - 8) return;
+        f.pidiendo = true;
+        api("type=tv_archive&action=get_row&group=" + encodeURIComponent(f.id) +
+            "&from=" + f.items.length, function(js) {
+            f.pidiendo = false;
+            var nuevas = (js && js.data) ? js.data : [];
+            if (!nuevas.length) { f.total = f.items.length; return; }
+            // Si el catalogo ha cambiado entre medias, que no salga nada dos veces.
+            var vistas = {};
+            for (var i = 0; i < f.items.length; i++) vistas[f.items[i].ch_id + ':' + f.items[i].ini] = 1;
+            for (var j = 0; j < nuevas.length; j++) {
+                if (!vistas[nuevas[j].ch_id + ':' + nuevas[j].ini]) f.items.push(nuevas[j]);
+            }
+            if (view === "semana" && !semana.episodios) renderSemana();
+        });
     }
 
     function abrirEmisiones(grupo, it) {
@@ -2089,7 +2112,7 @@
         // Grabar ya no va aqui: sale junto al canal, debajo de la imagen.
         h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu <span>0-9</span> Ir al canal';
         h += '<br>';
-        h += 'Grabaciones, favoritos y peliculas estan en el <span data-tecla="37">Menu</span></div>';
+        h += 'Grabaciones y favoritos estan en el <span data-tecla="37">Menu</span></div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
         medirFilas("canales", visible, showChannels);

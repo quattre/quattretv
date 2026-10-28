@@ -1420,6 +1420,8 @@ def handle_tv_archive(request, action):
         return handle_archive_catalog(request)
     if action == 'get_title':
         return handle_archive_title(request)
+    if action == 'get_row':
+        return handle_archive_row(request)
 
     return stalker_response({'error': 'Unknown action'})
 
@@ -1431,7 +1433,21 @@ def handle_archive_catalog(request):
     device, sin_permiso = aparato_o_error(request)
     if sin_permiso:
         return sin_permiso
-    return stalker_response({'data': semana.catalogo(device)})
+    return stalker_response({'data': semana.primeras(semana.catalogo(device))})
+
+
+def handle_archive_row(request):
+    """Mas tarjetas de una fila, a medida que el deco avanza por ella."""
+    from . import semana
+
+    device, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
+    try:
+        desde = max(0, int(request.GET.get('from', 0)))
+    except ValueError:
+        desde = 0
+    return stalker_response({'data': semana.mas_de_fila(device, request.GET.get('group', ''), desde)})
 
 
 def handle_archive_title(request):

@@ -114,6 +114,11 @@ def generico(titulo):
     return _generico(titulo)
 
 
+def mas_completa(nueva, vieja):
+    from .completar import mas_completa as _mas_completa
+    return _mas_completa(nueva, vieja)
+
+
 def _replace_programs(programs):
     """
     Replace the programs covered by this feed.
@@ -158,6 +163,10 @@ def _replace_programs(programs):
             for campo in COMPLEMENTOS:
                 if not getattr(prog, campo) and viejo[campo]:
                     setattr(prog, campo, viejo[campo])
+            # La fuente trae "Cine" y la guia complementaria habia dejado
+            # "Cine,Terror": sin esto el genero se perdia cada hora.
+            if mas_completa(viejo['category'], prog.category):
+                prog.category = viejo['category']
 
     Program.objects.bulk_create(programs, batch_size=1000)
 

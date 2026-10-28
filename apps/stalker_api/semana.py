@@ -29,7 +29,12 @@ GRUPOS = [
     ('noticias', 'Noticias'),
 ]
 
-POR_GRUPO = 40          # tarjetas por fila: el deco no puede con miles
+# Antes cada fila se cortaba en 40 y no salian todos los titulos. De verdad
+# son mas de 1.500 (solo peliculas, unas 600) y 1,2 MB, que un MAG no traga de
+# una vez: cada fila llega con las primeras PAGINA y el resto se pide al
+# avanzar por ella.
+POR_GRUPO = None
+PAGINA = 30
 # Minutos. Lo mas corto son el tiempo, avances y cortinillas; los dibujos si
 # duran poco de verdad.
 DURACION_MINIMA = 15
@@ -63,6 +68,26 @@ TITULOS = [
     ('deportes', ('futbol', 'laliga', 'la liga', 'champions', 'motogp',
                   'formula 1', 'baloncesto', 'tenis', 'ciclismo', 'estadio')),
 ]
+
+# Filas de peliculas por genero, debajo de la de todas. La guia de dobleM lo
+# trae como "Cine,Terror,Suspense" y una pelicula puede estar en varias.
+GENEROS = [
+    ('cine-terror', 'Peliculas de terror', ('terror', 'horror')),
+    ('cine-accion', 'Accion y aventuras', ('accion', 'action', 'aventura', 'adventure', 'belic')),
+    ('cine-comedia', 'Comedias', ('comedia', 'comedy')),
+    ('cine-suspense', 'Suspense y policiacas', ('thriller', 'suspense', 'policiac', 'crimen',
+                                                'crime', 'intriga', 'misterio')),
+    ('cine-drama', 'Dramas', ('drama',)),
+    ('cine-romantico', 'Romanticas', ('romant', 'romance')),
+    ('cine-ficcion', 'Ciencia ficcion y fantasia', ('ciencia ficcion', 'sci-fi', 'fantas')),
+    ('cine-familiar', 'Animacion y familiares', ('animacion', 'familiar', 'infantil')),
+    ('cine-oeste', 'Oeste', ('oeste', 'western')),
+    ('cine-docu', 'Cine documental', ('document',)),
+]
+GENERO_MINIMO = 3       # con menos peliculas la fila no merece la pena
+# Como el "Last chance" de Netflix: las que se borran en menos de dos dias.
+ULTIMA = ('cine-ultima', 'Ultima oportunidad')
+ULTIMA_HORAS = 24
 
 # Lo que no es un programa que alguien quiera volver a ver.
 FUERA = ('teletienda', 'televenta', 'tienda en casa', 'juwelo', 'cierre de emision', 'el tiempo',
@@ -99,9 +124,15 @@ def grupo_de(titulo, categoria, minutos, anio, tipo_canal):
     ofrecerlo. "seguro" es que lo dice la guia o el canal es de cine y series;
     si no, es una suposicion que otra emision del mismo titulo puede corregir.
     """
-    t, c, canal = plano(titulo), plano(categoria), plano(tipo_canal)
+    t, canal = plano(titulo), plano(tipo_canal)
+    # dobleM pone el tipo y detras los generos: "Series,Drama", "Cine,Terror".
+    # El tipo es lo primero; con todo, "Series,Drama" de 90 minutos salia
+    # como pelicula.
+    c = plano(categoria).split(',')[0].strip()
     if any(p in t for p in FUERA):
         return None, True
+    if c == 'cine' and 'programa de cine' in plano(categoria):
+        return 'entretenimiento', True
     largo = minutos >= 75
 
     if c:
@@ -123,6 +154,16 @@ def grupo_de(titulo, categoria, minutos, anio, tipo_canal):
     # traen el año de casi todo, Masterchef o El hormiguero salian como
     # peliculas. En una generalista sin categoria no se puede saber.
     return 'entretenimiento', False
+
+
+def generos_de(categoria):
+    """Las filas de genero de una pelicula: "Cine,Terror" -> ['cine-terror']."""
+    resto = plano(categoria).split(',', 1)
+    # "Cine,Terror" o "Peliculas de terror": el genero va detras del tipo.
+    texto = resto[1] if len(resto) > 1 else resto[0]
+    if texto.strip() in ('cine', 'pelicula', 'peliculas', 'film', 'movie', ''):
+        return []
+    return [g for g, _, palabras in GENEROS if any(p in texto for p in palabras)]
 
 
 def canales_con_archivo(device):
@@ -218,7 +259,8 @@ def emisiones(canales, con_ocultos=False):
                 'grupo': grupo,
                 'titulo': titulo,
                 'sub': p.episode_title or '',
-                'descr': (p.description or '')[:400],
+                'descr': (p.description or '')[:300],
+                'generos': generos_de(p.category),
                 'anio': p.year or '',
                 'img': p.icon or '',
                 'ch_id': str(canal.id),
@@ -281,12 +323,25 @@ def catalogo(device):
 
     ocultas, _ = correcciones()
     resultado = [f for f in filas_de(emisiones(canales))
-                 if f['items'] and f['id'] not in ocultas]
+                 if f['items'] and f['id'] not in ocultas
+                 and not (f['id'].startswith('cine-') and 'peliculas' in ocultas)]
     try:
         cache.set(clave, resultado, CACHE_SEGUNDOS)
     except Exception:
         pass
     return resultado
+
+
+def primeras(filas):
+    """Las filas con sus primeras tarjetas y cuantas tiene cada una."""
+    return [dict(f, items=f['items'][:PAGINA], total=len(f['items'])) for f in filas]
+
+
+def mas_de_fila(device, fila, desde):
+    for f in catalogo(device):
+        if f['id'] == fila:
+            return f['items'][desde:desde + PAGINA]
+    return []
 
 
 def filas_de(lista, por_grupo=POR_GRUPO):
@@ -341,7 +396,35 @@ def filas_de(lista, por_grupo=POR_GRUPO):
                 tarjeta['n'] = 1
         caratulas.completar(elegidas)
         filas.append({'id': g, 'nombre': nombre, 'items': elegidas})
+        if g == 'peliculas':
+            filas.extend(filas_de_peliculas(elegidas))
+    for fila in filas:
+        for tarjeta in fila['items']:
+            tarjeta.pop('generos', None)
     return filas
+
+
+def filas_de_peliculas(peliculas):
+    """
+    Las filas que van debajo de la de todas las peliculas, como en Netflix:
+    las que estan a punto de borrarse y luego una por genero ("Peliculas de
+    terror", "Comedias"...). Las tarjetas son copias: la misma pelicula puede
+    estar en varias filas.
+    """
+    filas = []
+    limite = timezone.now().timestamp() + ULTIMA_HORAS * 3600
+    ultimas = sorted((dict(p) for p in peliculas if p['caduca'] <= limite),
+                     key=lambda p: p['caduca'])
+    if len(ultimas) >= GENERO_MINIMO:
+        filas.append({'id': ULTIMA[0], 'nombre': ULTIMA[1], 'items': ultimas})
+    generos = []
+    for g, nombre, _ in GENEROS:
+        suyas = [dict(p) for p in peliculas if g in p.get('generos', ())]
+        if len(suyas) >= GENERO_MINIMO:
+            generos.append({'id': g, 'nombre': nombre, 'items': suyas})
+    # Las mas llenas primero.
+    generos.sort(key=lambda f: -len(f['items']))
+    return filas + generos
 
 
 def emisiones_de(device, grupo, titulo):
@@ -350,6 +433,8 @@ def emisiones_de(device, grupo, titulo):
     buscado = plano(titulo)
     lista = [e for e in emisiones(canales_con_archivo(device))
              if e['grupo'] == grupo and plano(e['titulo']) == buscado]
+    for e in lista:
+        e.pop('generos', None)
     caratulas.completar(lista)
     return lista
 
