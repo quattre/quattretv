@@ -1711,17 +1711,46 @@
         return p + accion + ' <span>▲▼◀▶</span> Moverse <span data-tecla="27">Atras</span> Salir';
     }
 
+    // El genero, en la cabecera: "Comedia · Romantica".
+    var NOMBRE_ETIQUETA = {
+        terror: 'Terror', accion: 'Accion', comedia: 'Comedia', suspense: 'Suspense',
+        drama: 'Drama', romantico: 'Romantica', ficcion: 'Ciencia ficcion', familiar: 'Familiar',
+        oeste: 'Oeste', docu: 'Documental', naturaleza: 'Naturaleza', historia: 'Historia',
+        viajes: 'Viajes', ciencia: 'Ciencia', caza: 'Caza y pesca', motor: 'Motor',
+        sociedad: 'Sociedad', humor: 'Humor', concursos: 'Concurso', cocina: 'Cocina',
+        reality: 'Telerrealidad', magacin: 'Magacin', musica: 'Musica',
+        preescolar: 'Preescolar', dibujos: 'Dibujos'
+    };
+
+    function duracion(min) {
+        return min >= 60 ? Math.floor(min / 60) + ' h' + (min % 60 ? ' ' + (min % 60) + ' min' : '') : min + ' min';
+    }
+
+    // Sin canal ni hora: en un videoclub da igual de donde salio la pelicula.
+    // Solo en noticias, deporte y programas se dice de cuando es.
     function heroSemana(it) {
         if (!it) return '';
         var h = '<div class="sem-hero">';
         h += '<div class="sem-img"' + estiloImagen(it) + '>' + (it.img ? '' : sinImagen(it)) + '</div>';
         h += '<div class="sem-txt">';
         h += '<div class="sem-titulo">' + esc(it.titulo) + '</div>';
-        var meta = [it.canal, cuandoFue(it.ini, it.fin), it.min + ' min'];
-        if (it.anio) meta.push(it.anio);
-        if (it.caduca) meta.push(quedan(it.caduca).toLowerCase());
-        if (semana.episodios) meta.push(semana.episodios.length + ' emisiones');
-        h += '<div class="sem-meta">' + esc(meta.join('  ·  ')) + '</div>';
+        var chips = [];
+        if (SEMANA_POR_FECHA[it.grupo]) chips.push(cuandoCorto(it.ini));
+        if (it.anio) chips.push(it.anio);
+        if (it.min) chips.push(duracion(it.min));
+        if (semana.episodios) chips.push(semana.episodios.length + ' emisiones');
+        var generos = [];
+        for (var g = 0; it.etiquetas && g < it.etiquetas.length; g++) {
+            if (NOMBRE_ETIQUETA[it.etiquetas[g]]) generos.push(NOMBRE_ETIQUETA[it.etiquetas[g]]);
+        }
+        if (generos.length) chips.push(generos.slice(0, 3).join(' · '));
+        h += '<div class="sem-meta">';
+        if (it.caduca && !SEMANA_POR_FECHA[it.grupo]) {
+            var urgente = it.caduca - new Date().getTime() / 1000 < 86400;
+            h += '<span class="sem-quedan' + (urgente ? ' urgente' : '') + '">' + esc(quedan(it.caduca)) + '</span>';
+        }
+        for (var c = 0; c < chips.length; c++) h += '<span>' + esc(chips[c]) + '</span>';
+        h += '</div>';
         if (it.sub) h += '<div class="sem-sub">' + esc(it.sub) + '</div>';
         if (it.descr) h += '<div class="sem-descr">' + esc(it.descr) + '</div>';
         // Las teclas van aqui y no en una barra al pie, que tapaba la fila
@@ -1753,7 +1782,11 @@
     }
 
     function renderSemana() {
-        var h = pestanasSemana() + heroSemana(itemSemana());
+        var actual = itemSemana();
+        // La caratula de lo elegido, grande y apagada detras de todo, como el
+        // fondo de Netflix. Sin desenfoque, que al MAG le cuesta.
+        var h = (actual && actual.img ? '<div class="sem-fondo"' + estiloImagen(actual) + '></div>' : '') +
+                '<div class="sem-velo"></div>' + pestanasSemana() + heroSemana(actual);
         if (semana.ficha) {
             var fi = semana.ficha;
             if (fi.similares.length) {
@@ -4231,6 +4264,19 @@
             z-index: 11; background: #080b0d; padding: 50px 60px; overflow: hidden;
         }
         .sem-vacio { color: #98a3a6; font-size: 30px; padding: 80px; }
+        .sem-fondo {
+            position: absolute; top: 0; right: 0; width: 72%; height: 640px; opacity: .32;
+            background-position: center 25%; background-repeat: no-repeat;
+            -webkit-background-size: cover; background-size: cover;
+        }
+        .sem-velo {
+            position: absolute; top: 0; left: 0; right: 0; height: 641px;
+            background: -webkit-linear-gradient(top, rgba(8,11,13,0) 45%, #080b0d 100%),
+                        -webkit-linear-gradient(left, #080b0d 28%, rgba(8,11,13,.55) 62%, rgba(8,11,13,.15) 100%);
+            background: linear-gradient(180deg, rgba(8,11,13,0) 45%, #080b0d 100%),
+                        linear-gradient(90deg, #080b0d 28%, rgba(8,11,13,.55) 62%, rgba(8,11,13,.15) 100%);
+        }
+        .sem-tabs, .sem-hero, .sem-fila, .sem-eps { position: relative; }
         .sem-tabs { height: 56px; margin-bottom: 18px; white-space: nowrap; overflow: hidden; }
         .sem-tabs b {
             display: inline-block; vertical-align: middle; margin-right: 26px;
@@ -4250,17 +4296,24 @@
             background-color: #182024; background-position: center;
             -webkit-background-size: contain; background-size: contain; background-repeat: no-repeat;
         }
+        /* El texto a la izquierda y la caratula a la derecha, sobre su fondo. */
         .sem-img {
-            float: left; position: relative; width: 587px; height: 330px;
-            border-radius: 18px; margin-right: 50px;
+            float: right; position: relative; width: 587px; height: 330px;
+            border-radius: 18px; margin-left: 50px; background-color: transparent;
         }
-        .sem-txt { overflow: hidden; height: 330px; }
+        .sem-txt { overflow: hidden; height: 330px; padding-top: 6px; }
         .sem-kicker { font-size: 18px; letter-spacing: 3px; color: #9ad62f; font-weight: 700; }
         .sem-titulo {
             font-family: Antonio, 'Segoe UI', Arial, sans-serif; font-size: 50px; font-weight: 700;
             line-height: 56px; max-height: 112px; overflow: hidden;
         }
-        .sem-meta { font-size: 24px; color: #9ad62f; margin-top: 12px; }
+        .sem-meta { margin-top: 14px; white-space: nowrap; overflow: hidden; }
+        .sem-meta span {
+            display: inline-block; font-size: 21px; color: #d9e0dc; margin-right: 10px;
+            padding: 5px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,.22);
+        }
+        .sem-meta span.sem-quedan { border-color: #9ad62f; color: #9ad62f; font-weight: 700; }
+        .sem-meta span.sem-quedan.urgente { border-color: #ff5a4f; color: #ff5a4f; }
         .sem-sub {
             font-size: 24px; color: #fff; margin-top: 10px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -4281,7 +4334,7 @@
             position: absolute; left: 60px; right: 60px; bottom: 24px;
             font-size: 20px; color: #a8b2b5; text-align: right;
         }
-        .sem-fila { height: 270px; opacity: .5; }
+        .sem-fila { height: 270px; opacity: .55; }
         .sem-fila.activa { opacity: 1; }
         .sem-nombre {
             font-family: Antonio, 'Segoe UI', Arial, sans-serif; font-size: 34px;
@@ -4294,7 +4347,11 @@
             width: 336px; height: 189px; margin-right: 24px; border-radius: 12px;
             border: 4px solid transparent;
         }
-        .sem-tarjeta.sel { border-color: #9ad62f; box-shadow: 0 18px 40px rgba(0,0,0,.7); }
+        /* La elegida crece un poco, como en Netflix y Prime. */
+        .sem-tarjeta.sel {
+            border-color: #fff; box-shadow: 0 18px 40px rgba(0,0,0,.8); z-index: 2;
+            -webkit-transform: scale(1.07); transform: scale(1.07);
+        }
         .sem-tarjeta { background-position: center top; }
         .sem-pie {
             position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 14px 10px;
@@ -4359,12 +4416,15 @@
             .sem-tabs b { font-size: 12px; letter-spacing: 2px; margin-right: 17px; }
             .sem-tabs span { font-size: 17px; padding: 5px 13px; border-radius: 17px; margin-right: 4px; }
             .sem-hero { height: 220px; margin-bottom: 17px; }
-            .sem-img { width: 391px; height: 220px; border-radius: 12px; margin-right: 33px; }
+            .sem-img { width: 391px; height: 220px; border-radius: 12px; margin-left: 33px; }
+            .sem-fondo { height: 427px; }
+            .sem-velo { height: 428px; }
             .sem-txt { height: 220px; }
             .sem-visto { height: 4px; }
             .sem-kicker { font-size: 12px; letter-spacing: 2px; }
             .sem-titulo { font-size: 33px; line-height: 37px; max-height: 74px; }
             .sem-meta, .sem-sub { font-size: 16px; margin-top: 8px; }
+            .sem-meta span { font-size: 14px; padding: 3px 9px; border-radius: 5px; margin-right: 7px; }
             .sem-descr { font-size: 15px; line-height: 21px; max-height: 42px; margin-top: 8px; }
             .sem-pista { font-size: 15px; margin-top: 12px; }
             .sem-pista span, .sem-ayuda span { padding: 4px 9px; border-radius: 5px; margin: 0 5px 0 9px; }
