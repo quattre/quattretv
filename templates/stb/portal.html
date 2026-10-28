@@ -1503,7 +1503,7 @@
         else if (opcion.id === 'peliculas') openVod();
         else if (opcion.id === 'series') openSeries();
         else if (opcion.id === 'grabaciones') openRecordings();
-        else if (opcion.id === 'semana') openSemana();
+        else if (opcion.id === 'semana') openSemana('menu');
     }
 
     // ---------- Ultimos 7 dias ----------
@@ -1512,10 +1512,18 @@
     // las caratulas, y arriba en grande lo elegido. Es el mismo archivo que se
     // ve desde la guia, pero sin tener que saber en que canal ni a que hora lo
     // echaron. Lo arma el servidor con la guia y se renueva solo.
-    var semana = {filas: [], fila: 0, cols: [], cargado: 0, episodios: null, epIdx: 0};
+    var semana = {filas: [], fila: 0, cols: [], cargado: 0, episodios: null, epIdx: 0, desde: 'canales'};
+    // El boton del videoclub, arriba en la lista, elegido con ▲ desde el
+    // primer canal. Hace falta otra pulsacion para abrirlo: subiendo deprisa
+    // por la lista no se debe colar en el videoclub sin querer.
+    var focoSemana = false;
     var SEMANA_VISIBLES = 5;
 
-    function openSemana() {
+    // desde: 'menu' o 'canales', a donde se vuelve al salir. Sin el, el de la
+    // vez anterior (al volver de ver algo).
+    function openSemana(desde) {
+        if (desde) semana.desde = desde;
+        focoSemana = false;
         view = "semana";
         isFullscreen = false;
         diferido = null;
@@ -1556,7 +1564,7 @@
         document.getElementById("semana").style.display = "none";
         semana.episodios = null;
         showMenu();      // la lista vuelve con su vista previa
-        openMenu();
+        if (semana.desde === 'menu') openMenu();
     }
 
     function itemSemana() {
@@ -1684,6 +1692,8 @@
             if (k === 37 || k === 8 || k === 27) cerrarSemana();
         } else if (k === 38 && semana.fila > 0) { semana.fila--; renderSemana(); }
         else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; renderSemana(); }
+        // El videoclub esta "encima" de los canales: bajando del todo se vuelve.
+        else if (k === 40) cerrarSemana();
         else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; renderSemana(); masDeFila(f); }
         else if (k === 37 && col > 0) { semana.cols[semana.fila]--; renderSemana(); }
         // Izquierda en la primera tarjeta sale, como en el resto de pantallas;
@@ -2057,7 +2067,8 @@
         else if (genreFilter) etiqueta = generoActual() + ': ' + channels.length;
         // El acceso directo al videoclub va arriba, siempre a la vista. Al pie
         // de la ayuda no cabia y quedaba fuera del panel.
-        if (haySemana()) h += '<div class="boton-semana" data-tecla="405"><i></i>Videoclub 7 dias</div>';
+        if (haySemana()) h += '<div class="boton-semana' + (focoSemana ? ' sel' : '') +
+                              '" data-tecla="405"><i></i>Videoclub 7 dias</div>';
         h += '<div class="counter">' + esc(etiqueta) + '</div></div>';
 
         h += '<div class="list">';
@@ -3059,7 +3070,7 @@
         if (k === TECLA_AMARILLO || k === 114) {
             // Acceso directo al videoclub de 7 dias donde lo hay (el deco). En
             // las teles sigue siendo "solo favoritos", que tambien esta en el menu.
-            if (haySemana()) openSemana();
+            if (haySemana()) openSemana(view === "menu" ? 'menu' : 'canales');
             else toggleFavOnly();
             return true;
         }
@@ -3345,8 +3356,16 @@
                     showChannels();
                 }
             }
+        } else if (focoSemana) {
+            focoSemana = false;
+            if (k === 38 || k === 13) openSemana('canales');
+            else if (k === 37) openMenu();
+            else showChannels();
         } else {
-            if (k === 38 && currentChannel > 0) {
+            if (k === 38 && currentChannel === 0 && haySemana()) {
+                focoSemana = true;
+                showChannels();
+            } else if (k === 38 && currentChannel > 0) {
                 currentChannel--;
                 showChannels();
                 startPreview();
@@ -3790,6 +3809,7 @@
             padding: 8px 16px; border-radius: 20px; white-space: nowrap; cursor: pointer;
         }
         /* El punto amarillo dice que tecla es; el boton entero ya es amarillo. */
+        .boton-semana.sel { box-shadow: 0 0 0 4px #fff; }
         .boton-semana i {
             display: inline-block; width: 12px; height: 12px; border-radius: 50%;
             background: #1a1a1a; margin-right: 8px; vertical-align: middle;
