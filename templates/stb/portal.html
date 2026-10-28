@@ -1268,7 +1268,9 @@
         h += '</div>';
         h += '<div class="osd-pistas">';
         if (d.inicio) h += '<span data-tecla="37">◀</span><span data-tecla="39">▶</span> Retroceder / avanzar ';
-        h += '<span data-tecla="38">▲▼</span> Volver al directo</div>';
+        h += '<span data-tecla="13">OK</span> ' + (d.pausaDesde ? 'Seguir ' : 'Pausa ');
+        h += d.volver === 'semana' ? '<span data-tecla="27">Atras</span> Volver al videoclub</div>'
+                                   : '<span data-tecla="38">▲▼</span> Volver al directo</div>';
         return h;
     }
 
@@ -1930,9 +1932,21 @@
         });
     }
 
+    // El deco tarda en contestar y se vuelve a pulsar OK: sin esto se pedia
+    // lo mismo cuatro o cinco veces y el video arrancaba otras tantas.
+    var semanaAbriendo = 0;
+
+    function ocupadoSemana() {
+        if (new Date().getTime() - semanaAbriendo < 4000) return true;
+        semanaAbriendo = new Date().getTime();
+        return false;
+    }
+
     function abrirEmisiones(grupo, it) {
+        if (ocupadoSemana()) return;
         api("type=tv_archive&action=get_title&group=" + encodeURIComponent(grupo) +
             "&title=" + encodeURIComponent(it.titulo), function(js) {
+            semanaAbriendo = 0;
             if (view !== "semana") return;
             var lista = (js && js.data) ? js.data : [];
             if (!lista.length) { verDeSemana(it); return; }
@@ -1944,11 +1958,12 @@
 
     // desde: segundos desde el principio, para seguir por donde se dejo.
     function verDeSemana(it, desde) {
-        if (!it) return;
+        if (!it || ocupadoSemana()) return;
         // Unos segundos antes, para enganchar la frase en la que se corto.
         var utc = it.ini + (desde > 30 ? Math.floor(desde) - 10 : 0);
         api("type=tv_archive&action=create_link&ch_id=" + it.ch_id +
             "&utc=" + utc + "&lutc=" + finConMargen(it.fin), function(js) {
+            semanaAbriendo = 0;
             if (view !== "semana") return;
             if (js && js.cmd) {
                 document.getElementById("semana").style.display = "none";
@@ -3479,6 +3494,13 @@
                 } else {
                     mostrarOsd(channels[currentChannel]);
                 }
+            } else if (k === 13 && diferido) {
+                // En lo ya emitido OK no sale: el deco tarda en arrancar el
+                // video, se volvia a pulsar OK y eso devolvia al videoclub
+                // sin haber visto nada. Saca la barra, y con ella puesta,
+                // pausa o sigue, como en Netflix. Para salir, Atras.
+                if (document.getElementById("osd").style.display === "block") pausarDiferido();
+                else mostrarOsd(null);
             } else if (k === 8 || k === 27 || k === 13) {
                 // Lo abierto desde "Ultimos 7 dias" vuelve alli, no a la lista.
                 if (diferido && diferido.volver === 'semana') openSemana();
