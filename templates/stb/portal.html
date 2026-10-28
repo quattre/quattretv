@@ -1271,16 +1271,23 @@
     function osdDiferido(d) {
         var ahora = new Date();
         var h = '<div class="osd-fila"><div class="osd-datos">';
-        h += '<div class="osd-ch"><span class="dif">' + esc(d.etiqueta) + '</span>' +
-             (d.canal ? ' ' + esc(d.canal) : '') + '</div>';
-        h += '<div class="osd-prog">' + (d.cuando ? '<b>' + esc(d.cuando) + '</b>' : '') +
-             esc(d.titulo || '') + '</div>';
+        if (d.cero) {
+            // Del videoclub: el titulo y el capitulo, como en Netflix.
+            h += '<div class="osd-ch">' + esc(d.titulo || '') + '</div>';
+            if (d.sub) h += '<div class="osd-prog">' + esc(d.sub) + '</div>';
+        } else {
+            h += '<div class="osd-ch"><span class="dif">' + esc(d.etiqueta) + '</span>' +
+                 (d.canal ? ' ' + esc(d.canal) : '') + '</div>';
+            h += '<div class="osd-prog">' + (d.cuando ? '<b>' + esc(d.cuando) + '</b>' : '') +
+                 esc(d.titulo || '') + '</div>';
+        }
         if (d.descr) h += '<div class="osd-descr">' + esc(d.descr) + '</div>';
         if (d.inicio && d.fin > d.inicio) {
             // Donde se esta, o adonde se va a saltar mientras se pulsan las
             // flechas: sin esto avanzar era a ciegas.
             var punto = salto ? salto.destino : momentoDiferido();
-            var pct = Math.max(0, Math.min(100, (punto - d.inicio) * 100 / (d.fin - d.inicio)));
+            var a = d.cero || d.inicio, b = d.cero ? d.final : d.fin;
+            var pct = Math.max(0, Math.min(100, (punto - a) * 100 / Math.max(1, b - a)));
             h += '<div class="osd-salto"><div class="bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
                  '<span>' + esc(textoPosicion(d, punto)) + '</span>' +
                  (salto ? '<b>' + (salto.dir > 0 ? '▶▶ ' : '◀◀ ') + esc(textoSalto(salto)) + '</b>' : '') +
@@ -1337,6 +1344,13 @@
     }
 
     function textoPosicion(d, punto) {
+        if (d.cero) {
+            // Videoclub: lo que va de peli y lo que dura, sin hora de emision.
+            var total = Math.max(0, Math.round((d.final - d.cero) / 60));
+            var visto = Math.max(0, Math.round((punto - d.cero) / 60));
+            return Math.floor(visto / 60) + ':' + dosCifras(visto % 60) + ' / ' +
+                   Math.floor(total / 60) + ':' + dosCifras(total % 60);
+        }
         if (d.tipo === 'grabacion') {
             var dur = Math.round((d.fin - d.inicio) / 60);
             var va = Math.round((punto - d.inicio) / 60);
@@ -1985,16 +1999,17 @@
         if (!it || ocupadoSemana()) return;
         // Unos segundos antes, para enganchar la frase en la que se corto.
         var utc = it.ini + (desde > 30 ? Math.floor(desde) - 10 : 0);
-        api("type=tv_archive&action=create_link&ch_id=" + it.ch_id +
+        api("type=tv_archive&action=create_link&ch_id=" + it.ch_id + "&ini=" + it.ini +
             "&utc=" + utc + "&lutc=" + finConMargen(it.fin), function(js) {
             semanaAbriendo = 0;
             if (view !== "semana") return;
             if (js && js.cmd) {
                 document.getElementById("semana").style.display = "none";
-                reproducirPantallaCompleta(js.cmd, it.canal + ' · archivo', it.titulo, {
-                    etiqueta: 'EN DIFERIDO', canal: it.canal,
-                    titulo: it.titulo + (it.sub ? ' · ' + it.sub : ''),
-                    descr: it.descr, cuando: cuandoFue(it.ini, it.fin),
+                // Como una peli y no como una emision: ni canal, ni dia ni hora,
+                // y el tiempo contado desde su principio de verdad.
+                reproducirPantallaCompleta(js.cmd, it.titulo, it.sub || '', {
+                    titulo: it.titulo, sub: it.sub || '', descr: it.descr,
+                    cero: js.real_ini || it.ini, final: js.real_fin || it.fin,
                     tipo: 'archivo', chId: it.ch_id, inicio: it.ini, fin: it.fin, base: js.desde || utc,
                     volver: 'semana'
                 });

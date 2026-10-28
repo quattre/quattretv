@@ -1587,7 +1587,19 @@ def handle_archive_link(request):
     if not url:
         return stalker_response({'error': 'No hay servidor de archivo configurado'})
 
-    return stalker_response({'cmd': url, 'desde': int(start.timestamp())})
+    respuesta = {'cmd': url, 'desde': int(start.timestamp())}
+    # El videoclub cuenta el tiempo desde el principio de la peli y no da la
+    # hora de emision: le hace falta saber cuando empezo y acabo de verdad,
+    # tambien al seguir viendo a medias. 'ini' es la hora de la guia.
+    ini = request.GET.get('ini')
+    if ini and ini.isdigit():
+        guia = Program.objects.filter(
+            channel=channel, start_time=datetime.fromtimestamp(int(ini), tz=dt_timezone.utc)).first()
+        if guia:
+            cero, final = tramo_real(guia)
+            respuesta['real_ini'] = int(cero.timestamp())
+            respuesta['real_fin'] = int(final.timestamp())
+    return stalker_response(respuesta)
 
 
 # ============== PVR (Recordings) Handlers ==============
