@@ -115,4 +115,10 @@ def tramo_real(programa):
         inicio = programa.inicio_real
     if programa.fin_real and abs(programa.fin_real - fin) <= VENTANA * 2 and programa.fin_real > inicio:
         fin = programa.fin_real
+    elif inicio > programa.start_time:
+        # Sin final de verdad (aun no ha empezado el siguiente), si empezo
+        # tarde se supone que dura lo de la guia: si no, una peli que empezo
+        # una hora tarde se cortaba una hora antes. Si empezo antes no se
+        # adelanta el final, que es preferible que sobre a que falte.
+        fin = fin + (inicio - programa.start_time)
     return inicio, fin
