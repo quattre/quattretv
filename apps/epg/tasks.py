@@ -82,7 +82,8 @@ def update_epg_source(source_id):
                 ))
 
         if programs_to_create:
-            corregir_horas(source, programs_to_create)
+            programs_to_create = corregir_horas(source, programs_to_create)
+        if programs_to_create:
             _replace_programs(programs_to_create)
             logger.info(f"Created {len(programs_to_create)} programs")
             # Los programas son nuevos: la hora real vista en la EIT se les
@@ -107,22 +108,36 @@ def corregir_horas(source, programas):
     cambio de hora de octubre de 2026, y asi vale para los que vengan.
     """
     from . import eit
+    from .models import Program
     try:
         cambios = eit.desfases(programas)
     except Exception as e:
         logger.error(f"EPG {source.name}: no se pudo mirar el desfase: {e}")
-        return
+        return programas
+    # Los canales en que esta fuente va mal sin arreglo no se toman de ella,
+    # si ya tienen guia de otra; si no, mejor esta que ninguna.
+    fuera = set()
+    for canal, d in cambios.items():
+        if d is None:
+            suyos = [p for p in programas if p.channel_id == canal]
+            if Program.objects.filter(channel_id=canal, start_time__gte=min(p.start_time for p in suyos),
+                                      start_time__lte=max(p.start_time for p in suyos)).count() >= len(suyos) // 2:
+                fuera.add(canal)
+    programas = [p for p in programas if p.channel_id not in fuera]
     for p in programas:
         d = cambios.get(p.channel_id)
         if d:
             p.start_time += d
             p.end_time += d
-    if cambios:
-        resumen = {}
-        for canal, d in cambios.items():
+    resumen = {}
+    for canal, d in cambios.items():
+        if d:
             resumen.setdefault(int(d.total_seconds() // 60), []).append(canal)
+    if resumen or fuera:
         logger.warning(f"EPG {source.name}: horas corregidas con la EIT " +
-                       ", ".join(f"{m:+d} min en {len(c)} canales" for m, c in resumen.items()))
+                       ", ".join(f"{m:+d} min en {len(c)} canales" for m, c in resumen.items()) +
+                       (f"; {len(fuera)} canales no se toman de esta fuente" if fuera else ""))
+    return programas
 
 
 def descomprimir(contenido):

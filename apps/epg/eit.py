@@ -193,11 +193,24 @@ def _desviada(difs, minimo):
     return 0
 
 
+def _torcida(difs):
+    """
+    Si la fuente va siempre desviada lo mismo pero no horas enteras (TCM en
+    spain1 y spain2, 71-76 minutos), no es el cambio de hora: son datos malos
+    y no se pueden arreglar sumando nada.
+    """
+    if len(difs) < 3 or _horas(difs)[0]:
+        return False
+    minutos = sorted(d.total_seconds() / 60 for d in difs)
+    return minutos[-1] - minutos[0] <= 15 and abs(minutos[len(minutos) // 2]) >= 30
+
+
 def desfases(programas):
     """
     {canal: timedelta} a sumar a cada canal de una fuente que va desviada horas
     enteras. Se mira canal a canal; si un canal no tiene datos propios, vale
     lo que le pasa a la fuente en general (el error de spain1 era de todos).
+    None si en ese canal la fuente va desviada sin arreglo (ver _torcida).
     """
     from apps.epg.models import ObservacionEit
 
@@ -220,6 +233,8 @@ def desfases(programas):
         h = _desviada(difs, 2)
         if h:
             resultado[canal] = timedelta(hours=h)
+        elif _torcida(difs):
+            resultado[canal] = None
         elif not _horas(difs)[0].get(0):
             sin_datos.append(canal)
     h = _desviada(todos, 6)
