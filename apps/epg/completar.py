@@ -14,6 +14,7 @@ canal, hora y titulo. Nuestras horas y titulos no se tocan nunca.
 Cubre hoy y los 6 dias siguientes, asi que lo que se va a emitir llega ya
 completo al archivo: en una semana, "Ultimos 7 dias" entero tiene imagen.
 """
+import bisect
 import difflib
 import gzip
 import io
@@ -37,6 +38,12 @@ COLOR = re.compile(r'\[/?COLOR[^\]]*\]')
 TEMPORADA = re.compile(r'^(.*?)\s+T(\d+)(?:\s+E(\d+))?(?:\s+·\s+(.*))?$')
 # "Cine,Programa de cine | 2020 | TP | ★6.2/10" -> genero y año
 GENERO = re.compile(r'^\s*([^|]+?)\s*\|\s*(\d{4})\s*\|')
+
+# Desfases que se prueban por canal. dobleM se equivoca a veces de hora entera
+# en algunos canales: tras el cambio de hora de octubre de 2026, AMC, Dark,
+# Somos, Hollywood o XTRM iban una hora tarde (la EIT de la propia emision lo
+# confirmaba) y no casaba ni una pelicula.
+DESFASES = (0, -3600, 3600, -7200, 7200)
 
 CAMPOS = ('icon', 'category', 'year', 'description', 'episode_title', 'season', 'episode')
 
@@ -176,6 +183,31 @@ def leer_fuente(url, canales):
     return resultado
 
 
+def buscar(programa, suyos, inicios, desfase, sin_titulo):
+    """El programa de la fuente que es este, con la hora corregida, o None."""
+    momento = programa.start_time.timestamp() + desfase
+    nuestro = plano(programa.title)
+    i = bisect.bisect_left(inicios, momento - MARGEN)
+    while i < len(inicios) and inicios[i] <= momento + MARGEN:
+        d = suyos[i]
+        if sin_titulo or parecido(nuestro, d['plano']):
+            return d
+        i += 1
+    return None
+
+
+def desfase_de(programas, suyos, inicios):
+    """La hora entera que hay que sumar a la nuestra para dar con la suya."""
+    mejor, aciertos = 0, -1
+    for desfase in DESFASES:
+        n = sum(1 for p in programas
+                if not generico(p.title) and buscar(p, suyos, inicios, desfase, False))
+        # En caso de empate, sin desfase.
+        if n > aciertos * 1.5 or (aciertos <= 0 and n > 0):
+            mejor, aciertos = desfase, n
+    return mejor
+
+
 def completar(url=None, guardar=True):
     """
     Rellena lo que le falta a nuestra guia. Devuelve cuantos programas ha
@@ -190,12 +222,18 @@ def completar(url=None, guardar=True):
 
     ahora = timezone.now()
     tocados = 0
+    desfasados = {}
     for canal, suyos in fuente.items():
-        programas = Program.objects.filter(
+        programas = list(Program.objects.filter(
             channel=canal,
             start_time__gte=ahora - timedelta(hours=36),
             start_time__lte=ahora + timedelta(days=8),
-        )
+        ))
+        suyos.sort(key=lambda d: d['ini'])
+        inicios = [d['ini'].timestamp() for d in suyos]
+        desfase = desfase_de(programas, suyos, inicios)
+        if desfase:
+            desfasados[canal.name] = desfase // 3600
         cambiados = []
         for p in programas:
             sin_titulo = generico(p.title)
@@ -204,13 +242,7 @@ def completar(url=None, guardar=True):
             if not sin_titulo and not sin_genero and \
                     all(getattr(p, campo) not in ('', None) for campo in CAMPOS):
                 continue
-            nuestro = plano(p.title)
-            mejor = None
-            for d in suyos:
-                if abs((d['ini'] - p.start_time).total_seconds()) <= MARGEN and \
-                        (sin_titulo or parecido(nuestro, d['plano'])):
-                    mejor = d
-                    break
+            mejor = buscar(p, suyos, inicios, desfase, sin_titulo)
             if not mejor:
                 continue
             cambio = False
@@ -229,5 +261,7 @@ def completar(url=None, guardar=True):
         if cambiados and guardar:
             Program.objects.bulk_update(cambiados, ('title',) + CAMPOS, batch_size=500)
         tocados += len(cambiados)
+    if desfasados:
+        logger.warning('La guia de %s va con la hora cambiada en: %s', url, desfasados)
     logger.info('Guia completada con %s: %s programas en %s canales', url, tocados, len(fuente))
-    return {'programas': tocados, 'canales': len(fuente)}
+    return {'programas': tocados, 'canales': len(fuente), 'desfasados': desfasados}
