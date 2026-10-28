@@ -17,16 +17,16 @@ for h in 185.25.27.53 185.25.27.54; do
         mv /tmp/escucha_nuevo.py /home/quattre/eit/escucha.py
         cp -n /tmp/eit/cambios.log /home/quattre/eit/ 2>/dev/null || true
         cp -n /tmp/eit/canales.tsv /home/quattre/eit/ 2>/dev/null || true
-        pkill -f "escucha.py 86400" || true
-        pkill -f "escucha.py 315360000" || true
+        pkill -f "[e]scucha.py 86400" || true
+        pkill -f "[e]scucha.py 315360000" || true
         (crontab -l 2>/dev/null | grep -v "escucha.py"
          echo "@reboot cd /home/quattre/eit && setsid nice -n 19 python3 escucha.py 315360000 >> escucha.out 2>&1 < /dev/null &"
-         echo "*/5 * * * * pgrep -f \"escucha.py 315360000\" >/dev/null || (cd /home/quattre/eit && setsid nice -n 19 python3 escucha.py 315360000 >> escucha.out 2>&1 < /dev/null &)"
+         echo "*/5 * * * * pgrep -f \"[e]scucha.py 315360000\" >/dev/null || (cd /home/quattre/eit && setsid nice -n 19 python3 escucha.py 315360000 >> escucha.out 2>&1 < /dev/null &)"
         ) | crontab -
         echo "$(hostname): instalado"'
     ssh -n -f -p 12121 quattre@$h 'cd /home/quattre/eit && exec setsid nice -n 19 python3 escucha.py 315360000 >> escucha.out 2>&1 < /dev/null'
 done
 sleep 5
 for h in 185.25.27.53 185.25.27.54; do
-    ssh -p 12121 quattre@$h 'echo "$(hostname): $(ps -o etime=,args= -C python3 | grep escucha) | $(tail -1 /home/quattre/eit/escucha.out)"'
+    ssh -p 12121 quattre@$h 'echo "$(hostname): $(ps -o etime=,args= -C python3 | grep "[e]scucha") | $(tail -1 /home/quattre/eit/escucha.out)"'
 done

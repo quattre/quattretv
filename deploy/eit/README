@@ -11,7 +11,7 @@ Instalar en cada CDN, como quattre, sin sudo:
 y en el crontab de quattre (lo arranca al encender y lo relanza si se cae):
 
     @reboot   cd /home/quattre/eit && setsid nice -n 19 python3 escucha.py 315360000 >> escucha.out 2>&1 < /dev/null &
-    */5 * * * * pgrep -f 'eit/escucha.py|python3 escucha.py' >/dev/null || (cd /home/quattre/eit && setsid nice -n 19 python3 escucha.py 315360000 >> escucha.out 2>&1 < /dev/null &)
+    */5 * * * * pgrep -f "[e]scucha.py 315360000" >/dev/null || (cd /home/quattre/eit && setsid nice -n 19 python3 escucha.py 315360000 >> escucha.out 2>&1 < /dev/null &)
 
 Gasta ~70 % de un nucleo con nice 19 y 12 MB. Quitarlo: borrar las dos
 lineas del crontab y matar el proceso.
