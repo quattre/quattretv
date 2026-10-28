@@ -876,7 +876,7 @@
     function playChannel(ch) {
         // Un canal de verdad (con id) es el directo; {cmd: url} es el archivo,
         // una grabacion o el videoclub, que ponen su propio estado.
-        if (ch && ch.id) diferido = null;
+        if (ch && ch.id && diferido) { guardarProgreso(); diferido = null; }
         pintarRadio(ch);
         if (useHTML5) {
             var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
@@ -1508,16 +1508,42 @@
 
     // ---------- Ultimos 7 dias ----------
     //
-    // El archivo como catalogo: una fila por tipo (peliculas, series...) con
-    // las caratulas, y arriba en grande lo elegido. Es el mismo archivo que se
-    // ve desde la guia, pero sin tener que saber en que canal ni a que hora lo
-    // echaron. Lo arma el servidor con la guia y se renueva solo.
-    var semana = {filas: [], fila: 0, cols: [], cargado: 0, episodios: null, epIdx: 0, desde: 'canales'};
+    // Como Netflix o Prime Video: arriba las pestañas (Inicio, Peliculas,
+    // Series...), en cada una filas por genero, y al elegir algo su ficha con
+    // "Mas como esta". En Inicio, "Seguir viendo" con lo dejado a medias.
+    var semana = {
+        pestanas: [], pestana: 'inicio', tabIdx: 0, foco: 'filas', tabTimer: null,
+        filas: [], fila: 0, cols: [], porPestana: {},
+        episodios: null, epIdx: 0, ficha: null, desde: 'canales'
+    };
     // El boton del videoclub, arriba en la lista, elegido con ▲ desde el
     // primer canal. Hace falta otra pulsacion para abrirlo: subiendo deprisa
     // por la lista no se debe colar en el videoclub sin querer.
     var focoSemana = false;
     var SEMANA_VISIBLES = 5;
+    var SEMANA_VIGENCIA = 300000;    // lo cargado vale 5 minutos
+
+    // ---------- "Seguir viendo": por donde va lo que se ve del archivo ----------
+    //
+    // Vale lo que se ve desde el videoclub y desde la guia. Se apunta cada
+    // medio minuto y al dejar de verlo.
+    function guardarProgreso(despues) {
+        var d = diferido;
+        if (!d || d.tipo !== 'archivo' || !d.chId || !d.inicio || !(d.fin > d.inicio)) {
+            if (despues) despues();
+            return;
+        }
+        var pos = Math.floor(momentoDiferido() - d.inicio);
+        api("type=tv_archive&action=set_progress&ch_id=" + d.chId + "&ini=" + d.inicio +
+            "&pos=" + pos + "&dur=" + (d.fin - d.inicio), function() {
+            // "Seguir viendo" ha cambiado: Inicio se vuelve a pedir.
+            delete semana.porPestana.inicio;
+            if (despues) despues();
+        });
+    }
+    setInterval(function() {
+        if (diferido && diferido.tipo === 'archivo' && !diferido.pausaDesde) guardarProgreso();
+    }, 30000);
 
     // desde: 'menu' o 'canales', a donde se vuelve al salir. Sin el, el de la
     // vez anterior (al volver de ver algo).
@@ -1526,48 +1552,88 @@
         focoSemana = false;
         view = "semana";
         isFullscreen = false;
-        diferido = null;
-        pararVideo();
         document.getElementById("content").style.display = "none";
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
         clearTimeout(osdTimeout);
         document.getElementById("osd").style.display = "none";
-        var caja = document.getElementById("semana");
-        caja.style.display = "block";
-        // Al volver de ver algo se queda donde estaba; si ha pasado un rato,
-        // se pide otra vez, que el archivo ya habra cambiado.
-        if (semana.filas.length && new Date().getTime() - semana.cargado < 300000) {
-            renderSemana();
+        document.getElementById("semana").style.display = "block";
+        // Lo que se estaba viendo se apunta antes de pedir el catalogo, para
+        // que "Seguir viendo" ya lo traiga.
+        var volver = diferido && diferido.volver === 'semana';
+        guardarProgreso(function() {
+            diferido = null;
+            pararVideo();
+            if (view !== "semana") return;
+            // Al volver de ver algo se queda donde estaba (en su ficha, si
+            // venia de ella); si ha pasado un rato, se pide otra vez.
+            if (volver && semana.filas.length) {
+                renderSemana();
+                cargarPestana(semana.pestana);   // Seguir viendo ha cambiado
+                return;
+            }
+            // Abierto de nuevo, desde Inicio, como Netflix.
+            semana.ficha = null;
+            semana.episodios = null;
+            semana.foco = 'filas';
+            cargarPestana('inicio');
+        });
+    }
+
+    function cargarPestana(nombre) {
+        var guardada = semana.porPestana[nombre];
+        semana.pestana = nombre;
+        if (guardada && new Date().getTime() - guardada.cargado < SEMANA_VIGENCIA) {
+            ponerPestana(guardada);
             return;
         }
-        caja.innerHTML = '<div class="sem-vacio">Cargando...</div>';
-        api("type=tv_archive&action=get_catalog", function(js) {
-            if (view !== "semana") return;
-            semana.filas = (js && js.data) ? js.data : [];
-            semana.cargado = new Date().getTime();
-            semana.fila = 0;
-            semana.cols = [];
-            semana.episodios = null;
-            for (var i = 0; i < semana.filas.length; i++) semana.cols.push(0);
-            if (!semana.filas.length) {
-                caja.innerHTML = '<div class="sem-vacio">' +
+        if (!semana.filas.length) {
+            document.getElementById("semana").innerHTML = '<div class="sem-vacio">Cargando...</div>';
+        }
+        api("type=tv_archive&action=get_catalog&tab=" + encodeURIComponent(nombre), function(js) {
+            if (view !== "semana" || semana.pestana !== nombre) return;
+            var datos = (js && js.data) ? js.data : null;
+            if (!datos || !datos.filas || !datos.filas.length) {
+                semana.filas = [];
+                document.getElementById("semana").innerHTML = '<div class="sem-vacio">' +
                     esc((js && js.error) ? js.error : 'Ahora mismo no hay nada en el archivo') +
                     '</div><div class="sem-ayuda"><span data-tecla="37">◀</span> Volver</div>';
                 return;
             }
-            renderSemana();
+            semana.pestanas = datos.pestanas || [];
+            guardada = {filas: datos.filas, cargado: new Date().getTime(), fila: 0, cols: []};
+            for (var i = 0; i < datos.filas.length; i++) guardada.cols.push(0);
+            semana.porPestana[datos.pestana] = guardada;
+            semana.pestana = datos.pestana;
+            ponerPestana(guardada);
         });
+    }
+
+    // Cada pestaña recuerda en que fila y tarjeta se quedo.
+    function ponerPestana(g) {
+        semana.filas = g.filas;
+        semana.cols = g.cols;
+        semana.fila = g.fila;
+        for (var i = 0; i < semana.pestanas.length; i++) {
+            if (semana.pestanas[i][0] === semana.pestana) semana.tabIdx = i;
+        }
+        renderSemana();
     }
 
     function cerrarSemana() {
         document.getElementById("semana").style.display = "none";
         semana.episodios = null;
+        semana.ficha = null;
+        semana.foco = 'filas';
         showMenu();      // la lista vuelve con su vista previa
         if (semana.desde === 'menu') openMenu();
     }
 
     function itemSemana() {
+        if (semana.ficha) {
+            var fi = semana.ficha;
+            return fi.foco === 'similares' && fi.similares[fi.idx] ? fi.similares[fi.idx] : fi.it;
+        }
         if (semana.episodios) return semana.episodios[semana.epIdx];
         var f = semana.filas[semana.fila];
         return f ? f.items[semana.cols[semana.fila]] : null;
@@ -1610,7 +1676,39 @@
     }
 
     function pieTarjeta(it, grupo) {
+        if (it.dur) return 'Te quedan ' + Math.max(1, Math.round((it.dur - it.pos) / 60)) + ' min';
         return SEMANA_POR_FECHA[grupo] ? cuandoCorto(it.ini) : quedan(it.caduca);
+    }
+
+    function tarjetaSemana(it, sel, grupo) {
+        return '<div class="sem-tarjeta' + (sel ? ' sel' : '') + '"' +
+               estiloImagen(it) + '>' + (it.img ? '' : sinImagen(it)) +
+               (it.n > 1 ? '<span class="sem-n">' + it.n + '</span>' : '') +
+               '<div class="sem-pie"><div class="t">' + esc(it.titulo) + '</div>' +
+               '<div class="m">' + esc(pieTarjeta(it, it.grupo || grupo)) + '</div></div>' +
+               // Lo empezado lleva la barra de lo visto, como en Netflix.
+               (it.dur ? '<div class="sem-visto"><i style="width:' +
+                         Math.min(100, Math.round(it.pos * 100 / it.dur)) + '%"></i></div>' : '') +
+               '</div>';
+    }
+
+    function pistaSemana(it) {
+        var p = '<span data-tecla="13">OK</span> ';
+        if (semana.ficha) {
+            if (semana.ficha.foco === 'similares') {
+                return p + 'Ver su ficha <span>◀▶</span> Elegir <span>▲</span> Volver arriba';
+            }
+            return '<span data-tecla="13" class="play">▶ Ver</span> desde el principio' +
+                   (semana.ficha.similares.length ? ' <span>▼</span> Mas como esta' : '') +
+                   ' <span data-tecla="27">Atras</span> Volver';
+        }
+        if (semana.episodios) {
+            return p + 'Ver <span>▲▼</span> Elegir <span data-tecla="37">◀</span> Volver';
+        }
+        var f = semana.filas[semana.fila];
+        var accion = (f && f.id === 'seguir') ? 'Seguir viendo' :
+                     (it.n > 1 ? 'Ver las ' + it.n + ' emisiones' : 'Ver la ficha');
+        return p + accion + ' <span>▲▼◀▶</span> Moverse <span data-tecla="27">Atras</span> Salir';
     }
 
     function heroSemana(it) {
@@ -1618,29 +1716,54 @@
         var h = '<div class="sem-hero">';
         h += '<div class="sem-img"' + estiloImagen(it) + '>' + (it.img ? '' : sinImagen(it)) + '</div>';
         h += '<div class="sem-txt">';
-        h += '<div class="sem-kicker">VIDEOCLUB 7 DIAS' +
-             (semana.episodios ? '  ·  ' + semana.episodios.length + ' EMISIONES' : '') + '</div>';
         h += '<div class="sem-titulo">' + esc(it.titulo) + '</div>';
         var meta = [it.canal, cuandoFue(it.ini, it.fin), it.min + ' min'];
         if (it.anio) meta.push(it.anio);
         if (it.caduca) meta.push(quedan(it.caduca).toLowerCase());
+        if (semana.episodios) meta.push(semana.episodios.length + ' emisiones');
         h += '<div class="sem-meta">' + esc(meta.join('  ·  ')) + '</div>';
         if (it.sub) h += '<div class="sem-sub">' + esc(it.sub) + '</div>';
         if (it.descr) h += '<div class="sem-descr">' + esc(it.descr) + '</div>';
         // Las teclas van aqui y no en una barra al pie, que tapaba la fila
         // de abajo.
-        h += '<div class="sem-pista"><span data-tecla="13">OK</span> ' +
-             (!semana.episodios && it.n > 1 ? 'Ver las ' + it.n + ' emisiones' : 'Ver desde el principio') +
-             (semana.episodios ? ' <span>▲▼</span> Elegir <span data-tecla="37">◀</span> Volver'
-                               : ' <span>▲▼◀▶</span> Moverse <span data-tecla="27">Atras</span> Menu') + '</div>';
+        h += '<div class="sem-pista">' + pistaSemana(it) + '</div>';
         h += '</div></div>';
         return h;
     }
 
+    function pestanasSemana() {
+        var h = '<div class="sem-tabs' + (semana.foco === 'pestanas' ? ' activa' : '') + '">' +
+                '<b>VIDEOCLUB 7 DIAS</b>';
+        for (var i = 0; i < semana.pestanas.length; i++) {
+            h += '<span' + (i === semana.tabIdx ? ' class="sel"' : '') + '>' +
+                 esc(semana.pestanas[i][1]) + '</span>';
+        }
+        return h + '</div>';
+    }
+
+    function filaSemana(nombre, cuenta, items, col, activa, grupo) {
+        var desde = Math.max(0, Math.min(col - 1, items.length - SEMANA_VISIBLES));
+        var h = '<div class="sem-fila' + (activa ? ' activa' : '') + '">' +
+                '<div class="sem-nombre">' + esc(nombre) + '<span>' + cuenta + '</span></div>' +
+                '<div class="sem-tarjetas">';
+        for (var c = desde; c < Math.min(items.length, desde + SEMANA_VISIBLES); c++) {
+            h += tarjetaSemana(items[c], activa && c === col, grupo);
+        }
+        return h + '</div></div>';
+    }
+
     function renderSemana() {
-        var h = heroSemana(itemSemana());
-        if (semana.episodios) {
-            var n = semana.episodios.length, vis = 4;
+        var h = pestanasSemana() + heroSemana(itemSemana());
+        if (semana.ficha) {
+            var fi = semana.ficha;
+            if (fi.similares.length) {
+                h += filaSemana('Mas como esta', '', fi.similares, fi.idx,
+                                fi.foco === 'similares', fi.it.grupo);
+            } else if (fi.cargando) {
+                h += '<div class="sem-fila"><div class="sem-nombre">Mas como esta</div></div>';
+            }
+        } else if (semana.episodios) {
+            var n = semana.episodios.length, vis = 3;
             var ini = Math.max(0, Math.min(semana.epIdx - 1, n - vis));
             h += '<div class="sem-eps">';
             for (var i = ini; i < Math.min(n, ini + vis); i++) {
@@ -1656,55 +1779,100 @@
             // La fila elegida arriba y la siguiente asomando debajo.
             for (var r = semana.fila; r < Math.min(semana.filas.length, semana.fila + 2); r++) {
                 var f = semana.filas[r], col = semana.cols[r];
-                var desde = Math.max(0, Math.min(col - 1, f.items.length - SEMANA_VISIBLES));
-                h += '<div class="sem-fila' + (r === semana.fila ? ' activa' : '') + '">' +
-                     '<div class="sem-nombre">' + esc(f.nombre) + '<span>' +
-                     // En la fila elegida, por donde va: ahora las filas traen
-                     // todos los titulos y alguna pasa de cien.
-                     (r === semana.fila ? (col + 1) + ' / ' : '') + (f.total || f.items.length) + '</span></div>' +
-                     '<div class="sem-tarjetas">';
-                for (var c = desde; c < Math.min(f.items.length, desde + SEMANA_VISIBLES); c++) {
-                    var it = f.items[c];
-                    h += '<div class="sem-tarjeta' + (r === semana.fila && c === col ? ' sel' : '') + '"' +
-                         estiloImagen(it) + '>' + (it.img ? '' : sinImagen(it)) +
-                         (it.n > 1 ? '<span class="sem-n">' + it.n + '</span>' : '') +
-                         '<div class="sem-pie"><div class="t">' + esc(it.titulo) + '</div>' +
-                         '<div class="m">' + esc(pieTarjeta(it, it.grupo || f.id)) + '</div></div></div>';
-                }
-                h += '</div></div>';
+                var activa = r === semana.fila && semana.foco === 'filas';
+                // En la fila elegida, por donde va: alguna pasa de cien.
+                var cuenta = (r === semana.fila ? (col + 1) + ' / ' : '') + (f.total || f.items.length);
+                h += filaSemana(f.nombre, cuenta, f.items, col, activa, f.id);
             }
         }
         document.getElementById("semana").innerHTML = h;
     }
 
     function teclaSemana(k) {
+        var salir = (k === 8 || k === 27 || k === TECLA_ATRAS);
+        if (k === TECLA_AMARILLO || k === 114) { cerrarSemana(); return; }
+
+        if (semana.ficha) { teclaFicha(k, salir); return; }
+
         if (semana.episodios) {
             if (k === 38 && semana.epIdx > 0) { semana.epIdx--; renderSemana(); }
             else if (k === 40 && semana.epIdx < semana.episodios.length - 1) { semana.epIdx++; renderSemana(); }
             else if (k === 13) verDeSemana(semana.episodios[semana.epIdx]);
-            else if (k === 37 || k === 8 || k === 27) { semana.episodios = null; renderSemana(); }
-            else if (k === TECLA_AMARILLO || k === 114) cerrarSemana();
+            else if (k === 37 || salir) { semana.episodios = null; renderSemana(); }
             return;
         }
+
+        if (semana.foco === 'pestanas') {
+            if (k === 37 && semana.tabIdx > 0) { semana.tabIdx--; elegirPestana(); }
+            else if (k === 39 && semana.tabIdx < semana.pestanas.length - 1) { semana.tabIdx++; elegirPestana(); }
+            else if ((k === 40 || k === 13) && semana.filas.length) { semana.foco = 'filas'; renderSemana(); }
+            else if (salir || k === 38) cerrarSemana();
+            return;
+        }
+
         var f = semana.filas[semana.fila];
         var col = semana.cols[semana.fila];
+        var g = semana.porPestana[semana.pestana];
         if (!f) {
-            if (k === 37 || k === 8 || k === 27) cerrarSemana();
-        } else if (k === 38 && semana.fila > 0) { semana.fila--; renderSemana(); }
-        else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; renderSemana(); }
+            if (k === 37 || salir) cerrarSemana();
+        } else if (k === 38 && semana.fila > 0) { semana.fila--; if (g) g.fila = semana.fila; renderSemana(); }
+        // Desde la primera fila se sube a las pestañas, como en Netflix.
+        else if (k === 38) { semana.foco = 'pestanas'; renderSemana(); }
+        else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; if (g) g.fila = semana.fila; renderSemana(); }
         // El videoclub esta "encima" de los canales: bajando del todo se vuelve.
         else if (k === 40) cerrarSemana();
         else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; renderSemana(); masDeFila(f); }
         else if (k === 37 && col > 0) { semana.cols[semana.fila]--; renderSemana(); }
-        // Izquierda en la primera tarjeta sale, como en el resto de pantallas;
-        // el amarillo, que lo abre, tambien lo cierra.
-        else if (k === 37 || k === 8 || k === 27 || k === TECLA_AMARILLO || k === 114) cerrarSemana();
+        // Izquierda en la primera tarjeta sale, como en el resto de pantallas.
+        else if (k === 37 || salir) cerrarSemana();
         else if (k === 13) {
             var it = itemSemana();
             if (!it) return;
-            if (it.n > 1) abrirEmisiones(it.grupo || f.id, it);
-            else verDeSemana(it);
+            if (f.id === 'seguir') verDeSemana(it, it.pos);
+            else if (it.n > 1) abrirEmisiones(it.grupo || f.id, it);
+            else abrirFicha(it);
         }
+    }
+
+    // Moverse por las pestañas no carga nada hasta que se para: pasar de
+    // Inicio a Programas no tiene que pedir las cinco de en medio.
+    function elegirPestana() {
+        renderSemana();
+        clearTimeout(semana.tabTimer);
+        semana.tabTimer = setTimeout(function() {
+            var p = semana.pestanas[semana.tabIdx];
+            if (p && p[0] !== semana.pestana) cargarPestana(p[0]);
+        }, 500);
+    }
+
+    // ---------- La ficha: "Ver" y "Mas como esta" ----------
+
+    function abrirFicha(it) {
+        semana.ficha = {it: it, foco: 'botones', similares: [], idx: 0, cargando: true};
+        var fi = semana.ficha;
+        renderSemana();
+        api("type=tv_archive&action=get_similar&group=" + encodeURIComponent(it.grupo || '') +
+            "&title=" + encodeURIComponent(it.titulo), function(js) {
+            if (semana.ficha !== fi) return;
+            fi.cargando = false;
+            fi.similares = (js && js.data) ? js.data : [];
+            if (view === "semana") renderSemana();
+        });
+    }
+
+    function teclaFicha(k, salir) {
+        var fi = semana.ficha;
+        if (fi.foco === 'similares') {
+            if (k === 39 && fi.idx < fi.similares.length - 1) { fi.idx++; renderSemana(); }
+            else if (k === 37 && fi.idx > 0) { fi.idx--; renderSemana(); }
+            else if (k === 38 || k === 37) { fi.foco = 'botones'; renderSemana(); }
+            else if (k === 13) abrirFicha(fi.similares[fi.idx]);
+            else if (salir) { semana.ficha = null; renderSemana(); }
+            return;
+        }
+        if (k === 13) verDeSemana(fi.it);
+        else if (k === 40 && fi.similares.length) { fi.foco = 'similares'; renderSemana(); }
+        else if (salir || k === 37 || k === 38) { semana.ficha = null; renderSemana(); }
     }
 
     // Las filas llegan con las primeras tarjetas: el catalogo entero pesa mas
@@ -1714,8 +1882,8 @@
         if (f.pidiendo || !f.total || f.items.length >= f.total ||
             semana.cols[semana.fila] < f.items.length - 8) return;
         f.pidiendo = true;
-        api("type=tv_archive&action=get_row&group=" + encodeURIComponent(f.id) +
-            "&from=" + f.items.length, function(js) {
+        api("type=tv_archive&action=get_row&tab=" + encodeURIComponent(semana.pestana) +
+            "&group=" + encodeURIComponent(f.id) + "&from=" + f.items.length, function(js) {
             f.pidiendo = false;
             var nuevas = (js && js.data) ? js.data : [];
             if (!nuevas.length) { f.total = f.items.length; return; }
@@ -1725,7 +1893,7 @@
             for (var j = 0; j < nuevas.length; j++) {
                 if (!vistas[nuevas[j].ch_id + ':' + nuevas[j].ini]) f.items.push(nuevas[j]);
             }
-            if (view === "semana" && !semana.episodios) renderSemana();
+            if (view === "semana" && !semana.episodios && !semana.ficha) renderSemana();
         });
     }
 
@@ -1741,10 +1909,13 @@
         });
     }
 
-    function verDeSemana(it) {
+    // desde: segundos desde el principio, para seguir por donde se dejo.
+    function verDeSemana(it, desde) {
         if (!it) return;
+        // Unos segundos antes, para enganchar la frase en la que se corto.
+        var utc = it.ini + (desde > 30 ? Math.floor(desde) - 10 : 0);
         api("type=tv_archive&action=create_link&ch_id=" + it.ch_id +
-            "&utc=" + it.ini + "&lutc=" + finConMargen(it.fin), function(js) {
+            "&utc=" + utc + "&lutc=" + finConMargen(it.fin), function(js) {
             if (view !== "semana") return;
             if (js && js.cmd) {
                 document.getElementById("semana").style.display = "none";
@@ -1752,7 +1923,7 @@
                     etiqueta: 'EN DIFERIDO', canal: it.canal,
                     titulo: it.titulo + (it.sub ? ' · ' + it.sub : ''),
                     descr: it.descr, cuando: cuandoFue(it.ini, it.fin),
-                    tipo: 'archivo', chId: it.ch_id, inicio: it.ini, fin: it.fin, base: it.ini,
+                    tipo: 'archivo', chId: it.ch_id, inicio: it.ini, fin: it.fin, base: utc,
                     volver: 'semana'
                 });
             } else {
@@ -4060,7 +4231,18 @@
             z-index: 11; background: #080b0d; padding: 50px 60px; overflow: hidden;
         }
         .sem-vacio { color: #98a3a6; font-size: 30px; padding: 80px; }
-        .sem-hero { height: 380px; margin-bottom: 34px; overflow: hidden; }
+        .sem-tabs { height: 56px; margin-bottom: 18px; white-space: nowrap; overflow: hidden; }
+        .sem-tabs b {
+            display: inline-block; vertical-align: middle; margin-right: 26px;
+            font-size: 18px; letter-spacing: 3px; color: #9ad62f;
+        }
+        .sem-tabs span {
+            display: inline-block; vertical-align: middle; margin-right: 6px;
+            padding: 8px 20px; border-radius: 26px; font-size: 26px; color: #8f9a9d;
+        }
+        .sem-tabs span.sel { color: #fff; font-weight: 700; background: rgba(255,255,255,.08); }
+        .sem-tabs.activa span.sel { background: #9ad62f; color: #0b0f10; }
+        .sem-hero { height: 330px; margin-bottom: 26px; overflow: hidden; }
         /* Enteras, sin recortar: unas caratulas son horizontales y otras
            carteles verticales (las de Movistar y TVmaze), y recortadas a 16:9
            de un cartel solo quedaba una franja del medio. */
@@ -4069,14 +4251,14 @@
             -webkit-background-size: contain; background-size: contain; background-repeat: no-repeat;
         }
         .sem-img {
-            float: left; position: relative; width: 676px; height: 380px;
+            float: left; position: relative; width: 587px; height: 330px;
             border-radius: 18px; margin-right: 50px;
         }
-        .sem-txt { overflow: hidden; height: 380px; }
+        .sem-txt { overflow: hidden; height: 330px; }
         .sem-kicker { font-size: 18px; letter-spacing: 3px; color: #9ad62f; font-weight: 700; }
         .sem-titulo {
-            font-family: Antonio, 'Segoe UI', Arial, sans-serif; font-size: 56px; font-weight: 700;
-            line-height: 62px; max-height: 124px; overflow: hidden; margin-top: 10px;
+            font-family: Antonio, 'Segoe UI', Arial, sans-serif; font-size: 50px; font-weight: 700;
+            line-height: 56px; max-height: 112px; overflow: hidden;
         }
         .sem-meta { font-size: 24px; color: #9ad62f; margin-top: 12px; }
         .sem-sub {
@@ -4084,7 +4266,7 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .sem-descr {
-            font-size: 22px; line-height: 32px; max-height: 96px; overflow: hidden;
+            font-size: 22px; line-height: 32px; max-height: 64px; overflow: hidden;
             color: #c9d1cb; margin-top: 12px;
         }
         .sem-pista { margin-top: 18px; font-size: 22px; color: #a8b2b5; }
@@ -4093,6 +4275,7 @@
             margin: 0 8px 0 14px; color: #f2f5f3; font-weight: 600;
         }
         .sem-pista span { margin: 0 8px 0 26px; }
+        .sem-pista span.play { background: #9ad62f; color: #0b0f10; padding: 6px 22px; }
         .sem-pista span:first-child { margin-left: 0; }
         .sem-ayuda {
             position: absolute; left: 60px; right: 60px; bottom: 24px;
@@ -4123,7 +4306,10 @@
         .sem-pie .t { font-size: 21px; font-weight: 600; color: #fff; }
         .sem-pie .m { font-size: 16px; color: #c9d1cb; margin-top: 3px; }
         .sem-sinimg { position: absolute; top: 0; left: 0; right: 0; height: 120px; padding-top: 28px; text-align: center; }
-        .sem-img .sem-sinimg { height: 100%; padding-top: 140px; }
+        .sem-img .sem-sinimg { height: 100%; padding-top: 115px; }
+        /* Lo empezado: cuanto se ha visto, como en Netflix. */
+        .sem-visto { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.25); }
+        .sem-visto i { display: block; height: 100%; background: #e5322d; }
         .sem-sinimg img { max-height: 60px; max-width: 160px; }
         .sem-img .sem-sinimg img { max-height: 110px; max-width: 300px; }
         .sem-sinimg b { font-family: Antonio, 'Segoe UI', Arial, sans-serif; font-size: 44px; color: #4a5357; }
@@ -4169,13 +4355,17 @@
             .boton-semana i { width: 8px; height: 8px; margin-right: 5px; }
             #semana { padding: 33px 40px; }
             .sem-vacio { font-size: 20px; padding: 53px; }
-            .sem-hero { height: 253px; margin-bottom: 23px; }
-            .sem-img { width: 450px; height: 253px; border-radius: 12px; margin-right: 33px; }
-            .sem-txt { height: 253px; }
+            .sem-tabs { height: 37px; margin-bottom: 12px; }
+            .sem-tabs b { font-size: 12px; letter-spacing: 2px; margin-right: 17px; }
+            .sem-tabs span { font-size: 17px; padding: 5px 13px; border-radius: 17px; margin-right: 4px; }
+            .sem-hero { height: 220px; margin-bottom: 17px; }
+            .sem-img { width: 391px; height: 220px; border-radius: 12px; margin-right: 33px; }
+            .sem-txt { height: 220px; }
+            .sem-visto { height: 4px; }
             .sem-kicker { font-size: 12px; letter-spacing: 2px; }
-            .sem-titulo { font-size: 37px; line-height: 41px; max-height: 82px; margin-top: 7px; }
+            .sem-titulo { font-size: 33px; line-height: 37px; max-height: 74px; }
             .sem-meta, .sem-sub { font-size: 16px; margin-top: 8px; }
-            .sem-descr { font-size: 15px; line-height: 21px; max-height: 63px; margin-top: 8px; }
+            .sem-descr { font-size: 15px; line-height: 21px; max-height: 42px; margin-top: 8px; }
             .sem-pista { font-size: 15px; margin-top: 12px; }
             .sem-pista span, .sem-ayuda span { padding: 4px 9px; border-radius: 5px; margin: 0 5px 0 9px; }
             .sem-pista span { margin: 0 5px 0 17px; }
@@ -4189,7 +4379,7 @@
             .sem-pie .t { font-size: 14px; }
             .sem-pie .m { font-size: 11px; margin-top: 2px; }
             .sem-sinimg { height: 80px; padding-top: 19px; }
-            .sem-img .sem-sinimg { padding-top: 93px; }
+            .sem-img .sem-sinimg { padding-top: 77px; }
             .sem-sinimg img { max-height: 40px; max-width: 107px; }
             .sem-img .sem-sinimg img { max-height: 73px; max-width: 200px; }
             .sem-sinimg b { font-size: 29px; }

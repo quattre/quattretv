@@ -1087,14 +1087,13 @@ def ultimos7(request):
     from apps.stalker_api import semana
 
     nombres = dict(semana.GRUPOS)
-    filas_genero = dict([semana.ULTIMA] + [(g, nombre) for g, nombre, _ in semana.GENEROS])
     if request.method == 'POST':
         accion = request.POST.get('accion')
-        if accion == 'fila' and request.POST.get('grupo') in {**nombres, **filas_genero}:
+        if accion == 'fila' and request.POST.get('grupo') in nombres:
             fila, _ = FilaSemana.objects.get_or_create(grupo=request.POST['grupo'])
             fila.visible = not fila.visible
             fila.save(update_fields=['visible'])
-            messages.success(request, f'Fila {({**nombres, **filas_genero})[fila.grupo]}: '
+            messages.success(request, f'Fila {nombres[fila.grupo]}: '
                                       f'{"se ve" if fila.visible else "oculta"}.')
         elif accion == 'titulo':
             titulo = request.POST.get('titulo', '').strip()

@@ -1422,18 +1422,33 @@ def handle_tv_archive(request, action):
         return handle_archive_title(request)
     if action == 'get_row':
         return handle_archive_row(request)
+    if action == 'get_similar':
+        return handle_archive_similar(request)
+    if action == 'set_progress':
+        return handle_archive_progress(request)
 
     return stalker_response({'error': 'Unknown action'})
 
 
 def handle_archive_catalog(request):
-    """Lo emitido que sigue en el archivo, por filas: peliculas, series..."""
+    """
+    Una pestaña del videoclub (Inicio, Peliculas, Series...) con sus filas, y
+    la lista de pestañas.
+    """
     from . import semana
 
     device, sin_permiso = aparato_o_error(request)
     if sin_permiso:
         return sin_permiso
-    return stalker_response({'data': semana.primeras(semana.catalogo(device))})
+    pestanas = semana.pestanas(semana.catalogo(device))
+    tab = request.GET.get('tab', 'inicio')
+    if tab not in [p for p, _ in pestanas]:
+        tab = 'inicio'
+    return stalker_response({'data': {
+        'pestanas': pestanas,
+        'pestana': tab,
+        'filas': semana.primeras(semana.pestana(device, tab)),
+    }})
 
 
 def handle_archive_row(request):
@@ -1447,7 +1462,33 @@ def handle_archive_row(request):
         desde = max(0, int(request.GET.get('from', 0)))
     except ValueError:
         desde = 0
-    return stalker_response({'data': semana.mas_de_fila(device, request.GET.get('group', ''), desde)})
+    return stalker_response({'data': semana.mas_de_fila(
+        device, request.GET.get('tab', 'inicio'), request.GET.get('group', ''), desde)})
+
+
+def handle_archive_similar(request):
+    """"Mas como esta", para la ficha de un titulo."""
+    from . import semana
+
+    device, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
+    return stalker_response({'data': semana.similares(
+        device, request.GET.get('group', ''), request.GET.get('title', ''))})
+
+
+def handle_archive_progress(request):
+    """Por donde va el aparato en un programa del archivo: "Seguir viendo"."""
+    from . import semana
+
+    device, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
+    try:
+        datos = [int(float(request.GET.get(k, ''))) for k in ('ch_id', 'ini', 'pos', 'dur')]
+    except ValueError:
+        return stalker_response({'error': 'ch_id, ini, pos y dur'})
+    return stalker_response({'data': semana.guardar_progreso(device, *datos)})
 
 
 def handle_archive_title(request):

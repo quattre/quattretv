@@ -34,7 +34,7 @@ GRUPOS = [
 # una vez: cada fila llega con las primeras PAGINA y el resto se pide al
 # avanzar por ella.
 POR_GRUPO = None
-PAGINA = 30
+PAGINA = 20
 # Minutos. Lo mas corto son el tiempo, avances y cortinillas; los dibujos si
 # duran poco de verdad.
 DURACION_MINIMA = 15
@@ -69,25 +69,68 @@ TITULOS = [
                   'formula 1', 'baloncesto', 'tenis', 'ciclismo', 'estadio')),
 ]
 
-# Filas de peliculas por genero, debajo de la de todas. La guia de dobleM lo
-# trae como "Cine,Terror,Suspense" y una pelicula puede estar en varias.
-GENEROS = [
-    ('cine-terror', 'Peliculas de terror', ('terror', 'horror')),
-    ('cine-accion', 'Accion y aventuras', ('accion', 'action', 'aventura', 'adventure', 'belic')),
-    ('cine-comedia', 'Comedias', ('comedia', 'comedy')),
-    ('cine-suspense', 'Suspense y policiacas', ('thriller', 'suspense', 'policiac', 'crimen',
-                                                'crime', 'intriga', 'misterio')),
-    ('cine-drama', 'Dramas', ('drama',)),
-    ('cine-romantico', 'Romanticas', ('romant', 'romance')),
-    ('cine-ficcion', 'Ciencia ficcion y fantasia', ('ciencia ficcion', 'sci-fi', 'fantas')),
-    ('cine-familiar', 'Animacion y familiares', ('animacion', 'familiar', 'infantil')),
-    ('cine-oeste', 'Oeste', ('oeste', 'western')),
-    ('cine-docu', 'Cine documental', ('document',)),
+# ---------- Como en Netflix y Prime Video ----------
+#
+# Arriba las pestañas y en cada una filas por genero, en vez de una fila de
+# 590 peliculas. El genero lo trae dobleM detras del tipo: "Cine,Terror",
+# "Documentales,Naturaleza", "Entretenimiento,Humor" (ver apps/epg/completar.py).
+PESTANAS = [
+    ('inicio', 'Inicio'),
+    ('peliculas', 'Peliculas'),
+    ('series', 'Series'),
+    ('infantil', 'Infantil'),
+    ('documentales', 'Documentales'),
+    ('entretenimiento', 'Programas'),
+    ('actualidad', 'Noticias y deportes'),
 ]
-GENERO_MINIMO = 3       # con menos peliculas la fila no merece la pena
-# Como el "Last chance" de Netflix: las que se borran en menos de dos dias.
-ULTIMA = ('cine-ultima', 'Ultima oportunidad')
-ULTIMA_HORAS = 24
+# (id, palabras, nombre de la fila en peliculas, en series)
+FICCION_ETIQUETAS = [
+    ('terror', ('terror', 'horror'), 'Peliculas de terror', 'Series de terror'),
+    ('accion', ('accion', 'action', 'aventura', 'adventure', 'belic'),
+     'Accion y aventuras', 'Series de accion'),
+    ('comedia', ('comedia', 'comedy', 'humor'), 'Comedias', 'Series de comedia'),
+    ('suspense', ('thriller', 'suspense', 'policiac', 'crimen', 'crime', 'intriga', 'misterio'),
+     'Suspense y policiacas', 'Policiacas y de suspense'),
+    ('drama', ('drama',), 'Dramas', 'Series de drama'),
+    ('romantico', ('romant', 'romance', 'telenovela'), 'Romanticas', 'Telenovelas y romanticas'),
+    ('ficcion', ('ciencia ficcion', 'sci-fi', 'fantas'),
+     'Ciencia ficcion y fantasia', 'Ciencia ficcion y fantasia'),
+    ('familiar', ('animacion', 'familiar', 'infantil'), 'Animacion y familiares', 'Series de animacion'),
+    ('oeste', ('oeste', 'western'), 'Oeste', 'Oeste'),
+    ('docu', ('document',), 'Cine documental', 'Series documentales'),
+]
+ETIQUETAS = {
+    'peliculas': [(i, p, peli) for i, p, peli, _ in FICCION_ETIQUETAS],
+    'series': [(i, p, serie) for i, p, _, serie in FICCION_ETIQUETAS],
+    'documentales': [
+        ('naturaleza', ('naturaleza', 'animal', 'nature', 'fauna'), 'Naturaleza y animales'),
+        ('historia', ('historia', 'history', 'arqueolog'), 'Historia'),
+        ('viajes', ('viaje', 'travel', 'turismo'), 'Viajes'),
+        ('ciencia', ('ciencia', 'tecnolog', 'science', 'espacio'), 'Ciencia y tecnologia'),
+        ('caza', ('caza', 'pesca'), 'Caza y pesca'),
+        ('motor', ('motor', 'coche'), 'Motor'),
+        ('sociedad', ('sociedad', 'reportaje', 'actualidad', 'investigacion'), 'Sociedad y reportajes'),
+    ],
+    'entretenimiento': [
+        ('humor', ('humor', 'comedia'), 'Humor'),
+        ('concursos', ('concurso',), 'Concursos'),
+        ('cocina', ('cocina', 'gastronom'), 'Cocina'),
+        ('reality', ('reality', 'telerrealidad'), 'Telerrealidad'),
+        ('magacin', ('magaz', 'magacin'), 'Magacines'),
+        ('musica', ('music', 'musica'), 'Musica'),
+    ],
+    'infantil': [
+        ('preescolar', ('preescolar',), 'Preescolar'),
+        ('dibujos', ('dibujos', 'animacion'), 'Dibujos animados'),
+    ],
+}
+# La ultima fila de cada pestaña: lo que no tiene genero.
+OTRAS = {'peliculas': 'Mas peliculas', 'series': 'Mas series', 'infantil': 'Mas infantil',
+         'documentales': 'Mas documentales', 'entretenimiento': 'Mas programas'}
+FILA_MINIMA = 3          # con menos tarjetas una fila no merece la pena
+ULTIMA_HORAS = 24        # "Ultima oportunidad": lo que se borra antes de eso
+DESTACADOS = 40          # tarjetas de cada fila de Inicio
+TERMINADO = 0.92         # visto hasta aqui, ya no sale en "Seguir viendo"
 
 # Lo que no es un programa que alguien quiera volver a ver.
 FUERA = ('teletienda', 'televenta', 'tienda en casa', 'juwelo', 'cierre de emision', 'el tiempo',
@@ -156,14 +199,17 @@ def grupo_de(titulo, categoria, minutos, anio, tipo_canal):
     return 'entretenimiento', False
 
 
-def generos_de(categoria):
-    """Las filas de genero de una pelicula: "Cine,Terror" -> ['cine-terror']."""
-    resto = plano(categoria).split(',', 1)
-    # "Cine,Terror" o "Peliculas de terror": el genero va detras del tipo.
-    texto = resto[1] if len(resto) > 1 else resto[0]
-    if texto.strip() in ('cine', 'pelicula', 'peliculas', 'film', 'movie', ''):
+def etiquetas_de(grupo, categoria):
+    """El genero dentro del tipo: ('peliculas', 'Cine,Terror') -> ['terror']."""
+    lista = ETIQUETAS.get(grupo)
+    if not lista:
         return []
-    return [g for g, _, palabras in GENEROS if any(p in texto for p in palabras)]
+    partes = plano(categoria).split(',', 1)
+    # "Cine,Terror" o "Peliculas de terror": el genero va detras del tipo.
+    texto = partes[1] if len(partes) > 1 else partes[0]
+    if texto.strip() in ('cine', 'pelicula', 'peliculas', 'film', 'movie', 'serie', 'series', ''):
+        return []
+    return [i for i, palabras, _ in lista if any(p in texto for p in palabras)]
 
 
 def canales_con_archivo(device):
@@ -227,9 +273,53 @@ def correcciones():
     return ocultas, titulos
 
 
+def _emision(canal, p, horas, tipo_canal):
+    """Una emision del archivo como tarjeta, o None si no vale la pena ofrecerla."""
+    from apps.epg.completar import generico
+
+    minutos = int((p.end_time - p.start_time).total_seconds() // 60)
+    titulo = sin_temporada(p.title)
+    # "Cine" o "Documental" a secas no dicen que es: mejor no ofrecerlo.
+    if minutos < DURACION_MINIMA_INFANTIL or not titulo or generico(titulo):
+        return None
+    grupo, seguro = grupo_de(titulo, p.category, minutos, p.year, tipo_canal)
+    if not grupo:
+        return None
+    return {
+        'seguro': seguro,
+        'grupo': grupo,
+        'titulo': titulo,
+        'sub': p.episode_title or '',
+        'descr': (p.description or '')[:300],
+        '_cat': p.category or '',
+        'anio': p.year or '',
+        'img': p.icon or '',
+        'ch_id': str(canal.id),
+        'canal': canal.name,
+        'logo': canal.logo_display_url,
+        'ini': int(p.start_time.timestamp()),
+        'fin': int(p.end_time.timestamp()),
+        # Cuando lo borra el grabador: lo que dura el archivo del canal.
+        'caduca': int(p.start_time.timestamp()) + horas * 3600,
+        'min': minutos,
+    }
+
+
+def _corregir(e, corregidos, con_ocultos=False):
+    """Aplica lo corregido a mano en el panel. False si hay que quitarla."""
+    c = corregidos.get(plano(e['titulo']))
+    if c:
+        if c.oculto and not con_ocultos:
+            return False
+        if c.grupo:
+            e['grupo'] = c.grupo
+        if c.imagen:
+            e['img'] = c.imagen
+    return True
+
+
 def emisiones(canales, con_ocultos=False):
     """Lo ya emitido que sigue en el archivo de esos canales, lo mas nuevo antes."""
-    from apps.epg.completar import generico
     from apps.epg.models import Program
 
     ahora = timezone.now()
@@ -244,34 +334,12 @@ def emisiones(canales, con_ocultos=False):
         ).only('title', 'description', 'start_time', 'end_time', 'category',
                'episode_title', 'year', 'icon')
         for p in programas:
-            minutos = int((p.end_time - p.start_time).total_seconds() // 60)
-            titulo = sin_temporada(p.title)
-            # "Cine" o "Documental" a secas no dicen que es: mejor no ofrecerlo.
-            if minutos < DURACION_MINIMA_INFANTIL or not titulo or generico(titulo):
+            e = _emision(canal, p, horas, tipo_canal)
+            if not e:
                 continue
-            grupo, seguro = grupo_de(titulo, p.category, minutos, p.year, tipo_canal)
-            if not grupo:
-                continue
-            if seguro:
-                seguros.setdefault(plano(titulo), grupo)
-            salida.append({
-                'seguro': seguro,
-                'grupo': grupo,
-                'titulo': titulo,
-                'sub': p.episode_title or '',
-                'descr': (p.description or '')[:300],
-                'generos': generos_de(p.category),
-                'anio': p.year or '',
-                'img': p.icon or '',
-                'ch_id': str(canal.id),
-                'canal': canal.name,
-                'logo': canal.logo_display_url,
-                'ini': int(p.start_time.timestamp()),
-                'fin': int(p.end_time.timestamp()),
-                # Cuando lo borra el grabador: lo que dura el archivo del canal.
-                'caduca': int(p.start_time.timestamp()) + horas * 3600,
-                'min': minutos,
-            })
+            if e['seguro']:
+                seguros.setdefault(plano(e['titulo']), e['grupo'])
+            salida.append(e)
 
     # Big Bang en Neox salia como entretenimiento, porque la guia no lo dice y
     # Neox es un canal de entretenimiento; en Warner, que es de series, si se
@@ -283,37 +351,62 @@ def emisiones(canales, con_ocultos=False):
     # Lo que se ha corregido a mano en el panel manda sobre lo adivinado.
     _, corregidos = correcciones()
     if corregidos:
-        quedan = []
-        for e in salida:
-            c = corregidos.get(plano(e['titulo']))
-            if c:
-                if c.oculto and not con_ocultos:
-                    continue
-                if c.grupo:
-                    e['grupo'] = c.grupo
-                if c.imagen:
-                    e['img'] = c.imagen
-            quedan.append(e)
-        salida = quedan
+        salida = [e for e in salida if _corregir(e, corregidos, con_ocultos)]
 
     salida = [e for e in salida
               if e['min'] >= DURACION_MINIMA or e['grupo'] == 'infantil']
+    conocidas = categorias_conocidas()
+    for e in salida:
+        cat = e.pop('_cat')
+        e['etiquetas'] = etiquetas_de(e['grupo'], cat) or \
+            etiquetas_de(e['grupo'], conocidas.get(plano(e['titulo']), ''))
     salida.sort(key=lambda e: -e['ini'])
     return salida
 
 
+def categorias_conocidas():
+    """
+    {titulo: categoria con genero} de toda la guia, tambien lo que esta por
+    emitir. La guia complementaria solo trae genero de hoy en adelante, pero
+    las peliculas se repiten en la semana: lo emitido el lunes sin genero lo
+    toma de la emision del jueves.
+    """
+    from apps.epg.models import Program
+
+    try:
+        guardado = cache.get('semana:categorias')
+        if guardado is not None:
+            return guardado
+    except Exception:
+        pass
+    try:
+        conocidas = dict(cache.get('epg:generos') or {})    # ver apps/epg/completar.py
+    except Exception:
+        conocidas = {}
+    for titulo, categoria in Program.objects.filter(
+            category__contains=',', start_time__gte=timezone.now() - timedelta(days=8)) \
+            .values_list('title', 'category'):
+        conocidas[plano(sin_temporada(titulo))] = categoria
+    try:
+        cache.set('semana:categorias', conocidas, 1800)
+    except Exception:
+        pass
+    return conocidas
+
+
 def catalogo(device):
     """
-    Las filas del catalogo. Cada tarjeta es un titulo: si se ha emitido varias
-    veces (los capitulos de una serie, los telediarios) se juntan y la tarjeta
-    lleva la emision mas reciente y cuantas hay.
+    {tipo: tarjetas} de lo que este aparato puede ver. Cada tarjeta es un
+    titulo: si se ha emitido varias veces (los capitulos de una serie, los
+    telediarios) se juntan y la tarjeta lleva la emision mas reciente y
+    cuantas hay. Las pestañas y sus filas se arman con esto (ver pestana).
     """
     canales = canales_con_archivo(device)
     if not canales:
-        return []
+        return {}
 
     firma = ','.join(f'{c.id}:{h}' for c, h in sorted(canales.items(), key=lambda x: x[0].id))
-    clave = 'semana:%s:%s' % (version(), hashlib.md5(firma.encode()).hexdigest())
+    clave = 'semana:v2:%s:%s' % (version(), hashlib.md5(firma.encode()).hexdigest())
     try:
         guardado = cache.get(clave)
         if guardado is not None:
@@ -322,9 +415,8 @@ def catalogo(device):
         pass
 
     ocultas, _ = correcciones()
-    resultado = [f for f in filas_de(emisiones(canales))
-                 if f['items'] and f['id'] not in ocultas
-                 and not (f['id'].startswith('cine-') and 'peliculas' in ocultas)]
+    resultado = {f['id']: f['items'] for f in filas_de(emisiones(canales))
+                 if f['items'] and f['id'] not in ocultas}
     try:
         cache.set(clave, resultado, CACHE_SEGUNDOS)
     except Exception:
@@ -332,23 +424,96 @@ def catalogo(device):
     return resultado
 
 
+def pestanas(tarjetas):
+    """Las pestañas que tienen algo."""
+    tiene = {g for g, lista in tarjetas.items() if lista}
+    tiene.add('inicio')
+    if tiene & {'noticias', 'deportes'}:
+        tiene.add('actualidad')
+    return [[p, nombre] for p, nombre in PESTANAS if p in tiene]
+
+
+def pestana(device, nombre):
+    """Las filas enteras de una pestaña. Inicio empieza por "Seguir viendo"."""
+    tarjetas = catalogo(device)
+    filas = []
+    if nombre == 'inicio':
+        seguir = seguir_viendo(device)
+        if seguir:
+            filas.append({'id': 'seguir', 'nombre': 'Seguir viendo', 'items': seguir})
+    return filas + filas_de_pestana(tarjetas, nombre)
+
+
 def primeras(filas):
     """Las filas con sus primeras tarjetas y cuantas tiene cada una."""
     return [dict(f, items=f['items'][:PAGINA], total=len(f['items'])) for f in filas]
 
 
-def mas_de_fila(device, fila, desde):
-    for f in catalogo(device):
+def mas_de_fila(device, nombre, fila, desde):
+    for f in pestana(device, nombre):
         if f['id'] == fila:
             return f['items'][desde:desde + PAGINA]
     return []
 
 
+def ultima(lista):
+    """Lo que el archivo borra en menos de ULTIMA_HORAS, lo mas urgente antes."""
+    limite = timezone.now().timestamp() + ULTIMA_HORAS * 3600
+    return sorted((t for t in lista if t['caduca'] <= limite), key=lambda t: t['caduca'])
+
+
+def filas_de_pestana(tarjetas, nombre):
+    def de(*grupos):
+        return [t for g in grupos for t in tarjetas.get(g, [])]
+
+    def recientes(lista):
+        return sorted(lista, key=lambda t: -t['ini'])
+
+    nombres = dict(GRUPOS)
+    if nombre == 'inicio':
+        # Como la portada de Netflix: un poco de todo, y lo de cada tipo
+        # entero en su pestaña.
+        filas = [
+            ('populares', 'Lo mas visto', populares(tarjetas)),
+            ('novedades', 'Novedades', recientes(de('peliculas', 'series', 'documentales'))[:DESTACADOS]),
+            ('ultima', 'Ultima oportunidad', ultima(de('peliculas', 'documentales'))[:DESTACADOS]),
+            ('reir', 'Para reir', recientes(
+                [t for t in de('peliculas', 'series', 'entretenimiento')
+                 if {'comedia', 'humor'} & set(t['etiquetas'])])[:DESTACADOS]),
+        ]
+        filas += [('todo-' + g, nombres[g], tarjetas.get(g, [])[:DESTACADOS]) for g, _ in GRUPOS]
+    elif nombre == 'actualidad':
+        filas = [(g, nombres[g], tarjetas.get(g, [])) for g in ('noticias', 'deportes')]
+    else:
+        lista = tarjetas.get(nombre, [])
+        filas = []
+        if nombre == 'peliculas':
+            filas.append(('ultima', 'Ultima oportunidad', ultima(lista)))
+        if nombre == 'series':
+            filas.append(('novedades', 'Novedades', recientes(lista)[:DESTACADOS]))
+        generos = []
+        for i, _, nombre_fila in ETIQUETAS.get(nombre, []):
+            suyas = [t for t in lista if i in t['etiquetas']]
+            if len(suyas) >= FILA_MINIMA:
+                generos.append((i, nombre_fila, suyas))
+        # Las mas llenas primero. Una pelicula puede estar en dos.
+        generos.sort(key=lambda f: -len(f[2]))
+        filas += generos
+        con_fila = {i for i, _, _ in generos}
+        if generos:
+            filas.append(('otras', OTRAS.get(nombre, 'Mas'),
+                          [t for t in lista if not con_fila & set(t['etiquetas'])]))
+        else:
+            filas.append(('todo', nombres.get(nombre, ''), lista))
+    return [{'id': i, 'nombre': n, 'items': items} for i, n, items in filas
+            if len(items) >= FILA_MINIMA or (i in ('todo', 'otras', 'noticias', 'deportes') and items)]
+
+
 def filas_de(lista, por_grupo=POR_GRUPO):
     """
-    Junta las emisiones en tarjetas, una por titulo, y las reparte en filas.
+    Junta las emisiones en tarjetas, una por titulo, y las reparte por tipo.
 
-    Cada fila se llena por turnos de canal: lo ultimo de cada canal, luego lo
+    Cada tipo se llena por turnos de canal: lo ultimo de cada canal, luego lo
     penultimo de cada uno... Por orden de emision a secas, los canales de cine,
     que echan peliculas sin parar, llenaban la fila y las de La 1 o Antena 3 no
     salian nunca; con un tope fijo por canal, las filas de un solo canal
@@ -365,6 +530,9 @@ def filas_de(lista, por_grupo=POR_GRUPO):
             # Si la mas reciente no tiene caratula, vale la de otra emision.
             if not de_fila[clave_titulo]['img'] and e['img']:
                 de_fila[clave_titulo]['img'] = e['img']
+            # Y el genero, igual: la guia complementaria solo trae una semana.
+            if not de_fila[clave_titulo]['etiquetas'] and e['etiquetas']:
+                de_fila[clave_titulo]['etiquetas'] = e['etiquetas']
         else:
             de_fila[clave_titulo] = dict(e, n=1)
 
@@ -390,41 +558,13 @@ def filas_de(lista, por_grupo=POR_GRUPO):
             colas = quedan
         if g == 'peliculas':
             # Una pelicula repetida es la misma pelicula: una tarjeta sin
-            # contador, que abre directamente la emision mas reciente, que es
-            # la que mas tarda en desaparecer.
+            # contador, que abre la emision mas reciente, que es la que mas
+            # tarda en desaparecer.
             for tarjeta in elegidas:
                 tarjeta['n'] = 1
         caratulas.completar(elegidas)
         filas.append({'id': g, 'nombre': nombre, 'items': elegidas})
-        if g == 'peliculas':
-            filas.extend(filas_de_peliculas(elegidas))
-    for fila in filas:
-        for tarjeta in fila['items']:
-            tarjeta.pop('generos', None)
     return filas
-
-
-def filas_de_peliculas(peliculas):
-    """
-    Las filas que van debajo de la de todas las peliculas, como en Netflix:
-    las que estan a punto de borrarse y luego una por genero ("Peliculas de
-    terror", "Comedias"...). Las tarjetas son copias: la misma pelicula puede
-    estar en varias filas.
-    """
-    filas = []
-    limite = timezone.now().timestamp() + ULTIMA_HORAS * 3600
-    ultimas = sorted((dict(p) for p in peliculas if p['caduca'] <= limite),
-                     key=lambda p: p['caduca'])
-    if len(ultimas) >= GENERO_MINIMO:
-        filas.append({'id': ULTIMA[0], 'nombre': ULTIMA[1], 'items': ultimas})
-    generos = []
-    for g, nombre, _ in GENEROS:
-        suyas = [dict(p) for p in peliculas if g in p.get('generos', ())]
-        if len(suyas) >= GENERO_MINIMO:
-            generos.append({'id': g, 'nombre': nombre, 'items': suyas})
-    # Las mas llenas primero.
-    generos.sort(key=lambda f: -len(f['items']))
-    return filas + generos
 
 
 def emisiones_de(device, grupo, titulo):
@@ -433,10 +573,136 @@ def emisiones_de(device, grupo, titulo):
     buscado = plano(titulo)
     lista = [e for e in emisiones(canales_con_archivo(device))
              if e['grupo'] == grupo and plano(e['titulo']) == buscado]
-    for e in lista:
-        e.pop('generos', None)
     caratulas.completar(lista)
     return lista
+
+
+# ---------- "Mas como esta" ----------
+
+def similares(device, grupo, titulo, maximo=20):
+    """
+    Lo parecido a un titulo, para su ficha: del mismo tipo y con generos en
+    comun, y a igualdad, del mismo canal y de una epoca parecida.
+    """
+    lista = catalogo(device).get(grupo, [])
+    buscado = plano(titulo)
+    ref = next((t for t in lista if plano(t['titulo']) == buscado), None)
+    if not ref:
+        return []
+    mias = set(ref['etiquetas'])
+    puntuadas = []
+    for t in lista:
+        if plano(t['titulo']) == buscado:
+            continue
+        comunes = len(mias & set(t['etiquetas']))
+        if mias and not comunes:
+            continue
+        puntos = comunes * 10 + (3 if t['canal'] == ref['canal'] else 0)
+        if ref['anio'] and t['anio']:
+            puntos -= min(5, abs(int(ref['anio']) - int(t['anio'])) // 10)
+        puntuadas.append((puntos, t['ini'], t))
+    puntuadas.sort(key=lambda x: (-x[0], -x[1]))
+    return [t for _, _, t in puntuadas[:maximo]]
+
+
+# ---------- "Seguir viendo" y "Lo mas visto" ----------
+
+def guardar_progreso(device, ch_id, ini, pos, dur):
+    """Por donde va este aparato en un programa del archivo."""
+    from datetime import datetime, timezone as dt_timezone
+    from apps.channels.models import Channel
+    from apps.epg.models import ProgresoArchivo
+
+    # Unos segundos no es haberlo empezado, y antes del inicio (se puede ir
+    # 15 minutos antes de la hora de la guia) aun no ha empezado.
+    if pos < 120 or dur <= 0:
+        return False
+    canal = Channel.objects.filter(id=ch_id).first()
+    if not canal:
+        return False
+    inicio = datetime.fromtimestamp(ini, dt_timezone.utc)
+    ProgresoArchivo.objects.update_or_create(
+        device=device, channel=canal, inicio=inicio,
+        defaults={'posicion': min(pos, dur), 'duracion': dur})
+    # Lo que el archivo ya ha borrado no sirve ni para "Lo mas visto".
+    ProgresoArchivo.objects.filter(device=device, inicio__lt=timezone.now() - timedelta(days=8)).delete()
+    return True
+
+
+def tarjeta_de(canal, programa, horas):
+    """La tarjeta de una emision suelta, con las correcciones del panel."""
+    tipo_canal = canal.category.name if canal.category else ''
+    e = _emision(canal, programa, horas, tipo_canal)
+    if not e:
+        return None
+    e.pop('seguro')
+    _, corregidos = correcciones()
+    if not _corregir(e, corregidos):
+        return None
+    e['etiquetas'] = etiquetas_de(e['grupo'], e.pop('_cat'))
+    e['n'] = 1
+    return e
+
+
+def seguir_viendo(device, maximo=20):
+    """Lo que este aparato dejo a medias y sigue en el archivo, lo ultimo antes."""
+    from apps.epg.models import Program, ProgresoArchivo
+    from . import caratulas
+
+    if not getattr(device, 'pk', None):
+        return []
+    canales = {c.id: (c, h) for c, h in canales_con_archivo(device).items()}
+    ahora = timezone.now()
+    salida = []
+    for pr in ProgresoArchivo.objects.filter(device=device)[:60]:
+        if pr.posicion >= pr.duracion * TERMINADO or pr.channel_id not in canales:
+            continue
+        canal, horas = canales[pr.channel_id]
+        if pr.inicio < ahora - timedelta(hours=horas):
+            continue
+        p = Program.objects.filter(channel=canal, start_time=pr.inicio).first()
+        e = tarjeta_de(canal, p, horas) if p else None
+        if e:
+            e.update(pos=pr.posicion, dur=pr.duracion)
+            salida.append(e)
+            if len(salida) >= maximo:
+                break
+    caratulas.completar(salida)
+    return salida
+
+
+def populares(tarjetas, maximo=20):
+    """
+    Lo que mas aparatos han visto del archivo esta semana. Hacen falta al
+    menos dos: lo que ve una sola casa no es "lo mas visto".
+    """
+    from django.db.models import Count
+    from apps.epg.models import Program, ProgresoArchivo
+
+    clave = 'semana:populares'
+    try:
+        cuenta = cache.get(clave)
+    except Exception:
+        cuenta = None
+    if cuenta is None:
+        cuenta = {}
+        vistos = (ProgresoArchivo.objects.filter(actualizado__gte=timezone.now() - timedelta(days=7))
+                  .values('channel_id', 'inicio').annotate(n=Count('device', distinct=True))
+                  .order_by('-n')[:100])
+        for v in vistos:
+            p = Program.objects.filter(channel_id=v['channel_id'], start_time=v['inicio']) \
+                .only('title').first()
+            if p:
+                k = plano(sin_temporada(p.title))
+                cuenta[k] = cuenta.get(k, 0) + v['n']
+        try:
+            cache.set(clave, cuenta, 600)
+        except Exception:
+            pass
+    elegidas = [t for g in ('peliculas', 'series', 'documentales', 'infantil', 'entretenimiento')
+                for t in tarjetas.get(g, []) if cuenta.get(plano(t['titulo']), 0) >= 2]
+    elegidas.sort(key=lambda t: -cuenta[plano(t['titulo'])])
+    return elegidas[:maximo]
 
 
 def todas_las_emisiones():

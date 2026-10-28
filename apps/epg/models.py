@@ -128,3 +128,25 @@ class TituloSemana(models.Model):
 
     def __str__(self):
         return self.titulo
+
+
+class ProgresoArchivo(models.Model):
+    """
+    Por donde va cada aparato en lo que ha visto del archivo, para "Seguir
+    viendo" del videoclub. Vale lo visto desde el videoclub y desde la guia.
+    Se borra solo al acabarlo o cuando el archivo ya no lo tiene.
+    """
+    device = models.ForeignKey('devices.Device', on_delete=models.CASCADE,
+                               related_name='progresos_archivo')
+    channel = models.ForeignKey('channels.Channel', on_delete=models.CASCADE, related_name='+')
+    inicio = models.DateTimeField(help_text='Inicio del programa en la guia')
+    posicion = models.PositiveIntegerField(help_text='Segundos desde el inicio')
+    duracion = models.PositiveIntegerField()
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('device', 'channel', 'inicio')
+        ordering = ['-actualizado']
+
+    def __str__(self):
+        return f'{self.device_id} {self.channel_id} {self.inicio:%d/%m %H:%M} {self.posicion}s'

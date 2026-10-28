@@ -156,6 +156,7 @@ def leer_fuente(url, canales):
     ahora = timezone.now()
     desde, hasta = ahora - timedelta(hours=36), ahora + timedelta(days=8)
     nombres, suyos, resultado = {}, None, {}
+    generos = {}
     for _, el in ET.iterparse(io.BytesIO(contenido), events=('end',)):
         if el.tag == 'channel':
             for nombre in el.findall('display-name'):
@@ -174,13 +175,39 @@ def leer_fuente(url, canales):
                     if hallado:
                         suyos.setdefault(hallado[0], []).append(canal)
             mios = suyos.get(el.get('channel'))
+            if not mios:
+                # De los canales que no tenemos solo interesa el genero: la
+                # misma pelicula se emite en muchos (ver guardar_generos).
+                titulo, sub = _texto(el, 'title'), _texto(el, 'sub-title')
+                m = GENERO.match(sub)
+                if m and ',' in m.group(1):
+                    t = TEMPORADA.match(titulo)
+                    generos.setdefault(plano(t.group(1) if t else titulo), m.group(1).strip()[:100])
             if mios:
                 datos = leer_programa(el)
+                if ',' in datos['category']:
+                    generos.setdefault(datos['plano'], datos['category'])
                 if datos['ini'] and desde <= datos['ini'] <= hasta:
                     for canal in mios:
                         resultado.setdefault(canal, []).append(datos)
             el.clear()
+    guardar_generos(generos)
     return resultado
+
+
+def guardar_generos(generos):
+    """
+    {titulo: "Cine,Terror"} de toda la guia de dobleM, una semana de 643
+    canales. El videoclub lo usa para lo ya emitido sin genero: la guia
+    complementaria solo lo trae de hoy en adelante, pero la misma pelicula se
+    vuelve a emitir esta semana en este o en otro canal.
+    """
+    from django.core.cache import cache
+    if generos:
+        try:
+            cache.set('epg:generos', generos, 3 * 3600)
+        except Exception:
+            logger.warning('No se pudieron guardar los generos de la guia')
 
 
 def buscar(programa, suyos, inicios, desfase, sin_titulo):
