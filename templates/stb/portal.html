@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -1700,7 +1700,7 @@
             if (semana.ficha.foco === 'similares') {
                 return p + 'Ver su ficha <span>◀▶</span> Elegir <span>▲</span> Volver arriba';
             }
-            return '<span data-tecla="13" class="play">▶ Ver</span> desde el principio' +
+            return '<span data-tecla="13" class="play">▶&nbsp; Ver</span>' +
                    (semana.ficha.similares.length ? ' <span>▼</span> Mas como esta' : '') +
                    ' <span data-tecla="27">Atras</span> Volver';
         }
@@ -1841,7 +1841,8 @@
             if (k === 37 && semana.tabIdx > 0) { semana.tabIdx--; elegirPestana(); }
             else if (k === 39 && semana.tabIdx < semana.pestanas.length - 1) { semana.tabIdx++; elegirPestana(); }
             else if ((k === 40 || k === 13) && semana.filas.length) { semana.foco = 'filas'; renderSemana(); }
-            else if (salir || k === 38) cerrarSemana();
+            // Arriba no hace nada: salia del videoclub sin querer.
+            else if (salir) cerrarSemana();
             return;
         }
 
@@ -3776,6 +3777,14 @@
     }
     </script>
     <style>
+        /* La letra viaja con el portal: sin ella el MAG ponia la suya, y
+           Antonio, la de la marca, no se cargaba nunca. Inter (SIL OFL) para
+           el texto y Antonio para los titulos. */
+        @font-face { font-family: Inter; font-weight: 400; src: url({% static 'stb/fuentes/inter-400.woff' %}) format('woff'); }
+        @font-face { font-family: Inter; font-weight: 500; src: url({% static 'stb/fuentes/inter-500.woff' %}) format('woff'); }
+        @font-face { font-family: Inter; font-weight: 600; src: url({% static 'stb/fuentes/inter-600.woff' %}) format('woff'); }
+        @font-face { font-family: Inter; font-weight: 700; src: url({% static 'stb/fuentes/inter-700.woff' %}) format('woff'); }
+        @font-face { font-family: Antonio; src: url({% static 'stb/fuentes/Antonio.ttf' %}) format('truetype'); }
         /* Identidad de Quattre: verde #81ba26 sobre carbon, titulares en Antonio.
            El fondo va casi negro y no gris: en una tele los grises medios se ven
            lavados y apagan el verde, que es justo lo que pasaba. Sobre negro el
@@ -3787,7 +3796,7 @@
         body {
             background: #080b0d;
             color: #f2f5f3;
-            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
         }
         .display { font-family: Antonio, 'Segoe UI', Arial, sans-serif; letter-spacing: .5px; }
@@ -3967,10 +3976,13 @@
             border-top: 1px solid rgba(255,255,255,.08);
             color: #a8b2b5; font-size: 21px; text-align: right;
         }
-        .osd-pistas span {
-            background: rgba(255,255,255,.10); border-radius: 8px;
-            padding: 6px 14px; margin: 0 6px 0 14px; color: #f2f5f3;
-            font-weight: 600;
+        /* Las teclas, como teclas: con canto abajo, como en un mando. */
+        .osd-pistas span, .help span, .sem-pista span, .sem-ayuda span {
+            display: inline-block; min-width: 1.9em; text-align: center;
+            background: rgba(255,255,255,.14); border-radius: 7px;
+            -webkit-box-shadow: inset 0 -3px 0 rgba(0,0,0,.35); box-shadow: inset 0 -3px 0 rgba(0,0,0,.35);
+            padding: 5px 12px 7px; margin: 0 6px 0 14px; color: #fff;
+            font-size: .85em; font-weight: 600; letter-spacing: .2px; line-height: 1.2;
         }
         .osd-pistas span.rojo { background: #e60000; color: #fff; }
         .osd-pistas span[data-tecla]:hover { background: rgba(154,214,47,.32); color: #fff; }
@@ -4025,11 +4037,7 @@
            y desde que estos rotulos hacen algo al pulsarlos tienen que ser un
            blanco al que apuntar con el Magic Remote, no una nota al pie. */
         .help { text-align: center; color: #8a9497; font-size: 20px; line-height: 2.2; }
-        .help span {
-            background: rgba(255,255,255,.09); padding: 9px 17px;
-            border-radius: 8px; margin: 0 7px; color: #e6ece8;
-            font-size: 21px; font-weight: 600;
-        }
+        .help span { margin: 0 7px; }
         .boton-semana {
             background: #fdeb00; color: #1a1a1a; font-size: 19px; font-weight: 700;
             padding: 8px 16px; border-radius: 20px; white-space: nowrap; cursor: pointer;
@@ -4304,12 +4312,15 @@
             display: inline-block; vertical-align: middle; margin-right: 26px;
             font-size: 18px; letter-spacing: 3px; color: #9ad62f;
         }
+        /* Pestañas: la actual en blanco y subrayada en verde; al moverse
+           por ellas, la elegida en un boton blanco. */
         .sem-tabs span {
-            display: inline-block; vertical-align: middle; margin-right: 6px;
-            padding: 8px 20px; border-radius: 26px; font-size: 26px; color: #8f9a9d;
+            display: inline-block; vertical-align: middle; margin-right: 8px;
+            padding: 8px 18px 6px; border-radius: 8px; font-size: 24px; font-weight: 500;
+            color: #8f9a9d; border-bottom: 3px solid transparent;
         }
-        .sem-tabs span.sel { color: #fff; font-weight: 700; background: rgba(255,255,255,.08); }
-        .sem-tabs.activa span.sel { background: #9ad62f; color: #0b0f10; }
+        .sem-tabs span.sel { color: #fff; font-weight: 600; border-bottom-color: #9ad62f; border-radius: 0; }
+        .sem-tabs.activa span.sel { background: #fff; color: #0b0f10; border-bottom-color: #fff; border-radius: 8px; }
         .sem-hero { height: 330px; margin-bottom: 26px; overflow: hidden; }
         /* Enteras, sin recortar: unas caratulas son horizontales y otras
            carteles verticales (las de Movistar y TVmaze), y recortadas a 16:9
@@ -4344,14 +4355,15 @@
             font-size: 22px; line-height: 32px; max-height: 64px; overflow: hidden;
             color: #c9d1cb; margin-top: 12px;
         }
-        .sem-pista { margin-top: 18px; font-size: 22px; color: #a8b2b5; }
-        .sem-pista span, .sem-ayuda span {
-            background: rgba(255,255,255,.10); border-radius: 8px; padding: 6px 14px;
-            margin: 0 8px 0 14px; color: #f2f5f3; font-weight: 600;
-        }
-        .sem-pista span { margin: 0 8px 0 26px; }
-        .sem-pista span.play { background: #9ad62f; color: #0b0f10; padding: 6px 22px; }
+        .sem-pista { margin-top: 22px; font-size: 20px; color: #9aa5a8; }
+        .sem-pista span { margin: 0 8px 0 24px; }
         .sem-pista span:first-child { margin-left: 0; }
+        /* "Ver", el boton de verdad: blanco, como Netflix y Prime. */
+        .sem-pista span.play {
+            background: #fff; color: #0b0f10; font-size: 24px; font-weight: 700;
+            padding: 12px 34px; border-radius: 8px; margin-right: 18px;
+            -webkit-box-shadow: 0 8px 24px rgba(0,0,0,.45); box-shadow: 0 8px 24px rgba(0,0,0,.45);
+        }
         .sem-ayuda {
             position: absolute; left: 60px; right: 60px; bottom: 24px;
             font-size: 20px; color: #a8b2b5; text-align: right;
@@ -4436,7 +4448,8 @@
             .sem-vacio { font-size: 20px; padding: 53px; }
             .sem-tabs { height: 37px; margin-bottom: 12px; }
             .sem-tabs b { font-size: 12px; letter-spacing: 2px; margin-right: 17px; }
-            .sem-tabs span { font-size: 17px; padding: 5px 13px; border-radius: 17px; margin-right: 4px; }
+            .sem-tabs span { font-size: 16px; padding: 5px 12px 4px; margin-right: 5px; border-bottom-width: 2px; }
+            .sem-tabs.activa span.sel { border-radius: 6px; }
             .sem-hero { height: 220px; margin-bottom: 17px; }
             .sem-img { width: 391px; height: 220px; border-radius: 12px; margin-left: 33px; }
             .sem-fondo { height: 427px; }
@@ -4449,7 +4462,8 @@
             .sem-meta span { font-size: 14px; padding: 3px 9px; border-radius: 5px; margin-right: 7px; }
             .sem-descr { font-size: 15px; line-height: 21px; max-height: 42px; margin-top: 8px; }
             .sem-pista { font-size: 15px; margin-top: 12px; }
-            .sem-pista span, .sem-ayuda span { padding: 4px 9px; border-radius: 5px; margin: 0 5px 0 9px; }
+            .sem-pista span, .sem-ayuda span { padding: 3px 8px 5px; border-radius: 5px; margin: 0 5px 0 9px; }
+            .sem-pista span.play { font-size: 16px; padding: 8px 23px; border-radius: 6px; margin-right: 12px; }
             .sem-pista span { margin: 0 5px 0 17px; }
             .sem-pista span:first-child { margin-left: 0; }
             .sem-ayuda { left: 40px; right: 40px; bottom: 16px; font-size: 13px; }
