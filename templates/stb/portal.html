@@ -1835,7 +1835,7 @@
                 h += '<div class="sem-fila"><div class="sem-nombre">Mas como esta</div></div>';
             }
         } else if (semana.episodios) {
-            var n = semana.episodios.length, vis = 3;
+            var n = semana.episodios.length, vis = semanaEpsCaben || 3;
             var ini = Math.max(0, Math.min(semana.epIdx - 1, n - vis));
             h += '<div class="sem-eps">';
             for (var i = ini; i < Math.min(n, ini + vis); i++) {
@@ -1858,6 +1858,26 @@
             }
         }
         document.getElementById("semana").innerHTML = h;
+        if (semana.episodios && !semanaEpsCaben && medirEpisodios()) renderSemana();
+    }
+
+    // Cuantas emisiones caben debajo de la ficha. Iban siempre 3 y caben 4:
+    // se mide el hueco que queda hasta el pie y el paso de una a la siguiente,
+    // una sola vez, como las demas listas (ver medirFilas).
+    var semanaEpsCaben = 0;
+
+    function medirEpisodios() {
+        var caja = document.getElementById("semana");
+        var eps = caja ? caja.querySelectorAll(".sem-ep") : [];
+        if (eps.length < 2 || caja.clientHeight <= 0) return false;
+        var lista = eps[0].parentNode;
+        var paso = eps[1].offsetTop - eps[0].offsetTop;
+        var margen = paso - eps[0].offsetHeight;
+        var abajo = parseFloat(window.getComputedStyle(caja).paddingBottom) || 0;
+        var hueco = caja.clientHeight - abajo - lista.offsetTop - eps[0].offsetTop;
+        if (paso <= 0 || hueco <= 0) return false;
+        semanaEpsCaben = Math.max(1, Math.floor((hueco + margen) / paso));
+        return semanaEpsCaben !== 3;
     }
 
     function teclaSemana(k) {
