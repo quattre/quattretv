@@ -433,6 +433,7 @@
         if ((stbAPI || player) && abierto.aviso.video_http) {
             videoAyuda = {volver: abierto.modo, deco: true};
             reproducirPantallaCompleta(abierto.aviso.video_http, abierto.aviso.titulo, '', null);
+            vigilarFinVideoAyuda();
             return;
         }
         var caja = document.getElementById("ayuda-video");
@@ -450,8 +451,33 @@
         graficosDelanteInsistiendo();
     }
 
+    // Cuando acaba el video, de vuelta a donde se estaba: sin esto se quedaba
+    // la pantalla en negro. El MAG avisa del final con su evento 1 (ver
+    // stbEvent mas abajo); por si un modelo no lo manda, se mira tambien cada
+    // segundo si ha llegado al final o ha dejado de avanzar.
+    var relojFinAyuda = null;
+    function vigilarFinVideoAyuda() {
+        clearInterval(relojFinAyuda);
+        var ultima = -1, quieto = 0, empezado = false;
+        relojFinAyuda = setInterval(function() {
+            if (!videoAyuda || !videoAyuda.deco) { clearInterval(relojFinAyuda); return; }
+            var pos = -1, largo = 0;
+            try {
+                if (stbAPI && stbAPI.GetPosTime) { pos = stbAPI.GetPosTime(); largo = stbAPI.GetMediaLen(); }
+                else if (player) { pos = player.position; largo = player.duration; }
+            } catch (err) {}
+            if (pos > 0) empezado = true;
+            if (empezado && largo > 0 && pos >= largo - 1) { volverDeVideoAyudaDeco(); return; }
+            if (empezado && pos === ultima) { if (++quieto >= 5) volverDeVideoAyudaDeco(); }
+            else quieto = 0;
+            ultima = pos;
+        }, 1000);
+    }
+
     // Al salir del video puesto con el reproductor del deco.
     function volverDeVideoAyudaDeco() {
+        clearInterval(relojFinAyuda);
+        if (!videoAyuda) return;
         var vuelta = videoAyuda;
         videoAyuda = null;
         showMenu();
@@ -4182,6 +4208,13 @@
         handleKey({ keyCode: abajo ? 40 : 38 });
         return false;
     }
+
+    // Eventos del reproductor del MAG: los manda a stbEvent.onEvent. El 1 es
+    // "se acabo lo que se estaba reproduciendo".
+    window.stbEvent = window.stbEvent || {};
+    window.stbEvent.onEvent = function(evento) {
+        if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
+    };
 
     // La barra lateral refleja donde se esta y si la pantalla es completa:
     // se repinta despues de cada tecla y de cada clic, que es lo que cambia
