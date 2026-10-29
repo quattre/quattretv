@@ -99,6 +99,7 @@ def portal_handler(request):
         'records': handle_pvr,
         'watchdog': handle_watchdog,
         'account_info': handle_account_info,
+        'ayuda': handle_ayuda,
     }
 
     handler = handlers.get(request_type, handle_unknown)
@@ -558,6 +559,11 @@ def handle_get_modules(request):
             and (not tarifa or tarifa.has_catchup)
             and hay_archivo_en_marcha()):
         modulos.append('semana')
+
+    # Ayuda, solo si hay algo que enseñar en ella.
+    from apps.devices.models import Aviso
+    if device and _avisos_vigentes(Aviso.objects.filter(en_ayuda=True)).exists():
+        modulos.append('ayuda')
 
     return stalker_response({
         'result': {
@@ -2088,6 +2094,81 @@ def handle_account_info(request, action):
         'tariff_expired_date': user.subscription_expires.isoformat() if user.subscription_expires else '',
         'account_balance': str(user.balance),
     })
+
+
+def _avisos_vigentes(avisos):
+    """Los activos que ya han empezado (desde). El fin (hasta) solo cuenta para arrancar."""
+    from django.db.models import Q
+    return avisos.filter(activo=True).filter(Q(desde__isnull=True) | Q(desde__lte=timezone.now()))
+
+
+def _aviso_json(aviso):
+    return {
+        'id': aviso.id,
+        'titulo': aviso.titulo,
+        'texto': aviso.texto,
+        # Por esta misma direccion y no por /media/: hay decos que entran por
+        # el puerto 80, que lo manda todo a Django y no sirve /media/.
+        'img': ('?type=ayuda&action=imagen&id=%d&v=%d' % (aviso.id, aviso.updated_at.timestamp())
+                if aviso.imagen else ''),
+        'video': aviso.video_url,
+    }
+
+
+def handle_ayuda(request, action):
+    """
+    Novedades al arrancar y la seccion Ayuda (ver Aviso en apps/devices/models.py).
+
+    inicio: lo que hay que enseñar ahora mismo a este aparato.
+    lista: lo que va en Ayuda.
+    visto / no_mostrar: lo apunta el portal al enseñarlo y si se pide no verlo mas.
+    imagen: la imagen de un aviso.
+    """
+    from django.db.models import Q
+    from django.http import FileResponse, Http404
+    from apps.devices.models import Aviso, AvisoVisto
+
+    if action == 'imagen':
+        aviso = Aviso.objects.filter(id=request.GET.get('id') or 0, activo=True).first()
+        if not aviso or not aviso.imagen:
+            raise Http404
+        respuesta = FileResponse(aviso.imagen.open('rb'))
+        respuesta['Cache-Control'] = 'max-age=604800'
+        return respuesta
+
+    device, error = aparato_o_error(request)
+    if error:
+        return error
+
+    if action == 'lista':
+        return stalker_response({'data': [_aviso_json(a) for a in
+                                          _avisos_vigentes(Aviso.objects.filter(en_ayuda=True))]})
+
+    if action == 'inicio':
+        avisos = _avisos_vigentes(Aviso.objects.filter(al_iniciar=True)) \
+            .filter(Q(hasta__isnull=True) | Q(hasta__gte=timezone.now()))
+        vistos = {v.aviso_id: v for v in AvisoVisto.objects.filter(device=device, aviso__in=avisos)}
+        datos = []
+        for a in avisos:
+            v = vistos.get(a.id)
+            if v and (v.no_mostrar or (a.veces and v.veces >= a.veces)):
+                continue
+            datos.append(_aviso_json(a))
+        return stalker_response({'data': datos})
+
+    if action in ('visto', 'no_mostrar'):
+        aviso = Aviso.objects.filter(id=request.GET.get('id') or 0).first()
+        if not aviso:
+            return stalker_response({'result': False})
+        visto, _ = AvisoVisto.objects.get_or_create(aviso=aviso, device=device)
+        if action == 'visto':
+            visto.veces += 1
+        else:
+            visto.no_mostrar = True
+        visto.save()
+        return stalker_response({'result': True})
+
+    return stalker_response({'error': 'Unknown action'})
 
 
 def handle_unknown(request, action):

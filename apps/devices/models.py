@@ -167,3 +167,45 @@ class DeviceMessage(TimeStampedModel):
 
     def __str__(self):
         return f"{self.title} - {self.device or 'All devices'}"
+
+
+class Aviso(TimeStampedModel):
+    """
+    Novedades y guias de uso para los aparatos (Ayuda en el menu del portal).
+
+    Lo que se marca "al arrancar" sale en pantalla al encender la app o el
+    deco, entre las fechas que se pongan y como mucho las veces que se diga
+    por aparato; ademas se puede pulsar "No volver a mostrar". Lo que se marca
+    "en Ayuda" se queda en esa seccion para consultarlo cuando se quiera.
+    """
+    titulo = models.CharField(max_length=120)
+    texto = models.TextField(blank=True)
+    imagen = models.ImageField(upload_to='ayuda/', blank=True)
+    # Un mp4 o un m3u8 que el aparato pueda abrir directamente.
+    video_url = models.CharField(max_length=500, blank=True)
+    al_iniciar = models.BooleanField(default=True)
+    en_ayuda = models.BooleanField(default=True)
+    desde = models.DateTimeField(null=True, blank=True)
+    hasta = models.DateTimeField(null=True, blank=True)
+    # Cuantas veces sale al arrancar en cada aparato; 0 = siempre.
+    veces = models.PositiveIntegerField(default=3)
+    orden = models.IntegerField(default=0)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['orden', '-created_at']
+
+    def __str__(self):
+        return self.titulo
+
+
+class AvisoVisto(models.Model):
+    """Cuantas veces ha salido un aviso en un aparato, y si no quiere verlo mas."""
+    aviso = models.ForeignKey(Aviso, on_delete=models.CASCADE, related_name='vistos')
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='+')
+    veces = models.PositiveIntegerField(default=0)
+    no_mostrar = models.BooleanField(default=False)
+    ultimo = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('aviso', 'device')

@@ -66,6 +66,12 @@ urlpatterns = [
     # VOD
     path('vod/', views.vod_list, name='vod'),
 
+    # Novedades y ayuda del portal
+    path('ayuda/', views.ayuda_list, name='ayuda'),
+    path('ayuda/<int:aviso_id>/', views.ayuda_edit, name='ayuda_edit'),
+    path('ayuda/<int:aviso_id>/reset/', views.ayuda_reset, name='ayuda_reset'),
+    path('ayuda/<int:aviso_id>/delete/', views.ayuda_delete, name='ayuda_delete'),
+
     # Streams
     path('streams/', views.streams_list, name='streams'),
 

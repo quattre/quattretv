@@ -42,7 +42,8 @@
         semana: '<rect x="3" y="6" width="26" height="20" rx="3"/><path d="M13 11.5v9l7.5-4.5z"/>',
         categorias: '<rect x="4" y="4" width="10" height="10" rx="2"/><rect x="18" y="4" width="10" height="10" rx="2"/><rect x="4" y="18" width="10" height="10" rx="2"/><rect x="18" y="18" width="10" height="10" rx="2"/>',
         favoritos: '<path d="M16 3.5l3.8 7.8 8.5 1.2-6.2 6 1.5 8.5L16 23l-7.6 4 1.5-8.5-6.2-6 8.5-1.2z"/>',
-        grabaciones: '<circle cx="16" cy="16" r="12.5"/><circle cx="16" cy="16" r="5" fill="currentColor"/>'
+        grabaciones: '<circle cx="16" cy="16" r="12.5"/><circle cx="16" cy="16" r="5" fill="currentColor"/>',
+        ayuda: '<circle cx="16" cy="16" r="12.5"/><path d="M12.2 12.6a3.9 3.9 0 1 1 5.6 3.5c-1.1.6-1.8 1.4-1.8 2.7v.7"/><circle cx="16" cy="23" r=".6" fill="currentColor"/>'
     };
     function iconoMenu(id) {
         if (!ICONOS_MENU[id]) return '';
@@ -259,6 +260,8 @@
 
     function loadData() {
         contarComoSoy();
+        // Las novedades, cuando ya se ve la lista y el canal ha arrancado.
+        setTimeout(avisosAlArrancar, 4000);
         cargarModulos();
         loadGenres();
         loadPage(0);
@@ -312,6 +315,140 @@
     function cerrarMensaje() {
         document.getElementById("mensaje").style.display = "none";
         mensajeAbierto = false;
+    }
+
+    // ---------- Novedades y Ayuda ----------
+    //
+    // Se escriben en el panel (Novedades y ayuda). Las marcadas "al arrancar"
+    // salen solas al encender, entre sus fechas y como mucho las veces que
+    // diga el panel; con "No volver a mostrar" ese aparato no la ve mas. Las
+    // marcadas "en Ayuda" quedan en el menu de la izquierda. Cada una puede
+    // llevar imagen y un video, que se ve a pantalla completa.
+    var avisoAbierto = null;      // {aviso, modo: 'inicio' | 'ayuda', botones, foco}
+    var avisosPendientes = [];
+    var videoAyuda = null;        // al salir del video, a donde se vuelve
+    var ayuda = [];
+    var ayudaIdx = 0;
+
+    function avisosAlArrancar() {
+        api("type=ayuda&action=inicio", function(js) {
+            avisosPendientes = (js && js.data) ? js.data : [];
+            siguienteAviso();
+        }, true);
+    }
+
+    function siguienteAviso() {
+        // No se pisa al PIN ni a una pantalla que el usuario ya ha abierto.
+        if (!avisosPendientes.length || avisoAbierto) return;
+        if (view === "pin" || mensajeAbierto) { setTimeout(siguienteAviso, 5000); return; }
+        var a = avisosPendientes.shift();
+        api("type=ayuda&action=visto&id=" + a.id, function() {}, true);
+        mostrarAviso(a, 'inicio');
+    }
+
+    function mostrarAviso(a, modo) {
+        var botones = [];
+        if (a.video) botones.push({id: 'video', txt: '▶&nbsp; Ver el video'});
+        botones.push({id: 'cerrar', txt: modo === 'inicio' && avisosPendientes.length ? 'Siguiente' : 'Cerrar'});
+        if (modo === 'inicio') botones.push({id: 'nomas', txt: 'No volver a mostrar'});
+        avisoAbierto = {aviso: a, modo: modo, botones: botones, foco: 0};
+        var h = '<div class="av-et">' + (modo === 'inicio' ? 'NOVEDADES' : 'AYUDA') + '</div>' +
+                '<div class="av-titulo">' + esc(a.titulo) + '</div>' +
+                '<div class="av-cuerpo">' +
+                (a.img ? '<img class="av-img" src="' + esc(a.img) + '" onerror="this.style.display=\'none\'">' : '') +
+                '<div class="av-texto" id="av-texto">' + esc(a.texto || '') + '</div></div>' +
+                '<div class="av-botones" id="av-botones"></div>' +
+                '<div class="av-pista"><span>◀▶</span> Elegir &nbsp; <b id="av-mas"><span>▲▼</span> Leer mas &nbsp; </b>' +
+                '<span data-tecla="27">Atras</span> Cerrar</div>';
+        var caja = document.getElementById("aviso");
+        caja.innerHTML = h;
+        caja.style.display = "block";
+        pintarBotonesAviso();
+        // "Leer mas" solo si el texto no cabe.
+        var t = document.getElementById("av-texto");
+        if (t.scrollHeight <= t.clientHeight + 2) document.getElementById("av-mas").style.display = "none";
+        graficosDelanteInsistiendo();
+    }
+
+    function pintarBotonesAviso() {
+        var b = avisoAbierto.botones, h = '';
+        for (var i = 0; i < b.length; i++) {
+            h += '<span class="av-b' + (i === avisoAbierto.foco ? ' sel' : '') + '" data-av="' + i + '">' + b[i].txt + '</span>';
+        }
+        document.getElementById("av-botones").innerHTML = h;
+    }
+
+    function cerrarAviso() {
+        document.getElementById("aviso").style.display = "none";
+        document.getElementById("aviso").innerHTML = "";
+        avisoAbierto = null;
+    }
+
+    function pulsarBotonAviso(i) {
+        var abierto = avisoAbierto, boton = abierto && abierto.botones[i];
+        if (!boton) return;
+        cerrarAviso();
+        if (boton.id === 'nomas') {
+            api("type=ayuda&action=no_mostrar&id=" + abierto.aviso.id, function() {}, true);
+            toast('No volvera a salir. Lo tienes en Menu, Ayuda');
+        } else if (boton.id === 'video') {
+            videoAyuda = {volver: abierto.modo};
+            reproducirPantallaCompleta(abierto.aviso.video, abierto.aviso.titulo, '', null);
+            return;
+        }
+        if (abierto.modo === 'inicio') setTimeout(siguienteAviso, 400);
+    }
+
+    function teclaAviso(k) {
+        var a = avisoAbierto;
+        if (k === 37 && a.foco > 0) { a.foco--; pintarBotonesAviso(); }
+        else if (k === 39 && a.foco < a.botones.length - 1) { a.foco++; pintarBotonesAviso(); }
+        else if (k === 38 || k === 40) {
+            var t = document.getElementById("av-texto");
+            if (t) t.scrollTop += (k === 40 ? 1 : -1) * Math.round(t.clientHeight * 0.6);
+        }
+        else if (k === 13) pulsarBotonAviso(a.foco);
+        else if (k === 8 || k === 27 || k === TECLA_ATRAS) {
+            var modo = a.modo;
+            cerrarAviso();
+            if (modo === 'inicio') setTimeout(siguienteAviso, 400);
+        }
+    }
+
+    // Al salir del video de una guia se vuelve a donde se estaba.
+    function volverDeVideoAyuda() {
+        var v = videoAyuda;
+        videoAyuda = null;
+        showMenu();
+        if (v.volver === 'ayuda') openAyuda();
+        else setTimeout(siguienteAviso, 400);
+    }
+
+    function openAyuda() {
+        view = "ayuda";
+        cargando('Ayuda');
+        api("type=ayuda&action=lista", function(js) {
+            if (view !== "ayuda") return;
+            ayuda = (js && js.data) ? js.data : [];
+            if (ayudaIdx >= ayuda.length) ayudaIdx = 0;
+            renderAyuda();
+        });
+    }
+
+    function renderAyuda() {
+        var h = '<div class="panel">';
+        h += '<div class="header"><div class="logo">Ayuda</div></div>';
+        h += '<div class="list">';
+        if (!ayuda.length) h += '<div style="color:#9da3a6;padding:20px;">Pronto habra aqui guias de uso</div>';
+        for (var i = 0; i < ayuda.length; i++) {
+            h += '<div class="' + (i === ayudaIdx ? 'item sel' : 'item') + ' menu-op" data-i="' + i + '">' +
+                 '<div class="info"><div class="name">' + esc(ayuda[i].titulo) +
+                 (ayuda[i].video ? ' <span class="live">VIDEO</span>' : '') + '</div></div></div>';
+        }
+        h += '</div>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Ver <span>▲▼</span> Elegir <span data-tecla="37">◀</span> Volver</div>';
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
     }
 
     // El listado va paginado de 50 en 50: antes solo se pedia la primera
@@ -1480,7 +1617,8 @@
         {id: 'semana',      titulo: 'Videoclub 7 dias', modulo: 'semana'},
         {id: 'categorias',  titulo: 'Categorias',     modulo: 'tv'},
         {id: 'favoritos',   titulo: 'Solo favoritos', modulo: 'tv'},
-        {id: 'grabaciones', titulo: 'Mis grabaciones', modulo: 'records'}
+        {id: 'grabaciones', titulo: 'Mis grabaciones', modulo: 'records'},
+        {id: 'ayuda',       titulo: 'Ayuda',          modulo: 'ayuda'}
     ];
     var MODULOS = ['tv', 'epg', 'vod', 'settings'];
     var MENU = MENU_COMPLETO.slice();
@@ -1546,6 +1684,7 @@
         else if (opcion.id === 'series') openSeries();
         else if (opcion.id === 'grabaciones') openRecordings();
         else if (opcion.id === 'semana') openSemana('menu');
+        else if (opcion.id === 'ayuda') openAyuda();
     }
 
     // ---------- Ultimos 7 dias ----------
@@ -3456,6 +3595,7 @@
         if (quizaDiagnostico(normalizarTecla(e.keyCode))) return false;
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
         var k = normalizarTecla(e.keyCode);
+        if (avisoAbierto) { teclaAviso(k); return false; }
 
         if (atajoGlobal(e)) return false;
         if (k === 107) { adjustVolume(5); return false; }
@@ -3571,6 +3711,7 @@
             } else if (k === 8 || k === 27 || k === 13) {
                 // Lo abierto desde "Ultimos 7 dias" vuelve alli, no a la lista.
                 if (diferido && diferido.volver === 'semana') openSemana();
+                else if (videoAyuda && playingChannelIdx === -1) volverDeVideoAyuda();
                 else showMenu();
             }
         } else if (view === "menu") {
@@ -3578,6 +3719,11 @@
             else if (k === 40 && menuIdx < MENU.length - 1) { menuIdx++; renderMenu(); }
             else if (k === 13) elegirMenu();
             else if (k === 37 || k === 8 || k === 27) showChannels();
+        } else if (view === "ayuda") {
+            if (k === 38 && ayudaIdx > 0) { ayudaIdx--; renderAyuda(); }
+            else if (k === 40 && ayudaIdx < ayuda.length - 1) { ayudaIdx++; renderAyuda(); }
+            else if (k === 13 && ayuda[ayudaIdx]) mostrarAviso(ayuda[ayudaIdx], 'ayuda');
+            else if (k === 37 || k === 8 || k === 27) openMenu();
         } else if (view === "vod") {
             if (k === 38 && vodIdx > 0) { vodIdx--; renderVod(null); }
             else if (k === 40 && vodIdx < vod.length - 1) { vodIdx++; renderVod(null); }
@@ -3721,6 +3867,14 @@
     function manejarClic(e) {
         var destino = e.target || e.srcElement;
 
+        // La ventana de novedades: sus botones, o fuera de ellos nada.
+        if (avisoAbierto) {
+            var boton = atributoPulsado(destino, 'data-av');
+            if (boton !== null) pulsarBotonAviso(parseInt(boton, 10));
+            else if (atributoPulsado(destino, 'data-tecla') !== null) teclaAviso(27);
+            return;
+        }
+
         // El teclado del PIN
         if (view === "pin") {
             var tecla = atributoPulsado(destino, 'data-pin');
@@ -3770,6 +3924,9 @@
         // que se quiere ver y se pulsa una vez.
         if (view === "menu") {
             menuIdx = i; renderMenu(); elegirMenu();
+        } else if (view === "ayuda") {
+            ayudaIdx = i; renderAyuda();
+            if (ayuda[i]) mostrarAviso(ayuda[i], 'ayuda');
         } else if (view === "genres") {
             genreIdx = i; renderGenres(); chooseGenre();
         } else if (view === "vod") {
@@ -4340,6 +4497,44 @@
             background: #2c3236; border: 2px solid #bff102;
             box-shadow: 0 18px 80px rgba(0,0,0,.9); color: #fff;
         }
+        /* Novedades y guias: a toda pantalla, con el fondo de la marca. */
+        #aviso {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 38;
+            background: #24292c url({% static 'stb/fondo.jpg' %}) no-repeat 0 0;
+            -webkit-background-size: 100% 100%; background-size: 100% 100%;
+            color: #fff; overflow: hidden;
+        }
+        #aviso .av-et {
+            position: absolute; top: 96px; left: 130px;
+            font-size: 18px; letter-spacing: 3px; color: #bff102; font-weight: 600;
+        }
+        #aviso .av-titulo {
+            position: absolute; top: 132px; left: 130px; right: 130px;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 54px; font-weight: 600;
+            line-height: 66px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #aviso .av-cuerpo { position: absolute; top: 250px; left: 130px; right: 130px; height: 560px; }
+        #aviso .av-img {
+            float: left; width: 760px; height: 428px; margin-right: 60px; border-radius: 14px;
+            object-fit: cover; background: #33393d;
+        }
+        #aviso .av-texto {
+            height: 560px; overflow: hidden; font-size: 30px; line-height: 46px;
+            color: #d9d9d9; white-space: pre-wrap;
+        }
+        #aviso .av-botones { position: absolute; left: 130px; bottom: 140px; white-space: nowrap; }
+        #aviso .av-b {
+            display: inline-block; margin-right: 22px; padding: 14px 34px; border-radius: 40px;
+            font-size: 26px; font-weight: 500; color: #fff; cursor: pointer;
+            border: 2px solid rgba(217,217,217,.7);
+        }
+        #aviso .av-b.sel { background: #bff102; border-color: #bff102; color: #1d2023; font-weight: 600; }
+        #aviso .av-pista { position: absolute; left: 130px; bottom: 76px; font-size: 20px; color: #98a3a6; }
+        #aviso .av-pista b { font-weight: inherit; }
+        #aviso .av-pista span {
+            display: inline-block; padding: 3px 12px; margin: 0 6px 0 0; border-radius: 6px;
+            border: 1px solid rgba(217,217,217,.6); color: #fff;
+        }
         #mensaje .m-t { font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 40px; font-weight: 600; color: #bff102; }
         #mensaje .m-x { font-size: 26px; line-height: 36px; margin-top: 16px; white-space: pre-wrap; }
         #mensaje .m-p { font-size: 20px; color: #98a3a6; margin-top: 28px; text-align: right; }
@@ -4568,6 +4763,15 @@
             .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
             #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
             #preview-cap .sep { width: 18px; }
+            #aviso .av-et { top: 64px; left: 87px; font-size: 12px; letter-spacing: 2px; }
+            #aviso .av-titulo { top: 88px; left: 87px; right: 87px; font-size: 36px; line-height: 44px; }
+            #aviso .av-cuerpo { top: 167px; left: 87px; right: 87px; height: 373px; }
+            #aviso .av-img { width: 507px; height: 285px; margin-right: 40px; border-radius: 9px; }
+            #aviso .av-texto { height: 373px; font-size: 20px; line-height: 31px; }
+            #aviso .av-botones { left: 87px; bottom: 93px; }
+            #aviso .av-b { margin-right: 15px; padding: 9px 23px; border-radius: 27px; font-size: 17px; border-width: 1px; }
+            #aviso .av-pista { left: 87px; bottom: 51px; font-size: 13px; }
+            #aviso .av-pista span { padding: 2px 8px; margin-right: 4px; border-radius: 4px; }
             .boton-semana { font-size: 12px; padding: 5px 13px; border-radius: 16px; }
             .boton-semana i { width: 8px; height: 8px; margin-right: 5px; }
             #semana { padding: 33px 40px; }
@@ -4671,6 +4875,7 @@
     <div id="vol" style="z-index:20;"></div>
     <div id="toast"></div>
     <div id="mensaje"></div>
+    <div id="aviso"></div>
     <div id="numjump"></div>
     <div id="sinred">
         <div class="titulo">Se ha perdido la conexion</div>

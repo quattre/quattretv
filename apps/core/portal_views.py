@@ -1404,3 +1404,105 @@ def settings_view(request):
     }
 
     return render(request, 'portal/pages/settings.html', context)
+
+
+# Novedades y ayuda
+def _fecha_panel(texto):
+    """Lo que manda un <input type="datetime-local">, en la hora del servidor."""
+    from django.utils.dateparse import parse_datetime
+    fecha = parse_datetime(texto or '')
+    if fecha and timezone.is_naive(fecha):
+        fecha = timezone.make_aware(fecha)
+    return fecha
+
+
+def _guardar_aviso(request, aviso):
+    aviso.titulo = request.POST.get('titulo', '').strip()[:120]
+    aviso.texto = request.POST.get('texto', '').strip()
+    aviso.video_url = request.POST.get('video_url', '').strip()[:500]
+    aviso.al_iniciar = 'al_iniciar' in request.POST
+    aviso.en_ayuda = 'en_ayuda' in request.POST
+    aviso.activo = 'activo' in request.POST
+    aviso.desde = _fecha_panel(request.POST.get('desde'))
+    aviso.hasta = _fecha_panel(request.POST.get('hasta'))
+    veces = request.POST.get('veces', '')
+    aviso.veces = int(veces) if veces.isdigit() else 3
+    orden = request.POST.get('orden', '')
+    aviso.orden = int(orden) if orden.lstrip('-').isdigit() else 0
+    if request.FILES.get('imagen'):
+        aviso.imagen = request.FILES['imagen']
+    elif 'quitar_imagen' in request.POST:
+        aviso.imagen = None
+    aviso.save()
+
+
+@staff_member_required
+def ayuda_list(request):
+    """Novedades que salen al arrancar y guias de la seccion Ayuda del portal."""
+    from apps.devices.models import Aviso
+
+    if request.method == 'POST':
+        if not request.POST.get('titulo', '').strip():
+            messages.error(request, 'Falta el título')
+        else:
+            aviso = Aviso()
+            _guardar_aviso(request, aviso)
+            messages.success(request, f'«{aviso.titulo}» guardado')
+        return redirect('portal:ayuda')
+
+    avisos = Aviso.objects.annotate(
+        aparatos=Count('vistos'),
+        no_quieren=Count('vistos', filter=Q(vistos__no_mostrar=True)),
+    )
+    context = {
+        'active_page': 'ayuda',
+        'stats': get_base_stats(),
+        'avisos': avisos,
+        'ahora': timezone.now(),
+    }
+    return render(request, 'portal/pages/ayuda.html', context)
+
+
+@staff_member_required
+def ayuda_edit(request, aviso_id):
+    from apps.devices.models import Aviso
+
+    aviso = get_object_or_404(Aviso, id=aviso_id)
+    if request.method == 'POST':
+        if not request.POST.get('titulo', '').strip():
+            messages.error(request, 'Falta el título')
+        else:
+            _guardar_aviso(request, aviso)
+            messages.success(request, f'«{aviso.titulo}» guardado')
+            return redirect('portal:ayuda')
+    context = {
+        'active_page': 'ayuda',
+        'stats': get_base_stats(),
+        'aviso': aviso,
+    }
+    return render(request, 'portal/pages/ayuda_edit.html', context)
+
+
+@staff_member_required
+def ayuda_reset(request, aviso_id):
+    """Que vuelva a salir en todos los aparatos, como si fuera nuevo."""
+    from apps.devices.models import Aviso
+
+    if request.method == 'POST':
+        aviso = get_object_or_404(Aviso, id=aviso_id)
+        aviso.vistos.all().delete()
+        messages.success(request, f'«{aviso.titulo}» volverá a salir en todos los aparatos')
+    return redirect('portal:ayuda')
+
+
+@staff_member_required
+def ayuda_delete(request, aviso_id):
+    from apps.devices.models import Aviso
+
+    if request.method == 'POST':
+        aviso = get_object_or_404(Aviso, id=aviso_id)
+        if aviso.imagen:
+            aviso.imagen.delete(save=False)
+        aviso.delete()
+        messages.success(request, 'Borrado')
+    return redirect('portal:ayuda')

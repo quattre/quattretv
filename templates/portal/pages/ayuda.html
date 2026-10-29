@@ -1,0 +1,95 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Novedades y ayuda - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div x-data="{ nuevo: false }">
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900"><i class="bi bi-question-circle"></i> Novedades y ayuda</h1>
+        <p class="text-gray-500">Lo que sale en la tele al arrancar y las guías de la sección Ayuda del menú</p>
+    </div>
+    <button @click="nuevo = !nuevo" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+        <i class="bi bi-plus-lg"></i> Nuevo
+    </button>
+</div>
+
+<div x-show="nuevo" x-cloak class="bg-white rounded-xl shadow-sm mb-6">
+    <div class="px-6 py-4 border-b border-gray-200"><h2 class="text-lg font-semibold text-gray-900">Nuevo aviso o guía</h2></div>
+    <form method="post" enctype="multipart/form-data">
+        {% include 'portal/pages/_aviso_form.html' with aviso=None %}
+        <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+            <button type="button" @click="nuevo = false" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Cancelar</button>
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Guardar</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+    <table class="w-full">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dónde</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuándo</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Visto</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+            {% for a in avisos %}
+            <tr class="hover:bg-gray-50 transition {% if not a.activo %}opacity-50{% endif %}">
+                <td class="px-6 py-3">
+                    <div class="flex items-center gap-3">
+                        {% if a.imagen %}<img src="{{ a.imagen.url }}" class="h-10 w-16 object-cover rounded" alt="">{% endif %}
+                        <div>
+                            <strong class="text-gray-900">{{ a.titulo }}</strong>
+                            {% if a.video_url %}<i class="bi bi-play-circle text-gray-400" title="Lleva vídeo"></i>{% endif %}
+                            <div class="text-xs text-gray-500">{{ a.texto|truncatechars:80 }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-3 text-sm">
+                    {% if not a.activo %}<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">Desactivado</span>{% endif %}
+                    {% if a.al_iniciar %}<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">Al arrancar{% if a.veces %} · {{ a.veces }} {% if a.veces == 1 %}vez{% else %}veces{% endif %}{% else %} · siempre{% endif %}</span>{% endif %}
+                    {% if a.en_ayuda %}<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">En Ayuda</span>{% endif %}
+                </td>
+                <td class="px-6 py-3 text-sm text-gray-600">
+                    {% if a.desde %}desde {{ a.desde|date:"d/m/Y H:i" }}<br>{% endif %}
+                    {% if a.hasta %}hasta {{ a.hasta|date:"d/m/Y H:i" }}{% if a.hasta < ahora %} <span class="text-red-600">(acabado)</span>{% endif %}{% endif %}
+                    {% if not a.desde and not a.hasta %}siempre{% endif %}
+                </td>
+                <td class="px-6 py-3 text-sm text-gray-600">
+                    {{ a.aparatos }} aparato{{ a.aparatos|pluralize }}
+                    {% if a.no_quieren %}<div class="text-xs text-gray-400">{{ a.no_quieren }} no quiere{{ a.no_quieren|pluralize:"n" }} verlo más</div>{% endif %}
+                </td>
+                <td class="px-6 py-3">
+                    <div class="flex items-center gap-2">
+                        <a href="{% url 'portal:ayuda_edit' a.id %}" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"><i class="bi bi-pencil"></i> Editar</a>
+                        {% if a.aparatos %}
+                        <form method="post" action="{% url 'portal:ayuda_reset' a.id %}" onsubmit="return confirm('¿Que vuelva a salir en todos los aparatos, también en los que pidieron no verlo más?');">
+                            {% csrf_token %}
+                            <button type="submit" class="px-3 py-1 text-sm bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition" title="Que vuelva a salir en todos los aparatos"><i class="bi bi-arrow-counterclockwise"></i></button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="{% url 'portal:ayuda_delete' a.id %}" onsubmit="return confirm('¿Borrar «{{ a.titulo|escapejs }}»?');">
+                            {% csrf_token %}
+                            <button type="submit" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="px-6 py-12 text-center text-gray-500">
+                <i class="bi bi-question-circle text-6xl text-gray-300"></i>
+                <p class="mt-4">Todavía no hay novedades ni guías</p>
+                <p class="text-sm text-gray-400 mt-1">Pulsa «Nuevo» para crear la primera: por ejemplo, cómo usar el Videoclub 7 días</p>
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+</div>
+{% endblock %}
