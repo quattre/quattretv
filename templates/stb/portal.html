@@ -429,6 +429,12 @@
     // por http) y ni llegaba a pedirlo. El navegador si, es por donde carga
     // el propio portal.
     function verVideoAyuda(abierto) {
+        // En el deco, su reproductor y por http: es lo unico que abre.
+        if ((stbAPI || player) && abierto.aviso.video_http) {
+            videoAyuda = {volver: abierto.modo, deco: true};
+            reproducirPantallaCompleta(abierto.aviso.video_http, abierto.aviso.titulo, '', null);
+            return;
+        }
         var caja = document.getElementById("ayuda-video");
         var v = document.getElementById("ayuda-v");
         videoAyuda = {volver: abierto.modo};
@@ -442,6 +448,15 @@
         v.onended = function() { cerrarVideoAyuda(); };
         v.onerror = function() { toast('No se pudo abrir el video'); cerrarVideoAyuda(); };
         graficosDelanteInsistiendo();
+    }
+
+    // Al salir del video puesto con el reproductor del deco.
+    function volverDeVideoAyudaDeco() {
+        var vuelta = videoAyuda;
+        videoAyuda = null;
+        showMenu();
+        if (vuelta && vuelta.volver === 'ayuda') openAyuda();
+        else trasAviso('inicio');
     }
 
     function cerrarVideoAyuda() {
@@ -2712,9 +2727,12 @@
         h += '</div>';
 
         // Grabar ya no va aqui: sale junto al canal, debajo de la imagen.
-        h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu <span>0-9</span> Ir al canal';
-        h += '<br>';
-        h += 'Grabaciones y favoritos estan en el <span data-tecla="37">Menu</span></div>';
+        h += '<div class="help"><span data-tecla="13">OK</span> Ver <span data-tecla="39">▶</span> Guia <span data-tecla="37">◀</span> Menu';
+        // Con la barra lateral el menu ya se ve: sobra decir donde esta, y la
+        // lista es mas estrecha, asi que los numeros pasan a la segunda linea.
+        if (usarRail()) h += '<br><span>0-9</span> Ir al canal';
+        else h += ' <span>0-9</span> Ir al canal<br>Grabaciones y favoritos estan en el <span data-tecla="37">Menu</span>';
+        h += '</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
         medirFilas("canales", visible, showChannels);
@@ -3883,6 +3901,7 @@
             } else if (k === 8 || k === 27 || k === 13) {
                 // Lo abierto desde "Ultimos 7 dias" vuelve alli, no a la lista.
                 if (diferido && diferido.volver === 'semana') openSemana();
+                else if (videoAyuda && videoAyuda.deco && playingChannelIdx === -1) volverDeVideoAyudaDeco();
                 else showMenu();
             }
         } else if (view === "menu") {
@@ -4699,21 +4718,21 @@
         /* Barra lateral de los decos (ver pintarRail). Sin flex: el navegador
            del MAG520 no se lleva bien con el. */
         #rail {
-            display: none; position: fixed; z-index: 35; top: 0; left: 0; bottom: 0; width: 96px;
+            display: none; position: fixed; z-index: 35; top: 0; left: 0; bottom: 0; width: 150px;
             padding-top: 190px; overflow: hidden;
             background: -webkit-linear-gradient(left, rgba(13,14,16,.92) 0%, rgba(13,14,16,.75) 70%, rgba(13,14,16,0) 100%);
             background: linear-gradient(90deg, rgba(13,14,16,.92) 0%, rgba(13,14,16,.75) 70%, rgba(13,14,16,0) 100%);
         }
         #rail.abierto {
-            width: 520px;
+            width: 580px;
             background: -webkit-linear-gradient(left, rgba(13,14,16,.99) 0%, rgba(13,14,16,.97) 76%, rgba(13,14,16,0) 100%);
             background: linear-gradient(90deg, rgba(13,14,16,.99) 0%, rgba(13,14,16,.97) 76%, rgba(13,14,16,0) 100%);
         }
         #rail .rail-op {
-            position: relative; height: 80px; line-height: 80px; padding-left: 28px; white-space: nowrap;
+            position: relative; height: 80px; line-height: 80px; padding-left: 67px; white-space: nowrap;
             color: #8f9a9d; font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 29px; font-weight: 500; cursor: pointer;
         }
-        #rail .rail-op .mico { width: 40px; height: 40px; vertical-align: middle; margin: 0; }
+        #rail .rail-op .mico { width: 40px; height: 40px; vertical-align: middle; margin: 0; color: inherit; }
         #rail .rail-op span {
             display: none; vertical-align: middle; margin-left: 28px; line-height: 40px;
             padding: 2px 0; border-bottom: 3px solid transparent;
@@ -4723,11 +4742,11 @@
         #rail.abierto .rail-op.sel { color: #fff; }
         #rail.abierto .rail-op.sel span { border-bottom-color: #bff102; font-weight: 600; }
         #rail .rail-am {
-            position: absolute; left: 62px; top: 18px; width: 12px; height: 12px; border-radius: 50%;
+            position: absolute; left: 101px; top: 18px; width: 12px; height: 12px; border-radius: 50%;
             background: #fdeb00; border: 2px solid #1d2023;
         }
         #rail .rail-pista {
-            display: none; position: absolute; left: 28px; bottom: 48px; white-space: nowrap;
+            display: none; position: absolute; left: 67px; bottom: 48px; white-space: nowrap;
             font-size: 20px; color: #8f9a9d;
         }
         #rail.abierto .rail-pista { display: block; }
@@ -4735,8 +4754,11 @@
             display: inline-block; padding: 1px 10px; margin-right: 6px; border-radius: 6px;
             border: 1px solid rgba(217,217,217,.6); color: #fff; font-weight: 500;
         }
-        .con-rail .panel { padding-left: 118px; }
-        .con-rail #semana { padding-left: 130px; }
+        /* Los iconos, a un 3,5 % del borde (la zona segura de las teles): a
+           28 px el televisor se comia un trozo, como los 40 px de la derecha
+           del video. La lista y el videoclub empiezan a continuacion. */
+        .con-rail .panel { padding-left: 132px; }
+        .con-rail #semana { padding-left: 150px; }
 
         /* Novedades y guias: a toda pantalla, con el fondo de la marca. */
         #aviso {
@@ -5019,16 +5041,16 @@
             .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
             #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
             #preview-cap .sep { width: 18px; }
-            #rail { width: 64px; padding-top: 127px; }
-            #rail.abierto { width: 347px; }
-            #rail .rail-op { height: 53px; line-height: 53px; padding-left: 19px; font-size: 19px; }
+            #rail { width: 100px; padding-top: 127px; }
+            #rail.abierto { width: 387px; }
+            #rail .rail-op { height: 53px; line-height: 53px; padding-left: 45px; font-size: 19px; }
             #rail .rail-op .mico { width: 27px; height: 27px; }
             #rail .rail-op span { margin-left: 19px; line-height: 27px; border-bottom-width: 2px; }
-            #rail .rail-am { left: 41px; top: 12px; width: 8px; height: 8px; border-width: 1px; }
-            #rail .rail-pista { left: 19px; bottom: 32px; font-size: 13px; }
+            #rail .rail-am { left: 67px; top: 12px; width: 8px; height: 8px; border-width: 1px; }
+            #rail .rail-pista { left: 45px; bottom: 32px; font-size: 13px; }
             #rail .rail-pista b { padding: 0 7px; border-radius: 4px; }
-            .con-rail .panel { padding-left: 79px; }
-            .con-rail #semana { padding-left: 87px; }
+            .con-rail .panel { padding-left: 88px; }
+            .con-rail #semana { padding-left: 100px; }
             #ayuda-video .av-vpie { padding: 12px 27px; font-size: 15px; }
             #ayuda-video .av-vpie span { padding: 1px 7px; border-radius: 4px; }
             #aviso .av-et { top: 64px; left: 87px; font-size: 12px; letter-spacing: 2px; }

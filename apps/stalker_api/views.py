@@ -2108,7 +2108,8 @@ def _avisos_vigentes(avisos):
     return avisos.filter(activo=True).filter(Q(desde__isnull=True) | Q(desde__lte=timezone.now()))
 
 
-def _aviso_json(aviso):
+def _aviso_json(aviso, host=''):
+    local = aviso.video_url and not aviso.video_url.startswith('http')
     return {
         'id': aviso.id,
         'titulo': aviso.titulo,
@@ -2122,6 +2123,10 @@ def _aviso_json(aviso):
         'video': ((aviso.video_url if aviso.video_url.startswith('http') else
                    '?type=ayuda&action=video&id=%d&v=%d' % (aviso.id, aviso.updated_at.timestamp()))
                   if aviso.video_url else ''),
+        # El reproductor de los decos no abre https ni el navegador del deco
+        # reproduce video: para ellos, el fichero por http (deploy/nginx/http_ayuda.sh).
+        'video_http': ('http://%s/media/%s' % (host, aviso.video_url) if local and host else
+                       (aviso.video_url if aviso.video_url.startswith('http://') else '')),
     }
 
 
@@ -2163,7 +2168,7 @@ def handle_ayuda(request, action):
         return stalker_response({'data': []})
 
     if action == 'lista':
-        return stalker_response({'data': [_aviso_json(a) for a in
+        return stalker_response({'data': [_aviso_json(a, request.get_host()) for a in
                                           _avisos_vigentes(Aviso.objects.filter(en_ayuda=True))]})
 
     if action == 'inicio':
@@ -2175,7 +2180,7 @@ def handle_ayuda(request, action):
             v = vistos.get(a.id)
             if v and (v.no_mostrar or (a.veces and v.veces >= a.veces)):
                 continue
-            datos.append(_aviso_json(a))
+            datos.append(_aviso_json(a, request.get_host()))
         return stalker_response({'data': datos})
 
     if action in ('visto', 'no_mostrar'):
