@@ -2108,7 +2108,7 @@ def _avisos_vigentes(avisos):
     return avisos.filter(activo=True).filter(Q(desde__isnull=True) | Q(desde__lte=timezone.now()))
 
 
-def _aviso_json(aviso, host=''):
+def _aviso_json(aviso, host='', http=False):
     local = aviso.video_url and not aviso.video_url.startswith('http')
     return {
         'id': aviso.id,
@@ -2124,11 +2124,13 @@ def _aviso_json(aviso, host=''):
                    '?type=ayuda&action=video&id=%d&v=%d' % (aviso.id, aviso.updated_at.timestamp()))
                   if aviso.video_url else ''),
         # Para el reproductor del deco (su navegador no reproduce video): el
-        # fichero tal cual, por https, que nginx sirve sin pasar por Django.
-        # Ese reproductor solo entiende certificados RSA: hace falta
-        # deploy/nginx/certificado_rsa_iptv2.sh. Si aun asi no pudiera,
-        # deploy/nginx/http_ayuda.sh deja la carpeta tambien por http.
-        'video_http': ('https://%s/media/%s' % (host, aviso.video_url) if local and host else
+        # fichero tal cual, que nginx sirve sin pasar por Django. Por https,
+        # salvo a los decos que aun ven los canales por http (usa_http_legacy):
+        # su reproductor no llega a conectar por https ni con el certificado
+        # RSA (probado el 29/10/2026), y para ellos la carpeta va tambien por
+        # http (deploy/nginx/http_ayuda.sh).
+        'video_http': ('%s://%s/media/%s' % ('http' if http else 'https', host, aviso.video_url)
+                       if local and host else
                        (aviso.video_url if aviso.video_url.startswith('http') else '')),
     }
 
@@ -2171,7 +2173,7 @@ def handle_ayuda(request, action):
         return stalker_response({'data': []})
 
     if action == 'lista':
-        return stalker_response({'data': [_aviso_json(a, request.get_host()) for a in
+        return stalker_response({'data': [_aviso_json(a, request.get_host(), device.usa_http_legacy) for a in
                                           _avisos_vigentes(Aviso.objects.filter(en_ayuda=True))]})
 
     if action == 'inicio':
@@ -2183,7 +2185,7 @@ def handle_ayuda(request, action):
             v = vistos.get(a.id)
             if v and (v.no_mostrar or (a.veces and v.veces >= a.veces)):
                 continue
-            datos.append(_aviso_json(a, request.get_host()))
+            datos.append(_aviso_json(a, request.get_host(), device.usa_http_legacy))
         return stalker_response({'data': datos})
 
     if action in ('visto', 'no_mostrar'):
