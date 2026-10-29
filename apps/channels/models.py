@@ -214,14 +214,16 @@ class Channel(TimeStampedModel, ActivableModel):
                   'p. ej. udp://239.20.20.4:5004). Vacio = multicast_url.'
     )
     # El archivo de un canal puede venir de otra señal que la del directo, y
-    # no siempre van a la par: el TCM que graba storage1 va una hora por
-    # delante del que emiten los CDN (medido el 29/10/2026 comparando la
-    # imagen). La guia y la EIT son las del directo; esto se suma al pedir el
-    # archivo para caer en el mismo momento del programa.
+    # no siempre van a la par: el TCM que graba storage1 va por delante del
+    # que emiten los CDN, 52 y 55 minutos en dos pelis del 29/10/2026 (medido
+    # con la imagen: no es una hora fija, son dos emisiones distintas). La
+    # guia y la EIT son las del directo; esto se suma al pedir el archivo. Mejor
+    # pasarse que quedarse corto: que sobre el final de lo anterior y no que
+    # falte el principio.
     desfase_archivo = models.IntegerField(
         default=0,
         help_text='Minutos a sumar a la hora del directo para encontrar lo mismo '
-                  'en el archivo (TCM: -60). 0 = el archivo va a la par.'
+                  'en el archivo (TCM: -55). 0 = el archivo va a la par.'
     )
 
     @property
