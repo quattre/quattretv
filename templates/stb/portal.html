@@ -43,6 +43,7 @@
         categorias: '<rect x="4" y="4" width="10" height="10" rx="2"/><rect x="18" y="4" width="10" height="10" rx="2"/><rect x="4" y="18" width="10" height="10" rx="2"/><rect x="18" y="18" width="10" height="10" rx="2"/>',
         favoritos: '<path d="M16 3.5l3.8 7.8 8.5 1.2-6.2 6 1.5 8.5L16 23l-7.6 4 1.5-8.5-6.2-6 8.5-1.2z"/>',
         grabaciones: '<circle cx="16" cy="16" r="12.5"/><circle cx="16" cy="16" r="5" fill="currentColor"/>',
+        guia: '<rect x="4" y="5" width="24" height="23" rx="3"/><path d="M4 12h24M11 3v5M21 3v5M9 17h4M9 22h4M17 17h6M17 22h6"/>',
         ayuda: '<circle cx="16" cy="16" r="12.5"/><path d="M12.2 12.6a3.9 3.9 0 1 1 5.6 3.5c-1.1.6-1.8 1.4-1.8 2.7v.7"/><circle cx="16" cy="23" r=".6" fill="currentColor"/>'
     };
     function iconoMenu(id) {
@@ -262,7 +263,7 @@
         contarComoSoy();
         // Las novedades, cuando ya se ve la lista y el canal ha arrancado.
         setTimeout(avisosAlArrancar, 4000);
-        cargarModulos();
+        cargarModulos(pintarRail);
         loadGenres();
         loadPage(0);
         // Señal de vida: sin esto, un aparato que lleva rato con un canal
@@ -1666,6 +1667,7 @@
     // grabador, la opcion de grabaciones ni aparece.
     var MENU_COMPLETO = [
         {id: 'canales',     titulo: 'Canales',        modulo: 'tv'},
+        {id: 'guia',        titulo: 'Guia',           modulo: 'lateral'},
         {id: 'semana',      titulo: 'Videoclub 7 dias', modulo: 'semana'},
         {id: 'categorias',  titulo: 'Categorias',     modulo: 'tv'},
         {id: 'favoritos',   titulo: 'Solo favoritos', modulo: 'tv'},
@@ -1693,6 +1695,7 @@
     var menuIdx = 0;
 
     function openMenu() {
+        if (usarRail()) { abrirRail(); return; }
         view = "menu";
         menuIdx = 0;
         renderMenu();
@@ -1730,6 +1733,7 @@
         var opcion = MENU[menuIdx];
         if (!opcion) return;
         if (opcion.id === 'canales') showChannels();
+        else if (opcion.id === 'guia') openGuide();
         else if (opcion.id === 'categorias') openGenres();
         else if (opcion.id === 'favoritos') toggleFavOnly();
         else if (opcion.id === 'peliculas') openVod();
@@ -1737,6 +1741,107 @@
         else if (opcion.id === 'grabaciones') openRecordings();
         else if (opcion.id === 'semana') openSemana('menu');
         else if (opcion.id === 'ayuda') openAyuda();
+    }
+
+    // ---------- Barra lateral (decos) ----------
+    //
+    // Como Netflix: una columna de iconos siempre a la izquierda, con la
+    // seccion en la que estas en verde. Con ◀ (desde la lista, o desde la
+    // primera columna del videoclub) se abre con los nombres; ▲▼ elige, OK
+    // entra y ▶ o Atras la cierra. Sustituye al menu de antes, que tapaba la
+    // lista entera. Solo en los decos (modulo "lateral"): las apps de las
+    // tiendas siguen con su menu hasta que pasen la revision.
+    var rail = {abierto: false, idx: 0};
+
+    function usarRail() {
+        for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === 'lateral') return true;
+        return false;
+    }
+
+    function seccionActual() {
+        if (view === "semana") return 'semana';
+        if (view === "guide" || view === "ficha") return 'guia';
+        if (view === "genres") return 'categorias';
+        if (view === "recordings") return 'grabaciones';
+        if (view === "ayuda") return 'ayuda';
+        if (favOnly) return 'favoritos';
+        if (genreFilter) return 'categorias';
+        return 'canales';
+    }
+
+    function pintarRail() {
+        var caja = document.getElementById("rail");
+        if (!caja) return;
+        var cuerpo = document.body.className.replace(/\s*con-rail/g, '');
+        if (!usarRail() || isFullscreen || view === "pin") {
+            caja.style.display = "none";
+            document.body.className = cuerpo;
+            return;
+        }
+        document.body.className = cuerpo + ' con-rail';
+        var actual = seccionActual(), h = '';
+        for (var i = 0; i < MENU.length; i++) {
+            var op = MENU[i];
+            h += '<div class="rail-op' + (op.id === actual ? ' actual' : '') +
+                 (rail.abierto && i === rail.idx ? ' sel' : '') + '" data-rail="' + i + '">' +
+                 iconoMenu(op.id) +
+                 // El punto amarillo: lo abre la tecla amarilla del mando.
+                 (op.id === 'semana' ? '<i class="rail-am"></i>' : '') +
+                 '<span>' + esc(op.titulo) + '</span></div>';
+        }
+        h += '<div class="rail-pista"><b>▲▼</b> Elegir &nbsp; <b data-tecla="13">OK</b> Entrar &nbsp; ' +
+             '<b data-tecla="39">▶</b> Volver</div>';
+        caja.innerHTML = h;
+        caja.className = rail.abierto ? 'abierto' : '';
+        caja.style.display = "block";
+    }
+
+    function abrirRail() {
+        rail.abierto = true;
+        rail.idx = 0;
+        var actual = seccionActual();
+        for (var i = 0; i < MENU.length; i++) if (MENU[i].id === actual) rail.idx = i;
+        pintarRail();
+    }
+
+    function cerrarRail() {
+        rail.abierto = false;
+        pintarRail();
+    }
+
+    function teclaRail(k) {
+        if (k === 38 && rail.idx > 0) { rail.idx--; pintarRail(); }
+        else if (k === 40 && rail.idx < MENU.length - 1) { rail.idx++; pintarRail(); }
+        else if (k === 13) elegirRail();
+        else if (k === 39 || k === 8 || k === 27 || k === TECLA_ATRAS) cerrarRail();
+    }
+
+    function elegirRail() {
+        var op = MENU[rail.idx];
+        rail.abierto = false;
+        if (!op) { pintarRail(); return; }
+        if (view === "semana") {
+            if (op.id === 'semana') { pintarRail(); return; }
+            // Se sale del videoclub sin pasar por la lista.
+            document.getElementById("semana").style.display = "none";
+            semana.episodios = null;
+            semana.ficha = null;
+            semana.foco = 'filas';
+            showMenu();
+        }
+        if (op.id === 'canales') {
+            // Canales es la lista entera: sin favoritos ni categoria.
+            if (favOnly || genreFilter) { favOnly = false; genreFilter = ''; applyFilters(); }
+            showChannels();
+        } else if (op.id === 'guia') {
+            if (view !== "guide") openGuide();
+        } else if (op.id === 'favoritos') {
+            if (!favOnly) toggleFavOnly(); else showChannels();
+        } else {
+            menuIdx = rail.idx;
+            elegirMenu();
+        }
+        pintarRail();
     }
 
     // ---------- Ultimos 7 dias ----------
@@ -2099,6 +2204,7 @@
 
         if (semana.foco === 'pestanas') {
             if (k === 37 && semana.tabIdx > 0) { semana.tabIdx--; elegirPestana(); }
+            else if (k === 37 && usarRail()) abrirRail();
             else if (k === 39 && semana.tabIdx < semana.pestanas.length - 1) { semana.tabIdx++; elegirPestana(); }
             else if ((k === 40 || k === 13) && semana.filas.length) { semana.foco = 'filas'; renderSemana(); }
             // Arriba no hace nada: salia del videoclub sin querer.
@@ -2117,7 +2223,9 @@
         else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; if (g) g.fila = semana.fila; renderSemana(); }
         else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; renderSemana(); masDeFila(f); }
         else if (k === 37 && col > 0) { semana.cols[semana.fila]--; renderSemana(); }
-        // Izquierda en la primera tarjeta sale, como en el resto de pantallas.
+        // Izquierda en la primera tarjeta: en los decos abre la barra lateral
+        // para ir a otra seccion; en las apps sale, como en el resto.
+        else if (k === 37 && usarRail()) abrirRail();
         else if (k === 37 || salir) cerrarSemana();
         else if (k === 13) {
             var it = itemSemana();
@@ -2548,7 +2656,7 @@
         else if (genreFilter) etiqueta = generoActual() + ': ' + channels.length;
         // El acceso directo al videoclub va arriba, siempre a la vista. Al pie
         // de la ayuda no cabia y quedaba fuera del panel.
-        if (haySemana()) h += '<div class="boton-semana' + (focoSemana ? ' sel' : '') +
+        if (haySemana() && !usarRail()) h += '<div class="boton-semana' + (focoSemana ? ' sel' : '') +
                               '" data-tecla="405"><i></i>Videoclub 7 dias</div>';
         // Cuantos canales, solo con un filtro puesto: es cuando importa saberlo.
         if (favOnly || genreFilter) h += '<div class="counter">' + esc(etiqueta) + '</div>';
@@ -3659,6 +3767,7 @@
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
         if (avisoAbierto && k !== 107 && k !== 109) { teclaAviso(k); return false; }
+        if (rail.abierto && k !== 107 && k !== 109) { teclaRail(k); return false; }
 
         if (atajoGlobal(e)) return false;
         if (k === 107) { adjustVolume(5); return false; }
@@ -3863,7 +3972,7 @@
             else if (k === 37) openMenu();
             else showChannels();
         } else {
-            if (k === 38 && currentChannel === 0 && haySemana()) {
+            if (k === 38 && currentChannel === 0 && haySemana() && !usarRail()) {
                 focoSemana = true;
                 showChannels();
             } else if (k === 38 && currentChannel > 0) {
@@ -3932,6 +4041,18 @@
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block") {
             if (atributoPulsado(destino, 'data-tecla') !== null) cerrarVideoAyuda();
             else teclaVideoAyuda(13);
+            return;
+        }
+        // La barra lateral: un clic en una seccion va a ella; fuera, la cierra.
+        var deRail = atributoPulsado(destino, 'data-rail');
+        if (deRail !== null && !avisoAbierto) {
+            rail.idx = parseInt(deRail, 10);
+            elegirRail();
+            return;
+        }
+        if (rail.abierto && !avisoAbierto) {
+            if (atributoPulsado(destino, 'data-tecla') === '13') elegirRail();
+            else cerrarRail();
             return;
         }
         // La ventana de novedades: sus botones, o fuera de ellos nada.
@@ -4043,8 +4164,19 @@
         return false;
     }
 
-    document.onkeydown = handleKey;
-    document.onclick = manejarClic;
+    // La barra lateral refleja donde se esta y si la pantalla es completa:
+    // se repinta despues de cada tecla y de cada clic, que es lo que cambia
+    // de pantalla, en vez de repetir la llamada en cada render.
+    document.onkeydown = function(e) {
+        var r = handleKey(e);
+        try { pintarRail(); } catch (err) {}
+        return r;
+    };
+    document.onclick = function(e) {
+        var r = manejarClic(e);
+        try { pintarRail(); } catch (err) {}
+        return r;
+    };
     document.onwheel = manejarRueda;
     document.onmousewheel = manejarRueda;      // teles con Chromium antiguo
     window.onresize = fitScreen;
@@ -4564,6 +4696,48 @@
             background: #2c3236; border: 2px solid #bff102;
             box-shadow: 0 18px 80px rgba(0,0,0,.9); color: #fff;
         }
+        /* Barra lateral de los decos (ver pintarRail). Sin flex: el navegador
+           del MAG520 no se lleva bien con el. */
+        #rail {
+            display: none; position: fixed; z-index: 35; top: 0; left: 0; bottom: 0; width: 96px;
+            padding-top: 190px; overflow: hidden;
+            background: -webkit-linear-gradient(left, rgba(13,14,16,.92) 0%, rgba(13,14,16,.75) 70%, rgba(13,14,16,0) 100%);
+            background: linear-gradient(90deg, rgba(13,14,16,.92) 0%, rgba(13,14,16,.75) 70%, rgba(13,14,16,0) 100%);
+        }
+        #rail.abierto {
+            width: 520px;
+            background: -webkit-linear-gradient(left, rgba(13,14,16,.99) 0%, rgba(13,14,16,.97) 76%, rgba(13,14,16,0) 100%);
+            background: linear-gradient(90deg, rgba(13,14,16,.99) 0%, rgba(13,14,16,.97) 76%, rgba(13,14,16,0) 100%);
+        }
+        #rail .rail-op {
+            position: relative; height: 80px; line-height: 80px; padding-left: 28px; white-space: nowrap;
+            color: #8f9a9d; font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 29px; font-weight: 500; cursor: pointer;
+        }
+        #rail .rail-op .mico { width: 40px; height: 40px; vertical-align: middle; margin: 0; }
+        #rail .rail-op span {
+            display: none; vertical-align: middle; margin-left: 28px; line-height: 40px;
+            padding: 2px 0; border-bottom: 3px solid transparent;
+        }
+        #rail.abierto .rail-op span { display: inline-block; }
+        #rail .rail-op.actual { color: #bff102; }
+        #rail.abierto .rail-op.sel { color: #fff; }
+        #rail.abierto .rail-op.sel span { border-bottom-color: #bff102; font-weight: 600; }
+        #rail .rail-am {
+            position: absolute; left: 62px; top: 18px; width: 12px; height: 12px; border-radius: 50%;
+            background: #fdeb00; border: 2px solid #1d2023;
+        }
+        #rail .rail-pista {
+            display: none; position: absolute; left: 28px; bottom: 48px; white-space: nowrap;
+            font-size: 20px; color: #8f9a9d;
+        }
+        #rail.abierto .rail-pista { display: block; }
+        #rail .rail-pista b {
+            display: inline-block; padding: 1px 10px; margin-right: 6px; border-radius: 6px;
+            border: 1px solid rgba(217,217,217,.6); color: #fff; font-weight: 500;
+        }
+        .con-rail .panel { padding-left: 118px; }
+        .con-rail #semana { padding-left: 130px; }
+
         /* Novedades y guias: a toda pantalla, con el fondo de la marca. */
         #aviso {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 38;
@@ -4845,6 +5019,16 @@
             .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
             #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
             #preview-cap .sep { width: 18px; }
+            #rail { width: 64px; padding-top: 127px; }
+            #rail.abierto { width: 347px; }
+            #rail .rail-op { height: 53px; line-height: 53px; padding-left: 19px; font-size: 19px; }
+            #rail .rail-op .mico { width: 27px; height: 27px; }
+            #rail .rail-op span { margin-left: 19px; line-height: 27px; border-bottom-width: 2px; }
+            #rail .rail-am { left: 41px; top: 12px; width: 8px; height: 8px; border-width: 1px; }
+            #rail .rail-pista { left: 19px; bottom: 32px; font-size: 13px; }
+            #rail .rail-pista b { padding: 0 7px; border-radius: 4px; }
+            .con-rail .panel { padding-left: 79px; }
+            .con-rail #semana { padding-left: 87px; }
             #ayuda-video .av-vpie { padding: 12px 27px; font-size: 15px; }
             #ayuda-video .av-vpie span { padding: 1px 7px; border-radius: 4px; }
             #aviso .av-et { top: 64px; left: 87px; font-size: 12px; letter-spacing: 2px; }
@@ -4958,6 +5142,7 @@
     <div id="vol" style="z-index:20;"></div>
     <div id="toast"></div>
     <div id="mensaje"></div>
+    <div id="rail"></div>
     <div id="aviso"></div>
     <div id="ayuda-video"><video id="ayuda-v" playsinline></video>
         <div class="av-vpie"><b id="ayuda-v-titulo"></b> &nbsp; <span data-tecla="13">OK</span> Pausa &nbsp;

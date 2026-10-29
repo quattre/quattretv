@@ -560,6 +560,11 @@ def handle_get_modules(request):
             and hay_archivo_en_marcha()):
         modulos.append('semana')
 
+    # La barra lateral del portal (como Netflix), de momento solo en los decos:
+    # las apps de las tiendas siguen con su menu hasta pasar la revision.
+    if device and device.device_type == 'mag':
+        modulos.append('lateral')
+
     # Ayuda, solo si hay algo que enseñar en ella.
     from apps.devices.models import Aviso
     if (device and device.device_type == 'mag'
