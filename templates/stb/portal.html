@@ -346,7 +346,26 @@
         mostrarAviso(a, 'inicio');
     }
 
+    // Detras de un aviso no suena el canal (ni se podia bajar: las teclas se
+    // las queda el aviso). Se para, suena un mar suave mientras se lee, y al
+    // cerrar vuelve el canal.
+    function sonarMar(si) {
+        var mar = document.getElementById("mar");
+        if (!mar) return;
+        try {
+            if (si) { mar.volume = 0.5; mar.play(); }
+            else { mar.pause(); }
+        } catch (err) {}
+    }
+
+    function volverAlCanal() {
+        if (isFullscreen || view === "semana") return;
+        startPreview();
+    }
+
     function mostrarAviso(a, modo) {
+        pararVideo();
+        sonarMar(true);
         var botones = [];
         if (a.video) botones.push({id: 'video', txt: '▶&nbsp; Ver el video'});
         botones.push({id: 'cerrar', txt: modo === 'inicio' && avisosPendientes.length ? 'Siguiente' : 'Cerrar'});
@@ -379,6 +398,7 @@
     }
 
     function cerrarAviso() {
+        sonarMar(false);
         document.getElementById("aviso").style.display = "none";
         document.getElementById("aviso").innerHTML = "";
         avisoAbierto = null;
@@ -392,14 +412,52 @@
             api("type=ayuda&action=no_mostrar&id=" + abierto.aviso.id, function() {}, true);
             toast('No volvera a salir. Lo tienes en Menu, Ayuda');
         } else if (boton.id === 'video') {
-            videoAyuda = {volver: abierto.modo};
-            // El reproductor necesita la direccion entera, no "?type=...".
-            var url = abierto.aviso.video;
-            if (url.charAt(0) === '?') url = location.protocol + '//' + location.host + location.pathname + url;
-            reproducirPantallaCompleta(url, abierto.aviso.titulo, '', null);
+            verVideoAyuda(abierto);
             return;
         }
-        if (abierto.modo === 'inicio') setTimeout(siguienteAviso, 400);
+        trasAviso(abierto.modo);
+    }
+
+    function trasAviso(modo) {
+        if (modo === 'inicio' && avisosPendientes.length) setTimeout(siguienteAviso, 400);
+        else volverAlCanal();
+    }
+
+    // El video de las guias lo pone el navegador del deco y no su reproductor:
+    // el reproductor de los MAG viejos no abre https (por eso sus canales van
+    // por http) y ni llegaba a pedirlo. El navegador si, es por donde carga
+    // el propio portal.
+    function verVideoAyuda(abierto) {
+        var caja = document.getElementById("ayuda-video");
+        var v = document.getElementById("ayuda-v");
+        videoAyuda = {volver: abierto.modo};
+        pararVideo();
+        caja.style.display = "block";
+        document.getElementById("ayuda-v-titulo").innerHTML = esc(abierto.aviso.titulo);
+        try {
+            v.src = abierto.aviso.video;
+            v.play();
+        } catch (err) {}
+        v.onended = function() { cerrarVideoAyuda(); };
+        v.onerror = function() { toast('No se pudo abrir el video'); cerrarVideoAyuda(); };
+        graficosDelanteInsistiendo();
+    }
+
+    function cerrarVideoAyuda() {
+        var v = document.getElementById("ayuda-v");
+        try { v.onended = null; v.onerror = null; v.pause(); v.removeAttribute('src'); } catch (err) {}
+        document.getElementById("ayuda-video").style.display = "none";
+        var vuelta = videoAyuda;
+        videoAyuda = null;
+        if (vuelta && vuelta.volver === 'ayuda') volverAlCanal();
+        else trasAviso('inicio');
+    }
+
+    function teclaVideoAyuda(k) {
+        var v = document.getElementById("ayuda-v");
+        if (k === 13) { try { if (v.paused) v.play(); else v.pause(); } catch (err) {} }
+        else if (k === 37 || k === 39) { try { v.currentTime = Math.max(0, v.currentTime + (k === 39 ? 10 : -10)); } catch (err) {} }
+        else if (k === 8 || k === 27 || k === TECLA_ATRAS) cerrarVideoAyuda();
     }
 
     function teclaAviso(k) {
@@ -414,17 +472,8 @@
         else if (k === 8 || k === 27 || k === TECLA_ATRAS) {
             var modo = a.modo;
             cerrarAviso();
-            if (modo === 'inicio') setTimeout(siguienteAviso, 400);
+            trasAviso(modo);
         }
-    }
-
-    // Al salir del video de una guia se vuelve a donde se estaba.
-    function volverDeVideoAyuda() {
-        var v = videoAyuda;
-        videoAyuda = null;
-        showMenu();
-        if (v.volver === 'ayuda') openAyuda();
-        else setTimeout(siguienteAviso, 400);
     }
 
     function openAyuda() {
@@ -3598,7 +3647,9 @@
         if (quizaDiagnostico(normalizarTecla(e.keyCode))) return false;
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
         var k = normalizarTecla(e.keyCode);
-        if (avisoAbierto) { teclaAviso(k); return false; }
+        if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
+                k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
+        if (avisoAbierto && k !== 107 && k !== 109) { teclaAviso(k); return false; }
 
         if (atajoGlobal(e)) return false;
         if (k === 107) { adjustVolume(5); return false; }
@@ -3714,7 +3765,6 @@
             } else if (k === 8 || k === 27 || k === 13) {
                 // Lo abierto desde "Ultimos 7 dias" vuelve alli, no a la lista.
                 if (diferido && diferido.volver === 'semana') openSemana();
-                else if (videoAyuda && playingChannelIdx === -1) volverDeVideoAyuda();
                 else showMenu();
             }
         } else if (view === "menu") {
@@ -3870,6 +3920,11 @@
     function manejarClic(e) {
         var destino = e.target || e.srcElement;
 
+        if (videoAyuda && document.getElementById("ayuda-video").style.display === "block") {
+            if (atributoPulsado(destino, 'data-tecla') !== null) cerrarVideoAyuda();
+            else teclaVideoAyuda(13);
+            return;
+        }
         // La ventana de novedades: sus botones, o fuera de ellos nada.
         if (avisoAbierto) {
             var boton = atributoPulsado(destino, 'data-av');
@@ -4534,6 +4589,16 @@
         #aviso .av-b.sel { background: #bff102; border-color: #bff102; color: #1d2023; font-weight: 600; }
         #aviso .av-pista { position: absolute; left: 130px; bottom: 76px; font-size: 20px; color: #98a3a6; }
         #aviso .av-pista b { font-weight: inherit; }
+        #ayuda-video { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 39; background: #000; }
+        #ayuda-video video { width: 100%; height: 100%; }
+        #ayuda-video .av-vpie {
+            position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 40px;
+            background: rgba(13,14,16,.8); color: #d9d9d9; font-size: 22px;
+        }
+        #ayuda-video .av-vpie b { color: #fff; font-weight: 600; }
+        #ayuda-video .av-vpie span {
+            display: inline-block; padding: 2px 10px; border-radius: 6px; border: 1px solid rgba(217,217,217,.6); color: #fff;
+        }
         #aviso .av-pista span {
             display: inline-block; padding: 3px 12px; margin: 0 6px 0 0; border-radius: 6px;
             border: 1px solid rgba(217,217,217,.6); color: #fff;
@@ -4766,6 +4831,8 @@
             .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
             #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
             #preview-cap .sep { width: 18px; }
+            #ayuda-video .av-vpie { padding: 12px 27px; font-size: 15px; }
+            #ayuda-video .av-vpie span { padding: 1px 7px; border-radius: 4px; }
             #aviso .av-et { top: 64px; left: 87px; font-size: 12px; letter-spacing: 2px; }
             #aviso .av-titulo { top: 88px; left: 87px; right: 87px; font-size: 36px; line-height: 44px; }
             #aviso .av-cuerpo { top: 167px; left: 87px; right: 87px; height: 373px; }
@@ -4879,6 +4946,10 @@
     <div id="toast"></div>
     <div id="mensaje"></div>
     <div id="aviso"></div>
+    <div id="ayuda-video"><video id="ayuda-v" playsinline></video>
+        <div class="av-vpie"><b id="ayuda-v-titulo"></b> &nbsp; <span data-tecla="13">OK</span> Pausa &nbsp;
+        <span>◀▶</span> 10 s &nbsp; <span data-tecla="27">Atras</span> Salir</div></div>
+    <audio id="mar" loop preload="none" src="{% static 'stb/mar.mp3' %}"></audio>
     <div id="numjump"></div>
     <div id="sinred">
         <div class="titulo">Se ha perdido la conexion</div>

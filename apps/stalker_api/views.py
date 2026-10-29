@@ -562,7 +562,8 @@ def handle_get_modules(request):
 
     # Ayuda, solo si hay algo que enseñar en ella.
     from apps.devices.models import Aviso
-    if device and _avisos_vigentes(Aviso.objects.filter(en_ayuda=True)).exists():
+    if (device and device.device_type == 'mag'
+            and _avisos_vigentes(Aviso.objects.filter(en_ayuda=True)).exists()):
         modulos.append('ayuda')
 
     return stalker_response({
@@ -2151,6 +2152,10 @@ def handle_ayuda(request, action):
     device, error = aparato_o_error(request)
     if error:
         return error
+    # De momento solo los decos: las apps de las tiendas, como estaban, que
+    # una pantalla que sale sola al arrancar puede no pasar su revision.
+    if device.device_type != 'mag' and action in ('lista', 'inicio'):
+        return stalker_response({'data': []})
 
     if action == 'lista':
         return stalker_response({'data': [_aviso_json(a) for a in
