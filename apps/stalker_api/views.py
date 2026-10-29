@@ -2123,10 +2123,13 @@ def _aviso_json(aviso, host=''):
         'video': ((aviso.video_url if aviso.video_url.startswith('http') else
                    '?type=ayuda&action=video&id=%d&v=%d' % (aviso.id, aviso.updated_at.timestamp()))
                   if aviso.video_url else ''),
-        # El reproductor de los decos no abre https ni el navegador del deco
-        # reproduce video: para ellos, el fichero por http (deploy/nginx/http_ayuda.sh).
-        'video_http': ('http://%s/media/%s' % (host, aviso.video_url) if local and host else
-                       (aviso.video_url if aviso.video_url.startswith('http://') else '')),
+        # Para el reproductor del deco (su navegador no reproduce video): el
+        # fichero tal cual, por https, que nginx sirve sin pasar por Django.
+        # Ese reproductor solo entiende certificados RSA: hace falta
+        # deploy/nginx/certificado_rsa_iptv2.sh. Si aun asi no pudiera,
+        # deploy/nginx/http_ayuda.sh deja la carpeta tambien por http.
+        'video_http': ('https://%s/media/%s' % (host, aviso.video_url) if local and host else
+                       (aviso.video_url if aviso.video_url.startswith('http') else '')),
     }
 
 
