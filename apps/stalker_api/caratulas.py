@@ -53,17 +53,27 @@ def clave_de(grupo, titulo):
 
 def completar(items):
     """Pone la caratula guardada a las tarjetas que no traen imagen."""
-    faltan = {clave_de(i['grupo'], i['titulo']): i for i in items
-              if not i.get('img') and i.get('grupo') in GRUPOS}
+    # Una lista por titulo: los capitulos de una serie se llaman igual, y con
+    # un diccionario de uno solo la caratula le llegaba solo al ultimo (Bluey
+    # salia sin imagen en 158 de sus emisiones).
+    faltan = {}
+    for i in items:
+        if not i.get('img') and i.get('grupo') in GRUPOS:
+            faltan.setdefault(clave_de(i['grupo'], i['titulo']), []).append(i)
     if not faltan:
         return
-    try:
-        guardadas = cache.get_many(list(faltan))
-    except Exception:
-        return
+    claves = list(faltan)
+    guardadas = {}
+    # A trozos: pedir miles de claves de una vez falla sin decir nada.
+    for n in range(0, len(claves), 200):
+        try:
+            guardadas.update(cache.get_many(claves[n:n + 200]))
+        except Exception:
+            return
     for clave, url in guardadas.items():
         if url:
-            faltan[clave]['img'] = url
+            for i in faltan[clave]:
+                i['img'] = url
 
 
 def limpiar(titulo):
