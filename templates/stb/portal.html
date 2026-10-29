@@ -4146,15 +4146,17 @@
         .help span { margin: 0 7px; }
         /* Boton de pastilla con filo, como "Entrar" en las maquetas; el punto
            amarillo dice que tecla del mando lo abre. Elegido, en verde. */
+        /* Amarillo entero, como la tecla amarilla del mando que lo abre: con
+           solo un puntito amarillo la gente no lo relacionaba con la tecla. */
         .boton-semana {
-            color: #fff; font-size: 18px; font-weight: 500;
+            background: #fdeb00; color: #1d2023; font-size: 18px; font-weight: 600;
             padding: 8px 20px; border-radius: 24px; white-space: nowrap; cursor: pointer;
-            border: 1px solid rgba(217,217,217,.7);
+            border: 1px solid #fdeb00;
         }
-        .boton-semana.sel { background: #bff102; border-color: #bff102; color: #1d2023; font-weight: 600; }
+        .boton-semana.sel { box-shadow: 0 0 0 3px #1d2023, 0 0 0 6px #fff; }
         .boton-semana i {
             display: inline-block; width: 12px; height: 12px; border-radius: 50%;
-            background: #fdeb00; margin-right: 9px; vertical-align: middle;
+            background: #1d2023; margin-right: 9px; vertical-align: middle;
         }
         /* Solo los que llevan data-tecla hacen algo al pulsarlos. Los que no
            —"0-9" o "▲▼", que no son una tecla sola— se quedan como estaban, sin
