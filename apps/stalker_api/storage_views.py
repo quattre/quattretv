@@ -68,6 +68,9 @@ def build_catchup_url(channel, start, duration, device=None):
     storage = archive_storage()
     if not storage:
         return None
+    # Hora del directo -> hora en la señal que se graba (ver Channel.desfase_archivo).
+    if channel.desfase_archivo:
+        start = start + timedelta(minutes=channel.desfase_archivo)
 
     if channel.archive_hls_since and start >= channel.archive_hls_since:
         return build_hls_catchup_url(channel, start, duration, device)

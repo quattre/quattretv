@@ -213,6 +213,16 @@ class Channel(TimeStampedModel, ActivableModel):
         help_text='Origen que se manda a los grabadores (mc_cmd de Ministra, '
                   'p. ej. udp://239.20.20.4:5004). Vacio = multicast_url.'
     )
+    # El archivo de un canal puede venir de otra señal que la del directo, y
+    # no siempre van a la par: el TCM que graba storage1 va una hora por
+    # delante del que emiten los CDN (medido el 29/10/2026 comparando la
+    # imagen). La guia y la EIT son las del directo; esto se suma al pedir el
+    # archivo para caer en el mismo momento del programa.
+    desfase_archivo = models.IntegerField(
+        default=0,
+        help_text='Minutos a sumar a la hora del directo para encontrar lo mismo '
+                  'en el archivo (TCM: -60). 0 = el archivo va a la par.'
+    )
 
     @property
     def origen_para_grabar(self):

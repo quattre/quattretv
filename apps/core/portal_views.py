@@ -547,6 +547,8 @@ def channel_edit(request, channel_id):
         # forma de mapear el EPG a mano desde el portal.
         channel.epg_id = request.POST.get('epg_channel_id', '')
         channel.multicast_url = request.POST.get('multicast_url', '')
+        desfase = request.POST.get('desfase_archivo', '0').strip()
+        channel.desfase_archivo = int(desfase) if desfase.lstrip('-').isdigit() else 0
         channel.is_hd = 'is_hd' in request.POST
         channel.is_adult = 'is_adult' in request.POST
         channel.has_catchup = 'has_archive' in request.POST
