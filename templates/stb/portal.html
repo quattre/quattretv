@@ -1879,10 +1879,19 @@
         return ' style="background-image:url(' + esc(it.img) + ')"';
     }
 
+    // Sin caratula: el titulo en grande sobre un color propio, y no el logo
+    // del canal, que en un videoclub no dice nada de lo que vas a ver. El
+    // color sale del titulo, asi que no cambia de un dia a otro y dos titulos
+    // seguidos no se ven iguales.
+    var TONOS_SIN_IMAGEN = ['#2c4652', '#40304d', '#24473d', '#4d3a2b', '#2f3d5c', '#4a2c36', '#3a4a2a'];
     function sinImagen(it) {
-        return '<div class="sem-sinimg">' + (it.logo
-            ? '<img src="' + esc(it.logo) + '" onerror="this.style.display=\'none\'">'
-            : '<b>' + esc(iniciales(it.canal)) + '</b>') + '</div>';
+        var t = it.titulo || '', h = 0;
+        for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) % 9973;
+        var tono = TONOS_SIN_IMAGEN[h % TONOS_SIN_IMAGEN.length];
+        return '<div class="sem-sinimg" style="background-color:' + tono + ';' +
+               'background-image:-webkit-linear-gradient(-45deg,' + tono + ' 0%,#1d2023 100%);' +
+               'background-image:linear-gradient(135deg,' + tono + ' 0%,#1d2023 100%);">' +
+               '<b>' + esc(t) + '</b></div>';
     }
 
     // "hoy 21:30", "ayer 21:30", "lun 21:30".
@@ -1914,7 +1923,7 @@
     }
 
     function tarjetaSemana(it, sel, grupo) {
-        return '<div class="sem-tarjeta' + (sel ? ' sel' : '') + '"' +
+        return '<div class="sem-tarjeta' + (sel ? ' sel' : '') + (it.img ? '' : ' sin-img') + '"' +
                estiloImagen(it) + '>' + (it.img ? '' : sinImagen(it)) +
                (it.n > 1 ? '<span class="sem-n">' + it.n + '</span>' : '') +
                '<div class="sem-pie"><div class="t">' + esc(it.titulo) + '</div>' +
@@ -4769,14 +4778,19 @@
         .sem-pie .t, .sem-pie .m { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .sem-pie .t { font-size: 21px; font-weight: 600; color: #fff; }
         .sem-pie .m { font-size: 16px; color: #c9d1cb; margin-top: 3px; }
-        .sem-sinimg { position: absolute; top: 0; left: 0; right: 0; height: 120px; padding-top: 28px; text-align: center; }
-        .sem-img .sem-sinimg { height: 100%; padding-top: 115px; }
+        .sem-sinimg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 20px 22px; text-align: left; }
+        .sem-img .sem-sinimg { border-radius: 18px; padding: 40px 44px; }
         /* Lo empezado: cuanto se ha visto, como en Netflix. */
         .sem-visto { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.25); }
         .sem-visto i { display: block; height: 100%; background: #bff102; }
-        .sem-sinimg img { max-height: 60px; max-width: 160px; }
-        .sem-img .sem-sinimg img { max-height: 110px; max-width: 300px; }
-        .sem-sinimg b { font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 44px; color: #4a5357; }
+        .sem-sinimg b {
+            display: block; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+            font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 30px; line-height: 38px; font-weight: 700;
+            color: rgba(255,255,255,.9); letter-spacing: -.5px; white-space: normal;
+        }
+        /* El titulo ya va en grande: abajo solo cuanto queda. */
+        .sem-tarjeta.sin-img .sem-pie .t { display: none; }
+        .sem-img .sem-sinimg b { font-size: 50px; line-height: 60px; -webkit-line-clamp: 4; }
         .sem-n {
             position: absolute; top: 10px; right: 10px; padding: 3px 10px; border-radius: 6px;
             background: rgba(0,0,0,.75); color: #bff102; font-size: 16px; font-weight: 600;
@@ -4874,11 +4888,10 @@
             .sem-pie { padding: 20px 9px 7px; }
             .sem-pie .t { font-size: 14px; }
             .sem-pie .m { font-size: 11px; margin-top: 2px; }
-            .sem-sinimg { height: 80px; padding-top: 19px; }
-            .sem-img .sem-sinimg { padding-top: 77px; }
-            .sem-sinimg img { max-height: 40px; max-width: 107px; }
-            .sem-img .sem-sinimg img { max-height: 73px; max-width: 200px; }
-            .sem-sinimg b { font-size: 29px; }
+            .sem-sinimg { padding: 13px 15px; }
+            .sem-img .sem-sinimg { border-radius: 12px; padding: 27px 29px; }
+            .sem-sinimg b { font-size: 20px; line-height: 25px; }
+            .sem-img .sem-sinimg b { font-size: 33px; line-height: 40px; }
             .sem-n { font-size: 11px; top: 7px; right: 7px; padding: 2px 7px; border-radius: 4px; }
             .sem-ep { height: 79px; padding: 7px; margin-bottom: 7px; border-radius: 8px; border-width: 2px; }
             .sem-mini { width: 107px; height: 60px; margin-right: 15px; border-radius: 5px; }

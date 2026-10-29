@@ -175,3 +175,30 @@ class ObservacionEit(models.Model):
 
     def __str__(self):
         return f'{self.channel_id} {self.inicio:%d/%m %H:%M:%S} {self.nombre}'
+
+
+class FuenteCaratula(models.Model):
+    """
+    De donde se sacan las caratulas que la guia no trae (Configuracion del
+    panel). Se prueban por orden, solo las activas; si una falla o no tiene la
+    caratula, se pasa a la siguiente. Ver apps/stalker_api/caratulas.py.
+    """
+    TIPOS = [
+        ('tmdb', 'TMDB'),
+        ('tvmaze', 'TVmaze'),
+        ('omdb', 'OMDb'),
+    ]
+    tipo = models.CharField(max_length=20, choices=TIPOS, unique=True)
+    activa = models.BooleanField(default=False)
+    orden = models.PositiveSmallIntegerField(default=0)
+    clave = models.CharField(max_length=300, blank=True)
+    buscadas = models.PositiveIntegerField(default=0)
+    encontradas = models.PositiveIntegerField(default=0)
+    ultimo_error = models.CharField(max_length=300, blank=True)
+    ultimo_uso = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['orden', 'id']
+
+    def __str__(self):
+        return self.get_tipo_display()

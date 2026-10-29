@@ -8,6 +8,62 @@
     <p class="text-gray-500">Ajustes del sistema</p>
 </div>
 
+<div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h5 class="font-semibold text-gray-900"><i class="bi bi-image"></i> Carátulas del videoclub</h5>
+        <p class="text-sm text-gray-500 mt-1">Para lo que la guía trae sin imagen. Se prueban por orden, solo las activas; si una falla o no la tiene, se pasa a la siguiente. Solo se acepta una carátula si el título coincide exacto: mejor ninguna que una equivocada.</p>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="caratulas">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Activa</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Orden</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fuente</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clave</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resultado</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for f in fuentes %}
+                <tr>
+                    <td class="px-6 py-3"><input type="checkbox" name="activa_{{ f.id }}" class="w-4 h-4" {% if f.activa %}checked{% endif %}></td>
+                    <td class="px-6 py-3"><input type="number" min="0" name="orden_{{ f.id }}" value="{{ f.orden }}" class="w-20 px-3 py-1 border border-gray-200 rounded-lg"></td>
+                    <td class="px-6 py-3 text-sm">
+                        <strong class="text-gray-900">{{ f.get_tipo_display }}</strong>
+                        <div class="text-xs text-gray-500">
+                        {% if f.tipo == 'tmdb' %}Películas y series, busca en español. Clave gratis en themoviedb.org (uso comercial: licencia aparte).
+                        {% elif f.tipo == 'tvmaze' %}Series e infantiles, sin clave. Títulos sobre todo en inglés.
+                        {% elif f.tipo == 'omdb' %}Películas y series, títulos en inglés. Clave en omdbapi.com.{% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-3">
+                        {% if f.tipo == 'tvmaze' %}<span class="text-xs text-gray-400">no hace falta</span>
+                        {% else %}
+                        <input type="password" name="clave_{{ f.id }}" autocomplete="off" placeholder="{% if f.clave %}•••••• guardada{% elif f.tipo == 'tmdb' and tmdb_env %}la del .env{% else %}sin clave{% endif %}" class="w-56 px-3 py-1 border border-gray-200 rounded-lg">
+                        {% if f.clave %}<div class="text-xs text-gray-400 mt-1">Vacío = no cambiar; «-» = quitarla</div>{% endif %}
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-3 text-sm text-gray-600">
+                        {% if f.buscadas %}{{ f.encontradas }} de {{ f.buscadas }} encontradas{% else %}sin usar todavía{% endif %}
+                        {% if f.ultimo_uso %}<div class="text-xs text-gray-400">última vez {{ f.ultimo_uso|date:"d/m H:i" }}</div>{% endif %}
+                        {% if f.ultimo_error %}<div class="text-xs text-red-600">{{ f.ultimo_error }}</div>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
+            <button type="submit" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Guardar</button>
+            <button type="submit" name="buscar" value="1" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"><i class="bi bi-search"></i> Guardar y buscar las que faltan</button>
+        </div>
+    </form>
+</div>
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200">

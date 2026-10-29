@@ -1400,9 +1400,33 @@ def logs_list(request):
 @staff_member_required
 def settings_view(request):
     """Settings view."""
+    from django.conf import settings
+    from apps.epg.models import FuenteCaratula
+
+    if request.method == 'POST' and request.POST.get('accion') == 'caratulas':
+        for f in FuenteCaratula.objects.all():
+            f.activa = ('activa_%d' % f.id) in request.POST
+            orden = request.POST.get('orden_%d' % f.id, '')
+            f.orden = int(orden) if orden.isdigit() else f.orden
+            clave = request.POST.get('clave_%d' % f.id)
+            # La clave no se enseña: vacio es "no tocar", y para borrarla un guion.
+            if clave == '-':
+                f.clave = ''
+            elif clave:
+                f.clave = clave.strip()[:300]
+            f.save(update_fields=['activa', 'orden', 'clave'])
+        messages.success(request, 'Fuentes de carátulas guardadas')
+        if 'buscar' in request.POST:
+            from apps.epg.tasks import buscar_caratulas
+            buscar_caratulas.delay()
+            messages.success(request, 'Buscando las carátulas que faltan con las fuentes nuevas. Tarda unos minutos.')
+        return redirect('portal:settings')
+
     context = {
         'active_page': 'settings',
         'stats': get_base_stats(),
+        'fuentes': FuenteCaratula.objects.all(),
+        'tmdb_env': bool(settings.QUATTRETV.get('TMDB_API_KEY')),
     }
 
     return render(request, 'portal/pages/settings.html', context)
