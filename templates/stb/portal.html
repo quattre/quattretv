@@ -363,11 +363,14 @@
     //  - El plano de video del deco es una capa por hardware que trabaja SIEMPRE
     //    en coordenadas de 1920x1080, independientemente de lo que mida el
     //    navegador. Ahi hay que dar pixeles de esa rejilla.
-    // Las proporciones son las mismas (39 %, 11,1 %, 58,9 %), asi que el video
+    // Las proporciones son las mismas (39 %, 11,1 %, 56,2 %), asi que el video
     // cae dentro del marco en los dos casos.
     // Proporciones del hueco, las MISMAS que usa el CSS del marco. Es el unico
     // sitio donde se tocan si se cambia el reparto de la pantalla.
-    var HUECO = { x: 0.390, y: 0.111, ancho: 0.589, alto: 0.589 };
+    // A la derecha deja 92 px y no 40: el televisor recorta los bordes de la
+    // imagen (sobrebarrido) y con 40 el video se veia pegado al borde y a la
+    // izquierda, junto a la lista, con un centimetro de aire.
+    var HUECO = { x: 0.390, y: 0.111, ancho: 0.562, alto: 0.562 };
 
     // Rejilla del plano de video del deco. No es la resolucion del televisor:
     // es la que declaramos en init() con SetViewport, y el propio deco se
@@ -3882,7 +3885,7 @@
         }
         /* Lo que rodea al video, con el mismo fondo: sin esto el deco deja
            negro todo lo que no es el panel. Son cuatro piezas alrededor del
-           hueco del video (el mismo HUECO del codigo: 39 %, 11,1 %, 58,9 %),
+           hueco del video (el mismo HUECO del codigo: 39 %, 11,1 %, 56,2 %),
            sin tocarlo. Van dentro de #preview-cap, asi se ven y se esconden
            con el, y por debajo de su texto. */
         .tapa {
@@ -3890,9 +3893,9 @@
             -webkit-background-size: 1920px 1080px; background-size: 1920px 1080px;
         }
         .tapa.a { top: 0; left: 0; width: 100%; height: 11.1%; background-position: 0 0; }
-        .tapa.b { top: 70%; left: 0; width: 100%; height: 30%; background-position: 0 -756px; }
-        .tapa.i { top: 11.1%; left: 0; width: 39%; height: 58.9%; background-position: 0 -120px; }
-        .tapa.d { top: 11.1%; left: 97.9%; width: 2.1%; height: 58.9%; background-position: -1880px -120px; }
+        .tapa.b { top: 67.3%; left: 0; width: 100%; height: 32.7%; background-position: 0 -727px; }
+        .tapa.i { top: 11.1%; left: 0; width: 39%; height: 56.2%; background-position: 0 -120px; }
+        .tapa.d { top: 11.1%; left: 95.2%; width: 4.8%; height: 56.2%; background-position: -1828px -120px; }
 
         .header {
             display: -webkit-box; -webkit-box-pack: justify; -webkit-box-align: center;
@@ -4170,7 +4173,7 @@
 
         /* ---------- Vista previa ---------- */
         #preview {
-            position: fixed; top: 120px; left: 749px; width: 1131px; height: 636px;
+            position: fixed; top: 120px; left: 749px; width: 1079px; height: 607px;
             border-radius: 18px;
             background: transparent; z-index: 1; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
@@ -4180,9 +4183,9 @@
            no vale flex — el estilo en linea gana y la caratula se apilaba encima
            del texto, empujandolo fuera de la pantalla. Con flotante da igual el
            display, y ademas es lo unico seguro en el navegador del MAG520. */
-        /* La miniatura de video acaba en 756; se deja aire para que el texto no
+        /* La miniatura de video acaba en 727; se deja aire para que el texto no
            quede pegado a ella. */
-        #preview-cap { position: fixed; top: 806px; left: 749px; width: 1131px; z-index: 2; }
+        #preview-cap { position: fixed; top: 777px; left: 749px; width: 1079px; z-index: 2; }
         /* overflow crea su propio contexto: el texto se queda en su columna en
            vez de envolver por debajo de la caratula. */
         #preview-cap .txt { overflow: hidden; }
@@ -4527,9 +4530,9 @@
             .panel { width: 470px; height: 720px; padding: 31px 27px 23px 43px;
                      -webkit-background-size: 1280px 720px; background-size: 1280px 720px; }
             .tapa { -webkit-background-size: 1280px 720px; background-size: 1280px 720px; }
-            .tapa.b { background-position: 0 -504px; }
+            .tapa.b { background-position: 0 -485px; }
             .tapa.i { background-position: 0 -80px; }
-            .tapa.d { background-position: -1253px -80px; }
+            .tapa.d { background-position: -1219px -80px; }
             .header { margin-bottom: 20px; min-height: 39px; }
             .logo { font-size: 25px; }
             .logo img { height: 36px; }
@@ -4613,9 +4616,9 @@
             .osd-pistas { font-size: 14px; }
             .osd-pistas span { padding: 4px 9px; }
 
-            #preview { top: 80px; left: 499px; width: 754px; height: 424px;
+            #preview { top: 80px; left: 499px; width: 719px; height: 405px;
                        border-radius: 12px; font-size: 17px; }
-            #preview-cap { top: 537px; left: 499px; width: 754px; }
+            #preview-cap { top: 518px; left: 499px; width: 719px; }
             #preview-cap .t { font-size: 28px; }
             #preview-cap .e { font-size: 14px; margin-top: 5px; }
             #preview-cap .e.despues { font-size: 13px; }
@@ -4643,7 +4646,7 @@
     </style>
 </head>
 <body>
-    <video id="html5video" autoplay playsinline style="position:fixed;top:11.1%;left:39%;width:58.9%;height:58.9%;z-index:2;border-radius:14px;display:none;"></video>
+    <video id="html5video" autoplay playsinline style="position:fixed;top:11.1%;left:39%;width:56.2%;height:56.2%;z-index:2;border-radius:14px;display:none;"></video>
     <div id="preview"></div>
     <!-- Lo que se ve en un canal de radio, que no trae imagen. Se coloca justo
          encima del hueco del video, asi que sirve igual en la ventana pequeña
