@@ -393,7 +393,10 @@
             toast('No volvera a salir. Lo tienes en Menu, Ayuda');
         } else if (boton.id === 'video') {
             videoAyuda = {volver: abierto.modo};
-            reproducirPantallaCompleta(abierto.aviso.video, abierto.aviso.titulo, '', null);
+            // El reproductor necesita la direccion entera, no "?type=...".
+            var url = abierto.aviso.video;
+            if (url.charAt(0) === '?') url = location.protocol + '//' + location.host + location.pathname + url;
+            reproducirPantallaCompleta(url, abierto.aviso.titulo, '', null);
             return;
         }
         if (abierto.modo === 'inicio') setTimeout(siguienteAviso, 400);

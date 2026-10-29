@@ -1429,6 +1429,10 @@ def _guardar_aviso(request, aviso):
     aviso.veces = int(veces) if veces.isdigit() else 3
     orden = request.POST.get('orden', '')
     aviso.orden = int(orden) if orden.lstrip('-').isdigit() else 0
+    if request.FILES.get('video_archivo'):
+        from django.core.files.storage import default_storage
+        archivo = request.FILES['video_archivo']
+        aviso.video_url = default_storage.save('ayuda/' + archivo.name, archivo)
     if request.FILES.get('imagen'):
         aviso.imagen = request.FILES['imagen']
     elif 'quitar_imagen' in request.POST:

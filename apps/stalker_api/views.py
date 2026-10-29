@@ -2111,7 +2111,11 @@ def _aviso_json(aviso):
         # el puerto 80, que lo manda todo a Django y no sirve /media/.
         'img': ('?type=ayuda&action=imagen&id=%d&v=%d' % (aviso.id, aviso.updated_at.timestamp())
                 if aviso.imagen else ''),
-        'video': aviso.video_url,
+        # Un video subido al panel se sirve, como la imagen, por esta misma
+        # direccion: asi llega tambien a los decos que van por http.
+        'video': ((aviso.video_url if aviso.video_url.startswith('http') else
+                   '?type=ayuda&action=video&id=%d&v=%d' % (aviso.id, aviso.updated_at.timestamp()))
+                  if aviso.video_url else ''),
     }
 
 
@@ -2135,6 +2139,14 @@ def handle_ayuda(request, action):
         respuesta = FileResponse(aviso.imagen.open('rb'))
         respuesta['Cache-Control'] = 'max-age=604800'
         return respuesta
+
+    if action == 'video':
+        from django.core.files.storage import default_storage
+        aviso = Aviso.objects.filter(id=request.GET.get('id') or 0, activo=True).first()
+        if not aviso or not aviso.video_url or aviso.video_url.startswith('http') \
+                or not default_storage.exists(aviso.video_url):
+            raise Http404
+        return FileResponse(default_storage.open(aviso.video_url, 'rb'), content_type='video/mp4')
 
     device, error = aparato_o_error(request)
     if error:
