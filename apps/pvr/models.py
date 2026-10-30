@@ -229,6 +229,23 @@ class Recording(TimeStampedModel):
         from datetime import timedelta
         return self.end_time + timedelta(minutes=self.post_padding)
 
+    @property
+    def caduca(self):
+        """Cuando se borra sola (ver PVR_CONSERVAR_DIAS), o None si nunca."""
+        from datetime import datetime, timedelta
+        from django.conf import settings
+        from django.utils import timezone
+
+        dias = settings.QUATTRETV.get('PVR_CONSERVAR_DIAS', 0)
+        if not dias:
+            return None
+        desde = settings.QUATTRETV.get('PVR_CONSERVAR_DESDE', '')
+        base = self.end_time
+        if desde:
+            puesta = timezone.make_aware(datetime.strptime(desde, '%Y-%m-%d'))
+            base = max(base, puesta)
+        return base + timedelta(days=dias)
+
 
 class RecordingRule(TimeStampedModel):
     """Auto-recording rules (series recording)."""

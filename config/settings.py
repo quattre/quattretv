@@ -237,6 +237,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.epg.tasks.buscar_caratulas',
         'schedule': crontab(minute='*/30'),
     },
+    'pvr-borrar-caducadas': {
+        'task': 'apps.pvr.tasks.borrar_caducadas',
+        'schedule': crontab(hour=5, minute=10),
+    },
     'pvr-reconciliar-grabaciones': {
         'task': 'apps.pvr.tasks.reconcile_recordings',
         'schedule': 300.0,
@@ -272,6 +276,13 @@ QUATTRETV = {
     # 3 horas, y cada cliente tiene 30 horas entre todas las que guarda.
     'PVR_MAX_MINUTOS': int(os.getenv('PVR_MAX_MINUTOS', '180')),
     'PVR_CUOTA_MINUTOS': int(os.getenv('PVR_CUOTA_MINUTOS', '1800')),
+    # Cuanto se guarda cada grabacion antes de borrarse sola (0, para
+    # siempre). Se cuenta desde que se grabo, pero nunca desde antes de
+    # PVR_CONSERVAR_DESDE, el dia que se puso: las de 2025 no se borran de
+    # golpe, tienen sus 12 meses como las demas. Una semana antes se avisa.
+    'PVR_CONSERVAR_DIAS': int(os.getenv('PVR_CONSERVAR_DIAS', '365')),
+    'PVR_CONSERVAR_DESDE': os.getenv('PVR_CONSERVAR_DESDE', '2026-10-30'),
+    'PVR_AVISAR_DIAS': int(os.getenv('PVR_AVISAR_DIAS', '7')),
     # Para las caratulas de "Ultimos 7 dias" que la guia no trae. Vacio, no se
     # busca nada. Ojo: el uso comercial de TMDB pide su licencia comercial.
     'TMDB_API_KEY': os.getenv('TMDB_API_KEY', ''),

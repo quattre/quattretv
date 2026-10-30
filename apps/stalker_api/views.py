@@ -1321,12 +1321,19 @@ def handle_series_list(request):
 
 # ============== EPG Handlers ==============
 
+# Dias que guarda el archivo (los dumpstream van con -n168, 7 dias de piezas
+# de una hora): de mas atras no se puede ver nada, asi que la guia no baja mas.
+ARCHIVO_DIAS = 7
+
+
 def handle_epg(request, action):
     """Handle EPG actions."""
     if action == 'get_simple_data_table':
         return handle_epg_table(request)
     elif action == 'get_week':
         return handle_epg_week(request)
+    elif action == 'get_data_table':
+        return handle_epg_rejilla(request)
 
     return stalker_response({'error': 'Unknown action'})
 
@@ -1341,13 +1348,21 @@ def handle_epg_table(request):
 
     from datetime import datetime, timedelta
 
+    # El dia en hora de Madrid: timezone.now().date() es el de UTC, y entre
+    # las 00:00 y las 02:00 la guia enseñaba el dia de antes. Con "dia" (-1
+    # ayer, 1 mañana) se piden otros dias sin depender del reloj del aparato.
+    hoy = timezone.localdate()
+    day = hoy
     if date:
         try:
             day = datetime.strptime(date, '%Y-%m-%d').date()
         except ValueError:
-            day = timezone.now().date()
-    else:
-        day = timezone.now().date()
+            pass
+    elif request.GET.get('dia'):
+        try:
+            day = hoy + timedelta(days=max(-14, min(14, int(request.GET['dia']))))
+        except ValueError:
+            pass
 
     programs = Program.objects.filter(
         channel_id=channel_id,
@@ -1385,7 +1400,68 @@ def handle_epg_table(request):
             'rec': 1 if prog.id in scheduled else 0,
         })
 
-    return stalker_response({'data': data})
+    # Hasta donde se puede ir: atras, lo que guarda el archivo; adelante,
+    # mientras haya guia.
+    hay_antes = (hoy - day).days < ARCHIVO_DIAS
+    hay_despues = Program.objects.filter(
+        channel_id=channel_id, start_time__date__gt=day).exists()
+    return stalker_response({'data': data, 'dia': (day - hoy).days,
+                             'fecha': day.isoformat(),
+                             'antes': 1 if hay_antes else 0,
+                             'despues': 1 if hay_despues else 0})
+
+
+def handle_epg_rejilla(request):
+    """
+    La parrilla: lo que dan varios canales entre dos horas. ch_ids son los
+    canales separados por comas (como mucho 30) y from/to, segundos unix.
+    Devuelve {ch_id: [programas]} con los mismos campos que la guia de un
+    canal, para que el portal use con ellos lo mismo (ficha, grabar, archivo).
+    """
+    from datetime import datetime, timedelta, timezone as tz
+
+    ids = [i for i in request.GET.get('ch_ids', '').split(',') if i.strip().isdigit()][:30]
+    if not ids:
+        return stalker_response({'data': {}})
+    now = timezone.now()
+    try:
+        desde = datetime.fromtimestamp(int(request.GET.get('from')), tz.utc)
+        hasta = datetime.fromtimestamp(int(request.GET.get('to')), tz.utc)
+    except (TypeError, ValueError):
+        desde, hasta = now - timedelta(hours=1), now + timedelta(hours=3)
+    # Que nadie pida un mes entero de golpe.
+    hasta = min(hasta, desde + timedelta(hours=24))
+
+    programs = list(Program.objects.filter(
+        channel_id__in=ids, end_time__gt=desde, start_time__lt=hasta
+    ).order_by('channel_id', 'start_time'))
+
+    scheduled = set()
+    device = get_device_from_request(request)
+    if device and programs:
+        from apps.pvr.models import Recording
+        scheduled = set(Recording.objects.filter(
+            user=device.user, program__in=programs).values_list('program_id', flat=True))
+
+    data = {i: [] for i in ids}
+    for prog in programs:
+        data.setdefault(str(prog.channel_id), []).append({
+            'id': str(prog.id),
+            'ch_id': str(prog.channel_id),
+            'name': prog.title,
+            'descr': (prog.description or '')[:700],
+            'category': prog.category or '',
+            't_time': timezone.localtime(prog.start_time).strftime('%H:%M'),
+            't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
+            'start_timestamp': int(prog.start_time.timestamp()),
+            'stop_timestamp': int(prog.end_time.timestamp()),
+            'progress': prog.progress_percent,
+            'past': 1 if prog.end_time < now else 0,
+            'current': 1 if prog.start_time <= now <= prog.end_time else 0,
+            'rec': 1 if prog.id in scheduled else 0,
+        })
+    return stalker_response({'data': data, 'from': int(desde.timestamp()),
+                             'to': int(hasta.timestamp()), 'now': int(now.timestamp())})
 
 
 def handle_epg_week(request):
@@ -1813,8 +1889,13 @@ def handle_pvr_list(request):
     ).select_related('channel').order_by('-start_time')
 
     data = []
+    ahora = timezone.now()
     for rec in recordings:
+        caduca = rec.caduca if rec.status == 'completed' else None
         data.append({
+            # Cuando se borra sola, para enseñarlo en la lista.
+            'caduca': timezone.localtime(caduca).strftime('%d/%m/%Y') if caduca else '',
+            'caduca_dias': max(0, (caduca - ahora).days) if caduca else -1,
             'id': str(rec.id),
             'name': rec.title,
             'ch_id': str(rec.channel_id),
@@ -2135,6 +2216,51 @@ def _aviso_json(aviso, host='', http=False):
     }
 
 
+def _clave_caducan(device):
+    # Una por semana: "no volver a mostrar" calla el aviso de estas, no el de
+    # las que caduquen mas adelante.
+    return 'caducan:%d:%s' % (device.id, timezone.localdate().strftime('%G-%V'))
+
+
+def _aviso_caducan(device):
+    """
+    Aviso al arrancar de las grabaciones que se borran en los proximos dias
+    (PVR_AVISAR_DIAS). No es un Aviso de la base de datos: sale solo mientras
+    haya alguna a punto de borrarse.
+    """
+    from datetime import timedelta
+    from apps.pvr.models import Recording, RecordingStatus
+
+    dias = settings.QUATTRETV.get('PVR_CONSERVAR_DIAS', 0)
+    avisar = settings.QUATTRETV.get('PVR_AVISAR_DIAS', 7)
+    if not dias or not avisar or not device.user_id or cache.get(_clave_caducan(device)):
+        return None
+    ahora = timezone.now()
+    limite = ahora + timedelta(days=avisar)
+    pronto = [r for r in Recording.objects.filter(
+                  user_id=device.user_id, status=RecordingStatus.COMPLETED,
+                  end_time__lt=limite - timedelta(days=dias)).select_related('storage')
+              if r.caduca and r.caduca <= limite
+              and not (r.storage and r.storage.controlado_por_ministra)]
+    if not pronto:
+        return None
+    pronto.sort(key=lambda r: r.caduca)
+    lineas = ['·  %s — se borra el %s' % (r.title, timezone.localtime(r.caduca).strftime('%d/%m'))
+              for r in pronto[:5]]
+    if len(pronto) > 5:
+        lineas.append('·  y %d mas' % (len(pronto) - 5))
+    meses = dias // 30
+    return {
+        'id': 'caducan', 'img': '', 'video': '', 'video_http': '',
+        'titulo': ('Una grabacion se borra pronto' if len(pronto) == 1
+                   else '%d grabaciones se borran pronto' % len(pronto)),
+        'texto': ('Las grabaciones se guardan %s. Si quieres ver estas, '
+                  'hazlo antes de que se borren:\n\n%s\n\n'
+                  'Las tienes en el menu, en Mis grabaciones.') % (
+                      '%d meses' % meses if meses > 1 else '%d dias' % dias, '\n'.join(lineas)),
+    }
+
+
 def handle_ayuda(request, action):
     """
     Novedades al arrancar y la seccion Ayuda (ver Aviso en apps/devices/models.py).
@@ -2186,9 +2312,16 @@ def handle_ayuda(request, action):
             if v and (v.no_mostrar or (a.veces and v.veces >= a.veces)):
                 continue
             datos.append(_aviso_json(a, request.get_host(), device.usa_http_legacy))
+        caducan = _aviso_caducan(device)
+        if caducan:
+            datos.insert(0, caducan)
         return stalker_response({'data': datos})
 
     if action in ('visto', 'no_mostrar'):
+        if request.GET.get('id') == 'caducan':
+            if action == 'no_mostrar':
+                cache.set(_clave_caducan(device), 1, 8 * 86400)
+            return stalker_response({'result': True})
         aviso = Aviso.objects.filter(id=request.GET.get('id') or 0).first()
         if not aviso:
             return stalker_response({'result': False})

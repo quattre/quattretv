@@ -182,6 +182,48 @@ def enforce_rule_quota(rule):
 
 
 @shared_task
+def borrar_caducadas():
+    """
+    Borra las grabaciones que ya han cumplido su tiempo (PVR_CONSERVAR_DIAS),
+    fichero incluido. Las del grabador que aun manda Ministra no se tocan: si
+    se borraran aqui, la copia de cada noche las volveria a traer.
+    """
+    from datetime import timedelta
+    from django.conf import settings
+    from .models import Recording, RecordingStatus
+    from . import storage_client
+
+    dias = settings.QUATTRETV.get('PVR_CONSERVAR_DIAS', 0)
+    if not dias:
+        return 0
+    ahora = timezone.now()
+    borradas = 0
+    # Solo las que acabaron hace mas de esos dias pueden haber caducado; el
+    # resto (la fecha de puesta en marcha) lo mira rec.caduca.
+    for rec in Recording.objects.filter(
+            end_time__lt=ahora - timedelta(days=dias),
+            status__in=[RecordingStatus.COMPLETED, RecordingStatus.FAILED,
+                        RecordingStatus.CANCELLED]).select_related('storage'):
+        if rec.storage and rec.storage.controlado_por_ministra:
+            continue
+        if not rec.caduca or rec.caduca > ahora:
+            continue
+        if rec.storage and rec.filename:
+            try:
+                storage_client.delete_recording_file(rec.storage, rec.filename)
+            except storage_client.StorageError as exc:
+                # Si el grabador no contesta se deja para mañana: borrar la
+                # fila dejaria el fichero huerfano para siempre.
+                logger.warning('No se pudo borrar %s: %s', rec.filename, exc)
+                continue
+        rec.delete()
+        borradas += 1
+    if borradas:
+        logger.info('Borradas %d grabaciones caducadas', borradas)
+    return borradas
+
+
+@shared_task
 def reconcile_recordings():
     """
     Close out recordings whose 'ended' callback never arrived.
