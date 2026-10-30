@@ -290,6 +290,10 @@ def _emision(canal, p, horas, tipo_canal):
         'grupo': grupo,
         'titulo': titulo,
         'sub': p.episode_title or '',
+        # Temporada y capitulo, si la guia los trae: el capitulo se reconoce
+        # por su nombre y su numero, no por el dia que se emitio.
+        'temp': p.season or '',
+        'ep': p.episode or '',
         'descr': (p.description or '')[:300],
         '_cat': p.category or '',
         'anio': p.year or '',
@@ -332,7 +336,7 @@ def emisiones(canales, con_ocultos=False):
             channel=canal, start_time__gte=desde,
             end_time__lte=ahora - timedelta(minutes=2),
         ).only('title', 'description', 'start_time', 'end_time', 'category',
-               'episode_title', 'year', 'icon')
+               'episode_title', 'season', 'episode', 'year', 'icon')
         for p in programas:
             e = _emision(canal, p, horas, tipo_canal)
             if not e:

@@ -264,14 +264,21 @@
 
     function loadData() {
         contarComoSoy();
-        // Las novedades, cuando ya se ve la lista y el canal ha arrancado.
-        setTimeout(avisosAlArrancar, 4000);
+        // Las novedades, lo primero: antes salian a los 4 segundos, con el
+        // canal ya sonando, y se veia la tele un momento y luego el aviso. El
+        // canal no arranca hasta saber si hay alguno (ver esperandoAvisos).
+        avisosAlArrancar();
+        setTimeout(soltarAvisos, 6000);
         cargarModulos(pintarRail);
         loadGenres();
         loadPage(0);
         // Señal de vida: sin esto, un aparato que lleva rato con un canal
         // puesto no vuelve a pedir nada y en el panel figura como apagado.
         setInterval(latido, 60000);
+        setInterval(refrescarPosicionOsd, 1000);
+        // El videoclub, por adelantado: al rato de encender y cada media hora.
+        setTimeout(precargarSemana, 20000);
+        setInterval(precargarSemana, 1800000);
     }
 
     // Cuando se cargo este portal, para que el panel pueda recargar de golpe
@@ -334,11 +341,23 @@
     var ayuda = [];
     var ayudaIdx = 0;
 
+    // Mientras se pregunta si hay novedades, el canal no arranca: si las hay,
+    // salen ellas primero, sin la tele de fondo un momento antes.
+    var esperandoAvisos = true;
+
     function avisosAlArrancar() {
         api("type=ayuda&action=inicio", function(js) {
             avisosPendientes = (js && js.data) ? js.data : [];
-            siguienteAviso();
+            if (avisosPendientes.length) siguienteAviso();
+            else soltarAvisos();
         }, true);
+    }
+
+    // Ya no hay que esperar: no habia avisos, o el servidor tarda (6 s).
+    function soltarAvisos() {
+        if (!esperandoAvisos || avisoAbierto) return;
+        esperandoAvisos = false;
+        if (view === "list" && !isFullscreen) startPreview();
     }
 
     function siguienteAviso() {
@@ -363,6 +382,7 @@
     }
 
     function volverAlCanal() {
+        esperandoAvisos = false;
         if (isFullscreen || view === "semana") return;
         startPreview();
     }
@@ -1187,7 +1207,7 @@
     }
 
     function startPreview() {
-        if (channels.length === 0 || isFullscreen) return;
+        if (channels.length === 0 || isFullscreen || esperandoAvisos) return;
         var ch = channels[currentChannel];
         if (ch && ch.locked) {
             // Un canal bloqueado no se previsualiza. Y hay que parar lo que
@@ -1545,8 +1565,8 @@
         h += '<div class="osd-pistas">';
         if (d.inicio) h += '<span data-tecla="37">◀</span><span data-tecla="39">▶</span> Retroceder / avanzar ';
         h += '<span data-tecla="13">OK</span> ' + (d.pausaDesde ? 'Seguir ' : 'Pausa ');
-        h += d.volver === 'semana' ? '<span data-tecla="27">Atras</span> Volver al videoclub</div>'
-                                   : '<span data-tecla="38">▲▼</span> Volver al directo</div>';
+        h += '<span data-tecla="27">Atras</span> ' + (d.volver === 'semana' ? 'Volver al videoclub' :
+             (rj.volver ? 'Volver a la guia' : 'Salir')) + '</div>';
         return h;
     }
 
@@ -1589,22 +1609,38 @@
         return d.base + Math.max(0, ms / 1000);
     }
 
+    // 1:05:09 — horas, minutos y segundos. Con solo horas y minutos, "1:05"
+    // parecia un minuto y cinco segundos.
+    function hms(seg) {
+        seg = Math.max(0, Math.floor(seg));
+        return Math.floor(seg / 3600) + ':' + dosCifras(Math.floor(seg / 60) % 60) + ':' + dosCifras(seg % 60);
+    }
+
     function textoPosicion(d, punto) {
         if (d.cero) {
             // Videoclub: lo que va de peli y lo que dura, sin hora de emision.
-            var total = Math.max(0, Math.round((d.final - d.cero) / 60));
-            var visto = Math.max(0, Math.round((punto - d.cero) / 60));
-            return Math.floor(visto / 60) + ':' + dosCifras(visto % 60) + ' / ' +
-                   Math.floor(total / 60) + ':' + dosCifras(total % 60);
+            return hms(punto - d.cero) + ' / ' + hms(d.final - d.cero);
         }
         if (d.tipo === 'grabacion') {
-            var dur = Math.round((d.fin - d.inicio) / 60);
-            var va = Math.round((punto - d.inicio) / 60);
-            return Math.floor(va / 60) + ':' + dosCifras(va % 60) + ' / ' +
-                   Math.floor(dur / 60) + ':' + dosCifras(dur % 60);
+            return hms(punto - d.inicio) + ' / ' + hms(d.fin - d.inicio);
         }
         var t = new Date(punto * 1000);
         return dosCifras(t.getHours()) + ':' + dosCifras(t.getMinutes()) + ':' + dosCifras(t.getSeconds());
+    }
+
+    // Con la barra puesta, el tiempo corre: se repinta cada segundo solo la
+    // posicion, no la barra entera.
+    function refrescarPosicionOsd() {
+        var d = diferido, osd = document.getElementById("osd");
+        if (!d || !d.inicio || salto || !osd || osd.style.display !== "block") return;
+        var caja = osd.querySelector('.osd-salto');
+        if (!caja) return;
+        var punto = momentoDiferido();
+        var a = d.cero || d.inicio, b = d.cero ? d.final : d.fin;
+        var pct = Math.max(0, Math.min(100, (punto - a) * 100 / Math.max(1, b - a)));
+        var barra = caja.querySelector('.bar i'), texto = caja.querySelector('span');
+        if (barra) barra.style.width = pct.toFixed(1) + '%';
+        if (texto) texto.innerHTML = esc(textoPosicion(d, punto));
     }
 
     function textoSalto(s) {
@@ -2367,8 +2403,45 @@
         });
     }
 
+    // Las caratulas se pedian al pintar la tarjeta y se veian ir llegando. Se
+    // piden antes: las primeras de cada fila nada mas tener el catalogo, y al
+    // moverse por una fila, las siguientes. Se guardan los Image para que el
+    // navegador no las suelte; el resto lo hace su cache.
+    var precargadas = {}, numPrecargadas = 0;
+
+    function precargar(url) {
+        if (!url || precargadas[url] || numPrecargadas > 400) return;
+        var img = new Image();
+        img.src = url;
+        precargadas[url] = img;
+        numPrecargadas++;
+    }
+
+    function precargarFilas(filas, porFila) {
+        for (var r = 0; r < Math.min(filas.length, 8); r++) {
+            var items = filas[r].items || [];
+            for (var c = 0; c < Math.min(items.length, porFila); c++) precargar(items[c].img);
+        }
+    }
+
+    // El videoclub de Inicio, pedido sin abrirlo: al entrar ya estan los datos
+    // (si no han pasado 5 minutos) y las caratulas en la cache.
+    function precargarSemana() {
+        if (!haySemana() || view === "semana") return;
+        api("type=tv_archive&action=get_catalog&tab=inicio", function(js) {
+            var datos = (js && js.data) ? js.data : null;
+            if (!datos || !datos.filas || !datos.filas.length || view === "semana") return;
+            semana.pestanas = datos.pestanas || [];
+            var g = {filas: datos.filas, cargado: new Date().getTime(), fila: 0, cols: []};
+            for (var i = 0; i < datos.filas.length; i++) g.cols.push(0);
+            semana.porPestana[datos.pestana] = g;
+            precargarFilas(datos.filas, SEMANA_VISIBLES + 3);
+        }, true);
+    }
+
     // Cada pestaña recuerda en que fila y tarjeta se quedo.
     function ponerPestana(g) {
+        precargarFilas(g.filas, SEMANA_VISIBLES + 3);
         semana.filas = g.filas;
         semana.cols = g.cols;
         semana.fila = g.fila;
@@ -2548,8 +2621,25 @@
         return h + '</div></div>';
     }
 
+    // El capitulo por su numero y su nombre ("T9 · Cap. 2 · El del pediatra").
+    // Si la guia no trae ninguno de los dos, el de la serie.
+    function nombreCapitulo(e) {
+        var n = '';
+        if (e.temp && e.ep) n = 'T' + e.temp + ' · Cap. ' + e.ep;
+        else if (e.ep) n = 'Cap. ' + e.ep;
+        if (e.sub) n = n ? n + ' · ' + e.sub : e.sub;
+        return n || e.titulo;
+    }
+
     function renderSemana() {
         var actual = itemSemana();
+        // Las que vienen a continuacion en la fila en la que se esta.
+        var filaAhora = semana.filas[semana.fila];
+        if (filaAhora && filaAhora.items) {
+            var col0 = semana.cols[semana.fila] || 0;
+            for (var pi = col0; pi < Math.min(filaAhora.items.length, col0 + SEMANA_VISIBLES + 4); pi++) precargar(filaAhora.items[pi].img);
+        }
+        if (semana.filas[semana.fila + 2]) precargarFilas([semana.filas[semana.fila + 2]], SEMANA_VISIBLES + 1);
         // La caratula de lo elegido, grande y apagada detras de todo, como el
         // fondo de Netflix. Sin desenfoque, que al MAG le cuesta.
         var h = (actual && actual.img ? '<div class="sem-fondo"' + estiloImagen(actual) + '></div>' : '') +
@@ -2570,7 +2660,7 @@
                 var e = semana.episodios[i];
                 h += '<div class="sem-ep' + (i === semana.epIdx ? ' sel' : '') + '">' +
                      '<div class="sem-mini"' + estiloImagen(e) + '></div>' +
-                     '<div class="sem-ep-txt"><div class="t">' + esc(e.sub || e.titulo) + '</div>' +
+                     '<div class="sem-ep-txt"><div class="t">' + esc(nombreCapitulo(e)) + '</div>' +
                      '<div class="m">' + esc(cuandoFue(e.ini, e.fin) + '  ·  ' + e.canal +
                      (e.caduca ? '  ·  ' + quedan(e.caduca).toLowerCase() : '')) + '</div></div></div>';
             }
@@ -2758,8 +2848,9 @@
                 document.getElementById("semana").style.display = "none";
                 // Como una peli y no como una emision: ni canal, ni dia ni hora,
                 // y el tiempo contado desde su principio de verdad.
-                reproducirPantallaCompleta(js.cmd, it.titulo, it.sub || '', {
-                    titulo: it.titulo, sub: it.sub || '', descr: it.descr,
+                var cap = (it.ep || it.sub) ? nombreCapitulo(it) : '';
+                reproducirPantallaCompleta(js.cmd, it.titulo, cap, {
+                    titulo: it.titulo, sub: cap, descr: it.descr,
                     cero: js.real_ini || it.ini, final: js.real_fin || it.fin,
                     tipo: 'archivo', chId: it.ch_id, inicio: it.ini, fin: it.fin, base: js.desde || utc,
                     volver: 'semana'
@@ -4315,14 +4406,10 @@
             } else if (diferido && e.altKey && k === 82) {
                 pausarDiferido();             // reproducir/pausa del MAG (Alt+R)
             } else if (diferido && (k === 38 || k === 40)) {
-                // Viendo el archivo o una grabacion, la primera flecha vuelve
-                // al directo del mismo canal; la siguiente ya cambia de canal.
-                var vivo = channels[currentChannel];
-                if (vivo) {
-                    playChannel(vivo);
-                    playingChannelIdx = currentChannel;
-                    mostrarOsd(vivo);
-                }
+                // Viendo una peli, el archivo o una grabacion, las flechas
+                // sacan la barra con la informacion. Antes volvian al directo:
+                // se tocaba sin querer y se perdia la peli. Para salir, Atras.
+                mostrarOsd(null);
             } else if (k === 38) {
                 // Cambiar canal en fullscreen
                 if (currentChannel > 0) {
