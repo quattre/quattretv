@@ -29,6 +29,9 @@
     var guide = [];
     var guideIdx = 0;
     var guideChannel = null;
+    // El dia que se ve en la guia (0 hoy, -1 ayer...) y si hay mas atras o
+    // mas adelante, segun lo que contesta el servidor.
+    var guiaDia = {dia: 0, antes: 0, despues: 0};
     var recordings = [];
     var recIdx = 0;
     var toastTimeout = null;
@@ -602,6 +605,9 @@
     // imagen (sobrebarrido) y con 40 el video se veia pegado al borde y a la
     // izquierda, junto a la lista, con un centimetro de aire.
     var HUECO = { x: 0.390, y: 0.111, ancho: 0.562, alto: 0.562 };
+    // En la parrilla el video va mas pequeño, arriba a la derecha.
+    var HUECO_LISTA = HUECO;
+    var HUECO_REJILLA = { x: 0.640, y: 0.056, ancho: 0.310, alto: 0.310 };
 
     // Rejilla del plano de video del deco. No es la resolucion del televisor:
     // es la que declaramos en init() con SetViewport, y el propio deco se
@@ -633,6 +639,7 @@
 
     function setViewportPreview() {
         try { pintarRail(); } catch (err) {}
+        HUECO = (view === "rejilla") ? HUECO_REJILLA : HUECO_LISTA;
         var r = huecoDeco();
         pintarRadio(channels[currentChannel]);
         if (useHTML5) {
@@ -1789,6 +1796,366 @@
         else if (opcion.id === 'ayuda') openAyuda();
     }
 
+    // ---------- Parrilla (guia de todos los canales) ----------
+    //
+    // Como la de Movistar+ u Orange: los canales en filas y las horas de
+    // izquierda a derecha, con lo que se emite ahora marcado por una linea.
+    // Arriba, la informacion del programa elegido y el canal que suena, en
+    // pequeño. ◀▶ va de programa en programa (hacia atras hasta lo que guarda
+    // el archivo), ▲▼ cambia de canal y OK abre lo que se puede hacer con ese
+    // programa: verlo, verlo desde el principio, grabarlo o leer su ficha.
+    //
+    // Solo pide al servidor los canales que se ven y unas horas alrededor, y
+    // lo va guardando: con 180 canales, pedirlo todo de golpe tumbaria al deco.
+    var RJ_VENTANA = 2 * 3600;          // lo que se ve de ancho: dos horas
+    var RJ_PASO = 1800;                 // las marcas de la regla, cada media hora
+    var RJ_FILAS = 7;
+    var RJ_ATRAS = 7 * 86400;           // lo que guarda el archivo
+    var rj = {fila: 0, primera: 0, t: 0, inicio: 0, selId: null, progs: {}, rangos: {},
+              pidiendo: false, menu: null, volver: false};
+
+    function ahoraSeg() { return Math.floor(new Date().getTime() / 1000); }
+
+    function alinear(t) { return t - (t % RJ_PASO); }
+
+    function openRejilla() {
+        if (!channels.length) return;
+        var vuelta = rj.volver;
+        rj.volver = false;
+        if (!vuelta || !rj.inicio) {
+            // Al abrirla, en el canal de la lista y en lo que se emite ahora.
+            var ahora = ahoraSeg();
+            rj.fila = currentChannel;
+            rj.t = ahora;
+            rj.inicio = alinear(ahora) - RJ_PASO;
+            rj.selId = null;
+        }
+        rj.menu = null;
+        view = "rejilla";
+        isFullscreen = false;
+        clearTimeout(osdTimeout);
+        document.getElementById("osd").style.display = "none";
+        document.getElementById("preview").style.display = "none";
+        document.getElementById("preview-cap").style.display = "none";
+        document.getElementById("content").style.display = "block";
+        graficosDelante();
+        // El canal que suena sigue sonando, en el hueco de arriba a la derecha.
+        if (playingChannelIdx < 0 && channels[currentChannel] && !channels[currentChannel].locked) {
+            playChannel(channels[currentChannel]);
+            playingChannelIdx = currentChannel;
+        }
+        setViewportPreview();
+        renderRejilla();
+        pedirRejilla();
+    }
+
+    function cerrarRejilla() {
+        rj.menu = null;
+        if (view === "rejilla") view = "list";
+    }
+
+    function salirDeRejilla() {
+        cerrarRejilla();
+        showMenu();
+    }
+
+    function progsDe(ch) { return (ch && rj.progs[ch.id]) || []; }
+
+    // El programa de esa fila que se emite a la hora t.
+    function progEn(ch, t) {
+        var l = progsDe(ch);
+        for (var i = 0; i < l.length; i++) {
+            if (l[i].start_timestamp <= t && t < l[i].stop_timestamp) return l[i];
+        }
+        return null;
+    }
+
+    function progSel() {
+        var ch = channels[rj.fila];
+        var l = progsDe(ch);
+        if (rj.selId) {
+            for (var i = 0; i < l.length; i++) if (l[i].id === rj.selId) return l[i];
+        }
+        var p = progEn(ch, rj.t);
+        rj.selId = p ? p.id : null;
+        return p;
+    }
+
+    // Lo que falta por pedir: los canales que se ven (y los de al lado, para
+    // que bajar no espere) entre unas horas antes y despues de lo visible.
+    function pedirRejilla() {
+        if (rj.pidiendo) return;
+        var desde = rj.inicio - 3 * 3600, hasta = rj.inicio + RJ_VENTANA + 3 * 3600;
+        var faltan = [];
+        var ini = Math.max(0, rj.primera - 3), fin = Math.min(channels.length, rj.primera + RJ_FILAS + 4);
+        for (var i = ini; i < fin; i++) {
+            var r = rj.rangos[channels[i].id];
+            if (!r || r[0] > rj.inicio - 3600 || r[1] < rj.inicio + RJ_VENTANA + 3600) faltan.push(channels[i].id);
+        }
+        if (!faltan.length) return;
+        rj.pidiendo = true;
+        api("type=epg&action=get_data_table&ch_ids=" + faltan.join(',') + "&from=" + desde + "&to=" + hasta, function(js) {
+            rj.pidiendo = false;
+            var datos = (js && js.data) ? js.data : {};
+            for (var j = 0; j < faltan.length; j++) {
+                var id = faltan[j], nuevos = datos[id] || [], r = rj.rangos[id];
+                // Si lo nuevo empalma con lo que ya habia, se juntan; si no,
+                // se queda solo lo nuevo, para no dejar huecos sin saberlo.
+                var junta = r && r[0] <= hasta && r[1] >= desde;
+                var lista = junta ? (rj.progs[id] || []).concat(nuevos) : nuevos;
+                var vistos = {}, limpia = [];
+                lista.sort(function(a, b) { return a.start_timestamp - b.start_timestamp; });
+                for (var k = 0; k < lista.length; k++) {
+                    if (vistos[lista[k].id]) continue;
+                    vistos[lista[k].id] = 1;
+                    limpia.push(lista[k]);
+                }
+                rj.progs[id] = limpia;
+                rj.rangos[id] = junta ? [Math.min(r[0], desde), Math.max(r[1], hasta)] : [desde, hasta];
+            }
+            if (view === "rejilla") { renderRejilla(); pedirRejilla(); }
+        });
+    }
+
+    function nombreDiaT(t) {
+        var d = new Date(t * 1000), hoy = new Date();
+        var a = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        var b = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime();
+        return nombreDia(Math.round((a - b) / 86400000), {start_timestamp: t});
+    }
+
+    function horaDe(t) {
+        var d = new Date(t * 1000);
+        return dosCifras(d.getHours()) + ':' + dosCifras(d.getMinutes());
+    }
+
+    // Lo que se puede hacer con el programa: lo mismo que promete la guia.
+    function opcionesRejilla(ch, p) {
+        var ops = [];
+        if (!p) return [{id: 'canal', t: 'Ver ' + ch.name}];
+        if (p.current) ops.push({id: 'canal', t: 'Ver ahora'});
+        if ((p.past || p.current) && ch.archive) ops.push({id: 'archivo', t: p.current ? 'Ver desde el principio' : 'Ver'});
+        if (!p.past && hayGrabaciones() && ch.pvr) {
+            ops.push({id: 'grabar', t: p.rec ? (p.current ? 'Parar la grabacion' : 'Quitar la grabacion') : 'Grabar'});
+        }
+        ops.push({id: 'ficha', t: 'Mas informacion'});
+        return ops;
+    }
+
+    function renderRejilla() {
+        var E = (document.documentElement.clientWidth || 1920) / 1920;
+        function px(v) { return Math.round(v * E) + 'px'; }
+        // Que el canal elegido se vea: la ventana de filas lo sigue.
+        if (rj.fila < rj.primera) rj.primera = rj.fila;
+        if (rj.fila >= rj.primera + RJ_FILAS) rj.primera = rj.fila - RJ_FILAS + 1;
+        rj.primera = Math.max(0, Math.min(rj.primera, Math.max(0, channels.length - RJ_FILAS)));
+
+        var X0 = 404, X1 = 1850, Y0 = 470, ALTO = 80;
+        var pxs = (X1 - X0) / RJ_VENTANA;
+        var fin = rj.inicio + RJ_VENTANA, ahora = ahoraSeg();
+        var ch = channels[rj.fila], p = progSel();
+
+        // El fondo, en piezas alrededor del hueco del video, que tiene que
+        // quedar transparente (ver HUECO_REJILLA).
+        var hx = Math.round(1920 * HUECO_REJILLA.x), hy = Math.round(1080 * HUECO_REJILLA.y);
+        var hw = Math.round(1920 * HUECO_REJILLA.ancho), hh = Math.round(1080 * HUECO_REJILLA.alto);
+        var h = '<div id="rejilla">';
+        h += '<i class="rj-f" style="left:0;top:0;width:' + px(hx) + ';height:' + px(1080) + '"></i>';
+        h += '<i class="rj-f" style="left:' + px(hx) + ';top:0;width:' + px(1920 - hx) + ';height:' + px(hy) + '"></i>';
+        h += '<i class="rj-f" style="left:' + px(hx + hw) + ';top:' + px(hy) + ';width:' + px(1920 - hx - hw) + ';height:' + px(hh) + '"></i>';
+        h += '<i class="rj-f" style="left:' + px(hx) + ';top:' + px(hy + hh) + ';width:' + px(1920 - hx) + ';height:' + px(1080 - hy - hh) + '"></i>';
+
+        // Arriba a la izquierda, el programa elegido.
+        h += '<div class="rj-info" style="left:' + px(190) + ';top:' + px(56) + ';width:' + px(hx - 230) + ';height:' + px(hh) + '">';
+        if (ch) h += '<div class="rj-canal">' + ch.number + ' · ' + esc(ch.name) + '</div>';
+        if (p) {
+            h += '<div class="rj-titulo">' + esc(p.name);
+            if (p.current) h += ' <span class="live">AHORA</span>';
+            if (p.rec) h += ' <span class="rec">REC</span>';
+            h += '</div>';
+            var mins = Math.round((p.stop_timestamp - p.start_timestamp) / 60);
+            h += '<div class="rj-datos"><b>' + esc(nombreDiaT(p.start_timestamp)) + ' ' + esc(p.t_time) + ' - ' +
+                 esc(p.t_time_end) + '</b> · ' + mins + ' min' + (p.category ? ' · ' + esc(p.category) : '') + '</div>';
+            if (p.descr) h += '<div class="rj-descr">' + esc(p.descr) + '</div>';
+        } else {
+            h += '<div class="rj-titulo">' + (rj.rangos[ch && ch.id] ? 'Sin informacion' : 'Cargando...') + '</div>';
+        }
+        h += '<div class="rj-pistas"><span data-tecla="13">OK</span> Opciones ' +
+             '<span>◀▶</span> Horas <span>▲▼</span> Canales <span data-tecla="27">Atras</span> Salir</div>';
+        h += '</div>';
+
+        // La regla de las horas, con el dia a la izquierda.
+        h += '<div class="rj-dia" style="left:' + px(190) + ';top:' + px(Y0 - 50) + ';width:' + px(X0 - 200) + '">' +
+             esc(nombreDiaT(Math.max(rj.inicio, p ? p.start_timestamp : rj.inicio))) + '</div>';
+        for (var m = rj.inicio; m < fin; m += RJ_PASO) {
+            h += '<div class="rj-hora" style="left:' + px(X0 + (m - rj.inicio) * pxs) + ';top:' + px(Y0 - 50) + '">' + horaDe(m) + '</div>';
+        }
+
+        // Las filas.
+        for (var f = 0; f < RJ_FILAS; f++) {
+            var i = rj.primera + f, c = channels[i];
+            if (!c) break;
+            var y = Y0 + f * ALTO;
+            h += '<div class="rj-ch' + (i === rj.fila ? ' sel' : '') + '" style="left:' + px(190) + ';top:' + px(y) +
+                 ';width:' + px(X0 - 200) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
+                 '<b>' + c.number + '</b>' + esc(c.name) + '</div>';
+            var l = progsDe(c), alguno = false;
+            for (var j = 0; j < l.length; j++) {
+                var q = l[j];
+                if (q.stop_timestamp <= rj.inicio || q.start_timestamp >= fin) continue;
+                alguno = true;
+                var a = Math.max(q.start_timestamp, rj.inicio), b = Math.min(q.stop_timestamp, fin);
+                var cls = 'rj-p';
+                if (q.stop_timestamp <= ahora) cls += ' past';
+                else if (q.start_timestamp <= ahora) cls += ' now';
+                if (i === rj.fila && p && q.id === p.id) cls += ' sel';
+                h += '<div class="' + cls + '" style="left:' + px(X0 + (a - rj.inicio) * pxs) + ';top:' + px(y) +
+                     ';width:' + px(Math.max(4, (b - a) * pxs - 6)) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
+                     (q.rec ? '<i class="rj-rec"></i>' : '') + (q.start_timestamp < rj.inicio ? '‹ ' : '') + esc(q.name) + '</div>';
+            }
+            if (!alguno) {
+                h += '<div class="rj-p vacio' + (i === rj.fila && !p ? ' sel' : '') + '" style="left:' + px(X0) + ';top:' + px(y) +
+                     ';width:' + px(X1 - X0 - 6) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
+                     (rj.rangos[c.id] ? 'Sin informacion' : 'Cargando...') + '</div>';
+            }
+        }
+
+        // La linea de ahora.
+        if (ahora > rj.inicio && ahora < fin) {
+            h += '<i class="rj-ahora" style="left:' + px(X0 + (ahora - rj.inicio) * pxs - 1) + ';top:' + px(Y0 - 12) +
+                 ';height:' + px(RJ_FILAS * ALTO + 6) + '"></i>';
+        }
+
+        // El menu de OK, encima de todo.
+        if (rj.menu) {
+            h += '<div class="rj-menu" style="left:' + px(560) + ';top:' + px(330) + ';width:' + px(800) + '">';
+            h += '<div class="rj-menu-t">' + esc(p ? p.name : (ch ? ch.name : '')) + '</div>';
+            for (var o = 0; o < rj.menu.ops.length; o++) {
+                h += '<div class="rj-op' + (o === rj.menu.idx ? ' sel' : '') + '" data-rjop="' + o + '">' + esc(rj.menu.ops[o].t) + '</div>';
+            }
+            h += '<div class="rj-pistas"><span>▲▼</span> Elegir <span data-tecla="13">OK</span> Aceptar ' +
+                 '<span data-tecla="27">Atras</span> Cerrar</div></div>';
+        }
+        h += '</div>';
+        document.getElementById("content").innerHTML = h;
+    }
+
+    // Se mueve la hora elegida y la ventana la sigue, de media en media hora.
+    function verHora(a, b) {
+        if (a < rj.inicio) rj.inicio = alinear(Math.max(a, b - RJ_VENTANA + RJ_PASO));
+        else if (a >= rj.inicio + RJ_VENTANA - RJ_PASO / 2) rj.inicio = alinear(a) - RJ_PASO;
+        rj.inicio = Math.max(rj.inicio, alinear(ahoraSeg() - RJ_ATRAS));
+    }
+
+    function moverRejilla(paso) {
+        var ch = channels[rj.fila], p = progSel(), l = progsDe(ch);
+        var objetivo = null;
+        if (p) {
+            for (var i = 0; i < l.length; i++) {
+                if (l[i].id !== p.id) continue;
+                objetivo = l[i + paso] || null;
+                break;
+            }
+        }
+        if (objetivo) {
+            if (paso < 0 && objetivo.stop_timestamp < ahoraSeg() - RJ_ATRAS) return;
+            rj.selId = objetivo.id;
+            verHora(objetivo.start_timestamp, objetivo.stop_timestamp);
+            rj.t = Math.max(objetivo.start_timestamp, rj.inicio);
+        } else {
+            // Sin guia en esa fila (o al final de lo que hay): media hora.
+            var t = (p ? (paso > 0 ? p.stop_timestamp : p.start_timestamp - 1) : rj.t + paso * RJ_PASO);
+            if (t < ahoraSeg() - RJ_ATRAS) return;
+            rj.t = t;
+            rj.selId = null;
+            verHora(t, t + RJ_PASO);
+        }
+        renderRejilla();
+        pedirRejilla();
+    }
+
+    function cambiarFilaRejilla(fila) {
+        fila = Math.max(0, Math.min(channels.length - 1, fila));
+        if (fila === rj.fila) return;
+        // Se queda a la misma hora: el programa de abajo que coincide con el
+        // principio (visible) del de ahora.
+        var p = progSel();
+        if (p) rj.t = Math.max(p.start_timestamp, rj.inicio);
+        rj.fila = fila;
+        rj.selId = null;
+        renderRejilla();
+        pedirRejilla();
+    }
+
+    function teclaRejilla(k) {
+        if (rj.menu) {
+            if (k === 38 && rj.menu.idx > 0) { rj.menu.idx--; renderRejilla(); }
+            else if (k === 40 && rj.menu.idx < rj.menu.ops.length - 1) { rj.menu.idx++; renderRejilla(); }
+            else if (k === 13) elegirOpcionRejilla();
+            else if (k === 37 || k === 39 || k === 8 || k === 27 || k === TECLA_ATRAS) { rj.menu = null; renderRejilla(); }
+            return;
+        }
+        if (k === 37) moverRejilla(-1);
+        else if (k === 39) moverRejilla(1);
+        else if (k === 38) cambiarFilaRejilla(rj.fila - 1);
+        else if (k === 40) cambiarFilaRejilla(rj.fila + 1);
+        else if (k === 13) abrirMenuRejilla();
+        else if (k === 8 || k === 27 || k === TECLA_ATRAS) salirDeRejilla();
+    }
+
+    function abrirMenuRejilla() {
+        var ch = channels[rj.fila];
+        if (!ch) return;
+        rj.menu = {ops: opcionesRejilla(ch, progSel()), idx: 0};
+        renderRejilla();
+    }
+
+    // La guia de un canal y la ficha trabajan con guide/guideChannel: se les
+    // da el programa de la parrilla para usar las mismas funciones.
+    function prepararGuiaRejilla(ch, p) {
+        guideChannel = ch;
+        guide = p ? [p] : [];
+        guideIdx = 0;
+    }
+
+    function elegirOpcionRejilla() {
+        var ch = channels[rj.fila], p = progSel();
+        var op = rj.menu && rj.menu.ops[rj.menu.idx];
+        rj.menu = null;
+        if (!op || !ch) { renderRejilla(); return; }
+        if (op.id !== 'canal' && !p) { renderRejilla(); return; }
+        if (op.id === 'canal') {
+            currentChannel = rj.fila;
+            cerrarRejilla();
+            goFullscreen();
+            // Despues: goFullscreen lo borra, que desde la lista no se vuelve aqui.
+            rj.volver = true;
+        } else if (op.id === 'archivo') {
+            // Sigue en la parrilla hasta que arranque: si el archivo no esta,
+            // el aviso sale aqui mismo y no en una pantalla a medias.
+            prepararGuiaRejilla(ch, p);
+            rj.volver = true;
+            playCatchup(p);
+        } else if (op.id === 'grabar') {
+            prepararGuiaRejilla(ch, p);
+            if (p.rec && p.current) pararGrabacion(ch, p);
+            else if (p.rec) quitarGrabacion(p);
+            else recordProgram(p);
+            renderRejilla();
+        } else if (op.id === 'ficha') {
+            prepararGuiaRejilla(ch, p);
+            rj.volver = true;
+            cerrarRejilla();
+            abrirFicha("rejilla");
+        }
+    }
+
+    // Volver a la parrilla tal como estaba, desde la ficha o el video.
+    function volverARejilla() {
+        rj.volver = true;
+        openRejilla();
+    }
+
     // ---------- Barra lateral (decos) ----------
     //
     // Como Netflix: una columna de iconos siempre a la izquierda, con la
@@ -1806,7 +2173,7 @@
 
     function seccionActual() {
         if (view === "semana") return 'semana';
-        if (view === "guide" || view === "ficha") return 'guia';
+        if (view === "guide" || view === "ficha" || view === "rejilla") return 'guia';
         if (view === "genres") return 'categorias';
         if (view === "recordings") return 'grabaciones';
         if (view === "ayuda") return 'ayuda';
@@ -1875,12 +2242,19 @@
             semana.foco = 'filas';
             showMenu();
         }
+        if (view === "rejilla") {
+            if (op.id === 'guia') { pintarRail(); return; }
+            cerrarRejilla();
+            showMenu();
+        }
         if (op.id === 'canales') {
             // Canales es la lista entera: sin favoritos ni categoria.
             if (favOnly || genreFilter) { favOnly = false; genreFilter = ''; applyFilters(); }
             showChannels();
         } else if (op.id === 'guia') {
-            if (view !== "guide") openGuide();
+            // En los decos, la guia de la barra es la parrilla de todos los
+            // canales; la de un canal sigue con ▶ desde la lista.
+            openRejilla();
         } else if (op.id === 'favoritos') {
             if (!favOnly) toggleFavOnly(); else showChannels();
         } else {
@@ -2675,6 +3049,7 @@
 
         for (var i = 0; i < channels.length; i++) {
             if (channels[i].number === objetivo) {
+                if (view === "rejilla") { cambiarFilaRejilla(i); return; }
                 currentChannel = i;
                 if (isFullscreen) {
                     playChannel(channels[i]);
@@ -2691,6 +3066,7 @@
     }
 
     function showChannels() {
+        rj.volver = false;
         view = "list";
         guiaDesdeFullscreen = false;
         graficosDelante();
@@ -2792,21 +3168,48 @@
         guiaDesdeFullscreen = isFullscreen;
         if (isFullscreen) document.getElementById("content").style.display = "block";
         guideChannel = ch;
-        guide = [];
-        guideIdx = 0;
-        delete ventanas["guia"];
         view = "guide";
         document.getElementById("content").innerHTML =
             '<div class="panel"><div class="header"><div class="logo">Guia</div></div>' +
             '<div style="color:#9da3a6;padding:20px;">Cargando programacion...</div></div>';
-        api("type=epg&action=get_simple_data_table&ch_id=" + ch.id, function(js) {
-            if (view !== "guide") return;
+        cargarDiaGuia(0, 'ahora');
+    }
+
+    // Un dia de la guia. Se llega subiendo desde el primer programa (el dia
+    // de antes, para ver lo emitido sin pasar por el videoclub) o bajando
+    // desde el ultimo (el siguiente). "donde" dice en que programa caer: el
+    // de ahora, el ultimo del dia o el primero.
+    function cargarDiaGuia(dia, donde) {
+        var ch = guideChannel;
+        if (!ch) return;
+        api("type=epg&action=get_simple_data_table&ch_id=" + ch.id + "&dia=" + dia, function(js) {
+            if (view !== "guide" || guideChannel !== ch) return;
             guide = (js && js.data) ? js.data : [];
-            for (var i = 0; i < guide.length; i++) {
-                if (guide[i].current) { guideIdx = i; break; }
+            guiaDia = {dia: (js && js.dia) || 0, antes: (js && js.antes) || 0, despues: (js && js.despues) || 0};
+            delete ventanas["guia"];
+            guideIdx = 0;
+            if (donde === 'ultimo') guideIdx = Math.max(0, guide.length - 1);
+            else if (donde === 'ahora') {
+                for (var i = 0; i < guide.length; i++) {
+                    if (guide[i].current) { guideIdx = i; break; }
+                }
             }
             renderGuide();
         });
+    }
+
+    var DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+    // "Hoy", "Ayer", "Mañana" o el dia de la semana con su numero.
+    function nombreDia(dia, p) {
+        if (dia === 0) return 'Hoy';
+        if (dia === -1) return 'Ayer';
+        if (dia === 1) return 'Mañana';
+        if (p && p.start_timestamp) {
+            var d = new Date(p.start_timestamp * 1000);
+            return DIAS_SEMANA[d.getDay()] + ' ' + d.getDate();
+        }
+        return '';
     }
 
     // Salir de la guia por donde se entro: desde pantalla completa hay que
@@ -2843,7 +3246,7 @@
     function renderGuide() {
         var h = '<div class="panel">';
         h += '<div class="header"><div class="logo">' + esc(guideChannel.name) + '</div>';
-        h += '<div class="counter">Guia</div></div>';
+        h += '<div class="counter">' + esc(nombreDia(guiaDia.dia, guide[0])) + '</div></div>';
 
         if (guide.length === 0) {
             h += '<div class="list"><div style="color:#9da3a6;padding:20px;">Sin datos de EPG para este canal</div></div>';
@@ -2892,6 +3295,9 @@
         var sel2 = guide[guideIdx];
         var hint = pistaGuia(sel2);
         if (hint) hint += ' ';
+        // Al principio o al final del dia, la pista de que hay mas dias.
+        if (guideIdx === 0 && guiaDia.antes) hint += '<span data-tecla="38">▲</span> Dia anterior ';
+        else if (guideIdx >= guide.length - 1 && guiaDia.despues) hint += '<span data-tecla="40">▼</span> Dia siguiente ';
         h += '<div class="help">' + hint + '<span data-tecla="37">◀</span> Volver</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
@@ -2942,6 +3348,7 @@
             showChannels();
             return;
         }
+        if (de === "rejilla") { volverARejilla(); return; }
         view = "guide";
         renderGuide();
     }
@@ -3253,7 +3660,14 @@
                     detalle = r.ch_name + ' · lleva ' + duracionDesde(r.rec_from) +
                               ' · termina a las ' + (r.end_hhmm || '');
                 }
-                h += '<div class="epg">' + esc(detalle) + '</div>';
+                // Hasta cuando se guarda; la ultima semana, en rojo.
+                var caduca = '';
+                if (r.status === 'completed' && r.caduca) {
+                    caduca = r.caduca_dias <= 7
+                        ? ' · <b style="color:#ff6b5e;">se borra el ' + esc(r.caduca.substring(0, 5)) + '</b>'
+                        : ' · se guarda hasta el ' + esc(r.caduca);
+                }
+                h += '<div class="epg">' + esc(detalle) + caduca + '</div>';
                 h += '</div></div>';
             }
         }
@@ -3361,6 +3775,7 @@
 
     function repintarGrabando() {
         if (view === "guide") renderGuide();
+        else if (view === "rejilla") renderRejilla();
         else if (view === "list") showChannels();
         if (isFullscreen) {
             var osd = document.getElementById("osd");
@@ -3526,6 +3941,7 @@
         if (!ch) return;
         if (ch.locked) { pedirPin(goFullscreen); return; }
         if (!ch.cmd) return;
+        rj.volver = false;
 
         // Se marca ANTES de recolocar nada. Lo que se pinta encima del video
         // -- la tarjeta de radio -- consulta esta variable para saber si tiene
@@ -3705,7 +4121,12 @@
         var k = e.keyCode;
 
         if (k === TECLA_ROJO || k === 112 || (k === 82 && !e.altKey) || (k === 87 && e.altKey)) {
-            if (view === "guide" || view === "ficha") recordProgram(guide[guideIdx]);
+            if (view === "rejilla") {
+                var pr = progSel();
+                if (pr && !pr.past) { prepararGuiaRejilla(channels[rj.fila], pr); recordProgram(pr); }
+                else toast('Elige un programa que no haya pasado');
+            }
+            else if (view === "guide" || view === "ficha") recordProgram(guide[guideIdx]);
             else recordCurrent();
             return true;
         }
@@ -3724,10 +4145,15 @@
             // encima no lo decia: un boton que unas veces responde y otras se
             // queda callado parece roto.
             if (view === "guide") salirDeGuia();
+            else if (view === "rejilla") salirDeRejilla();
             else if (channels.length > 0) openGuide();
             return true;
         }
-        if (k === TECLA_INFO) { mostrarInfoPrograma(); return true; }
+        if (k === TECLA_INFO) {
+            if (view === "rejilla") { rj.menu = {ops: [{id: 'ficha'}], idx: 0}; elegirOpcionRejilla(); }
+            else mostrarInfoPrograma();
+            return true;
+        }
         return false;
     }
 
@@ -3873,6 +4299,8 @@
             k = (k === 33) ? 38 : 40;
         }
 
+        if (view === "rejilla") { teclaRejilla(k); return false; }
+
         // Ojo con el orden: la pantalla completa solo manda si no hay ningun
         // panel abierto encima. La guia y las grabaciones se pueden abrir sobre
         // el video, y cuando lo estan, las flechas son suyas. Sin el
@@ -3933,6 +4361,7 @@
                 // Lo abierto desde "Ultimos 7 dias" vuelve alli, no a la lista.
                 if (diferido && diferido.volver === 'semana') openSemana();
                 else if (videoAyuda && videoAyuda.deco && playingChannelIdx === -1) volverDeVideoAyudaDeco();
+                else if (rj.volver) volverARejilla();
                 else showMenu();
             }
         } else if (view === "menu") {
@@ -3976,9 +4405,13 @@
             if (k === 38 && guideIdx > 0) {
                 guideIdx--;
                 renderGuide();
+            } else if (k === 38 && guiaDia.antes) {
+                cargarDiaGuia(guiaDia.dia - 1, 'ultimo');
             } else if (k === 40 && guideIdx < guide.length - 1) {
                 guideIdx++;
                 renderGuide();
+            } else if (k === 40 && guiaDia.despues) {
+                cargarDiaGuia(guiaDia.dia + 1, 'primero');
             } else if (k === 13) {
                 guideAction();
             } else if (k === 39) {
@@ -4905,6 +5338,44 @@
            Pantalla propia, encima de todo: el panel lateral no da para
            caratulas. Sin flex: el navegador del MAG520 no se lleva bien con
            el, y con flotantes e inline-block sale igual en todos. */
+        /* Parrilla (ver renderRejilla): las posiciones van en el propio
+           elemento, calculadas para 1080 o 720; aqui solo el aspecto. */
+        #rejilla { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;
+                   color: #fff; font-family: Poppins, 'Segoe UI', Arial, sans-serif; }
+        #rejilla .rj-f { position: absolute; background: #1d2023; }
+        .rj-info, .rj-dia, .rj-hora, .rj-ch, .rj-p, .rj-ahora, .rj-menu { position: absolute; }
+        .rj-info { overflow: hidden; }
+        .rj-canal { font-size: 26px; color: #bff102; font-weight: 500; margin-bottom: 8px; white-space: nowrap; }
+        .rj-titulo { font-size: 42px; font-weight: 600; line-height: 1.18; max-height: 100px; overflow: hidden; }
+        .rj-datos { font-size: 24px; color: #c3c8ca; margin: 10px 0 8px; }
+        .rj-datos b { color: #fff; font-weight: 600; }
+        .rj-descr { font-size: 23px; color: #98a3a6; line-height: 32px; max-height: 96px; overflow: hidden; }
+        .rj-pistas { position: absolute; left: 0; bottom: 0; font-size: 21px; color: #98a3a6; white-space: nowrap; }
+        .rj-pistas span { display: inline-block; padding: 1px 10px; margin: 0 6px 0 0; border-radius: 6px;
+                          border: 1px solid rgba(217,217,217,.6); color: #fff; font-weight: 500; }
+        .rj-dia { font-size: 25px; font-weight: 600; line-height: 36px; white-space: nowrap; }
+        .rj-hora { font-size: 22px; color: #98a3a6; padding-left: 8px; line-height: 36px;
+                   border-left: 2px solid rgba(255,255,255,.22); }
+        .rj-ch, .rj-p { border-radius: 10px; font-size: 24px; white-space: nowrap; overflow: hidden;
+                        -webkit-box-sizing: border-box; box-sizing: border-box; }
+        .rj-ch { background: #2a3034; padding-left: 14px; color: #dfe3e4; }
+        .rj-ch b { color: #98a3a6; font-weight: 500; margin-right: 12px; }
+        .rj-ch.sel { background: #3d454a; color: #fff; }
+        .rj-p { background: #30373b; padding: 0 14px; color: #e6e9ea; text-overflow: ellipsis; }
+        .rj-p.past { background: #262b2e; color: #8a9497; }
+        .rj-p.now { background: #3a4247; }
+        .rj-p.vacio { background: #262b2e; color: #6f7a7d; }
+        .rj-p.sel { background: #bff102; color: #1d2023; font-weight: 600; }
+        .rj-rec { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #e53935;
+                  margin-right: 10px; vertical-align: middle; }
+        .rj-ahora { width: 3px; background: #fff; opacity: .85; }
+        .rj-menu { background: #2a3034; border-radius: 18px; padding: 30px 36px; z-index: 5;
+                   -webkit-box-sizing: border-box; box-sizing: border-box; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+        .rj-menu-t { font-size: 30px; font-weight: 600; margin-bottom: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rj-op { font-size: 28px; padding: 14px 22px; border-radius: 10px; color: #dfe3e4; }
+        .rj-op.sel { background: #bff102; color: #1d2023; font-weight: 600; }
+        .rj-menu .rj-pistas { position: static; margin-top: 22px; }
+
         #semana {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 11; background: #24292c; padding: 50px 60px; overflow: hidden;
@@ -5079,6 +5550,24 @@
             .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
             #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
             #preview-cap .sep { width: 18px; }
+            .rj-canal { font-size: 17px; margin-bottom: 5px; }
+            .rj-titulo { font-size: 28px; max-height: 67px; }
+            .rj-datos { font-size: 16px; margin: 7px 0 5px; }
+            .rj-descr { font-size: 15px; line-height: 21px; max-height: 64px; }
+            .rj-pistas { font-size: 14px; }
+            .rj-pistas span { padding: 0 7px; margin-right: 4px; border-radius: 4px; }
+            .rj-dia { font-size: 17px; line-height: 24px; }
+            .rj-hora { font-size: 15px; line-height: 24px; padding-left: 5px; }
+            .rj-ch, .rj-p { font-size: 16px; border-radius: 7px; }
+            .rj-ch { padding-left: 9px; }
+            .rj-ch b { margin-right: 8px; }
+            .rj-p { padding: 0 9px; }
+            .rj-rec { width: 9px; height: 9px; margin-right: 7px; }
+            .rj-ahora { width: 2px; }
+            .rj-menu { padding: 20px 24px; border-radius: 12px; }
+            .rj-menu-t { font-size: 20px; margin-bottom: 12px; }
+            .rj-op { font-size: 19px; padding: 9px 15px; border-radius: 7px; }
+            .rj-menu .rj-pistas { margin-top: 15px; }
             #rail { width: 100px; padding-top: 127px; }
             #rail.abierto { width: 387px; }
             #rail .rail-op { height: 53px; line-height: 53px; padding-left: 45px; font-size: 19px; }
