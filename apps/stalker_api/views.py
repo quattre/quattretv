@@ -1862,8 +1862,11 @@ def recortar_grabacion(user, inicio, fin):
     """
     from datetime import timedelta
 
-    maximo = settings.QUATTRETV.get('PVR_MAX_MINUTOS', 180)
-    cuota = settings.QUATTRETV.get('PVR_CUOTA_MINUTOS', 1800)
+    from apps.pvr.models import AjustesGrabacion
+
+    ajustes = AjustesGrabacion.actual()
+    maximo = ajustes['max_minutos']
+    cuota = ajustes['cuota_minutos']
     desde = max(inicio, timezone.now())
     if maximo and fin - desde > timedelta(minutes=maximo):
         fin = desde + timedelta(minutes=maximo)
@@ -1878,7 +1881,7 @@ def recortar_grabacion(user, inicio, fin):
 
 def handle_pvr_list(request):
     """List the user's recordings."""
-    from apps.pvr.models import Recording
+    from apps.pvr.models import AjustesGrabacion, Recording
 
     device, error = _pvr_device(request)
     if error:
@@ -1920,7 +1923,7 @@ def handle_pvr_list(request):
         'data': data,
         # Lo que lleva gastado de su cuota, para enseñarselo.
         'used_min': minutos_grabados(device.user),
-        'quota_min': settings.QUATTRETV.get('PVR_CUOTA_MINUTOS', 1800),
+        'quota_min': AjustesGrabacion.actual()['cuota_minutos'],
     })
 
 
@@ -2225,14 +2228,15 @@ def _clave_caducan(device):
 def _aviso_caducan(device):
     """
     Aviso al arrancar de las grabaciones que se borran en los proximos dias
-    (PVR_AVISAR_DIAS). No es un Aviso de la base de datos: sale solo mientras
+    (AjustesGrabacion.dias_aviso). No es un Aviso de la base de datos: sale solo mientras
     haya alguna a punto de borrarse.
     """
     from datetime import timedelta
-    from apps.pvr.models import Recording, RecordingStatus
+    from apps.pvr.models import AjustesGrabacion, Recording, RecordingStatus
 
-    dias = settings.QUATTRETV.get('PVR_CONSERVAR_DIAS', 0)
-    avisar = settings.QUATTRETV.get('PVR_AVISAR_DIAS', 7)
+    ajustes = AjustesGrabacion.actual()
+    dias = ajustes['conservar_dias']
+    avisar = ajustes['avisar_dias']
     if not dias or not avisar or not device.user_id or cache.get(_clave_caducan(device)):
         return None
     ahora = timezone.now()

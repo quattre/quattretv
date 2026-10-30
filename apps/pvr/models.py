@@ -125,6 +125,63 @@ class StorageServer(TimeStampedModel):
         return f'{url}?st={firma}&e={caduca}'
 
 
+class AjustesGrabacion(models.Model):
+    """
+    Los limites de las grabaciones de los clientes, que se cambian desde el
+    panel (Configuracion). Una sola fila; si no existe, valen los de
+    settings.QUATTRETV (los mismos que tenia Ministra).
+    """
+    horas_por_cliente = models.PositiveIntegerField(
+        default=30, help_text='Horas que puede guardar cada cliente entre todas. 0 = sin limite')
+    horas_por_grabacion = models.PositiveIntegerField(
+        default=3, help_text='Lo mas que dura una grabacion. 0 = sin limite')
+    meses_conservar = models.PositiveIntegerField(
+        default=12, help_text='Meses que se guarda cada grabacion antes de borrarse sola. 0 = para siempre')
+    dias_aviso = models.PositiveIntegerField(
+        default=7, help_text='Dias antes de borrarse en que se avisa al arrancar. 0 = no avisar')
+    actualizado = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Ajustes de grabacion'
+        verbose_name_plural = 'Ajustes de grabacion'
+
+    CLAVE_CACHE = 'pvr:ajustes'
+
+    def save(self, *args, **kwargs):
+        from django.core.cache import cache
+        self.pk = 1
+        super().save(*args, **kwargs)
+        cache.delete(self.CLAVE_CACHE)
+
+    @classmethod
+    def actual(cls):
+        """Los ajustes en minutos y dias, como los usa el resto del codigo."""
+        from django.conf import settings
+        from django.core.cache import cache
+
+        datos = cache.get(cls.CLAVE_CACHE)
+        if datos is None:
+            fila = cls.objects.filter(pk=1).first()
+            q = settings.QUATTRETV
+            if fila:
+                datos = {
+                    'cuota_minutos': fila.horas_por_cliente * 60,
+                    'max_minutos': fila.horas_por_grabacion * 60,
+                    # 12 meses son 365 dias, no 360.
+                    'conservar_dias': round(fila.meses_conservar * 365 / 12),
+                    'avisar_dias': fila.dias_aviso,
+                }
+            else:
+                datos = {
+                    'cuota_minutos': q.get('PVR_CUOTA_MINUTOS', 1800),
+                    'max_minutos': q.get('PVR_MAX_MINUTOS', 180),
+                    'conservar_dias': q.get('PVR_CONSERVAR_DIAS', 365),
+                    'avisar_dias': q.get('PVR_AVISAR_DIAS', 7),
+                }
+            cache.set(cls.CLAVE_CACHE, datos, 300)
+        return datos
+
+
 class RecordingStatus(models.TextChoices):
     SCHEDULED = 'scheduled', 'Scheduled'
     RECORDING = 'recording', 'Recording'
@@ -231,12 +288,12 @@ class Recording(TimeStampedModel):
 
     @property
     def caduca(self):
-        """Cuando se borra sola (ver PVR_CONSERVAR_DIAS), o None si nunca."""
+        """Cuando se borra sola (ver AjustesGrabacion), o None si nunca."""
         from datetime import datetime, timedelta
         from django.conf import settings
         from django.utils import timezone
 
-        dias = settings.QUATTRETV.get('PVR_CONSERVAR_DIAS', 0)
+        dias = AjustesGrabacion.actual()['conservar_dias']
         if not dias:
             return None
         desde = settings.QUATTRETV.get('PVR_CONSERVAR_DESDE', '')

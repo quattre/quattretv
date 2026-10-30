@@ -184,16 +184,15 @@ def enforce_rule_quota(rule):
 @shared_task
 def borrar_caducadas():
     """
-    Borra las grabaciones que ya han cumplido su tiempo (PVR_CONSERVAR_DIAS),
+    Borra las grabaciones que ya han cumplido su tiempo (AjustesGrabacion),
     fichero incluido. Las del grabador que aun manda Ministra no se tocan: si
     se borraran aqui, la copia de cada noche las volveria a traer.
     """
     from datetime import timedelta
-    from django.conf import settings
-    from .models import Recording, RecordingStatus
+    from .models import AjustesGrabacion, Recording, RecordingStatus
     from . import storage_client
 
-    dias = settings.QUATTRETV.get('PVR_CONSERVAR_DIAS', 0)
+    dias = AjustesGrabacion.actual()['conservar_dias']
     if not dias:
         return 0
     ahora = timezone.now()

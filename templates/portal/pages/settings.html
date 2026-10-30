@@ -10,6 +10,42 @@
 
 <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
     <div class="px-6 py-4 border-b border-gray-200">
+        <h5 class="font-semibold text-gray-900"><i class="bi bi-record-circle"></i> Grabaciones de los clientes</h5>
+        <p class="text-sm text-gray-500 mt-1">Para todos los clientes. 0 en cualquiera de ellos = sin límite. Las grabaciones que ya hay se cuentan desde el 30/10/2026 como pronto, para que las antiguas no se borren todas de golpe.</p>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="grabaciones">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Horas por cliente</label>
+                <input type="number" min="0" name="horas_por_cliente" value="{{ grabacion.horas_por_cliente }}" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Lo que puede tener guardado entre todas. Al llegar, no deja grabar más hasta que borre alguna.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Horas por grabación</label>
+                <input type="number" min="0" name="horas_por_grabacion" value="{{ grabacion.horas_por_grabacion }}" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Lo más que dura una sola grabación; lo que pase de ahí se corta.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Meses que se guardan</label>
+                <input type="number" min="0" name="meses_conservar" value="{{ grabacion.meses_conservar }}" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Pasado ese tiempo se borran solas, cada noche a las 05:10. 0 = para siempre.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Avisar días antes</label>
+                <input type="number" min="0" name="dias_aviso" value="{{ grabacion.dias_aviso }}" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Al encender el deco sale un aviso con las que se van a borrar. 0 = no avisar.</p>
+            </div>
+        </div>
+        <div class="flex justify-end px-6 py-4 border-t border-gray-200">
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">Guardar</button>
+        </div>
+    </form>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
         <h5 class="font-semibold text-gray-900"><i class="bi bi-image"></i> Carátulas del videoclub</h5>
         <p class="text-sm text-gray-500 mt-1">Para lo que la guía trae sin imagen. Se prueban por orden, solo las activas; si una falla o no la tiene, se pasa a la siguiente. Solo se acepta una carátula si el título coincide exacto: mejor ninguna que una equivocada.</p>
     </div>

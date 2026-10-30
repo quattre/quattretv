@@ -1422,9 +1422,22 @@ def settings_view(request):
             messages.success(request, 'Buscando las carátulas que faltan con las fuentes nuevas. Tarda unos minutos.')
         return redirect('portal:settings')
 
+    from apps.pvr.models import AjustesGrabacion
+
+    if request.method == 'POST' and request.POST.get('accion') == 'grabaciones':
+        ajustes = AjustesGrabacion.objects.filter(pk=1).first() or AjustesGrabacion()
+        for campo in ('horas_por_cliente', 'horas_por_grabacion', 'meses_conservar', 'dias_aviso'):
+            valor = request.POST.get(campo, '').strip()
+            if valor.isdigit():
+                setattr(ajustes, campo, min(int(valor), 9999))
+        ajustes.save()
+        messages.success(request, 'Ajustes de grabación guardados')
+        return redirect('portal:settings')
+
     context = {
         'active_page': 'settings',
         'stats': get_base_stats(),
+        'grabacion': AjustesGrabacion.objects.filter(pk=1).first() or AjustesGrabacion(),
         'fuentes': FuenteCaratula.objects.all(),
         'tmdb_env': bool(settings.QUATTRETV.get('TMDB_API_KEY')),
     }
