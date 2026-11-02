@@ -1491,15 +1491,15 @@
     }
 
     // channels cambia al quitar un favorito con el filtro puesto, y las
-    // posiciones que apuntan a el (lo que suena, la fila de la parrilla y la
-    // de la mini guia) se recolocan por id.
+    // posiciones que apuntan a el (lo que suena y la fila de la parrilla) se
+    // recolocan por id.
     function refiltrarFavoritos() {
         function id(i) { return channels[i] ? channels[i].id : null; }
         function donde(x, si) {
             for (var i = 0; x !== null && i < channels.length; i++) if (channels[i].id === x) return i;
             return si;
         }
-        var suena = id(playingChannelIdx), fila = id(rj.fila), mfila = id(mg.fila);
+        var suena = id(playingChannelIdx), fila = id(rj.fila);
         applyFilters();
         if (!channels.length) {
             favOnly = false;
@@ -1508,10 +1508,9 @@
         }
         playingChannelIdx = donde(suena, -1);
         rj.fila = Math.min(donde(fila, rj.fila), Math.max(0, channels.length - 1));
-        mg.fila = Math.min(donde(mfila, mg.fila), Math.max(0, channels.length - 1));
     }
 
-    // El canal de la lista, o el que se diga (el de la parrilla o la mini guia).
+    // El canal de la lista, o el que se diga (el de la parrilla).
     function toggleFavorite(ch) {
         ch = ch || channels[currentChannel];
         if (!ch) return;
@@ -1523,11 +1522,10 @@
                 // Con "solo favoritos" puesto, la lista se rehace siempre: si no,
                 // lo quitado desde la tele o la parrilla seguia en ella.
                 if (favOnly) refiltrarFavoritos();
-                // Solo se repinta lo que se ve: viendo la tele, en la parrilla
-                // o en la mini guia se sigue donde se estaba.
+                // Solo se repinta lo que se ve: viendo la tele o en la
+                // parrilla se sigue donde se estaba.
                 if (view === "list" && !isFullscreen) showChannels();
                 else if (view === "rejilla") renderRejilla();
-                else if (miniGuiaVisible()) renderMiniGuia();
                 else if (isFullscreen && view === "list" && !diferido && channels[playingChannelIdx]) mostrarOsd(channels[playingChannelIdx]);
             } else {
                 toast('No se pudo guardar el favorito');
@@ -1809,8 +1807,6 @@
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
         var osd = document.getElementById("osd");
-        mg.abierta = false;
-        osd.className = "";
         osd.style.display = "block";
         osd.innerHTML = diferido ? osdDiferido(diferido) :
             '<div class="osd-ch">' + esc(titulo) + '</div>' +
@@ -2008,7 +2004,7 @@
     }
 
     // Pide la programacion de unos canales entre dos horas y la junta con la
-    // que ya habia. La usan la parrilla, la mini guia y el diferido.
+    // que ya habia. La usan la parrilla y el diferido del directo.
     function pedirProgs(ids, desde, hasta, despues) {
         api("type=epg&action=get_data_table&ch_ids=" + ids.join(',') + "&from=" + desde + "&to=" + hasta, function(js) {
             var datos = (js && js.data) ? js.data : {};
@@ -2271,248 +2267,13 @@
         openRejilla();
     }
 
-    // ---------- Mini guia, viendo la tele ----------
-    //
-    // Con ▶ en el directo sale abajo, en el sitio de la barra del canal: los
-    // programas del canal en fila. ◀▶ va de uno a otro (lo emitido tambien),
-    // ▲▼ mira otros canales sin cambiar la imagen y OK dice que se puede
-    // hacer con el programa: ver el canal, verlo desde el principio, grabarlo
-    // o leer su ficha. Como en Movistar+: mirar sin dejar de ver.
-    var MG_CARTAS = 5;
-    var MG_CIERRE = 20000;
-    var mg = {abierta: false, fila: 0, selId: null, t: 0, menu: null, timer: null};
-
-    function miniGuiaVisible() {
-        var osd = document.getElementById("osd");
-        return mg.abierta && osd.style.display === "block" && osd.className === "mg";
-    }
-
-    function abrirMiniGuia(vuelta) {
-        if (!vuelta) {
-            mg.fila = playingChannelIdx >= 0 ? playingChannelIdx : currentChannel;
-            mg.selId = null;
-            mg.t = ahoraSeg();
-        }
-        mg.menu = null;
-        mg.abierta = true;
-        asegurarProgs(channels[mg.fila], mg.t);
-        renderMiniGuia();
-    }
-
-    function cerrarMiniGuia() {
-        var osd = document.getElementById("osd");
-        mg.abierta = false;
-        mg.menu = null;
-        clearTimeout(mg.timer);
-        if (osd.className === "mg") { osd.className = ""; osd.style.display = "none"; }
-    }
-
-    // Lo que hay alrededor de t en ese canal, si aun no esta pedido. Tambien
-    // los canales de al lado, para que ▲▼ no espere.
+    // La programacion de un canal alrededor de la hora t, si aun no esta
+    // pedida: el diferido del directo la usa para decir que se emitia.
     function asegurarProgs(ch, t) {
         if (!ch) return;
-        var faltan = [];
-        for (var i = -1; i <= 1; i++) {
-            var c = channels[channels.indexOf(ch) + i];
-            if (!c) continue;
-            var r = rj.rangos[c.id];
-            if (!r || r[0] > t - 3600 || r[1] < t + 4 * 3600) faltan.push(c.id);
-        }
-        if (!faltan.length) return;
-        pedirProgs(faltan, t - 8 * 3600, t + 16 * 3600, function() {
-            if (miniGuiaVisible()) renderMiniGuia();
-        });
-    }
-
-    // El programa elegido: por id si ya habia uno, si no el de la hora t.
-    function progMiniGuia() {
-        var ch = channels[mg.fila], l = progsDe(ch);
-        if (mg.selId) {
-            for (var i = 0; i < l.length; i++) if (l[i].id === mg.selId) return l[i];
-        }
-        var p = progEn(ch, mg.t);
-        mg.selId = p ? p.id : null;
-        return p;
-    }
-
-    // past/current llegan del servidor y caducan: se miran con el reloj.
-    function estadoProg(p) {
-        var ahora = ahoraSeg();
-        p.past = p.stop_timestamp <= ahora;
-        p.current = !p.past && p.start_timestamp <= ahora;
-        return p;
-    }
-
-    function renderMiniGuia() {
-        var osd = document.getElementById("osd");
-        var ch = channels[mg.fila];
-        if (!ch) { cerrarMiniGuia(); return; }
-        var l = progsDe(ch), p = progMiniGuia(), sel = -1;
-        for (var i = 0; i < l.length; i++) if (p && l[i].id === p.id) sel = i;
-        var ahora = ahoraSeg(), reloj = new Date();
-        var suena = mg.fila === playingChannelIdx;
-
-        var h = '<div class="mg-cab"><span class="mg-num">' + ch.number + '</span><span class="mg-canal">' + esc(ch.name) + '</span>';
-        h += suena ? '<span class="mg-esta">Estas viendo</span>' : '<span class="mg-otro">Sigues viendo ' +
-             esc(channels[playingChannelIdx] ? channels[playingChannelIdx].name : '') + '</span>';
-        h += '<span class="mg-reloj">' + dosCifras(reloj.getHours()) + ':' + dosCifras(reloj.getMinutes()) + '</span></div>';
-
-        // La fila de programas: el elegido, uno antes y los siguientes.
-        h += '<div class="mg-tira">';
-        if (sel < 0) {
-            h += '<div class="mg-carta vacia sel">' + (rj.rangos[ch.id] ? 'Sin informacion de programacion' : 'Cargando...') + '</div>';
-        } else {
-            var desde = Math.max(0, Math.min(sel - 1, l.length - MG_CARTAS));
-            for (var j = desde; j < Math.min(l.length, desde + MG_CARTAS); j++) {
-                var q = estadoProg(l[j]);
-                var cls = 'mg-carta' + (q.past ? ' past' : '') + (q.current ? ' now' : '') + (j === sel ? ' sel' : '');
-                h += '<div class="' + cls + '" data-mg="' + j + '"><div class="mg-hora">' +
-                     (q.current ? 'AHORA' : esc(nombreDiaCorto(q.start_timestamp) + q.t_time)) +
-                     (q.rec ? ' <i class="rj-rec"></i>' : '') + '</div>' +
-                     '<div class="mg-titulo">' + esc(q.name) + '</div>';
-                if (q.current) h += '<i class="mg-avance" style="width:' +
-                    Math.round((ahora - q.start_timestamp) * 100 / Math.max(1, q.stop_timestamp - q.start_timestamp)) + '%"></i>';
-                h += '</div>';
-            }
-        }
-        h += '</div>';
-
-        // Lo elegido, en detalle.
-        if (p) {
-            estadoProg(p);
-            var mins = Math.round((p.stop_timestamp - p.start_timestamp) / 60);
-            h += '<div class="mg-det"><b>' + esc(nombreDiaT(p.start_timestamp)) + ' ' + esc(p.t_time) + ' - ' + esc(p.t_time_end) +
-                 '</b> · ' + mins + ' min' + (p.category ? ' · ' + esc(p.category) : '');
-            if (p.past && ch.archive) h += ' · <span class="mg-ok">Se puede ver</span>';
-            h += '</div>';
-            if (p.descr) h += '<div class="mg-descr">' + esc(p.descr) + '</div>';
-        }
-
-        if (mg.menu) {
-            h += '<div class="mg-menu">';
-            for (var o = 0; o < mg.menu.ops.length; o++) {
-                h += '<div class="rj-op' + (o === mg.menu.idx ? ' sel' : '') + '" data-mgop="' + o + '">' + esc(mg.menu.ops[o].t) + '</div>';
-            }
-            h += '</div>';
-        }
-
-        h += '<div class="osd-pistas">' + (mg.menu
-            ? '<span>▲▼</span> Elegir <span data-tecla="13">OK</span> Aceptar <span data-tecla="27">Atras</span> Cerrar'
-            : '<span>◀▶</span> Programas <span>▲▼</span> Canales <span data-tecla="13">OK</span> Opciones ' +
-              '<span data-tecla="27">Atras</span> Cerrar') + '</div>';
-
-        graficosDelante();
-        osd.className = "mg";
-        osd.innerHTML = h;
-        osd.style.display = "block";
-        clearTimeout(osdTimeout);
-        clearTimeout(mg.timer);
-        mg.timer = setTimeout(cerrarMiniGuia, MG_CIERRE);
-    }
-
-    // "mañana 21:30", "ayer 08:00" o solo la hora si es hoy.
-    function nombreDiaCorto(t) {
-        var d = new Date(t * 1000), hoy = new Date();
-        var dif = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
-                              new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime()) / 86400000);
-        if (dif === 0) return '';
-        if (dif === 1) return 'Mañana ';
-        if (dif === -1) return 'Ayer ';
-        return DIAS_SEMANA[d.getDay()].substr(0, 3) + ' ';
-    }
-
-    function moverMiniGuia(paso) {
-        var ch = channels[mg.fila], l = progsDe(ch), p = progMiniGuia();
-        if (!p) return;
-        for (var i = 0; i < l.length; i++) {
-            if (l[i].id !== p.id) continue;
-            var q = l[i + paso];
-            if (!q) { asegurarProgs(ch, paso > 0 ? p.stop_timestamp : p.start_timestamp); return; }
-            // Hacia atras, lo que guarda el archivo (y sin archivo, unas horas).
-            var limite = ahoraSeg() - (ch.archive ? (ch.archive_range || 24) * 3600 : 6 * 3600);
-            if (paso < 0 && q.stop_timestamp < limite) return;
-            mg.selId = q.id;
-            mg.t = q.current ? ahoraSeg() : q.start_timestamp;
-            asegurarProgs(ch, q.start_timestamp);
-            renderMiniGuia();
-            return;
-        }
-    }
-
-    function cambiarCanalMiniGuia(paso) {
-        var fila = mg.fila + paso;
-        if (fila < 0 || fila >= channels.length) return;
-        var p = progMiniGuia();
-        // A la misma hora en el otro canal (lo de ahora, si se miraba lo de ahora).
-        if (p) mg.t = estadoProg(p).current ? ahoraSeg() : p.start_timestamp;
-        mg.fila = fila;
-        mg.selId = null;
-        asegurarProgs(channels[fila], mg.t);
-        renderMiniGuia();
-    }
-
-    function opcionesMiniGuia(ch, p) {
-        var ops = [];
-        if (mg.fila !== playingChannelIdx) ops.push({id: 'canal', t: 'Ver ' + ch.name});
-        if (!p) return ops.length ? ops : [{id: 'cerrar', t: 'Cerrar'}];
-        estadoProg(p);
-        if ((p.past || p.current) && ch.archive) ops.push({id: 'archivo', t: p.current ? 'Ver desde el principio' : 'Ver'});
-        if (!p.past && hayGrabaciones() && ch.pvr) {
-            ops.push({id: 'grabar', t: p.rec ? (p.current ? 'Parar la grabacion' : 'Quitar la grabacion') : 'Grabar'});
-        }
-        ops.push({id: 'ficha', t: 'Mas informacion'});
-        return ops;
-    }
-
-    function teclaMiniGuia(k) {
-        if (mg.menu) {
-            if (k === 38 && mg.menu.idx > 0) { mg.menu.idx--; renderMiniGuia(); }
-            else if (k === 40 && mg.menu.idx < mg.menu.ops.length - 1) { mg.menu.idx++; renderMiniGuia(); }
-            else if (k === 13) elegirOpcionMiniGuia();
-            else if (k === 37 || k === 39 || k === 8 || k === 27) { mg.menu = null; renderMiniGuia(); }
-            return;
-        }
-        if (k === 37) moverMiniGuia(-1);
-        else if (k === 39) moverMiniGuia(1);
-        else if (k === 38) cambiarCanalMiniGuia(-1);
-        else if (k === 40) cambiarCanalMiniGuia(1);
-        else if (k === 13) {
-            var ch = channels[mg.fila];
-            if (ch) { mg.menu = {ops: opcionesMiniGuia(ch, progMiniGuia()), idx: 0}; renderMiniGuia(); }
-        }
-        else if (k === 8 || k === 27) cerrarMiniGuia();
-    }
-
-    function elegirOpcionMiniGuia() {
-        var ch = channels[mg.fila], p = progMiniGuia();
-        var op = mg.menu && mg.menu.ops[mg.menu.idx];
-        mg.menu = null;
-        if (!op || !ch) { renderMiniGuia(); return; }
-        if (op.id === 'cerrar') { cerrarMiniGuia(); return; }
-        if (op.id === 'canal') {
-            if (ch.locked) { cerrarMiniGuia(); currentChannel = mg.fila; pedirPin(goFullscreen); return; }
-            cerrarMiniGuia();
-            currentChannel = mg.fila;
-            playChannel(ch);
-            playingChannelIdx = mg.fila;
-            mostrarOsd(ch);
-        } else if (op.id === 'archivo') {
-            cerrarMiniGuia();
-            prepararGuiaRejilla(ch, p);
-            playCatchup(p);
-        } else if (op.id === 'grabar') {
-            prepararGuiaRejilla(ch, p);
-            if (p.rec && p.current) pararGrabacion(ch, p);
-            else if (p.rec) quitarGrabacion(p);
-            else recordProgram(p);
-            renderMiniGuia();
-        } else if (op.id === 'ficha') {
-            clearTimeout(mg.timer);
-            prepararGuiaRejilla(ch, p);
-            document.getElementById("osd").style.display = "none";
-            document.getElementById("content").style.display = "block";
-            abrirFicha("minig");
-        }
+        var r = rj.rangos[ch.id];
+        if (r && r[0] <= t - 3600 && r[1] >= t + 3600) return;
+        pedirProgs([ch.id], t - 8 * 3600, t + 16 * 3600, null);
     }
 
     // ---------- Volver atras en el directo ----------
@@ -3850,12 +3611,6 @@
             return;
         }
         if (de === "rejilla") { volverARejilla(); return; }
-        if (de === "minig") {
-            view = "list";
-            document.getElementById("content").style.display = "none";
-            abrirMiniGuia(true);
-            return;
-        }
         view = "guide";
         renderGuide();
     }
@@ -4400,7 +4155,7 @@
         // hasta aqui, y ademas vuelve a decirse dentro de la ficha.
         var pistas = '';
         if (ch.archive) pistas += '<span data-tecla="37">◀</span> Retroceder ';
-        pistas += '<span data-tecla="39">▶</span> Guia ';
+        if (ch.cur_playing) pistas += '<span data-tecla="39">▶</span> Informacion ';
         if (hayGrabaciones() && ch.pvr) {
             pistas += seGraba(ch) ? '<span class="rojo" data-tecla="403">●</span> Parar grabacion'
                                   : '<span class="rojo" data-tecla="403">●</span> Grabar';
@@ -4444,10 +4199,6 @@
     function mostrarOsd(ch) {
         var osd = document.getElementById("osd");
         graficosDelanteInsistiendo();
-        mg.abierta = false;
-        mg.menu = null;
-        clearTimeout(mg.timer);
-        osd.className = "";
         osd.innerHTML = diferido ? osdDiferido(diferido) : osdFor(ch);
         osd.style.display = "block";
         clearTimeout(osdTimeout);
@@ -4639,17 +4390,7 @@
         var k = e.keyCode;
 
         if (k === TECLA_ROJO || k === 112 || (k === 82 && !e.altKey) || (k === 87 && e.altKey)) {
-            if (miniGuiaVisible() && view === "list") {
-                var pm = progMiniGuia(), cm = channels[mg.fila];
-                if (pm && !estadoProg(pm).past && cm) {
-                    prepararGuiaRejilla(cm, pm);
-                    if (pm.rec && pm.current) pararGrabacion(cm, pm);
-                    else if (pm.rec) quitarGrabacion(pm);
-                    else recordProgram(pm);
-                    renderMiniGuia();
-                } else toast('Elige un programa que no haya pasado');
-            }
-            else if (view === "rejilla") {
+            if (view === "rejilla") {
                 var pr = progSel();
                 if (pr && !pr.past) { prepararGuiaRejilla(channels[rj.fila], pr); recordProgram(pr); }
                 else toast('Elige un programa que no haya pasado');
@@ -4668,7 +4409,6 @@
             // ya estas en ella, sales.
             if (view === "rejilla") salirDeRejilla();
             else if (channels.length > 0) {
-                cerrarMiniGuia();
                 if (diferido && diferido.tipo === 'directo') volverAlDirecto();
                 if (view === "guide") salirDeGuia();
                 openRejilla();
@@ -4690,10 +4430,9 @@
         }
         if (k === 83) { openRecordings(); return true; }
         if (k === TECLA_AZUL || k === 115) {
-            // Favorito el canal que se esta mirando: el de la parrilla o la
-            // mini guia, el que suena a pantalla completa o el de la lista.
+            // Favorito el canal que se esta mirando: el de la parrilla, el que
+            // suena a pantalla completa o el de la lista.
             if (view === "rejilla") toggleFavorite(channels[rj.fila]);
-            else if (miniGuiaVisible() && view === "list") toggleFavorite(channels[mg.fila]);
             else if (isFullscreen && view === "list") {
                 var cf = channels[diferido && diferido.tipo === 'directo' ? diferido.canalIdx :
                                   (playingChannelIdx >= 0 ? playingChannelIdx : currentChannel)];
@@ -4703,8 +4442,7 @@
             return true;
         }
         if (k === TECLA_INFO) {
-            if (miniGuiaVisible() && view === "list") { mg.menu = {ops: [{id: 'ficha'}], idx: 0}; elegirOpcionMiniGuia(); }
-            else if (view === "rejilla") { rj.menu = {ops: [{id: 'ficha'}], idx: 0}; elegirOpcionRejilla(); }
+            if (view === "rejilla") { rj.menu = {ops: [{id: 'ficha'}], idx: 0}; elegirOpcionRejilla(); }
             else mostrarInfoPrograma();
             return true;
         }
@@ -4861,9 +4599,7 @@
         // "view === list" pasaba esto: con la guia abierta la rueda cambiaba de
         // canal y el boton de atras salia a la miniatura en vez de devolver la
         // imagen.
-        if (isFullscreen && view === "list" && miniGuiaVisible()) {
-            teclaMiniGuia(k);
-        } else if (isFullscreen && view === "list") {
+        if (isFullscreen && view === "list") {
             // ▲▼ en el directo atrasado cambia de canal, como en el directo.
             if (diferido && diferido.tipo === 'directo' && (k === 38 || k === 40)) {
                 clearTimeout(salto && salto.timer);
@@ -4887,9 +4623,6 @@
             } else if (k === 37 && !diferido) {
                 // ◀ en el directo: atras en el tiempo, con el archivo.
                 retrocederDirecto();
-            } else if (k === 39 && !diferido) {
-                // ▶ en el directo: la mini guia, para mirar sin cambiar.
-                abrirMiniGuia();
             } else if (k === 38) {
                 // Cambiar canal en fullscreen
                 if (currentChannel > 0) {
@@ -4907,7 +4640,7 @@
                     playingChannelIdx = currentChannel;
                     mostrarOsd(ch);
                 }
-            } else if (k === 73 || k === 89) {
+            } else if (k === 39 || k === 73 || k === 89) {
                 // Primera pulsacion: la barra del canal. Si ya esta puesta,
                 // otra vez entra en la ficha del programa. Es el mismo gesto
                 // que en la guia — derecha es entrar mas adentro — asi que no
@@ -5136,33 +4869,6 @@
         var comoTecla = atributoPulsado(destino, 'data-tecla');
         if (comoTecla !== null) {
             handleKey({ keyCode: parseInt(comoTecla, 10) });
-            return;
-        }
-
-        // La mini guia: una opcion del menu la hace; un programa lo elige,
-        // y si ya estaba elegido abre sus opciones.
-        if (isFullscreen && view === "list" && miniGuiaVisible()) {
-            var op = atributoPulsado(destino, 'data-mgop'), carta = atributoPulsado(destino, 'data-mg');
-            if (op !== null && mg.menu) { mg.menu.idx = parseInt(op, 10); elegirOpcionMiniGuia(); return; }
-            if (carta !== null) {
-                var lp = progsDe(channels[mg.fila])[parseInt(carta, 10)];
-                if (lp && lp.id === mg.selId) teclaMiniGuia(13);
-                else if (lp) { mg.selId = lp.id; mg.menu = null; renderMiniGuia(); }
-                return;
-            }
-            return;
-        }
-
-        // En pantalla completa no hay filas: un clic saca la barra del canal, y
-        // el siguiente entra en la ficha. Sin esto, con el Magic Remote la
-        // pantalla completa era un callejon sin salida — apuntabas, pulsabas y
-        // no pasaba nada.
-        if (isFullscreen && view === "list") {
-            if (document.getElementById("osd").style.display === "block" && !diferido) {
-                mostrarInfoPrograma();
-            } else {
-                mostrarOsd(channels[currentChannel]);
-            }
             return;
         }
 
@@ -5716,39 +5422,6 @@
         #osd .osd-salto .bar { margin: 0 18px 0 0; }
         .osd-salto b { color: #fdeb00; margin-left: 18px; font-weight: 700; }
         .osd-singuia { color: #6d7679; font-style: italic; }
-        /* Mini guia (ver renderMiniGuia): en el sitio de la barra. Todo en em
-           sobre la letra de #osd.mg, para que a 720 baste con cambiar esa. */
-        #osd.mg { font-size: 24px; }
-        .mg-cab { white-space: nowrap; overflow: hidden; line-height: 1.5em; }
-        .mg-num { font-size: 1.9em; font-weight: 700; color: #bff102; margin-right: .45em; vertical-align: middle; }
-        .mg-canal { font-size: 1.45em; font-weight: 600; vertical-align: middle; }
-        .mg-esta, .mg-otro { font-size: .8em; margin-left: 1em; padding: .2em .7em; border-radius: .4em; vertical-align: middle; }
-        .mg-esta { background: rgba(191,241,2,.16); color: #bff102; }
-        .mg-otro { background: rgba(255,255,255,.08); color: #c3c8ca; }
-        .mg-reloj { float: right; font-size: 1.6em; font-weight: 500; color: #e6ebe8; }
-        .mg-tira { margin-top: .6em; white-space: nowrap; overflow: hidden; }
-        .mg-carta { display: inline-block; position: relative; width: 19.2%; margin-right: 1%; height: 3.6em;
-                    padding: .45em .7em; border-radius: .45em; background: #343b3f; vertical-align: top;
-                    white-space: normal; overflow: hidden; -webkit-box-sizing: border-box; box-sizing: border-box; }
-        .mg-carta:last-child { margin-right: 0; }
-        .mg-carta.past { background: #2a3033; color: #8a9497; }
-        .mg-carta.now { background: #3c4a2c; border-left: .25em solid #bff102; }
-        .mg-carta.sel { background: #bff102; color: #1d2023; }
-        .mg-carta.vacia { width: 100%; color: #98a3a6; line-height: 2.7em; }
-        .mg-carta.vacia.sel { background: #343b3f; }
-        .mg-hora { font-size: .78em; font-weight: 600; color: #bff102; white-space: nowrap; }
-        .mg-carta.past .mg-hora { color: #8a9497; }
-        .mg-carta.sel .mg-hora { color: #1d2023; }
-        .mg-titulo { font-size: .95em; font-weight: 500; line-height: 1.25em; max-height: 2.5em; overflow: hidden; margin-top: .1em; }
-        .mg-avance { position: absolute; left: 0; bottom: 0; height: .2em; background: #bff102; }
-        .mg-carta.sel .mg-avance { background: #1d2023; opacity: .45; }
-        .mg-det { margin-top: .7em; font-size: .9em; color: #c3c8ca; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .mg-det b { color: #fff; font-weight: 600; }
-        .mg-ok { color: #bff102; }
-        .mg-descr { font-size: .78em; line-height: 1.35em; max-height: 2.7em; overflow: hidden; color: #98a3a6; margin-top: .3em; }
-        .mg-menu { position: absolute; right: 1.4em; bottom: 100%; margin-bottom: .6em; min-width: 14em; padding: .7em;
-                   background: #2a3034; border-radius: .7em; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
-        .mg-menu .rj-op { font-size: 1.05em; padding: .45em .8em; }
         .osd-reloj {
             font-family: Poppins, 'Segoe UI', Arial, sans-serif;
             font-size: 44px; font-weight: 500; color: #e6ebe8;
@@ -6297,7 +5970,6 @@
             .osd-epg { font-size: 12px; margin-top: 4px; }
             .osd-reloj { font-size: 27px; margin-left: 19px; padding-left: 16px; }
             #osd .bar { width: 55%; max-width: 460px; height: 5px; margin-top: 7px; }
-            #osd.mg { font-size: 16px; }
 
             #vol { padding: 17px 35px; font-size: 20px; border-radius: 11px; }
             #toast { bottom: 43px; padding: 13px 24px; font-size: 15px; border-radius: 9px; }
