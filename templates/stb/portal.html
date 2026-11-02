@@ -4378,9 +4378,21 @@
     //
     // Se deja fuera la pantalla del PIN — ahi no toca grabar ni nada parecido —
     // y la de grabaciones, que usa esas mismas teclas para borrar.
+    function esColor(k) {
+        return (k >= TECLA_ROJO && k <= TECLA_AZUL) || (k >= 112 && k <= 115);
+    }
+
     function atajoGlobal(e) {
-        if (view === "pin" || view === "recordings" || view === "semana") return false;
         var k = e.keyCode;
+        // En el videoclub el amarillo lo atiende el (vuelve a la tele); el
+        // verde abre la guia desde alli tambien.
+        if (view === "semana" && (k === TECLA_VERDE || k === 113) && channels.length > 0) {
+            semana.desde = 'canales';
+            cerrarSemana();
+            openRejilla();
+            return true;
+        }
+        if (view === "pin" || view === "recordings" || view === "semana") return false;
 
         if (k === TECLA_ROJO || k === 112 || (k === 82 && !e.altKey) || (k === 87 && e.altKey)) {
             if (view === "rejilla") {
@@ -4535,6 +4547,9 @@
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
         if (avisoAbierto && k !== 107 && k !== 109) { teclaAviso(k); return false; }
+        // Los colores valen tambien con el menu de la izquierda abierto: se
+        // cierra y la tecla sigue a lo suyo.
+        if (rail.abierto && esColor(e.keyCode)) cerrarRail();
         if (rail.abierto && k !== 107 && k !== 109) { teclaRail(k); return false; }
 
         if (atajoGlobal(e)) return false;
