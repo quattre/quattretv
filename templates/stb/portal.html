@@ -647,14 +647,14 @@
     var salidaVideo = null;
     function modoSalida() {
         if (salidaVideo !== null) return salidaVideo;
+        // vmode es el modo en que esta de verdad ("3840x2160p60"); el ajuste
+        // tvsystem puede decir solo "Auto".
         salidaVideo = '';
+        try { salidaVideo = String(stbAPI.RDir('vmode') || ''); } catch (err) {}
         try {
             var r = JSON.parse(stbAPI.GetEnv('{"varList":["tvsystem"]}'));
-            salidaVideo = String(r.result.tvsystem || '');
+            salidaVideo += ' ' + String(r.result.tvsystem || '');
         } catch (err) {}
-        if (!salidaVideo) {
-            try { salidaVideo = String(stbAPI.RDir('vmode') || ''); } catch (err) {}
-        }
         return salidaVideo;
     }
 
