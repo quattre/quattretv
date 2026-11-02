@@ -1474,7 +1474,7 @@
         if (favOnly && channels.length === 0) {
             favOnly = false;
             applyFilters();
-            toast('Todavia no tienes favoritos. Marca uno con el boton verde.');
+            toast('Todavia no tienes favoritos. Marca uno con el boton azul.');
         } else if (favOnly) {
             // Se dice cuantos quedan. Con uno o dos favoritos la parrilla se
             // queda casi vacia de golpe, y sin este aviso parece que la app ha
@@ -1490,6 +1490,27 @@
         startPreview();
     }
 
+    // channels cambia al quitar un favorito con el filtro puesto, y las
+    // posiciones que apuntan a el (lo que suena, la fila de la parrilla y la
+    // de la mini guia) se recolocan por id.
+    function refiltrarFavoritos() {
+        function id(i) { return channels[i] ? channels[i].id : null; }
+        function donde(x, si) {
+            for (var i = 0; x !== null && i < channels.length; i++) if (channels[i].id === x) return i;
+            return si;
+        }
+        var suena = id(playingChannelIdx), fila = id(rj.fila), mfila = id(mg.fila);
+        applyFilters();
+        if (!channels.length) {
+            favOnly = false;
+            applyFilters();
+            toast('Ya no te quedan favoritos: todos los canales');
+        }
+        playingChannelIdx = donde(suena, -1);
+        rj.fila = Math.min(donde(fila, rj.fila), Math.max(0, channels.length - 1));
+        mg.fila = Math.min(donde(mfila, mg.fila), Math.max(0, channels.length - 1));
+    }
+
     // El canal de la lista, o el que se diga (el de la parrilla o la mini guia).
     function toggleFavorite(ch) {
         ch = ch || channels[currentChannel];
@@ -1499,13 +1520,15 @@
             if (js && js.result) {
                 ch.fav = nuevo;
                 toast(nuevo ? ch.name + ' en favoritos' : ch.name + ' quitado de favoritos');
-                // Solo se repinta la lista si es lo que se ve: viendo la tele,
-                // en la parrilla o en la mini guia se sigue donde se estaba.
-                if (view === "list" && !isFullscreen) {
-                    if (favOnly) applyFilters();
-                    showChannels();
-                } else if (view === "rejilla") renderRejilla();
+                // Con "solo favoritos" puesto, la lista se rehace siempre: si no,
+                // lo quitado desde la tele o la parrilla seguia en ella.
+                if (favOnly) refiltrarFavoritos();
+                // Solo se repinta lo que se ve: viendo la tele, en la parrilla
+                // o en la mini guia se sigue donde se estaba.
+                if (view === "list" && !isFullscreen) showChannels();
+                else if (view === "rejilla") renderRejilla();
                 else if (miniGuiaVisible()) renderMiniGuia();
+                else if (isFullscreen && view === "list" && !diferido && channels[playingChannelIdx]) mostrarOsd(channels[playingChannelIdx]);
             } else {
                 toast('No se pudo guardar el favorito');
             }
@@ -2099,15 +2122,7 @@
                 var a = Math.max(q.start_timestamp, rj.inicio), b = Math.min(q.stop_timestamp, fin);
                 var cls = 'rj-p', avance = '';
                 if (q.stop_timestamp <= ahora) cls += ' past';
-                else if (q.start_timestamp <= ahora) {
-                    // Lo que se emite: borde verde y lo que lleva, abajo. La
-                    // linea vertical de "ahora" se quito: cruzaba los titulos.
-                    cls += ' now';
-                    // Sobre lo que se ve de la casilla: acaba justo en la hora
-                    // actual, en todas las filas a la vez.
-                    avance = '<i class="rj-avance" style="width:' +
-                             Math.round(Math.max(0, ahora - a) * 100 / Math.max(1, b - a)) + '%"></i>';
-                }
+                else if (q.start_timestamp <= ahora) cls += ' now';   // borde verde
                 if (i === rj.fila && p && q.id === p.id) cls += ' sel';
                 h += '<div class="' + cls + '" style="left:' + px(X0 + (a - rj.inicio) * pxs) + ';top:' + px(y) +
                      ';width:' + px(Math.max(4, (b - a) * pxs - 6)) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
@@ -2118,6 +2133,12 @@
                      ';width:' + px(X1 - X0 - 6) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
                      (rj.rangos[c.id] ? 'Sin informacion' : 'Cargando...') + '</div>';
             }
+        }
+
+        // La linea de ahora.
+        if (ahora > rj.inicio && ahora < fin) {
+            h += '<i class="rj-ahora" style="left:' + px(X0 + (ahora - rj.inicio) * pxs - 1) + ';top:' + px(Y0 - 12) +
+                 ';height:' + px(RJ_FILAS * ALTO + 6) + '"></i>';
         }
 
         // El menu de OK, encima de todo.
@@ -2584,6 +2605,7 @@
                  // El punto de color: la tecla del mando que lo abre.
                  (op.id === 'semana' ? '<i class="rail-am"></i>' : '') +
                  (op.id === 'guia' ? '<i class="rail-am ve"></i>' : '') +
+                 (op.id === 'favoritos' ? '<i class="rail-am az"></i>' : '') +
                  '<span>' + esc(op.titulo) + '</span></div>';
         }
         h += '<div class="rail-pista"><b>▲▼</b> Elegir &nbsp; <b data-tecla="13">OK</b> Entrar &nbsp; ' +
@@ -2968,7 +2990,8 @@
             h += '<span' + (i === semana.tabIdx ? ' class="sel"' : '') + '>' +
                  esc(semana.pestanas[i][1]) + '</span>';
         }
-        return h + '</div>';
+        // La amarilla vuelve a la tele: se dice con su color, como en la lista.
+        return h + '<i class="sem-tv" data-tecla="405">TV</i></div>';
     }
 
     function filaSemana(nombre, cuenta, items, col, activa, grupo) {
@@ -3063,9 +3086,9 @@
     function teclaSemana(k) {
         var salir = (k === 8 || k === 27 || k === TECLA_ATRAS);
         if (k === TECLA_AMARILLO || k === 114) {
-            // A la tele, a pantalla completa en el canal de la lista.
+            // A la tele: la lista de canales con el canal en pequeño.
+            semana.desde = 'canales';
             cerrarSemana();
-            if (channels[currentChannel]) goFullscreen();
             return;
         }
 
@@ -4296,21 +4319,27 @@
         // en las teles no se ofrece y no tiene sentido decir que no se puede.
         // El boton de grabar va aqui, al lado, y no en la ayuda de abajo: alli
         // no se relacionaba con el canal.
+        // Las cuatro teclas de colores, cada una con su color y lo que hace
+        // aqui, como en el mando: rojo grabar, verde guia, amarillo videoclub
+        // y azul favorito. Tambien se pueden pulsar con el puntero.
+        html += '<div class="e acciones">';
+        if (hayGrabaciones() && ch.pvr) {
+            html += seGraba(ch) ? '<span class="boton rojo" data-tecla="403">■ Parar grabacion</span>'
+                                : '<span class="boton rojo" data-tecla="403">● Grabar</span>';
+        }
+        html += '<span class="boton verde" data-tecla="404">Guia</span>';
+        if (haySemana()) html += '<span class="boton amarillo" data-tecla="405">Videoclub</span>';
+        html += '<span class="boton azul" data-tecla="406">' + (ch.fav ? '★ Quitar favorito' : '☆ Favorito') + '</span>';
+        html += '</div>';
         if (hayGrabaciones()) {
-            html += '<div class="e acciones">';
-            if (ch.pvr) {
-                html += seGraba(ch)
-                    ? '<span class="boton rojo" data-tecla="403">■ Parar grabacion</span>' +
-                      ' Grabando' + (ch.rec_from ? ' ' + esc(duracionDesde(ch.rec_from)) : '')
-                    : '<span class="boton rojo" data-tecla="403">● Grabar</span>';
-            } else {
-                html += 'No se puede grabar';
-            }
+            var estado = '';
+            if (ch.pvr && seGraba(ch)) estado = 'Grabando' + (ch.rec_from ? ' ' + esc(duracionDesde(ch.rec_from)) : '');
+            else if (!ch.pvr) estado = 'No se puede grabar';
             if (ch.archive) {
-                html += '<span class="sep"></span><i class="ico-arch"></i> Puedes ver lo emitido hasta hace ' +
-                        Math.max(1, Math.floor((ch.archive_range || 0) / 24)) + ' dias, desde la guia';
+                estado += (estado ? '<span class="sep"></span>' : '') + '<i class="ico-arch"></i> Puedes ver lo emitido hasta hace ' +
+                          Math.max(1, Math.floor((ch.archive_range || 0) / 24)) + ' dias, desde la guia';
             }
-            html += '</div>';
+            if (estado) html += '<div class="e acciones">' + estado + '</div>';
         }
         html += '</div>';
         cap.innerHTML = html;
@@ -4649,9 +4678,11 @@
         if (k === TECLA_AMARILLO || k === 114) {
             // Videoclub; y viendo algo del videoclub, de vuelta a la tele. En
             // las teles sin videoclub, "solo favoritos", que tambien esta en el menu.
-            if (diferido && diferido.volver === 'semana' && channels[currentChannel]) {
-                cerrarMiniGuia();
-                goFullscreen();
+            if (diferido && diferido.volver === 'semana') {
+                // Viendo algo del videoclub: a la lista de canales (lo visto
+                // queda en "Seguir viendo").
+                diferido.volver = null;
+                showMenu();
             }
             else if (haySemana()) openSemana(view === "menu" ? 'menu' : 'canales');
             else toggleFavOnly();
@@ -5441,6 +5472,9 @@
             display: inline-block; padding: 4px 16px; margin-right: 12px; border-radius: 20px;
             background: #e60000; color: #fff; font-weight: 600; font-size: 18px;
         }
+        #preview-cap .boton.verde { background: #43a047; }
+        #preview-cap .boton.amarillo { background: #fdeb00; color: #1d2023; }
+        #preview-cap .boton.azul { background: #1e88e5; }
         #preview-cap .sep { display: inline-block; width: 28px; }
         .lock { color: #ff7900; font-size: 18px; margin-left: 7px; }
         .item.past { opacity: .5; }
@@ -5809,6 +5843,7 @@
             background: #fdeb00; border: 2px solid #1d2023;
         }
         #rail .rail-am.ve { background: #43a047; }
+        #rail .rail-am.az { background: #1e88e5; }
         #rail .rail-pista {
             display: none; position: absolute; left: 67px; bottom: 48px; white-space: nowrap;
             font-size: 20px; color: #8f9a9d;
@@ -5936,7 +5971,7 @@
         #rejilla { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;
                    color: #fff; font-family: Poppins, 'Segoe UI', Arial, sans-serif; }
         #rejilla .rj-f { position: absolute; background: #1d2023; }
-        .rj-info, .rj-dia, .rj-hora, .rj-ch, .rj-p, .rj-menu { position: absolute; }
+        .rj-info, .rj-dia, .rj-hora, .rj-ch, .rj-p, .rj-ahora, .rj-menu { position: absolute; }
         .rj-info { overflow: hidden; }
         .rj-canal { font-size: 26px; color: #bff102; font-weight: 500; margin-bottom: 8px; white-space: nowrap; }
         .rj-titulo { font-size: 42px; font-weight: 600; line-height: 1.18; max-height: 100px; overflow: hidden; }
@@ -5957,8 +5992,7 @@
         .rj-p { background: #30373b; padding: 0 14px; color: #e6e9ea; text-overflow: ellipsis; }
         .rj-p.past { background: #262b2e; color: #8a9497; }
         .rj-p.now { background: #3c4a2c; color: #fff; font-weight: 500; border-left: 6px solid #bff102; }
-        .rj-avance { position: absolute; left: 0; bottom: 0; height: 5px; background: #bff102; }
-        .rj-p.sel .rj-avance { background: #1d2023; opacity: .45; }
+        .rj-ahora { width: 3px; background: #fff; opacity: .85; }
         .rj-p.vacio { background: #262b2e; color: #6f7a7d; }
         .rj-p.sel { background: #bff102; color: #1d2023; font-weight: 600; }
         .rj-rec { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #e53935;
@@ -5999,6 +6033,10 @@
             display: inline-block; vertical-align: middle; margin-right: 8px;
             padding: 8px 18px 6px; border-radius: 8px; font-size: 24px; font-weight: 500;
             color: #8f9a9d; border-bottom: 3px solid transparent;
+        }
+        .sem-tabs .sem-tv {
+            position: absolute; right: 0; top: 8px; font-style: normal; font-size: 20px; font-weight: 700;
+            background: #fdeb00; color: #1d2023; padding: 6px 22px; border-radius: 20px; cursor: pointer;
         }
         .sem-tabs span.sel { color: #fff; font-weight: 600; border-bottom-color: #bff102; border-radius: 0; }
         .sem-tabs.activa span.sel { background: #bff102; color: #1d2023; border-bottom-color: #bff102; border-radius: 24px; }
@@ -6163,7 +6201,7 @@
             .rj-p { padding: 0 9px; }
             .rj-rec { width: 9px; height: 9px; margin-right: 7px; }
             .rj-p.now { border-left-width: 4px; }
-            .rj-avance { height: 3px; }
+            .rj-ahora { width: 2px; }
             .rj-menu { padding: 20px 24px; border-radius: 12px; }
             .rj-menu-t { font-size: 20px; margin-bottom: 12px; }
             .rj-op { font-size: 19px; padding: 9px 15px; border-radius: 7px; }
