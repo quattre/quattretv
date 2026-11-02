@@ -9,4 +9,7 @@ urlpatterns = [
     path('', views.portal_handler, name='root'),
     path('server/load.php', views.portal_handler, name='load'),
     path('c/', views.portal_handler, name='c'),
+    # El portal de Ministra se recarga pidiendo c/index.html: un deco recien
+    # pasado (ver handle_watchdog) llega por aqui la primera vez.
+    path('c/index.html', views.portal_handler, name='c_index'),
 ]
