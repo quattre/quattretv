@@ -258,6 +258,10 @@
             d.push('gSTB=' + (typeof gSTB !== 'undefined'));
             d.push('pigviewport=' + !!(stbAPI && stbAPI.SetPIGViewport));
             d.push('settopwin=' + !!(stbAPI && stbAPI.SetTopWin));
+            if (typeof gSTB !== 'undefined') {
+                try { d.push('tvsystem=' + gSTB.GetEnv('{"varList":["tvsystem"]}')); } catch (e2) {}
+                try { d.push('vmode=' + gSTB.RDir('vmode')); } catch (e2) {}
+            }
         } catch(e) { d.push('error=' + e); }
         api('type=stb&action=log&diag=' + encodeURIComponent(d.join(' | ')), function() {});
     }
@@ -637,7 +641,25 @@
     // dibuje a 720p: son dos resoluciones distintas dentro del mismo aparato.
     // Al pasarle las de la ventana, la miniatura se iba al centro y la pantalla
     // completa se quedaba corta.
+    // Salvo con la salida en 4K: ahi el plano es de 3840x2160 y, con las cuentas
+    // de 1080, la miniatura salia a la mitad y corrida hacia la lista, y por el
+    // hueco solo asomaba una franja (00:1A:79:80:37:B6, un MAG420, 02/11/2026).
+    var salidaVideo = null;
+    function modoSalida() {
+        if (salidaVideo !== null) return salidaVideo;
+        salidaVideo = '';
+        try {
+            var r = JSON.parse(stbAPI.GetEnv('{"varList":["tvsystem"]}'));
+            salidaVideo = String(r.result.tvsystem || '');
+        } catch (err) {}
+        if (!salidaVideo) {
+            try { salidaVideo = String(stbAPI.RDir('vmode') || ''); } catch (err) {}
+        }
+        return salidaVideo;
+    }
+
     function plano() {
+        if (stbAPI && /2160/.test(modoSalida())) return { ancho: 3840, alto: 2160 };
         return { ancho: 1920, alto: 1080 };
     }
 
