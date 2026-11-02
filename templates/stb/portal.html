@@ -1490,16 +1490,22 @@
         startPreview();
     }
 
-    function toggleFavorite() {
-        var ch = channels[currentChannel];
+    // El canal de la lista, o el que se diga (el de la parrilla o la mini guia).
+    function toggleFavorite(ch) {
+        ch = ch || channels[currentChannel];
         if (!ch) return;
         var nuevo = ch.fav ? 0 : 1;
         api("type=itv&action=set_fav&ch_id=" + ch.id + "&fav=" + nuevo, function(js) {
             if (js && js.result) {
                 ch.fav = nuevo;
-                toast(nuevo ? 'Anadido a favoritos' : 'Quitado de favoritos');
-                if (favOnly) applyFilters();
-                showChannels();
+                toast(nuevo ? ch.name + ' en favoritos' : ch.name + ' quitado de favoritos');
+                // Solo se repinta la lista si es lo que se ve: viendo la tele,
+                // en la parrilla o en la mini guia se sigue donde se estaba.
+                if (view === "list" && !isFullscreen) {
+                    if (favOnly) applyFilters();
+                    showChannels();
+                } else if (view === "rejilla") renderRejilla();
+                else if (miniGuiaVisible()) renderMiniGuia();
             } else {
                 toast('No se pudo guardar el favorito');
             }
@@ -2575,8 +2581,9 @@
             h += '<div class="rail-op' + (op.id === actual ? ' actual' : '') +
                  (rail.abierto && i === rail.idx ? ' sel' : '') + '" data-rail="' + i + '">' +
                  iconoMenu(op.id) +
-                 // El punto amarillo: lo abre la tecla amarilla del mando.
+                 // El punto de color: la tecla del mando que lo abre.
                  (op.id === 'semana' ? '<i class="rail-am"></i>' : '') +
+                 (op.id === 'guia' ? '<i class="rail-am ve"></i>' : '') +
                  '<span>' + esc(op.titulo) + '</span></div>';
         }
         h += '<div class="rail-pista"><b>▲▼</b> Elegir &nbsp; <b data-tecla="13">OK</b> Entrar &nbsp; ' +
@@ -2879,15 +2886,28 @@
             if (semana.ficha.foco === 'similares') {
                 return p + 'Ver su ficha <span>◀▶</span> Elegir <span>▲</span> Volver arriba';
             }
-            return '<span data-tecla="13" class="play">▶&nbsp; Ver</span>' +
-                   (semana.ficha.similares.length ? ' <span>▼</span> Mas como esta' : '') +
-                   ' <span data-tecla="27">Atras</span> Volver';
+            var fi = semana.ficha, pos = vistoDe(fi.it), b = '';
+            if (pos) {
+                // Empezada: seguir por donde iba, o desde el principio.
+                b = '<span data-boton="0" class="play' + (fi.boton === 0 ? '' : ' otro') + '">▶&nbsp; Seguir viendo</span>' +
+                    '<span data-boton="1" class="play' + (fi.boton === 1 ? '' : ' otro') + '">↺&nbsp; Desde el principio</span>';
+            } else {
+                b = '<span data-tecla="13" class="play">▶&nbsp; Ver</span>';
+            }
+            // Con dos botones no cabe "Atras": se sobreentiende, como en Netflix.
+            return b + (fi.similares.length ? ' <span>▼</span> Mas como esta' : '') +
+                   (pos ? '' : ' <span data-tecla="27">Atras</span> Volver');
         }
         if (semana.episodios) {
+            // Uno empezado: OK sigue por donde iba y ▶ lo empieza de nuevo.
+            if (vistoDe(semana.episodios[semana.epIdx])) {
+                return p + 'Seguir viendo <span data-tecla="39">▶</span> Desde el principio ' +
+                       '<span>▲▼</span> Elegir <span data-tecla="37">◀</span> Volver';
+            }
             return p + 'Ver <span>▲▼</span> Elegir <span data-tecla="37">◀</span> Volver';
         }
         var f = semana.filas[semana.fila];
-        var accion = (f && f.id === 'seguir') ? 'Seguir viendo' :
+        var accion = (f && f.id === 'seguir') ? 'Seguir o empezar' :
                      (it.n > 1 ? 'Ver las ' + it.n + ' emisiones' : 'Ver la ficha');
         return p + accion + ' <span>▲▼◀▶</span> Moverse <span data-tecla="27">Atras</span> Salir';
     }
@@ -3003,7 +3023,8 @@
                      '<div class="sem-mini"' + estiloImagen(e) + '></div>' +
                      '<div class="sem-ep-txt"><div class="t">' + esc(nombreCapitulo(e)) + '</div>' +
                      '<div class="m">' + esc(cuandoFue(e.ini, e.fin) + '  ·  ' + e.canal +
-                     (e.caduca ? '  ·  ' + quedan(e.caduca).toLowerCase() : '')) + '</div></div></div>';
+                     (e.caduca ? '  ·  ' + quedan(e.caduca).toLowerCase() : '') +
+                     (vistoDe(e) ? '  ·  empezado, vas por el ' + hms(vistoDe(e)) : '')) + '</div></div></div>';
             }
             h += '</div>';
         } else {
@@ -3041,14 +3062,20 @@
 
     function teclaSemana(k) {
         var salir = (k === 8 || k === 27 || k === TECLA_ATRAS);
-        if (k === TECLA_AMARILLO || k === 114) { cerrarSemana(); return; }
+        if (k === TECLA_AMARILLO || k === 114) {
+            // A la tele, a pantalla completa en el canal de la lista.
+            cerrarSemana();
+            if (channels[currentChannel]) goFullscreen();
+            return;
+        }
 
         if (semana.ficha) { teclaFicha(k, salir); return; }
 
         if (semana.episodios) {
             if (k === 38 && semana.epIdx > 0) { semana.epIdx--; renderSemana(); }
             else if (k === 40 && semana.epIdx < semana.episodios.length - 1) { semana.epIdx++; renderSemana(); }
-            else if (k === 13) verDeSemana(semana.episodios[semana.epIdx]);
+            else if (k === 13) verDeSemana(semana.episodios[semana.epIdx], vistoDe(semana.episodios[semana.epIdx]));
+            else if (k === 39) verDeSemana(semana.episodios[semana.epIdx]);
             else if (k === 37 || salir) { semana.episodios = null; renderSemana(); }
             return;
         }
@@ -3081,7 +3108,7 @@
         else if (k === 13) {
             var it = itemSemana();
             if (!it) return;
-            if (f.id === 'seguir') verDeSemana(it, it.pos);
+            if (f.id === 'seguir') abrirFichaSemana(it);
             else if (it.n > 1) abrirEmisiones(it.grupo || f.id, it);
             else abrirFichaSemana(it);
         }
@@ -3102,8 +3129,24 @@
 
     // Ojo, no "abrirFicha": ese nombre ya es el de la ficha de la guia, mas
     // abajo, y al declararse despues pisaba este. OK no hacia nada.
+    // Por donde va lo empezado (segundos desde el principio), o 0. Las
+    // tarjetas de "Seguir viendo" lo traen; las demas se buscan en esa fila.
+    function vistoDe(it) {
+        if (!it) return 0;
+        if (it.dur) return it.pos > 30 ? it.pos : 0;
+        var ini = semana.porPestana.inicio, filas = ini ? ini.filas : [];
+        for (var i = 0; i < filas.length; i++) {
+            if (filas[i].id !== 'seguir') continue;
+            for (var j = 0; j < filas[i].items.length; j++) {
+                var x = filas[i].items[j];
+                if (x.ch_id === it.ch_id && x.ini === it.ini) return x.pos > 30 ? x.pos : 0;
+            }
+        }
+        return 0;
+    }
+
     function abrirFichaSemana(it) {
-        semana.ficha = {it: it, foco: 'botones', similares: [], idx: 0, cargando: true};
+        semana.ficha = {it: it, foco: 'botones', similares: [], idx: 0, cargando: true, boton: 0};
         var fi = semana.ficha;
         renderSemana();
         api("type=tv_archive&action=get_similar&group=" + encodeURIComponent(it.grupo || '') +
@@ -3125,7 +3168,10 @@
             else if (salir) { semana.ficha = null; renderSemana(); }
             return;
         }
-        if (k === 13) verDeSemana(fi.it);
+        var pos = vistoDe(fi.it);
+        if (k === 13) verDeSemana(fi.it, pos && fi.boton === 0 ? pos : 0);
+        else if (k === 39 && pos && fi.boton === 0) { fi.boton = 1; renderSemana(); }
+        else if (k === 37 && pos && fi.boton === 1) { fi.boton = 0; renderSemana(); }
         else if (k === 40 && fi.similares.length) { fi.foco = 'similares'; renderSemana(); }
         else if (salir || k === 37 || k === 38) { semana.ficha = null; renderSemana(); }
     }
@@ -4583,18 +4629,12 @@
             else recordCurrent();
             return true;
         }
-        if (k === TECLA_VERDE || k === 115) { toggleFavorite(); return true; }
-        if (k === TECLA_AMARILLO || k === 114) {
-            // Acceso directo al videoclub de 7 dias donde lo hay (el deco). En
-            // las teles sigue siendo "solo favoritos", que tambien esta en el menu.
-            if (haySemana()) openSemana(view === "menu" ? 'menu' : 'canales');
-            else toggleFavOnly();
-            return true;
-        }
-        if (k === 83 || k === 113) { openRecordings(); return true; }
-        if (k === TECLA_AZUL) {
+        // Los colores: rojo graba, verde la guia, amarillo videoclub <-> tele
+        // y azul favoritos (no tenia otro camino; las grabaciones estan en el
+        // menu). Lo mismo en el deco y en las teles.
+        if (k === TECLA_VERDE || k === 115) {
             // La guia de todos los canales (la parrilla), desde donde sea; si
-            // ya estas en ella, sales. Antes abria la del canal, que esta en ▶.
+            // ya estas en ella, sales.
             if (view === "rejilla") salirDeRejilla();
             else if (channels.length > 0) {
                 cerrarMiniGuia();
@@ -4602,6 +4642,31 @@
                 if (view === "guide") salirDeGuia();
                 openRejilla();
             }
+            return true;
+        }
+        if (k === TECLA_AMARILLO || k === 114) {
+            // Videoclub; y viendo algo del videoclub, de vuelta a la tele. En
+            // las teles sin videoclub, "solo favoritos", que tambien esta en el menu.
+            if (diferido && diferido.volver === 'semana' && channels[currentChannel]) {
+                cerrarMiniGuia();
+                goFullscreen();
+            }
+            else if (haySemana()) openSemana(view === "menu" ? 'menu' : 'canales');
+            else toggleFavOnly();
+            return true;
+        }
+        if (k === 83 || k === 113) { openRecordings(); return true; }
+        if (k === TECLA_AZUL) {
+            // Favorito el canal que se esta mirando: el de la parrilla o la
+            // mini guia, el que suena a pantalla completa o el de la lista.
+            if (view === "rejilla") toggleFavorite(channels[rj.fila]);
+            else if (miniGuiaVisible() && view === "list") toggleFavorite(channels[mg.fila]);
+            else if (isFullscreen && view === "list") {
+                var cf = channels[diferido && diferido.tipo === 'directo' ? diferido.canalIdx :
+                                  (playingChannelIdx >= 0 ? playingChannelIdx : currentChannel)];
+                if (cf && !(diferido && diferido.tipo !== 'directo')) toggleFavorite(cf);
+            }
+            else if (view === "list") toggleFavorite();
             return true;
         }
         if (k === TECLA_INFO) {
@@ -5027,9 +5092,31 @@
         // nada: parecian botones rotos. Cada uno dice de que tecla habla, asi
         // que el clic hace exactamente lo que haria esa tecla — y sirve para
         // todas las pantallas sin repetir la logica en ninguna.
+        // Seguir viendo / desde el principio, en la ficha del videoclub.
+        var boton = atributoPulsado(destino, 'data-boton');
+        if (boton !== null && view === "semana" && semana.ficha) {
+            semana.ficha.boton = parseInt(boton, 10);
+            teclaSemana(13);
+            return;
+        }
+
         var comoTecla = atributoPulsado(destino, 'data-tecla');
         if (comoTecla !== null) {
             handleKey({ keyCode: parseInt(comoTecla, 10) });
+            return;
+        }
+
+        // La mini guia: una opcion del menu la hace; un programa lo elige,
+        // y si ya estaba elegido abre sus opciones.
+        if (isFullscreen && view === "list" && miniGuiaVisible()) {
+            var op = atributoPulsado(destino, 'data-mgop'), carta = atributoPulsado(destino, 'data-mg');
+            if (op !== null && mg.menu) { mg.menu.idx = parseInt(op, 10); elegirOpcionMiniGuia(); return; }
+            if (carta !== null) {
+                var lp = progsDe(channels[mg.fila])[parseInt(carta, 10)];
+                if (lp && lp.id === mg.selId) teclaMiniGuia(13);
+                else if (lp) { mg.selId = lp.id; mg.menu = null; renderMiniGuia(); }
+                return;
+            }
             return;
         }
 
@@ -5719,6 +5806,7 @@
             position: absolute; left: 101px; top: 18px; width: 12px; height: 12px; border-radius: 50%;
             background: #fdeb00; border: 2px solid #1d2023;
         }
+        #rail .rail-am.ve { background: #43a047; }
         #rail .rail-pista {
             display: none; position: absolute; left: 67px; bottom: 48px; white-space: nowrap;
             font-size: 20px; color: #8f9a9d;
@@ -5946,10 +6034,15 @@
             font-size: 22px; line-height: 32px; max-height: 64px; overflow: hidden;
             color: #c9d1cb; margin-top: 12px;
         }
-        .sem-pista { margin-top: 22px; font-size: 20px; color: #9aa5a8; }
+        .sem-pista { margin-top: 22px; font-size: 20px; color: #9aa5a8; white-space: nowrap; }
         .sem-pista span { margin: 0 8px 0 24px; }
         .sem-pista span:first-child { margin-left: 0; }
-        /* "Ver", el boton de verdad: pastilla verde de la marca. */
+        /* "Ver", el boton de verdad: pastilla verde de la marca. El que no
+           esta elegido, con borde y sin relleno. */
+        .sem-pista span.play.otro {
+            background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.55); color: #fff; font-weight: 500;
+            -webkit-box-shadow: none; box-shadow: none;
+        }
         .sem-pista span.play {
             background: #bff102; border-color: #bff102; color: #1d2023; font-size: 24px; font-weight: 600;
             padding: 11px 36px; border-radius: 30px; margin-right: 18px;
