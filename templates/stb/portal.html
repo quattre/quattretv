@@ -2751,8 +2751,7 @@
             h += '<span' + (i === semana.tabIdx ? ' class="sel"' : '') + '>' +
                  esc(semana.pestanas[i][1]) + '</span>';
         }
-        // La amarilla vuelve a la tele: se dice con su color, como en la lista.
-        return h + '<i class="sem-tv" data-tecla="405">TV</i></div>';
+        return h + '</div>';
     }
 
     function filaSemana(nombre, cuenta, items, col, activa, grupo) {
@@ -4078,18 +4077,8 @@
         // en las teles no se ofrece y no tiene sentido decir que no se puede.
         // El boton de grabar va aqui, al lado, y no en la ayuda de abajo: alli
         // no se relacionaba con el canal.
-        // Las cuatro teclas de colores, cada una con su color y lo que hace
-        // aqui, como en el mando: rojo grabar, verde guia, amarillo videoclub
-        // y azul favorito. Tambien se pueden pulsar con el puntero.
-        html += '<div class="e acciones">';
-        if (hayGrabaciones() && ch.pvr) {
-            html += seGraba(ch) ? '<span class="boton rojo" data-tecla="403">■ Parar grabacion</span>'
-                                : '<span class="boton rojo" data-tecla="403">● Grabar</span>';
-        }
-        html += '<span class="boton verde" data-tecla="404">Guia</span>';
-        if (haySemana()) html += '<span class="boton amarillo" data-tecla="405">Videoclub</span>';
-        html += '<span class="boton azul" data-tecla="406">' + (ch.fav ? '★ Quitar favorito' : '☆ Favorito') + '</span>';
-        html += '</div>';
+        // Sin botones de colores: se probaron debajo de la imagen y sobraban.
+        // Solo lo que pasa en el canal: si se graba, y hasta cuando hay archivo.
         if (hayGrabaciones()) {
             var estado = '';
             if (ch.pvr && seGraba(ch)) estado = 'Grabando' + (ch.rec_from ? ' ' + esc(duracionDesde(ch.rec_from)) : '');
@@ -5178,13 +5167,6 @@
         .ico-arch:before { left: 5px; top: 1px; width: 2px; height: 6px; }
         .ico-arch:after  { left: 6px; top: 5px; width: 4px; height: 2px; }
         #preview-cap .acciones .ico-arch { margin-left: 0; margin-right: 6px; }
-        #preview-cap .boton {
-            display: inline-block; padding: 4px 16px; margin-right: 12px; border-radius: 20px;
-            background: #e60000; color: #fff; font-weight: 600; font-size: 18px;
-        }
-        #preview-cap .boton.verde { background: #43a047; }
-        #preview-cap .boton.amarillo { background: #fdeb00; color: #1d2023; }
-        #preview-cap .boton.azul { background: #1e88e5; }
         #preview-cap .sep { display: inline-block; width: 28px; }
         .lock { color: #ff7900; font-size: 18px; margin-left: 7px; }
         .item.past { opacity: .5; }
@@ -5711,10 +5693,6 @@
             padding: 8px 18px 6px; border-radius: 8px; font-size: 24px; font-weight: 500;
             color: #8f9a9d; border-bottom: 3px solid transparent;
         }
-        .sem-tabs .sem-tv {
-            position: absolute; right: 0; top: 8px; font-style: normal; font-size: 20px; font-weight: 700;
-            background: #fdeb00; color: #1d2023; padding: 6px 22px; border-radius: 20px; cursor: pointer;
-        }
         .sem-tabs span.sel { color: #fff; font-weight: 600; border-bottom-color: #bff102; border-radius: 0; }
         .sem-tabs.activa span.sel { background: #bff102; color: #1d2023; border-bottom-color: #bff102; border-radius: 24px; }
         .sem-hero { height: 330px; margin-bottom: 26px; overflow: hidden; }
@@ -5862,7 +5840,6 @@
             .ico-arch { width: 12px; height: 12px; border-width: 2px; margin-left: 5px; }
             .ico-arch:before { left: 3px; top: 1px; width: 2px; height: 4px; }
             .ico-arch:after  { left: 4px; top: 3px; width: 3px; height: 2px; }
-            #preview-cap .boton { padding: 3px 9px; margin-right: 8px; border-radius: 5px; }
             #preview-cap .sep { width: 18px; }
             .rj-canal { font-size: 17px; margin-bottom: 5px; }
             .rj-titulo { font-size: 28px; max-height: 67px; }
@@ -5959,7 +5936,6 @@
             #preview-cap .t { font-size: 28px; }
             #preview-cap .e { font-size: 14px; margin-top: 5px; }
             #preview-cap .e.despues { font-size: 13px; }
-            #preview-cap .boton { font-size: 12px; padding: 3px 11px; border-radius: 14px; }
             .cartel { height: 101px; max-width: 173px; margin-left: 16px; border-radius: 3px; }
             .osd-cartel { height: 80px; max-width: 143px; margin-right: 19px; border-radius: 5px; }
 
