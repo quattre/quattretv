@@ -1535,6 +1535,7 @@
     }
 
     function osdDiferido(d) {
+        if (d.tipo === 'directo') return osdDirectoAtrasado(d);
         var ahora = new Date();
         var h = '<div class="osd-fila"><div class="osd-datos">';
         if (d.cero) {
@@ -1567,6 +1568,29 @@
         h += '<span data-tecla="13">OK</span> ' + (d.pausaDesde ? 'Seguir ' : 'Pausa ');
         h += '<span data-tecla="27">Atras</span> ' + (d.volver === 'semana' ? 'Volver al videoclub' :
              (rj.volver ? 'Volver a la guia' : 'Salir')) + '</div>';
+        return h;
+    }
+
+    // La barra del directo atrasado: el programa de ese momento, a que hora
+    // se esta y cuanto por detras de la emision.
+    function osdDirectoAtrasado(d) {
+        var ahora = new Date(), punto = salto ? salto.destino : momentoDiferido();
+        var p = progDiferido(d, punto);
+        var retraso = Math.max(0, ahoraSeg() - punto);
+        var h = '<div class="osd-fila"><div class="osd-datos">';
+        h += '<div class="osd-ch"><span class="dif">EN DIFERIDO</span> ' + esc(d.canal) + '</div>';
+        h += '<div class="osd-prog">' + (p ? '<b>' + esc(p.t_time) + ' - ' + esc(p.t_time_end) + '</b>' + esc(p.name) : esc(d.titulo || '')) + '</div>';
+        var pct = p ? Math.max(0, Math.min(100, (punto - p.start_timestamp) * 100 / Math.max(1, p.stop_timestamp - p.start_timestamp))) : 0;
+        h += '<div class="osd-salto"><div class="bar"' + (p ? '' : ' style="visibility:hidden"') + '><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+             '<span>' + esc(textoPosicion(d, punto)) + '</span>' +
+             (salto ? '<b>' + (salto.alDirecto ? '▶▶ Al directo' : (salto.dir > 0 ? '▶▶ ' : '◀◀ ') + esc(textoSalto(salto))) + '</b>'
+                    : (d.pausaDesde ? '<b>II Pausa</b>' : '<b>-' + esc(hms(retraso)) + '</b>')) + '</div>';
+        h += '</div>';
+        h += '<div class="osd-reloj">' + dosCifras(ahora.getHours()) + ':' + dosCifras(ahora.getMinutes()) + '</div>';
+        h += '</div>';
+        h += '<div class="osd-pistas"><span data-tecla="37">◀</span><span data-tecla="39">▶</span> Retroceder / avanzar ' +
+             '<span data-tecla="13">OK</span> ' + (d.pausaDesde ? 'Seguir ' : 'Pausa ') +
+             '<span data-tecla="27">Atras</span> Volver al directo</div>';
         return h;
     }
 
@@ -1633,6 +1657,7 @@
     function refrescarPosicionOsd() {
         var d = diferido, osd = document.getElementById("osd");
         if (!d || !d.inicio || salto || !osd || osd.style.display !== "block") return;
+        if (d.tipo === 'directo') { osd.innerHTML = osdDirectoAtrasado(d); return; }
         var caja = osd.querySelector('.osd-salto');
         if (!caja) return;
         var punto = momentoDiferido();
@@ -1661,6 +1686,18 @@
             salto.n = Math.min(salto.n + 1, PASOS_SALTO.length - 1);
         }
         salto.destino += dir * PASOS_SALTO[salto.n];
+        if (d.tipo === 'directo') {
+            // Hasta lo que guarda el archivo hacia atras; hacia delante, al
+            // llegar a ahora se vuelve a la emision.
+            d.fin = ahoraSeg();
+            salto.alDirecto = salto.destino >= d.fin - DIRECTO_MARGEN;
+            if (salto.alDirecto) salto.destino = d.fin;
+            if (salto.destino < d.inicio) salto.destino = d.inicio;
+            mostrarOsd(null);
+            clearTimeout(salto.timer);
+            salto.timer = setTimeout(aplicarSalto, 1500);
+            return;
+        }
         // Lo que se esta emitiendo aun no esta entero en el archivo.
         var archivo = d.tipo === 'archivo';
         var techo = Math.min((archivo ? finConMargen(d.fin) : d.fin) - 5,
@@ -1691,8 +1728,11 @@
             mostrarOsd(null);
             return;
         }
+        if (d.tipo === 'directo' && s.alDirecto) { volverAlDirecto(); return; }
+        // En el directo atrasado no hay fin: hasta unas horas despues.
+        var hasta = d.tipo === 'directo' ? destino + 6 * 3600 : finConMargen(d.fin);
         api("type=tv_archive&action=create_link&ch_id=" + d.chId +
-            "&utc=" + destino + "&lutc=" + finConMargen(d.fin), function(js) {
+            "&utc=" + destino + "&lutc=" + hasta, function(js) {
             if (diferido !== d) return;   // ya se ha ido a otra cosa
             if (js && js.cmd) {
                 playChannel({cmd: js.cmd});
@@ -1740,6 +1780,8 @@
         document.getElementById("preview").style.display = "none";
         document.getElementById("preview-cap").style.display = "none";
         var osd = document.getElementById("osd");
+        mg.abierta = false;
+        osd.className = "";
         osd.style.display = "block";
         osd.innerHTML = diferido ? osdDiferido(diferido) :
             '<div class="osd-ch">' + esc(titulo) + '</div>' +
@@ -1930,11 +1972,19 @@
         }
         if (!faltan.length) return;
         rj.pidiendo = true;
-        api("type=epg&action=get_data_table&ch_ids=" + faltan.join(',') + "&from=" + desde + "&to=" + hasta, function(js) {
+        pedirProgs(faltan, desde, hasta, function() {
             rj.pidiendo = false;
+            if (view === "rejilla") { renderRejilla(); pedirRejilla(); }
+        });
+    }
+
+    // Pide la programacion de unos canales entre dos horas y la junta con la
+    // que ya habia. La usan la parrilla, la mini guia y el diferido.
+    function pedirProgs(ids, desde, hasta, despues) {
+        api("type=epg&action=get_data_table&ch_ids=" + ids.join(',') + "&from=" + desde + "&to=" + hasta, function(js) {
             var datos = (js && js.data) ? js.data : {};
-            for (var j = 0; j < faltan.length; j++) {
-                var id = faltan[j], nuevos = datos[id] || [], r = rj.rangos[id];
+            for (var j = 0; j < ids.length; j++) {
+                var id = ids[j], nuevos = datos[id] || [], r = rj.rangos[id];
                 // Si lo nuevo empalma con lo que ya habia, se juntan; si no,
                 // se queda solo lo nuevo, para no dejar huecos sin saberlo.
                 var junta = r && r[0] <= hasta && r[1] >= desde;
@@ -1949,7 +1999,7 @@
                 rj.progs[id] = limpia;
                 rj.rangos[id] = junta ? [Math.min(r[0], desde), Math.max(r[1], hasta)] : [desde, hasta];
             }
-            if (view === "rejilla") { renderRejilla(); pedirRejilla(); }
+            if (despues) despues();
         });
     }
 
@@ -2041,25 +2091,27 @@
                 if (q.stop_timestamp <= rj.inicio || q.start_timestamp >= fin) continue;
                 alguno = true;
                 var a = Math.max(q.start_timestamp, rj.inicio), b = Math.min(q.stop_timestamp, fin);
-                var cls = 'rj-p';
+                var cls = 'rj-p', avance = '';
                 if (q.stop_timestamp <= ahora) cls += ' past';
-                else if (q.start_timestamp <= ahora) cls += ' now';
+                else if (q.start_timestamp <= ahora) {
+                    // Lo que se emite: borde verde y lo que lleva, abajo. La
+                    // linea vertical de "ahora" se quito: cruzaba los titulos.
+                    cls += ' now';
+                    // Sobre lo que se ve de la casilla: acaba justo en la hora
+                    // actual, en todas las filas a la vez.
+                    avance = '<i class="rj-avance" style="width:' +
+                             Math.round(Math.max(0, ahora - a) * 100 / Math.max(1, b - a)) + '%"></i>';
+                }
                 if (i === rj.fila && p && q.id === p.id) cls += ' sel';
                 h += '<div class="' + cls + '" style="left:' + px(X0 + (a - rj.inicio) * pxs) + ';top:' + px(y) +
                      ';width:' + px(Math.max(4, (b - a) * pxs - 6)) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
-                     (q.rec ? '<i class="rj-rec"></i>' : '') + (q.start_timestamp < rj.inicio ? '‹ ' : '') + esc(q.name) + '</div>';
+                     (q.rec ? '<i class="rj-rec"></i>' : '') + (q.start_timestamp < rj.inicio ? '‹ ' : '') + esc(q.name) + avance + '</div>';
             }
             if (!alguno) {
                 h += '<div class="rj-p vacio' + (i === rj.fila && !p ? ' sel' : '') + '" style="left:' + px(X0) + ';top:' + px(y) +
                      ';width:' + px(X1 - X0 - 6) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
                      (rj.rangos[c.id] ? 'Sin informacion' : 'Cargando...') + '</div>';
             }
-        }
-
-        // La linea de ahora.
-        if (ahora > rj.inicio && ahora < fin) {
-            h += '<i class="rj-ahora" style="left:' + px(X0 + (ahora - rj.inicio) * pxs - 1) + ';top:' + px(Y0 - 12) +
-                 ';height:' + px(RJ_FILAS * ALTO + 6) + '"></i>';
         }
 
         // El menu de OK, encima de todo.
@@ -2190,6 +2242,295 @@
     function volverARejilla() {
         rj.volver = true;
         openRejilla();
+    }
+
+    // ---------- Mini guia, viendo la tele ----------
+    //
+    // Con ▶ en el directo sale abajo, en el sitio de la barra del canal: los
+    // programas del canal en fila. ◀▶ va de uno a otro (lo emitido tambien),
+    // ▲▼ mira otros canales sin cambiar la imagen y OK dice que se puede
+    // hacer con el programa: ver el canal, verlo desde el principio, grabarlo
+    // o leer su ficha. Como en Movistar+: mirar sin dejar de ver.
+    var MG_CARTAS = 5;
+    var MG_CIERRE = 20000;
+    var mg = {abierta: false, fila: 0, selId: null, t: 0, menu: null, timer: null};
+
+    function miniGuiaVisible() {
+        var osd = document.getElementById("osd");
+        return mg.abierta && osd.style.display === "block" && osd.className === "mg";
+    }
+
+    function abrirMiniGuia(vuelta) {
+        if (!vuelta) {
+            mg.fila = playingChannelIdx >= 0 ? playingChannelIdx : currentChannel;
+            mg.selId = null;
+            mg.t = ahoraSeg();
+        }
+        mg.menu = null;
+        mg.abierta = true;
+        asegurarProgs(channels[mg.fila], mg.t);
+        renderMiniGuia();
+    }
+
+    function cerrarMiniGuia() {
+        var osd = document.getElementById("osd");
+        mg.abierta = false;
+        mg.menu = null;
+        clearTimeout(mg.timer);
+        if (osd.className === "mg") { osd.className = ""; osd.style.display = "none"; }
+    }
+
+    // Lo que hay alrededor de t en ese canal, si aun no esta pedido. Tambien
+    // los canales de al lado, para que ▲▼ no espere.
+    function asegurarProgs(ch, t) {
+        if (!ch) return;
+        var faltan = [];
+        for (var i = -1; i <= 1; i++) {
+            var c = channels[channels.indexOf(ch) + i];
+            if (!c) continue;
+            var r = rj.rangos[c.id];
+            if (!r || r[0] > t - 3600 || r[1] < t + 4 * 3600) faltan.push(c.id);
+        }
+        if (!faltan.length) return;
+        pedirProgs(faltan, t - 8 * 3600, t + 16 * 3600, function() {
+            if (miniGuiaVisible()) renderMiniGuia();
+        });
+    }
+
+    // El programa elegido: por id si ya habia uno, si no el de la hora t.
+    function progMiniGuia() {
+        var ch = channels[mg.fila], l = progsDe(ch);
+        if (mg.selId) {
+            for (var i = 0; i < l.length; i++) if (l[i].id === mg.selId) return l[i];
+        }
+        var p = progEn(ch, mg.t);
+        mg.selId = p ? p.id : null;
+        return p;
+    }
+
+    // past/current llegan del servidor y caducan: se miran con el reloj.
+    function estadoProg(p) {
+        var ahora = ahoraSeg();
+        p.past = p.stop_timestamp <= ahora;
+        p.current = !p.past && p.start_timestamp <= ahora;
+        return p;
+    }
+
+    function renderMiniGuia() {
+        var osd = document.getElementById("osd");
+        var ch = channels[mg.fila];
+        if (!ch) { cerrarMiniGuia(); return; }
+        var l = progsDe(ch), p = progMiniGuia(), sel = -1;
+        for (var i = 0; i < l.length; i++) if (p && l[i].id === p.id) sel = i;
+        var ahora = ahoraSeg(), reloj = new Date();
+        var suena = mg.fila === playingChannelIdx;
+
+        var h = '<div class="mg-cab"><span class="mg-num">' + ch.number + '</span><span class="mg-canal">' + esc(ch.name) + '</span>';
+        h += suena ? '<span class="mg-esta">Estas viendo</span>' : '<span class="mg-otro">Sigues viendo ' +
+             esc(channels[playingChannelIdx] ? channels[playingChannelIdx].name : '') + '</span>';
+        h += '<span class="mg-reloj">' + dosCifras(reloj.getHours()) + ':' + dosCifras(reloj.getMinutes()) + '</span></div>';
+
+        // La fila de programas: el elegido, uno antes y los siguientes.
+        h += '<div class="mg-tira">';
+        if (sel < 0) {
+            h += '<div class="mg-carta vacia sel">' + (rj.rangos[ch.id] ? 'Sin informacion de programacion' : 'Cargando...') + '</div>';
+        } else {
+            var desde = Math.max(0, Math.min(sel - 1, l.length - MG_CARTAS));
+            for (var j = desde; j < Math.min(l.length, desde + MG_CARTAS); j++) {
+                var q = estadoProg(l[j]);
+                var cls = 'mg-carta' + (q.past ? ' past' : '') + (q.current ? ' now' : '') + (j === sel ? ' sel' : '');
+                h += '<div class="' + cls + '" data-mg="' + j + '"><div class="mg-hora">' +
+                     (q.current ? 'AHORA' : esc(nombreDiaCorto(q.start_timestamp) + q.t_time)) +
+                     (q.rec ? ' <i class="rj-rec"></i>' : '') + '</div>' +
+                     '<div class="mg-titulo">' + esc(q.name) + '</div>';
+                if (q.current) h += '<i class="mg-avance" style="width:' +
+                    Math.round((ahora - q.start_timestamp) * 100 / Math.max(1, q.stop_timestamp - q.start_timestamp)) + '%"></i>';
+                h += '</div>';
+            }
+        }
+        h += '</div>';
+
+        // Lo elegido, en detalle.
+        if (p) {
+            estadoProg(p);
+            var mins = Math.round((p.stop_timestamp - p.start_timestamp) / 60);
+            h += '<div class="mg-det"><b>' + esc(nombreDiaT(p.start_timestamp)) + ' ' + esc(p.t_time) + ' - ' + esc(p.t_time_end) +
+                 '</b> · ' + mins + ' min' + (p.category ? ' · ' + esc(p.category) : '');
+            if (p.past && ch.archive) h += ' · <span class="mg-ok">Se puede ver</span>';
+            h += '</div>';
+            if (p.descr) h += '<div class="mg-descr">' + esc(p.descr) + '</div>';
+        }
+
+        if (mg.menu) {
+            h += '<div class="mg-menu">';
+            for (var o = 0; o < mg.menu.ops.length; o++) {
+                h += '<div class="rj-op' + (o === mg.menu.idx ? ' sel' : '') + '" data-mgop="' + o + '">' + esc(mg.menu.ops[o].t) + '</div>';
+            }
+            h += '</div>';
+        }
+
+        h += '<div class="osd-pistas">' + (mg.menu
+            ? '<span>▲▼</span> Elegir <span data-tecla="13">OK</span> Aceptar <span data-tecla="27">Atras</span> Cerrar'
+            : '<span>◀▶</span> Programas <span>▲▼</span> Canales <span data-tecla="13">OK</span> Opciones ' +
+              '<span data-tecla="27">Atras</span> Cerrar') + '</div>';
+
+        graficosDelante();
+        osd.className = "mg";
+        osd.innerHTML = h;
+        osd.style.display = "block";
+        clearTimeout(osdTimeout);
+        clearTimeout(mg.timer);
+        mg.timer = setTimeout(cerrarMiniGuia, MG_CIERRE);
+    }
+
+    // "mañana 21:30", "ayer 08:00" o solo la hora si es hoy.
+    function nombreDiaCorto(t) {
+        var d = new Date(t * 1000), hoy = new Date();
+        var dif = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
+                              new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime()) / 86400000);
+        if (dif === 0) return '';
+        if (dif === 1) return 'Mañana ';
+        if (dif === -1) return 'Ayer ';
+        return DIAS_SEMANA[d.getDay()].substr(0, 3) + ' ';
+    }
+
+    function moverMiniGuia(paso) {
+        var ch = channels[mg.fila], l = progsDe(ch), p = progMiniGuia();
+        if (!p) return;
+        for (var i = 0; i < l.length; i++) {
+            if (l[i].id !== p.id) continue;
+            var q = l[i + paso];
+            if (!q) { asegurarProgs(ch, paso > 0 ? p.stop_timestamp : p.start_timestamp); return; }
+            // Hacia atras, lo que guarda el archivo (y sin archivo, unas horas).
+            var limite = ahoraSeg() - (ch.archive ? (ch.archive_range || 24) * 3600 : 6 * 3600);
+            if (paso < 0 && q.stop_timestamp < limite) return;
+            mg.selId = q.id;
+            mg.t = q.current ? ahoraSeg() : q.start_timestamp;
+            asegurarProgs(ch, q.start_timestamp);
+            renderMiniGuia();
+            return;
+        }
+    }
+
+    function cambiarCanalMiniGuia(paso) {
+        var fila = mg.fila + paso;
+        if (fila < 0 || fila >= channels.length) return;
+        var p = progMiniGuia();
+        // A la misma hora en el otro canal (lo de ahora, si se miraba lo de ahora).
+        if (p) mg.t = estadoProg(p).current ? ahoraSeg() : p.start_timestamp;
+        mg.fila = fila;
+        mg.selId = null;
+        asegurarProgs(channels[fila], mg.t);
+        renderMiniGuia();
+    }
+
+    function opcionesMiniGuia(ch, p) {
+        var ops = [];
+        if (mg.fila !== playingChannelIdx) ops.push({id: 'canal', t: 'Ver ' + ch.name});
+        if (!p) return ops.length ? ops : [{id: 'cerrar', t: 'Cerrar'}];
+        estadoProg(p);
+        if ((p.past || p.current) && ch.archive) ops.push({id: 'archivo', t: p.current ? 'Ver desde el principio' : 'Ver'});
+        if (!p.past && hayGrabaciones() && ch.pvr) {
+            ops.push({id: 'grabar', t: p.rec ? (p.current ? 'Parar la grabacion' : 'Quitar la grabacion') : 'Grabar'});
+        }
+        ops.push({id: 'ficha', t: 'Mas informacion'});
+        return ops;
+    }
+
+    function teclaMiniGuia(k) {
+        if (mg.menu) {
+            if (k === 38 && mg.menu.idx > 0) { mg.menu.idx--; renderMiniGuia(); }
+            else if (k === 40 && mg.menu.idx < mg.menu.ops.length - 1) { mg.menu.idx++; renderMiniGuia(); }
+            else if (k === 13) elegirOpcionMiniGuia();
+            else if (k === 37 || k === 39 || k === 8 || k === 27) { mg.menu = null; renderMiniGuia(); }
+            return;
+        }
+        if (k === 37) moverMiniGuia(-1);
+        else if (k === 39) moverMiniGuia(1);
+        else if (k === 38) cambiarCanalMiniGuia(-1);
+        else if (k === 40) cambiarCanalMiniGuia(1);
+        else if (k === 13) {
+            var ch = channels[mg.fila];
+            if (ch) { mg.menu = {ops: opcionesMiniGuia(ch, progMiniGuia()), idx: 0}; renderMiniGuia(); }
+        }
+        else if (k === 8 || k === 27) cerrarMiniGuia();
+    }
+
+    function elegirOpcionMiniGuia() {
+        var ch = channels[mg.fila], p = progMiniGuia();
+        var op = mg.menu && mg.menu.ops[mg.menu.idx];
+        mg.menu = null;
+        if (!op || !ch) { renderMiniGuia(); return; }
+        if (op.id === 'cerrar') { cerrarMiniGuia(); return; }
+        if (op.id === 'canal') {
+            if (ch.locked) { cerrarMiniGuia(); currentChannel = mg.fila; pedirPin(goFullscreen); return; }
+            cerrarMiniGuia();
+            currentChannel = mg.fila;
+            playChannel(ch);
+            playingChannelIdx = mg.fila;
+            mostrarOsd(ch);
+        } else if (op.id === 'archivo') {
+            cerrarMiniGuia();
+            prepararGuiaRejilla(ch, p);
+            playCatchup(p);
+        } else if (op.id === 'grabar') {
+            prepararGuiaRejilla(ch, p);
+            if (p.rec && p.current) pararGrabacion(ch, p);
+            else if (p.rec) quitarGrabacion(p);
+            else recordProgram(p);
+            renderMiniGuia();
+        } else if (op.id === 'ficha') {
+            clearTimeout(mg.timer);
+            prepararGuiaRejilla(ch, p);
+            document.getElementById("osd").style.display = "none";
+            document.getElementById("content").style.display = "block";
+            abrirFicha("minig");
+        }
+    }
+
+    // ---------- Volver atras en el directo ----------
+    //
+    // ◀ en el directo: lo mismo que el archivo, pero empezando unos segundos
+    // antes de ahora. Se avanza y retrocede igual que en lo ya emitido, OK
+    // pausa, y al alcanzar el directo (▶ o Atras) se vuelve a la emision.
+    var DIRECTO_MARGEN = 20;   // lo mas cerca de ahora que sirve el archivo
+
+    function retrocederDirecto() {
+        var idx = playingChannelIdx >= 0 ? playingChannelIdx : currentChannel;
+        var ch = channels[idx];
+        if (!ch) return;
+        if (!ch.archive) { toast('Este canal no se puede retroceder'); return; }
+        var ahora = ahoraSeg();
+        diferido = {
+            etiqueta: 'EN DIFERIDO', canal: ch.name, titulo: ch.cur_playing || '',
+            tipo: 'directo', chId: ch.id, canalIdx: idx,
+            inicio: ahora - (ch.archive_range || 24) * 3600, fin: ahora,
+            base: ahora, arrancado: new Date().getTime(), pausaDesde: 0
+        };
+        playingChannelIdx = -1;
+        asegurarProgs(ch, ahora);
+        saltar(-1);
+    }
+
+    function volverAlDirecto() {
+        var d = diferido;
+        if (!d || d.tipo !== 'directo') return;
+        clearTimeout(salto && salto.timer);
+        salto = null;
+        var ch = channels[d.canalIdx];
+        diferido = null;
+        if (!ch) return;
+        currentChannel = d.canalIdx;
+        playChannel(ch);
+        playingChannelIdx = d.canalIdx;
+        mostrarOsd(ch);
+    }
+
+    // Lo que se emitia en el momento que se esta viendo del diferido.
+    function progDiferido(d, t) {
+        var ch = channels[d.canalIdx];
+        var p = ch ? progEn(ch, t) : null;
+        return p;
     }
 
     // ---------- Barra lateral (decos) ----------
@@ -3440,6 +3781,12 @@
             return;
         }
         if (de === "rejilla") { volverARejilla(); return; }
+        if (de === "minig") {
+            view = "list";
+            document.getElementById("content").style.display = "none";
+            abrirMiniGuia(true);
+            return;
+        }
         view = "guide";
         renderGuide();
     }
@@ -3977,7 +4324,8 @@
         // sale de todas las pantallas de la app, ya se ha usado para llegar
         // hasta aqui, y ademas vuelve a decirse dentro de la ficha.
         var pistas = '';
-        if (ch.cur_playing) pistas += '<span data-tecla="39">▶</span> Informacion ';
+        if (ch.archive) pistas += '<span data-tecla="37">◀</span> Retroceder ';
+        pistas += '<span data-tecla="39">▶</span> Guia ';
         if (hayGrabaciones() && ch.pvr) {
             pistas += seGraba(ch) ? '<span class="rojo" data-tecla="403">●</span> Parar grabacion'
                                   : '<span class="rojo" data-tecla="403">●</span> Grabar';
@@ -4021,6 +4369,10 @@
     function mostrarOsd(ch) {
         var osd = document.getElementById("osd");
         graficosDelanteInsistiendo();
+        mg.abierta = false;
+        mg.menu = null;
+        clearTimeout(mg.timer);
+        osd.className = "";
         osd.innerHTML = diferido ? osdDiferido(diferido) : osdFor(ch);
         osd.style.display = "block";
         clearTimeout(osdTimeout);
@@ -4212,7 +4564,17 @@
         var k = e.keyCode;
 
         if (k === TECLA_ROJO || k === 112 || (k === 82 && !e.altKey) || (k === 87 && e.altKey)) {
-            if (view === "rejilla") {
+            if (miniGuiaVisible() && view === "list") {
+                var pm = progMiniGuia(), cm = channels[mg.fila];
+                if (pm && !estadoProg(pm).past && cm) {
+                    prepararGuiaRejilla(cm, pm);
+                    if (pm.rec && pm.current) pararGrabacion(cm, pm);
+                    else if (pm.rec) quitarGrabacion(pm);
+                    else recordProgram(pm);
+                    renderMiniGuia();
+                } else toast('Elige un programa que no haya pasado');
+            }
+            else if (view === "rejilla") {
                 var pr = progSel();
                 if (pr && !pr.past) { prepararGuiaRejilla(channels[rj.fila], pr); recordProgram(pr); }
                 else toast('Elige un programa que no haya pasado');
@@ -4231,17 +4593,20 @@
         }
         if (k === 83 || k === 113) { openRecordings(); return true; }
         if (k === TECLA_AZUL) {
-            // Conmuta: abre la guia, y si ya estas en ella vuelve a la lista.
-            // Antes, estando en la guia o a pantalla completa, no hacia nada y
-            // encima no lo decia: un boton que unas veces responde y otras se
-            // queda callado parece roto.
-            if (view === "guide") salirDeGuia();
-            else if (view === "rejilla") salirDeRejilla();
-            else if (channels.length > 0) openGuide();
+            // La guia de todos los canales (la parrilla), desde donde sea; si
+            // ya estas en ella, sales. Antes abria la del canal, que esta en ▶.
+            if (view === "rejilla") salirDeRejilla();
+            else if (channels.length > 0) {
+                cerrarMiniGuia();
+                if (diferido && diferido.tipo === 'directo') volverAlDirecto();
+                if (view === "guide") salirDeGuia();
+                openRejilla();
+            }
             return true;
         }
         if (k === TECLA_INFO) {
-            if (view === "rejilla") { rj.menu = {ops: [{id: 'ficha'}], idx: 0}; elegirOpcionRejilla(); }
+            if (miniGuiaVisible() && view === "list") { mg.menu = {ops: [{id: 'ficha'}], idx: 0}; elegirOpcionMiniGuia(); }
+            else if (view === "rejilla") { rj.menu = {ops: [{id: 'ficha'}], idx: 0}; elegirOpcionRejilla(); }
             else mostrarInfoPrograma();
             return true;
         }
@@ -4398,8 +4763,19 @@
         // "view === list" pasaba esto: con la guia abierta la rueda cambiaba de
         // canal y el boton de atras salia a la miniatura en vez de devolver la
         // imagen.
-        if (isFullscreen && view === "list") {
-            if (diferido && diferido.inicio && (k === 37 || k === 39 ||
+        if (isFullscreen && view === "list" && miniGuiaVisible()) {
+            teclaMiniGuia(k);
+        } else if (isFullscreen && view === "list") {
+            // ▲▼ en el directo atrasado cambia de canal, como en el directo.
+            if (diferido && diferido.tipo === 'directo' && (k === 38 || k === 40)) {
+                clearTimeout(salto && salto.timer);
+                salto = null;
+                currentChannel = playingChannelIdx = diferido.canalIdx;
+                diferido = null;
+            }
+            if (diferido && diferido.tipo === 'directo' && (k === 8 || k === 27)) {
+                volverAlDirecto();
+            } else if (diferido && diferido.inicio && (k === 37 || k === 39 ||
                     (e.altKey && (k === 66 || k === 70)))) {
                 // Flechas, o rebobinar y avanzar del mando de los MAG (Alt+B/F).
                 saltar((k === 37 || k === 66) ? -1 : 1);
@@ -4410,6 +4786,12 @@
                 // sacan la barra con la informacion. Antes volvian al directo:
                 // se tocaba sin querer y se perdia la peli. Para salir, Atras.
                 mostrarOsd(null);
+            } else if (k === 37 && !diferido) {
+                // ◀ en el directo: atras en el tiempo, con el archivo.
+                retrocederDirecto();
+            } else if (k === 39 && !diferido) {
+                // ▶ en el directo: la mini guia, para mirar sin cambiar.
+                abrirMiniGuia();
             } else if (k === 38) {
                 // Cambiar canal en fullscreen
                 if (currentChannel > 0) {
@@ -4427,7 +4809,7 @@
                     playingChannelIdx = currentChannel;
                     mostrarOsd(ch);
                 }
-            } else if (k === 39 || k === 73 || k === 89) {
+            } else if (k === 73 || k === 89) {
                 // Primera pulsacion: la barra del canal. Si ya esta puesta,
                 // otra vez entra en la ficha del programa. Es el mismo gesto
                 // que en la guia — derecha es entrar mas adentro — asi que no
@@ -4739,6 +5121,7 @@
     window.stbEvent = window.stbEvent || {};
     window.stbEvent.onEvent = function(evento) {
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
+        else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
     };
 
     // La barra lateral refleja donde se esta y si la pantalla es completa:
@@ -5210,6 +5593,39 @@
         #osd .osd-salto .bar { margin: 0 18px 0 0; }
         .osd-salto b { color: #fdeb00; margin-left: 18px; font-weight: 700; }
         .osd-singuia { color: #6d7679; font-style: italic; }
+        /* Mini guia (ver renderMiniGuia): en el sitio de la barra. Todo en em
+           sobre la letra de #osd.mg, para que a 720 baste con cambiar esa. */
+        #osd.mg { font-size: 24px; }
+        .mg-cab { white-space: nowrap; overflow: hidden; line-height: 1.5em; }
+        .mg-num { font-size: 1.9em; font-weight: 700; color: #bff102; margin-right: .45em; vertical-align: middle; }
+        .mg-canal { font-size: 1.45em; font-weight: 600; vertical-align: middle; }
+        .mg-esta, .mg-otro { font-size: .8em; margin-left: 1em; padding: .2em .7em; border-radius: .4em; vertical-align: middle; }
+        .mg-esta { background: rgba(191,241,2,.16); color: #bff102; }
+        .mg-otro { background: rgba(255,255,255,.08); color: #c3c8ca; }
+        .mg-reloj { float: right; font-size: 1.6em; font-weight: 500; color: #e6ebe8; }
+        .mg-tira { margin-top: .6em; white-space: nowrap; overflow: hidden; }
+        .mg-carta { display: inline-block; position: relative; width: 19.2%; margin-right: 1%; height: 3.6em;
+                    padding: .45em .7em; border-radius: .45em; background: #343b3f; vertical-align: top;
+                    white-space: normal; overflow: hidden; -webkit-box-sizing: border-box; box-sizing: border-box; }
+        .mg-carta:last-child { margin-right: 0; }
+        .mg-carta.past { background: #2a3033; color: #8a9497; }
+        .mg-carta.now { background: #3c4a2c; border-left: .25em solid #bff102; }
+        .mg-carta.sel { background: #bff102; color: #1d2023; }
+        .mg-carta.vacia { width: 100%; color: #98a3a6; line-height: 2.7em; }
+        .mg-carta.vacia.sel { background: #343b3f; }
+        .mg-hora { font-size: .78em; font-weight: 600; color: #bff102; white-space: nowrap; }
+        .mg-carta.past .mg-hora { color: #8a9497; }
+        .mg-carta.sel .mg-hora { color: #1d2023; }
+        .mg-titulo { font-size: .95em; font-weight: 500; line-height: 1.25em; max-height: 2.5em; overflow: hidden; margin-top: .1em; }
+        .mg-avance { position: absolute; left: 0; bottom: 0; height: .2em; background: #bff102; }
+        .mg-carta.sel .mg-avance { background: #1d2023; opacity: .45; }
+        .mg-det { margin-top: .7em; font-size: .9em; color: #c3c8ca; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mg-det b { color: #fff; font-weight: 600; }
+        .mg-ok { color: #bff102; }
+        .mg-descr { font-size: .78em; line-height: 1.35em; max-height: 2.7em; overflow: hidden; color: #98a3a6; margin-top: .3em; }
+        .mg-menu { position: absolute; right: 1.4em; bottom: 100%; margin-bottom: .6em; min-width: 14em; padding: .7em;
+                   background: #2a3034; border-radius: .7em; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+        .mg-menu .rj-op { font-size: 1.05em; padding: .45em .8em; }
         .osd-reloj {
             font-family: Poppins, 'Segoe UI', Arial, sans-serif;
             font-size: 44px; font-weight: 500; color: #e6ebe8;
@@ -5430,7 +5846,7 @@
         #rejilla { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;
                    color: #fff; font-family: Poppins, 'Segoe UI', Arial, sans-serif; }
         #rejilla .rj-f { position: absolute; background: #1d2023; }
-        .rj-info, .rj-dia, .rj-hora, .rj-ch, .rj-p, .rj-ahora, .rj-menu { position: absolute; }
+        .rj-info, .rj-dia, .rj-hora, .rj-ch, .rj-p, .rj-menu { position: absolute; }
         .rj-info { overflow: hidden; }
         .rj-canal { font-size: 26px; color: #bff102; font-weight: 500; margin-bottom: 8px; white-space: nowrap; }
         .rj-titulo { font-size: 42px; font-weight: 600; line-height: 1.18; max-height: 100px; overflow: hidden; }
@@ -5450,12 +5866,13 @@
         .rj-ch.sel { background: #3d454a; color: #fff; }
         .rj-p { background: #30373b; padding: 0 14px; color: #e6e9ea; text-overflow: ellipsis; }
         .rj-p.past { background: #262b2e; color: #8a9497; }
-        .rj-p.now { background: #3a4247; }
+        .rj-p.now { background: #3c4a2c; color: #fff; font-weight: 500; border-left: 6px solid #bff102; }
+        .rj-avance { position: absolute; left: 0; bottom: 0; height: 5px; background: #bff102; }
+        .rj-p.sel .rj-avance { background: #1d2023; opacity: .45; }
         .rj-p.vacio { background: #262b2e; color: #6f7a7d; }
         .rj-p.sel { background: #bff102; color: #1d2023; font-weight: 600; }
         .rj-rec { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #e53935;
                   margin-right: 10px; vertical-align: middle; }
-        .rj-ahora { width: 3px; background: #fff; opacity: .85; }
         .rj-menu { background: #2a3034; border-radius: 18px; padding: 30px 36px; z-index: 5;
                    -webkit-box-sizing: border-box; box-sizing: border-box; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
         .rj-menu-t { font-size: 30px; font-weight: 600; margin-bottom: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -5650,7 +6067,8 @@
             .rj-ch b { margin-right: 8px; }
             .rj-p { padding: 0 9px; }
             .rj-rec { width: 9px; height: 9px; margin-right: 7px; }
-            .rj-ahora { width: 2px; }
+            .rj-p.now { border-left-width: 4px; }
+            .rj-avance { height: 3px; }
             .rj-menu { padding: 20px 24px; border-radius: 12px; }
             .rj-menu-t { font-size: 20px; margin-bottom: 12px; }
             .rj-op { font-size: 19px; padding: 9px 15px; border-radius: 7px; }
@@ -5746,6 +6164,7 @@
             .osd-epg { font-size: 12px; margin-top: 4px; }
             .osd-reloj { font-size: 27px; margin-left: 19px; padding-left: 16px; }
             #osd .bar { width: 55%; max-width: 460px; height: 5px; margin-top: 7px; }
+            #osd.mg { font-size: 16px; }
 
             #vol { padding: 17px 35px; font-size: 20px; border-radius: 11px; }
             #toast { bottom: 43px; padding: 13px 24px; font-size: 15px; border-radius: 9px; }
