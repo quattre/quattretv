@@ -2148,6 +2148,22 @@ def handle_watchdog(request, action):
     device = get_device_from_request(request)
     respuesta = {'result': True}
 
+    if device and 'JsHttpRequest' in request.GET:
+        # Un deco recien pasado desde Ministra (deploy/ministra/redirigir_decos.sh)
+        # sigue con el portal de alli cargado hasta que se reinicia, y su latido
+        # ya llega aqui. Ese portal (el nuestro nunca manda JsHttpRequest) solo
+        # entiende los eventos de Ministra: se le pide que recargue y vuelve con
+        # el nuestro. Una vez cada 10 minutos, por si algo lo devolviera al viejo.
+        from django.core.cache import cache
+        if cache.add(f'evento:ministra:{device.id}', 1, 600):
+            logger_equipos.info('Deco %s con el portal de Ministra: recargar', device.mac_address)
+            return stalker_response({'data': {
+                'msgs': 1, 'id': int(timezone.now().timestamp()), 'event': 'reload_portal',
+                'need_confirm': 0, 'msg': '', 'reboot_after_ok': 0,
+                'auto_hide_timeout': 0, 'param1': '',
+            }})
+        return stalker_response({'data': {'msgs': 0}})
+
     if device:
         ch_id = request.GET.get('ch_id', '')
         if ch_id.isdigit() and str(device.last_channel_id or '') != ch_id:
