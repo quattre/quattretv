@@ -2153,9 +2153,18 @@ def handle_watchdog(request, action):
         # sigue con el portal de alli cargado hasta que se reinicia, y su latido
         # ya llega aqui. Ese portal (el nuestro nunca manda JsHttpRequest) solo
         # entiende los eventos de Ministra: se le pide que recargue y vuelve con
-        # el nuestro. Una vez cada 10 minutos, por si algo lo devolviera al viejo.
+        # el nuestro.
+        #
+        # Pasa sobre todo al encenderlo: la redireccion va por la cookie "mac",
+        # que la pone el propio portal, asi que la primera pagina tras
+        # reiniciar sale de Ministra y lo demas viene aqui. El primer latido
+        # (init=1) se lo salta ese portal, y gastar ahi la orden lo dejaba
+        # colgado en la pantalla de "cortado". Se repite cada 2 minutos por si
+        # una recarga vuelve a caer en el viejo.
         from django.core.cache import cache
-        if cache.add(f'evento:ministra:{device.id}', 1, 600):
+        if request.GET.get('init') == '1':
+            return stalker_response({'data': {'msgs': 0}})
+        if cache.add(f'evento:ministra:{device.id}', 1, 120):
             logger_equipos.info('Deco %s con el portal de Ministra: recargar', device.mac_address)
             return stalker_response({'data': {
                 'msgs': 1, 'id': int(timezone.now().timestamp()), 'event': 'reload_portal',
