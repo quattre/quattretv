@@ -3635,6 +3635,9 @@
             guideIdx = 0;
             if (isFullscreen) {
                 document.getElementById("content").style.display = "block";
+                // La barra del canal se quedaba debajo y asomaba al lado.
+                clearTimeout(osdTimeout);
+                document.getElementById("osd").style.display = "none";
             }
             abrirFicha(isFullscreen ? "fullscreen" : "lista");
         });
@@ -3671,8 +3674,10 @@
              texto + '</div><div class="ficha-mas" id="ficha-mas" style="display:none;">▼ mas</div></div>';
 
         var accion = pistaGuia(p);
-        h += '<div class="help" id="ficha-ayuda">' + (accion ? accion + ' ' : '') +
-             '<span data-tecla="37">◀</span> Volver a la guia</div>';
+        // A donde vuelve ◀: desde el canal a pantalla completa, a la imagen.
+        var volver = '<span data-tecla="37">◀</span> ' + ({fullscreen: 'Volver al canal', lista: 'Volver',
+                     rejilla: 'Volver a la guia'}[fichaVieneDe] || 'Volver a la guia');
+        h += '<div class="help" id="ficha-ayuda">' + (accion ? accion + ' ' : '') + volver + '</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
 
@@ -3682,8 +3687,7 @@
         fichaScrollMax = Math.max(0, txt.offsetHeight - (caja.offsetHeight - 16));
         if (fichaScrollMax > 0) {
             document.getElementById('ficha-ayuda').innerHTML =
-                '<span>▲▼</span> Desplazar ' + (accion ? accion + ' ' : '') +
-                '<span data-tecla="37">◀</span> Volver a la guia';
+                '<span>▲▼</span> Desplazar ' + (accion ? accion + ' ' : '') + volver;
         }
         pintarScrollFicha();
     }
