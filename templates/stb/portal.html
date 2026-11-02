@@ -4421,7 +4421,7 @@
             else toggleFavOnly();
             return true;
         }
-        if (k === 83) { openRecordings(); return true; }
+        if (k === 83 && !e.altKey) { openRecordings(); return true; }
         if (k === TECLA_AZUL || k === 115) {
             // Favorito el canal que se esta mirando: el de la parrilla, el que
             // suena a pantalla completa o el de la lista.
@@ -4524,6 +4524,14 @@
         if (quizaDiagnostico(normalizarTecla(e.keyCode))) return false;
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
         var k = normalizarTecla(e.keyCode);
+        // Parar (Alt+S en los MAG, 413 en LG y Samsung): sale de lo que se
+        // esta viendo, como Atras. En los MAG es la misma tecla que la S, y la
+        // S abria las grabaciones: parar una peli del videoclub te llevaba alli.
+        if ((k === 83 && e.altKey) || k === 413) {
+            var ayudaPuesta = videoAyuda && document.getElementById("ayuda-video").style.display === "block";
+            if (!ayudaPuesta && !(isFullscreen && diferido)) return false;
+            k = 27;
+        }
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
         if (avisoAbierto && k !== 107 && k !== 109) { teclaAviso(k); return false; }
