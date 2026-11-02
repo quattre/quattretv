@@ -4632,7 +4632,9 @@
         // Los colores: rojo graba, verde la guia, amarillo videoclub <-> tele
         // y azul favoritos (no tenia otro camino; las grabaciones estan en el
         // menu). Lo mismo en el deco y en las teles.
-        if (k === TECLA_VERDE || k === 115) {
+        // En el mando de los MAG los colores son F1-F4: rojo 112, verde 113,
+        // amarillo 114 y azul 115.
+        if (k === TECLA_VERDE || k === 113) {
             // La guia de todos los canales (la parrilla), desde donde sea; si
             // ya estas en ella, sales.
             if (view === "rejilla") salirDeRejilla();
@@ -4655,8 +4657,8 @@
             else toggleFavOnly();
             return true;
         }
-        if (k === 83 || k === 113) { openRecordings(); return true; }
-        if (k === TECLA_AZUL) {
+        if (k === 83) { openRecordings(); return true; }
+        if (k === TECLA_AZUL || k === 115) {
             // Favorito el canal que se esta mirando: el de la parrilla o la
             // mini guia, el que suena a pantalla completa o el de la lista.
             if (view === "rejilla") toggleFavorite(channels[rj.fila]);
