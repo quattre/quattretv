@@ -3430,6 +3430,7 @@
         if (isFullscreen) document.getElementById("content").style.display = "block";
         guideChannel = ch;
         view = "guide";
+        guiaFocoDias = false;
         document.getElementById("content").innerHTML =
             '<div class="panel"><div class="header"><div class="logo">Guia</div></div>' +
             '<div style="color:#9da3a6;padding:20px;">Cargando programacion...</div></div>';
@@ -3440,23 +3441,56 @@
     // de antes, para ver lo emitido sin pasar por el videoclub) o bajando
     // desde el ultimo (el siguiente). "donde" dice en que programa caer: el
     // de ahora, el ultimo del dia o el primero.
-    function cargarDiaGuia(dia, donde) {
+    //
+    // Con el dia de arriba elegido (guiaFocoDias) se pasan dias enteros con
+    // ◀▶: antes, para ver el jueves habia que bajar programa a programa por
+    // todo el miercoles. "hora" (con donde = 'hora') es la hora del dia en la
+    // que caer, la misma que se estaba mirando: de las 21:00 de hoy a las
+    // 21:00 de mañana.
+    var guiaFocoDias = false;
+    var guiaPeticion = 0;
+
+    function cargarDiaGuia(dia, donde, hora) {
         var ch = guideChannel;
         if (!ch) return;
+        // Pulsando ◀▶ seguido salen varias peticiones: solo vale la ultima.
+        var mia = ++guiaPeticion;
         api("type=epg&action=get_simple_data_table&ch_id=" + ch.id + "&dia=" + dia, function(js) {
-            if (view !== "guide" || guideChannel !== ch) return;
+            if (view !== "guide" || guideChannel !== ch || mia !== guiaPeticion) return;
             guide = (js && js.data) ? js.data : [];
-            guiaDia = {dia: (js && js.dia) || 0, antes: (js && js.antes) || 0, despues: (js && js.despues) || 0};
+            guiaDia = {dia: (js && js.dia) || 0, antes: (js && js.antes) || 0,
+                       despues: (js && js.despues) || 0, fecha: (js && js.fecha) || ''};
             delete ventanas["guia"];
             guideIdx = 0;
             if (donde === 'ultimo') guideIdx = Math.max(0, guide.length - 1);
-            else if (donde === 'ahora') {
+            else if (donde === 'ahora' || (donde === 'hora' && guiaDia.dia === 0)) {
                 for (var i = 0; i < guide.length; i++) {
                     if (guide[i].current) { guideIdx = i; break; }
                 }
             }
+            else if (donde === 'hora' && hora !== undefined) {
+                for (var j = 0; j < guide.length; j++) {
+                    if (minutosDelDia(guide[j].start_timestamp) <= hora) guideIdx = j;
+                }
+            }
             renderGuide();
         });
+    }
+
+    function minutosDelDia(ts) {
+        var d = new Date(ts * 1000);
+        return d.getHours() * 60 + d.getMinutes();
+    }
+
+    function cambiarDiaGuia(paso) {
+        if (paso < 0 ? !guiaDia.antes : !guiaDia.despues) return;
+        var sel = guide[guideIdx];
+        cargarDiaGuia(guiaDia.dia + paso, 'hora', sel ? minutosDelDia(sel.start_timestamp) : undefined);
+        // Se pinta ya el dia nuevo arriba, sin esperar a la respuesta.
+        guiaDia.dia += paso;
+        guiaDia.fecha = '';
+        guide = [];
+        renderGuide();
     }
 
     var DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -3466,11 +3500,9 @@
         if (dia === 0) return 'Hoy';
         if (dia === -1) return 'Ayer';
         if (dia === 1) return 'Mañana';
-        if (p && p.start_timestamp) {
-            var d = new Date(p.start_timestamp * 1000);
-            return DIAS_SEMANA[d.getDay()] + ' ' + d.getDate();
-        }
-        return '';
+        var d = (p && p.start_timestamp) ? new Date(p.start_timestamp * 1000) : new Date();
+        if (!(p && p.start_timestamp)) d.setDate(d.getDate() + dia);
+        return DIAS_SEMANA[d.getDay()] + ' ' + d.getDate();
     }
 
     // Salir de la guia por donde se entro: desde pantalla completa hay que
@@ -3507,10 +3539,15 @@
     function renderGuide() {
         var h = '<div class="panel">';
         h += '<div class="header"><div class="logo">' + esc(guideChannel.name) + '</div>';
-        h += '<div class="counter">' + esc(nombreDia(guiaDia.dia, guide[0])) + '</div></div>';
+        // El dia, con sus flechas: se elige subiendo desde el primer programa.
+        h += '<div class="counter dias' + (guiaFocoDias ? ' sel' : '') + '">' +
+             '<span class="fl' + (guiaDia.antes ? '' : ' no') + '" data-tecla="37">◀</span>' +
+             esc(nombreDia(guiaDia.dia, guide[0])) +
+             '<span class="fl' + (guiaDia.despues ? '' : ' no') + '" data-tecla="39">▶</span></div></div>';
 
         if (guide.length === 0) {
-            h += '<div class="list"><div style="color:#9da3a6;padding:20px;">Sin datos de EPG para este canal</div></div>';
+            h += '<div class="list"><div style="color:#9da3a6;padding:20px;">' +
+                 (guiaPeticion && !guiaDia.fecha ? 'Cargando...' : 'Sin datos de EPG para este dia') + '</div></div>';
         } else {
             h += '<div class="list">';
             var visible = filasDe("guia", 9);
@@ -3518,7 +3555,7 @@
             var end = Math.min(guide.length, start + visible);
             for (var i = start; i < end; i++) {
                 var p = guide[i];
-                var cls = (i === guideIdx) ? "item sel" : "item";
+                var cls = (i === guideIdx && !guiaFocoDias) ? "item sel" : "item";
                 if (p.past) cls += " past";
                 h += '<div class="' + cls + '" data-i="' + i + '">';
                 h += '<div class="num sm">' + esc(p.t_time) + '</div>';
@@ -3527,14 +3564,14 @@
                 if (p.current) h += ' <span class="live">AHORA</span>';
                 // Flecha en la fila marcada: la señal de "aqui se puede entrar"
                 // tiene que estar en la fila, no solo en la ayuda de abajo.
-                if (i === guideIdx) h += ' <span class="entrar">▶</span>';
+                if (i === guideIdx && !guiaFocoDias) h += ' <span class="entrar">▶</span>';
                 h += '</div>';
                 if (p.current) h += '<div class="bar"><i style="width:' + (p.progress || 0) + '%"></i></div>';
                 h += '</div></div>';
             }
             h += '</div>';
 
-            var sel = guide[guideIdx];
+            var sel = guiaFocoDias ? null : guide[guideIdx];
             if (sel) {
                 // El adelanto, y debajo el aviso de que hay ficha. Va en su
                 // propia linea y en verde porque ahi es donde el ojo ya esta
@@ -3553,13 +3590,20 @@
             }
         }
 
-        var sel2 = guide[guideIdx];
-        var hint = pistaGuia(sel2);
-        if (hint) hint += ' ';
-        // Al principio o al final del dia, la pista de que hay mas dias.
-        if (guideIdx === 0 && guiaDia.antes) hint += '<span data-tecla="38">▲</span> Dia anterior ';
-        else if (guideIdx >= guide.length - 1 && guiaDia.despues) hint += '<span data-tecla="40">▼</span> Dia siguiente ';
-        h += '<div class="help">' + hint + '<span data-tecla="37">◀</span> Volver</div>';
+        var hint;
+        if (guiaFocoDias) {
+            hint = '<span data-tecla="37">◀</span><span data-tecla="39">▶</span> Otro dia ' +
+                   '<span data-tecla="40">▼</span> Programas <span data-tecla="27">Atras</span> Volver';
+        } else {
+            hint = pistaGuia(guide[guideIdx]);
+            if (hint) hint += ' ';
+            // Arriba del todo, la pista de que se puede elegir el dia; al
+            // final, la de que sigue el dia siguiente.
+            if (guideIdx === 0) hint += '<span data-tecla="38">▲</span> Elegir dia ';
+            else if (guideIdx >= guide.length - 1 && guiaDia.despues) hint += '<span data-tecla="40">▼</span> Dia siguiente ';
+            hint += '<span data-tecla="37">◀</span> Volver';
+        }
+        h += '<div class="help">' + hint + '</div>';
         h += '</div>';
         document.getElementById("content").innerHTML = h;
         medirFilas("guia", visible, function() { renderGuide(); });
@@ -4717,12 +4761,18 @@
             } else if (k === 37 || k === 8 || k === 27) {
                 openMenu();
             }
+        } else if (view === "guide" && guiaFocoDias) {
+            if (k === 37 || k === 39) cambiarDiaGuia(k === 37 ? -1 : 1);
+            else if ((k === 40 || k === 13) && guide.length) { guiaFocoDias = false; renderGuide(); }
+            else if (k === 8 || k === 27) { guiaFocoDias = false; salirDeGuia(); }
         } else if (view === "guide") {
             if (k === 38 && guideIdx > 0) {
                 guideIdx--;
                 renderGuide();
-            } else if (k === 38 && guiaDia.antes) {
-                cargarDiaGuia(guiaDia.dia - 1, 'ultimo');
+            } else if (k === 38) {
+                // Arriba del todo: el dia, para pasar dias enteros.
+                guiaFocoDias = true;
+                renderGuide();
             } else if (k === 40 && guideIdx < guide.length - 1) {
                 guideIdx++;
                 renderGuide();
@@ -5073,6 +5123,11 @@
             padding: 7px 18px; border-radius: 22px; font-size: 17px; font-weight: 500;
             white-space: nowrap; margin-left: 14px;
         }
+        /* El dia de la guia: elegido, en verde como la fila marcada. */
+        .counter.dias .fl { opacity: .45; margin: 0 10px; }
+        .counter.dias .fl.no { visibility: hidden; }
+        .counter.dias.sel { background: #bff102; border-color: #bff102; color: #111; font-weight: 600; }
+        .counter.dias.sel .fl { opacity: 1; }
 
         /* ---------- Lista ---------- */
         .list { flex: 1; overflow: hidden; margin-bottom: 14px; }
