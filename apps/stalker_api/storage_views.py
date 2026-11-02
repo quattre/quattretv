@@ -83,13 +83,16 @@ def build_ts_catchup_url(storage, channel, start, duration, device=None):
     Legacy path: the storage's get.php slices the hourly MPEG-TS pieces by byte
     offset, chaining consecutive files when the range crosses the hour.
     """
-    local_start = timezone.localtime(start)
+    from apps.stalker_api.piezas import corregir
+    # Si a la pieza de esa hora le falta un trozo, el segundo de get.php no es
+    # el de la hora (ver piezas.py).
+    pieza, segundo, duration = corregir(id_en_archivo(channel), timezone.localtime(start), int(duration))
     params = {
         'ch_id': id_en_archivo(channel),
-        'filename': local_start.strftime('%Y%m%d-%H') + '.mpg',
+        'filename': pieza.strftime('%Y%m%d-%H') + '.mpg',
         # get.php lee 'start'. Con otro nombre lo ignoraba y todo empezaba en
         # la hora en punto, no donde empieza el programa.
-        'start': local_start.minute * 60 + local_start.second,
+        'start': segundo,
         'duration': int(duration),
         'token': make_archive_token(device.id if device else 0, channel.id),
     }

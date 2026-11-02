@@ -245,6 +245,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.pvr.tasks.reconcile_recordings',
         'schedule': 300.0,
     },
+    'archivo-medir-piezas': {
+        'task': 'apps.pvr.tasks.medir_piezas_archivo',
+        'schedule': crontab(minute='2-59/10'),
+    },
 }
 
 # QuattreTV Settings

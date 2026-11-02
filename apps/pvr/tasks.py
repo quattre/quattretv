@@ -247,3 +247,21 @@ def reconcile_recordings():
         stuck += 1
 
     return stuck
+
+
+@shared_task
+def medir_piezas_archivo():
+    """Mide las piezas horarias del archivo que se cerraron, para que el
+    catchup empiece donde toca aunque al grabador le falte un trozo
+    (apps/stalker_api/piezas.py)."""
+    from django.core.cache import cache
+    from apps.stalker_api.piezas import medir_pendientes
+    # Una cada vez: la primera pasada (7 dias atras) dura varias.
+    if not cache.add('piezas:midiendo', 1, 20 * 60):
+        return
+    try:
+        cortas = medir_pendientes()
+        if cortas:
+            logger.info('%d piezas del archivo con trozos de menos', cortas)
+    finally:
+        cache.delete('piezas:midiendo')
