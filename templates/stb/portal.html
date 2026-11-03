@@ -1181,6 +1181,8 @@
             : 'display:block;position:fixed;' + huecoCss() + ';z-index:3;border-radius:14px;';
     }
 
+    var audioInformado = {};
+
     function playChannel(ch) {
         // Un canal de verdad (con id) es el directo; {cmd: url} es el archivo,
         // una grabacion o el videoclub, que ponen su propio estado.
@@ -1209,6 +1211,10 @@
             clearTimeout(avisoCanal);
             avisoCanal = setTimeout(function() {
                 api("type=watchdog&action=get_events&ch_id=" + ch.id, function() {});
+                if (!audioInformado[ch.id]) {
+                    audioInformado[ch.id] = 1;
+                    setTimeout(function() { informarAudio('arranque'); }, 4000);
+                }
             }, 2000);
         }
     }
@@ -4376,7 +4382,9 @@
         showVolume();
     }
 
-    var teclaRepetida = 0, vecesTecla = 0, relojTecla = null, teclasVistas = {};
+    // teclasAvisadas se llamaba teclasVistas, igual que la lista del
+    // diagnostico, y esa la pisaba: casi ninguna tecla desconocida llegaba al registro.
+    var teclaRepetida = 0, vecesTecla = 0, relojTecla = null, teclasAvisadas = {};
 
     // La tecla SET del mando de los MAG (120): dos veces seguidas abren la
     // configuracion del deco (desde alli se reinicia). Con una sola, solo un
@@ -4395,7 +4403,8 @@
     }
 
     // Cambiar de pista de audio (Alt+G, la tecla de audio del mando de los
-    // MAG, la misma que usaba Ministra): pasa a la siguiente y dice cual es.
+    // MAG, la misma que usaba Ministra, o MENU viendo un canal): pasa a la
+    // siguiente y dice cual es.
     var IDIOMAS = {spa: 'Español', esp: 'Español', eng: 'Inglés', cat: 'Catalán',
                    fre: 'Francés', fra: 'Francés', ger: 'Alemán', deu: 'Alemán',
                    por: 'Portugués', ita: 'Italiano', eus: 'Euskera', baq: 'Euskera',
@@ -4410,6 +4419,16 @@
         return [];
     }
 
+    // Que pistas tiene el canal y cual suena, al registro: desde aqui no se
+    // oye el deco.
+    function informarAudio(motivo) {
+        if (!stbAPI || !stbAPI.GetAudioPIDs) return;
+        var t = '';
+        try { t = JSON.stringify(pistasAudio()) + ' suena=' + stbAPI.GetAudioPID(); } catch (err) { t = 'error ' + err; }
+        var ch = channels[playingChannelIdx] || {};
+        api('type=stb&action=log&diag=' + encodeURIComponent('audio ' + motivo + ' ' + (ch.name || '') + ' ' + t), function() {});
+    }
+
     function cambiarAudio() {
         if (!stbAPI || !stbAPI.GetAudioPIDs || !stbAPI.SetAudioPID) return;
         var l = [];
@@ -4420,6 +4439,7 @@
         for (i = 0; i < l.length; i++) if (l[i].pid === actual) break;
         i = (i + 1) % l.length;
         try { stbAPI.SetAudioPID(l[i].pid); } catch (err) {}
+        informarAudio('cambio');
         var lang = String((l[i].lang && l[i].lang[0]) || '').toLowerCase();
         toast('Audio ' + (i + 1) + ' de ' + l.length + ': ' + (IDIOMAS[lang] || lang || 'sin nombre'));
     }
@@ -4451,8 +4471,8 @@
 
         // Apuntar las teclas que no manejamos, para saber cual es cual en cada
         // mando sin tener que ir adivinando.
-        if (!teclasVistas[k]) {
-            teclasVistas[k] = 1;
+        if (!teclasAvisadas[k]) {
+            teclasAvisadas[k] = 1;
             api('type=stb&action=log&diag=' + encodeURIComponent('tecla=' + k), function() {});
         }
         return false;
@@ -4700,7 +4720,7 @@
             k = 27;
         }
         if (k === 120 && !e.altKey) { teclaSet(); return false; }
-        if (k === 71 && e.altKey) { cambiarAudio(); return false; }
+        if ((k === 71 && e.altKey) || (k === 122 && isFullscreen)) { cambiarAudio(); return false; }
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
         if (avisoAbierto && k !== 107 && k !== 109) { teclaAviso(k); return false; }
