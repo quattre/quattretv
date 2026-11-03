@@ -86,6 +86,11 @@
                 stbAPI.SetPIG(1, -1, -1, -1);
                 volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50;
             } catch(err) {}
+            // El deco elige la pista de audio por su idioma preferido, y de
+            // fabrica es el ingles: AMC, Warner, Hollywood o Veo7 salian en
+            // version original aunque la primera pista es la española (con su
+            // etiqueta "spa"). Ministra se lo decia al arrancar; ahora tambien.
+            try { if (gSTB.SetAudioLangs) gSTB.SetAudioLangs('spa', 'eng'); } catch(err) {}
         } else if (typeof stb !== "undefined") {
             stbAPI = stb;
             try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
@@ -258,6 +263,8 @@
             d.push('gSTB=' + (typeof gSTB !== 'undefined'));
             d.push('pigviewport=' + !!(stbAPI && stbAPI.SetPIGViewport));
             d.push('settopwin=' + !!(stbAPI && stbAPI.SetTopWin));
+            // Para comparar con la hora del servidor: la parrilla usa este reloj.
+            d.push('reloj=' + new Date().toString());
             if (typeof gSTB !== 'undefined') {
                 try { d.push('tvsystem=' + gSTB.GetEnv('{"varList":["tvsystem"]}')); } catch (e2) {}
                 try { d.push('vmode=' + gSTB.RDir('vmode')); } catch (e2) {}
@@ -4371,6 +4378,52 @@
 
     var teclaRepetida = 0, vecesTecla = 0, relojTecla = null, teclasVistas = {};
 
+    // La tecla SET del mando de los MAG (120): dos veces seguidas abren la
+    // configuracion del deco (desde alli se reinicia). Con una sola, solo un
+    // aviso, para que el cliente no entre sin querer.
+    var setPulsado = 0;
+    function teclaSet() {
+        var ahora = new Date().getTime();
+        if (ahora - setPulsado > 3000) {
+            setPulsado = ahora;
+            toast('Pulsa SET otra vez para los ajustes del equipo');
+            return;
+        }
+        setPulsado = 0;
+        teclaRepetida = 120; vecesTecla = 4;
+        accesoConfiguracion(120);
+    }
+
+    // Cambiar de pista de audio (Alt+G, la tecla de audio del mando de los
+    // MAG, la misma que usaba Ministra): pasa a la siguiente y dice cual es.
+    var IDIOMAS = {spa: 'Español', esp: 'Español', eng: 'Inglés', cat: 'Catalán',
+                   fre: 'Francés', fra: 'Francés', ger: 'Alemán', deu: 'Alemán',
+                   por: 'Portugués', ita: 'Italiano', eus: 'Euskera', baq: 'Euskera',
+                   glg: 'Gallego', qaa: 'Versión original', und: 'Sin idioma'};
+
+    function pistasAudio() {
+        var t = stbAPI.GetAudioPIDs();
+        if (typeof t !== 'string') return t || [];
+        try { return JSON.parse(t); } catch (err) {}
+        // Algunos firmwares la dan con las claves sin comillas.
+        try { return (new Function('return ' + t))() || []; } catch (err) {}
+        return [];
+    }
+
+    function cambiarAudio() {
+        if (!stbAPI || !stbAPI.GetAudioPIDs || !stbAPI.SetAudioPID) return;
+        var l = [];
+        try { l = pistasAudio(); } catch (err) {}
+        if (l.length < 2) { toast('Este canal solo tiene un audio'); return; }
+        var actual = -1, i;
+        try { actual = stbAPI.GetAudioPID(); } catch (err) {}
+        for (i = 0; i < l.length; i++) if (l[i].pid === actual) break;
+        i = (i + 1) % l.length;
+        try { stbAPI.SetAudioPID(l[i].pid); } catch (err) {}
+        var lang = String((l[i].lang && l[i].lang[0]) || '').toLowerCase();
+        toast('Audio ' + (i + 1) + ' de ' + l.length + ': ' + (IDIOMAS[lang] || lang || 'sin nombre'));
+    }
+
     function accesoConfiguracion(k) {
         // Cinco pulsaciones seguidas de la misma tecla no reconocida abren la
         // configuracion del deco. Asi el cliente no entra sin querer y el
@@ -4646,6 +4699,8 @@
             if (!ayudaPuesta && !(isFullscreen && diferido)) return false;
             k = 27;
         }
+        if (k === 120 && !e.altKey) { teclaSet(); return false; }
+        if (k === 71 && e.altKey) { cambiarAudio(); return false; }
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
         if (avisoAbierto && k !== 107 && k !== 109) { teclaAviso(k); return false; }
@@ -4747,23 +4802,16 @@
             } else if (k === 37 && !diferido) {
                 // ◀ en el directo: atras en el tiempo, con el archivo.
                 retrocederDirecto();
-            } else if (k === 38) {
-                // Cambiar canal en fullscreen
-                if (currentChannel > 0) {
-                    currentChannel--;
-                    var ch = channels[currentChannel];
-                    playChannel(ch);
-                    playingChannelIdx = currentChannel;
-                    mostrarOsd(ch);
-                }
-            } else if (k === 40) {
-                if (currentChannel < channels.length - 1) {
-                    currentChannel++;
-                    var ch = channels[currentChannel];
-                    playChannel(ch);
-                    playingChannelIdx = currentChannel;
-                    mostrarOsd(ch);
-                }
+            } else if ((k === 38 || k === 40) && channels.length) {
+                // Cambiar canal en fullscreen: ▲ (y CH+) al siguiente numero,
+                // como en Ministra y en cualquier tele; antes iba al reves.
+                // En los extremos da la vuelta.
+                var n = channels.length;
+                currentChannel = (currentChannel + (k === 38 ? 1 : -1) + n) % n;
+                var ch = channels[currentChannel];
+                playChannel(ch);
+                playingChannelIdx = currentChannel;
+                mostrarOsd(ch);
             } else if (k === 39 || k === 73 || k === 89) {
                 // Primera pulsacion: la barra del canal. Si ya esta puesta,
                 // otra vez entra en la ficha del programa. Es el mismo gesto
