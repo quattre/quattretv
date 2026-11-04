@@ -293,6 +293,7 @@
         // puesto no vuelve a pedir nada y en el panel figura como apagado.
         setInterval(latido, 60000);
         setInterval(refrescarPosicionOsd, 1000);
+        setInterval(pintarReloj, 2000);
         // El videoclub, por adelantado: al rato de encender y cada media hora.
         setTimeout(precargarSemana, 20000);
         setInterval(precargarSemana, 1800000);
@@ -2468,7 +2469,25 @@
         return 'canales';
     }
 
+    // La hora, arriba a la derecha, en las listas, las guias y el videoclub,
+    // como en cualquier tele. A pantalla completa la lleva la barra del canal.
+    // En la parrilla va mas arriba: debajo esta el video pequeño.
+    var relojPuesto = '';
+    function pintarReloj() {
+        var r = document.getElementById("reloj");
+        if (!r) return;
+        var ver = !isFullscreen && !mensajeAbierto && !avisoAbierto && !videoAyuda && view !== "pin";
+        var d = new Date(), t = dosCifras(d.getHours()) + ':' + dosCifras(d.getMinutes());
+        var estado = ver ? t + '|' + (view === "rejilla") : '';
+        if (estado === relojPuesto) return;
+        relojPuesto = estado;
+        r.style.display = ver ? "block" : "none";
+        r.className = view === "rejilla" ? "rj" : "";
+        r.innerHTML = t;
+    }
+
     function pintarRail() {
+        pintarReloj();
         var caja = document.getElementById("rail");
         if (!caja) return;
         var cuerpo = document.body.className.replace(/\s*con-rail/g, '');
@@ -2870,7 +2889,9 @@
 
     function pestanasSemana() {
         var h = '<div class="sem-tabs' + (semana.foco === 'pestanas' ? ' activa' : '') + '">' +
-                '<b>VIDEOCLUB 7 DIAS</b>';
+                // El logo en vez del rotulo "VIDEOCLUB 7 DIAS": la seccion ya la marca
+                // el menu de la izquierda, y asi queda sitio para la hora.
+                '<i class="sem-logo">' + LOGO + '</i>';
         for (var i = 0; i < semana.pestanas.length; i++) {
             h += '<span' + (i === semana.tabIdx ? ' class="sel"' : '') + '>' +
                  esc(semana.pestanas[i][1]) + '</span>';
@@ -5845,6 +5866,14 @@
             top: 50%; left: 50%; transform: translate(-50%,-50%);
             padding: 26px 52px; font-size: 30px; border-radius: 16px;
         }
+        #reloj {
+            display: none; position: fixed; top: 36px; right: 92px; z-index: 30;
+            font-size: 32px; font-weight: 600; letter-spacing: 1px; color: #e6e6e6;
+            text-shadow: 0 1px 4px rgba(0,0,0,.7);
+        }
+        #reloj.rj { top: 10px; font-size: 28px; }
+        .sem-tabs .sem-logo { display: inline-block; vertical-align: middle; margin: -6px 26px 0 0; }
+        .sem-tabs .sem-logo img { display: block; height: 36px; width: auto; }
         #toast {
             bottom: 64px; left: 50%; transform: translateX(-50%);
             padding: 20px 36px; font-size: 22px; border-radius: 14px;
@@ -6157,6 +6186,10 @@
             #semana { padding: 33px 40px; }
             .sem-vacio { font-size: 20px; padding: 53px; }
             .sem-tabs { height: 37px; margin-bottom: 12px; }
+            .sem-tabs .sem-logo { margin: -4px 17px 0 0; }
+            .sem-tabs .sem-logo img { height: 24px; }
+            #reloj { top: 24px; right: 61px; font-size: 21px; }
+            #reloj.rj { top: 7px; font-size: 19px; }
             .sem-tabs b { font-size: 12px; letter-spacing: 2px; margin-right: 17px; }
             .sem-tabs span { font-size: 16px; padding: 5px 12px 4px; margin-right: 5px; border-bottom-width: 2px; }
             .sem-tabs.activa span.sel { border-radius: 16px; }
@@ -6252,6 +6285,7 @@
     <div id="diag"></div>
     <div id="vol" style="z-index:20;"></div>
     <div id="toast"></div>
+    <div id="reloj"></div>
     <div id="mensaje"></div>
     <div id="rail"></div>
     <div id="aviso"></div>
