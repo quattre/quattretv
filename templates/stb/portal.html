@@ -1883,10 +1883,10 @@
         osd.innerHTML = diferido ? osdDiferido(diferido) :
             '<div class="osd-ch">' + esc(titulo) + '</div>' +
             (subtitulo ? '<div class="osd-epg">' + esc(subtitulo) + '</div>' : '');
-        if (diferido) {
-            clearTimeout(osdTimeout);
-            osdTimeout = setTimeout(function() { osd.style.display = "none"; }, TIEMPO_OSD);
-        }
+        // Siempre se va sola: sin diferido (los videos de ayuda) se quedaba
+        // puesta todo el video y tapaba los rotulos de abajo.
+        clearTimeout(osdTimeout);
+        osdTimeout = setTimeout(function() { osd.style.display = "none"; }, TIEMPO_OSD);
     }
 
     // ---------- Menu principal ----------
