@@ -128,9 +128,10 @@ def _apuntar(vistos):
         if not candidatos:
             continue
         p = min(candidatos, key=lambda x: abs((x.start_time - inicio).total_seconds()))
-        if len(candidatos) > 1 and abs(p.start_time - inicio) > VENTANA_REPETIDO:
-            # Dos capitulos seguidos de lo mismo y el canal con retraso (Veo7
-            # va media hora tarde): es el siguiente al ultimo que se vio.
+        if len(candidatos) > 1:
+            # Dos capitulos seguidos de lo mismo: es el siguiente al ultimo que
+            # se vio. Por cercania no vale si el canal va con retraso (Veo7 va
+            # media hora tarde): el de las 06:38 se lo llevaba el de las 06:45.
             antes = ultimo.get(canal)
             if antes is None:
                 q = Program.objects.filter(
@@ -139,9 +140,10 @@ def _apuntar(vistos):
                 antes = (q.start_time, q.inicio_real) if q else None
             siguientes = sorted((c for c in candidatos if antes and c.start_time > antes[0]),
                                 key=lambda x: x.start_time)
-            if not siguientes or inicio - antes[1] < timedelta(minutes=10):
+            if siguientes and inicio - antes[1] >= timedelta(minutes=10):
+                p = siguientes[0]
+            elif abs(p.start_time - inicio) > VENTANA_REPETIDO:
                 continue
-            p = siguientes[0]
         ultimo[canal] = (p.start_time, inicio)
         if p.inicio_real != inicio:
             p.inicio_real = inicio
