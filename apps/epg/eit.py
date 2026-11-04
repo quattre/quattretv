@@ -327,6 +327,8 @@ def horas_vistas(programas):
         if p.start_time < primero[p.channel_id]:
             previos[p.channel_id] = p
 
+    from django.utils import timezone
+    ahora = timezone.now()
     for canal, lista in por_canal.items():
         ref = None   # (hora de guia del ultimo visto, retraso)
         previo = previos.get(canal)
@@ -358,6 +360,10 @@ def horas_vistas(programas):
                 fin = sig.ver_ini
             else:
                 fin = p.end_time + (p.ver_ini - p.start_time)
+            if p.epg_id == EPG_EIT and not p.fin_real and sig is None:
+                # Hecho con la EIT y aun abierto: dura hasta que la EIT diga
+                # que ha empezado otro, aunque pase de lo que se supuso.
+                fin = max(fin, ahora + timedelta(minutes=5))
             p.ver_fin = fin if fin > p.ver_ini else p.end_time
     return programas
 
