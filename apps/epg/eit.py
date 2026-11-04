@@ -85,6 +85,10 @@ def aplicar(cambios):
     if vistos:
         ObservacionEit.objects.bulk_create(vistos, ignore_conflicts=True)
     tocados = _apuntar(vistos)
+    try:
+        guia_desde_eit(vistos)
+    except Exception:
+        logger.exception('EIT: no se pudo completar la guia')
     if tocados:
         logger.info('EIT: hora real de %s programas', tocados)
     return tocados
@@ -364,3 +368,52 @@ def progreso(p, ahora):
     if ahora >= p.ver_fin:
         return 100
     return int((ahora - p.ver_ini).total_seconds() * 100 / max(1, (p.ver_fin - p.ver_ini).total_seconds()))
+
+
+# ---------- Guia hecha con la EIT ----------
+#
+# Blaze no sale en ninguna fuente gratuita, a Canal 33 y a Buen Viaje la suya
+# los dejo de mandar, y salian sin guia. Su señal si dice que empieza y
+# cuando: con eso se apunta un programa por cada cambio, y el anterior acaba
+# ahi. Lo que viene despues no se sabe; de lo de ahora se supone que dura lo
+# que suelen durar en ese canal hasta que la EIT diga que ha empezado otro.
+# Solo donde no hay guia de una fuente: esa manda.
+EPG_EIT = 'eit'
+
+
+def _duracion_tipica(canal):
+    from apps.epg.models import Program
+    durs = sorted((p.end_time - p.start_time) for p in Program.objects.filter(
+        channel_id=canal, epg_id=EPG_EIT, fin_real__isnull=False).order_by('-start_time')[:40])
+    d = durs[len(durs) // 2] if durs else timedelta(minutes=30)
+    return min(max(d, timedelta(minutes=10)), timedelta(hours=2))
+
+
+def guia_desde_eit(vistos):
+    from apps.epg.models import Program
+    hechos = 0
+    for o in sorted(vistos, key=lambda x: (x.channel_id, x.inicio)):
+        canal, inicio = o.channel_id, o.inicio
+        if Program.objects.filter(channel_id=canal, start_time__lte=inicio + timedelta(minutes=1),
+                                  end_time__gt=inicio).exclude(epg_id=EPG_EIT).exists():
+            continue
+        # El de antes hecho asi acaba justo ahora.
+        Program.objects.filter(channel_id=canal, epg_id=EPG_EIT, start_time__lt=inicio,
+                               end_time__gt=inicio - timedelta(hours=3)) \
+            .exclude(fin_real__lt=inicio).update(end_time=inicio, fin_real=inicio)
+        if Program.objects.filter(channel_id=canal, epg_id=EPG_EIT, start_time=inicio).exists():
+            continue
+        nombre = (o.nombre or '').strip()
+        if nombre.isupper():
+            nombre = nombre.capitalize()
+        titulo, _, resto = nombre.partition(' - ')
+        siguiente = Program.objects.filter(channel_id=canal, start_time__gt=inicio) \
+            .order_by('start_time').values_list('start_time', flat=True).first()
+        fin = inicio + _duracion_tipica(canal)
+        if siguiente and siguiente < fin:
+            fin = siguiente
+        Program.objects.create(channel_id=canal, epg_id=EPG_EIT, title=titulo[:500] or 'Programa',
+                               episode_title=resto[:500], start_time=inicio, end_time=fin,
+                               inicio_real=inicio, fin_real=fin if siguiente and siguiente == fin else None)
+        hechos += 1
+    return hechos
