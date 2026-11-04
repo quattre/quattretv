@@ -593,6 +593,8 @@ def handle_itv(request, action):
         return handle_get_url(request)
     elif action == 'get_short_epg':
         return handle_get_short_epg(request)
+    elif action == 'get_epg_now':
+        return handle_get_epg_now(request)
     elif action == 'set_fav':
         return handle_set_favorite(request)
     elif action == 'create_link':
@@ -638,6 +640,9 @@ EMPTY_EPG = {
     # La caratula del programa. Los decos de Infomir ignoran las claves que no
     # conocen, asi que va en la misma respuesta sin romper nada.
     'epg_icon': '',
+    # Cuando acaba lo de ahora, en segundos unix: el portal vuelve a pedir
+    # el ahora/despues a esa hora (ver handle_get_epg_now).
+    'epg_end_ts': 0,
 }
 
 EPG_CACHE_SECONDS = 60
@@ -691,6 +696,7 @@ def epg_now_next(channel_ids):
                 epg_cur_start=timezone.localtime(p.ver_ini).strftime('%H:%M'),
                 epg_cur_end=timezone.localtime(p.ver_fin).strftime('%H:%M'),
                 epg_icon=p.icon or '',
+                epg_end_ts=int(p.ver_fin.timestamp()),
             )
     seen = set()
     for p in progs:
@@ -966,6 +972,22 @@ def handle_get_url(request):
 def handle_create_link(request):
     """Create streaming link (alias for get_url)."""
     return handle_get_url(request)
+
+
+def handle_get_epg_now(request):
+    """
+    Solo el ahora/despues de todos los canales, para refrescar la lista sin
+    pedirla entera. El portal lo cargaba al arrancar y no lo volvia a pedir:
+    a las 21:16 Clan seguia diciendo "Los Casagrande, hasta 21:04". Es igual
+    para todos los aparatos, asi que sale de la cache de epg_now_next.
+    """
+    _, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
+    ids = list(Channel.objects.filter(is_active=True).values_list('id', flat=True))
+    datos = epg_now_next(ids)
+    return stalker_response({'data': {str(k): v for k, v in datos.items()},
+                             'now': int(timezone.now().timestamp())})
 
 
 def handle_get_short_epg(request):
