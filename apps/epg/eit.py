@@ -103,25 +103,46 @@ def reaplicar(canales, desde, hasta):
     return _apuntar(vistos)
 
 
+def _raiz(titulo):
+    """El nombre de la serie, sin temporada ni episodio: la EIT dice "Caso
+    abierto - Temporada 7 - Ep.1 El cruce" y la guia "Caso abierto (T7)"."""
+    from apps.stalker_api.semana import plano
+    t = re.sub(r'\(.*?\)', '', plano(titulo))
+    return re.split(r'\s+-\s+', t)[0].strip(' .:-')
+
+
 def _apuntar(vistos):
     from apps.epg.completar import parecido
     from apps.epg.models import Program
-    from apps.stalker_api.semana import plano
 
     tocados = 0
-    for o in vistos:
+    ultimo = {}   # canal -> (hora de guia, hora real) del ultimo apuntado
+    for o in sorted(vistos, key=lambda x: x.inicio):
         canal, inicio = o.channel_id, o.inicio
-        nombre = plano(o.nombre)
+        nombre = _raiz(o.nombre)
         # Por titulo, nunca solo por hora: si Antena 3 parte un programa en
         # dos, el "siguiente" de la guia no es el que ha empezado.
         candidatos = [p for p in Program.objects.filter(
             channel_id=canal, start_time__gte=inicio - VENTANA, start_time__lte=inicio + VENTANA)
-            if parecido(plano(p.title), nombre)]
+            if parecido(_raiz(p.title), nombre)]
         if not candidatos:
             continue
         p = min(candidatos, key=lambda x: abs((x.start_time - inicio).total_seconds()))
         if len(candidatos) > 1 and abs(p.start_time - inicio) > VENTANA_REPETIDO:
-            continue
+            # Dos capitulos seguidos de lo mismo y el canal con retraso (Veo7
+            # va media hora tarde): es el siguiente al ultimo que se vio.
+            antes = ultimo.get(canal)
+            if antes is None:
+                q = Program.objects.filter(
+                    channel_id=canal, inicio_real__lt=inicio,
+                    inicio_real__gte=inicio - timedelta(hours=6)).order_by('-inicio_real').first()
+                antes = (q.start_time, q.inicio_real) if q else None
+            siguientes = sorted((c for c in candidatos if antes and c.start_time > antes[0]),
+                                key=lambda x: x.start_time)
+            if not siguientes or inicio - antes[1] < timedelta(minutes=10):
+                continue
+            p = siguientes[0]
+        ultimo[canal] = (p.start_time, inicio)
         if p.inicio_real != inicio:
             p.inicio_real = inicio
             p.save(update_fields=['inicio_real'])
@@ -156,8 +177,8 @@ def _votos(progs, vistos):
     from apps.stalker_api.semana import plano
     difs = []
     for o in vistos:
-        nombre = plano(o.nombre)
-        cerca = [p for p in progs if abs(p.start_time - o.inicio) <= BUSCAR and parecido(plano(p.title), nombre)]
+        nombre = _raiz(o.nombre)
+        cerca = [p for p in progs if abs(p.start_time - o.inicio) <= BUSCAR and parecido(_raiz(p.title), nombre)]
         if len(cerca) == 1:
             difs.append(o.inicio - cerca[0].start_time)
     return difs
