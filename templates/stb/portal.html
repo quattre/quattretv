@@ -294,6 +294,7 @@
         setInterval(latido, 60000);
         setInterval(refrescarPosicionOsd, 1000);
         setInterval(pintarReloj, 2000);
+        setInterval(quizaRefrescarAhora, 20000);
         // El videoclub, por adelantado: al rato de encender y cada media hora.
         setTimeout(precargarSemana, 20000);
         setInterval(precargarSemana, 1800000);
@@ -2467,6 +2468,45 @@
         if (favOnly) return 'favoritos';
         if (genreFilter) return 'categorias';
         return 'canales';
+    }
+
+    // Lo que se emite ahora en cada canal. Llegaba con la lista al arrancar y
+    // no se volvia a pedir: a las 21:16 Clan seguia en "Los Casagrande, hasta
+    // 21:04". Se pide de nuevo cuando acaba algun programa (con unos segundos
+    // al azar, para que no pregunten todos los decos a la vez), y como mucho
+    // cada 10 minutos.
+    var CAMPOS_AHORA = ['cur_playing', 'epg_start', 'epg_end', 'epg_progress', 'epg_next',
+                        'epg_next_start', 'epg_cur_start', 'epg_cur_end', 'epg_icon', 'epg_end_ts'];
+    var ahoraPedido = new Date().getTime(), ahoraEspera = Math.floor(Math.random() * 20);
+
+    function quizaRefrescarAhora() {
+        var t = Math.floor(new Date().getTime() / 1000), proximo = Infinity;
+        for (var i = 0; i < allChannels.length; i++) {
+            var fin = allChannels[i].epg_end_ts;
+            if (fin && fin < proximo) proximo = fin;
+        }
+        var desde = new Date().getTime() - ahoraPedido;
+        if (desde < 50000) return;
+        if (t < proximo + ahoraEspera && desde < 600000) return;
+        refrescarAhora();
+    }
+
+    function refrescarAhora() {
+        ahoraPedido = new Date().getTime();
+        api("type=itv&action=get_epg_now", function(js) {
+            var datos = js && js.data;
+            if (!datos) return;
+            for (var i = 0; i < allChannels.length; i++) {
+                var c = allChannels[i], e = datos[c.id] || {};
+                for (var j = 0; j < CAMPOS_AHORA.length; j++) {
+                    var k = CAMPOS_AHORA[j];
+                    c[k] = (e[k] === undefined) ? (k === 'epg_progress' || k === 'epg_end_ts' ? 0 : '') : e[k];
+                }
+            }
+            // Solo se repinta la lista, que es donde se ve; la barra del canal
+            // lo coge la proxima vez que salga.
+            if (view === "list" && !isFullscreen && !rail.abierto) showChannels();
+        }, true);
     }
 
     // La hora, arriba a la derecha, en las listas, las guias y el videoclub,
