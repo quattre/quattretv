@@ -176,6 +176,16 @@ def _replace_programs(programs):
     """
     from .models import Program
 
+    # Algunas fuentes repiten el programa del cambio de dia en los dos dias
+    # del fichero, y salia dos veces en la guia (72 en un dia). Uno por hora.
+    unicos = {}
+    for prog in programs:
+        clave = (prog.channel_id, prog.start_time)
+        otro = unicos.get(clave)
+        if otro is None or len(prog.description or '') > len(otro.description or ''):
+            unicos[clave] = prog
+    programs = list(unicos.values())
+
     windows = {}
     for prog in programs:
         start, end = windows.get(prog.channel_id, (prog.start_time, prog.end_time))

@@ -668,35 +668,38 @@ def epg_now_next(channel_ids):
     now = timezone.now()
     result = {}
 
-    for p in Program.objects.filter(
-        channel_id__in=channel_ids, start_time__lte=now, end_time__gte=now
-    ):
-        result[p.channel_id] = dict(
-            EMPTY_EPG,
-            cur_playing=p.title,
-            epg_start=p.start_time.isoformat(),
-            epg_end=p.end_time.isoformat(),
-            epg_progress=p.progress_percent,
-            epg_cur_start=timezone.localtime(p.start_time).strftime('%H:%M'),
-            epg_cur_end=timezone.localtime(p.end_time).strftime('%H:%M'),
-            epg_icon=p.icon or '',
-        )
-
-    # Acotado a las proximas horas: sin el limite superior esta consulta traia
-    # todos los programas futuros (dias) de 50 canales para quedarse con uno
-    # por canal.
-    seen = set()
-    for p in Program.objects.filter(
+    # Con las horas que se enseñan (la real o con el retraso del canal): con
+    # las de la guia, en Veo7 la lista decia que ya habia empezado el programa
+    # siguiente media hora antes de que empezara. Acotado a unas horas: sin
+    # limite se traian dias de programas de 50 canales.
+    from apps.epg.eit import horas_vistas, progreso, RETRASO_MAX
+    margen = RETRASO_MAX + timezone.timedelta(minutes=15)
+    progs = horas_vistas(list(Program.objects.filter(
         channel_id__in=channel_ids,
-        start_time__gt=now,
+        end_time__gte=now - margen,
         start_time__lte=now + timezone.timedelta(hours=6),
-    ).order_by('channel_id', 'start_time'):
-        if p.channel_id in seen:
+    )))
+    progs.sort(key=lambda x: (x.channel_id, x.ver_ini))
+    for p in progs:
+        if p.ver_ini <= now < p.ver_fin and p.channel_id not in result:
+            result[p.channel_id] = dict(
+                EMPTY_EPG,
+                cur_playing=p.title,
+                epg_start=p.ver_ini.isoformat(),
+                epg_end=p.ver_fin.isoformat(),
+                epg_progress=progreso(p, now),
+                epg_cur_start=timezone.localtime(p.ver_ini).strftime('%H:%M'),
+                epg_cur_end=timezone.localtime(p.ver_fin).strftime('%H:%M'),
+                epg_icon=p.icon or '',
+            )
+    seen = set()
+    for p in progs:
+        if p.ver_ini <= now or p.channel_id in seen:
             continue
         seen.add(p.channel_id)
         entry = result.setdefault(p.channel_id, dict(EMPTY_EPG))
         entry['epg_next'] = p.title
-        entry['epg_next_start'] = timezone.localtime(p.start_time).strftime('%H:%M')
+        entry['epg_next_start'] = timezone.localtime(p.ver_ini).strftime('%H:%M')
 
     try:
         cache.set(key, result, EPG_CACHE_SECONDS)
@@ -974,11 +977,12 @@ def handle_get_short_epg(request):
     if not channel_id:
         return stalker_response({'data': []})
 
+    from apps.epg.eit import horas_vistas, RETRASO_MAX
     now = timezone.now()
-    programs = list(Program.objects.filter(
+    programs = [p for p in horas_vistas(list(Program.objects.filter(
         channel_id=channel_id,
-        end_time__gte=now
-    ).order_by('start_time')[:10])
+        end_time__gte=now - RETRASO_MAX
+    ).order_by('start_time')[:12])) if p.ver_fin >= now][:10]
 
     # Que grabaciones tiene ya programadas este usuario de estos programas: sin
     # esto la ficha ofreceria grabar algo que ya esta grabandose.
@@ -992,29 +996,8 @@ def handle_get_short_epg(request):
             ).values_list('program_id', flat=True)
         )
 
-    data = []
-    for prog in programs:
-        data.append({
-            'id': str(prog.id),
-            't_time': timezone.localtime(prog.start_time).strftime('%H:%M'),
-            't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
-            'name': prog.title,
-            # La descripcion iba recortada a 200 caracteres, y la ficha del
-            # programa la enseña entera: cortarla aqui dejaba la sinopsis a
-            # medias justo cuando el usuario ha pedido leerla. Casi la mitad de
-            # la guia pasa de esos 200 caracteres.
-            'descr': prog.description or '',
-            'category': prog.category or '',
-            'ch_id': str(prog.channel_id),
-            'start_timestamp': int(prog.start_time.timestamp()),
-            'stop_timestamp': int(prog.end_time.timestamp()),
-            'progress': prog.progress_percent,
-            # Los mismos que manda la guia, para que la ficha se pinte igual se
-            # llegue desde donde se llegue.
-            'past': 1 if prog.end_time < now else 0,
-            'current': 1 if prog.start_time <= now <= prog.end_time else 0,
-            'rec': 1 if prog.id in programadas else 0,
-        })
+    # La descripcion va entera: la ficha del programa la enseña completa.
+    data = [programa_epg(prog, now, programadas) for prog in programs]
 
     return stalker_response({'data': data})
 
@@ -1338,6 +1321,29 @@ def handle_epg(request, action):
     return stalker_response({'error': 'Unknown action'})
 
 
+def programa_epg(prog, now, grabaciones, descr=None):
+    """Un programa como lo esperan la guia, la parrilla y la ficha, con las
+    horas que se enseñan (eit.horas_vistas ya aplicado)."""
+    from apps.epg.eit import progreso
+    texto = prog.description or ''
+    return {
+        'id': str(prog.id),
+        't_time': timezone.localtime(prog.ver_ini).strftime('%H:%M'),
+        't_time_end': timezone.localtime(prog.ver_fin).strftime('%H:%M'),
+        'name': prog.title,
+        'descr': texto[:descr] if descr else texto,
+        'category': prog.category or '',
+        'icon': prog.icon or '',
+        'ch_id': str(prog.channel_id),
+        'start_timestamp': int(prog.ver_ini.timestamp()),
+        'stop_timestamp': int(prog.ver_fin.timestamp()),
+        'progress': progreso(prog, now),
+        'past': 1 if prog.ver_fin < now else 0,
+        'current': 1 if prog.ver_ini <= now < prog.ver_fin else 0,
+        'rec': 1 if prog.id in grabaciones else 0,
+    }
+
+
 def handle_epg_table(request):
     """Get EPG data table."""
     channel_id = request.GET.get('ch_id')
@@ -1379,26 +1385,9 @@ def handle_epg_table(request):
             ).values_list('program_id', flat=True)
         )
 
+    from apps.epg.eit import horas_vistas
     now = timezone.now()
-    data = []
-    for prog in programs:
-        data.append({
-            'id': str(prog.id),
-            't_time': timezone.localtime(prog.start_time).strftime('%H:%M'),
-            't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
-            'name': prog.title,
-            'descr': prog.description or '',
-            'category': prog.category or '',
-            'icon': prog.icon or '',
-            # Extras used by our portal (MAG ignores unknown keys)
-            'ch_id': str(prog.channel_id),
-            'start_timestamp': int(prog.start_time.timestamp()),
-            'stop_timestamp': int(prog.end_time.timestamp()),
-            'progress': prog.progress_percent,
-            'past': 1 if prog.end_time < now else 0,
-            'current': 1 if prog.start_time <= now <= prog.end_time else 0,
-            'rec': 1 if prog.id in scheduled else 0,
-        })
+    data = [programa_epg(prog, now, scheduled) for prog in horas_vistas(list(programs))]
 
     # Hasta donde se puede ir: atras, lo que guarda el archivo; adelante,
     # mientras haya guia.
@@ -1432,9 +1421,11 @@ def handle_epg_rejilla(request):
     # Que nadie pida un mes entero de golpe.
     hasta = min(hasta, desde + timedelta(hours=24))
 
-    programs = list(Program.objects.filter(
-        channel_id__in=ids, end_time__gt=desde, start_time__lt=hasta
-    ).order_by('channel_id', 'start_time'))
+    from apps.epg.eit import horas_vistas, RETRASO_MAX
+    programs = [p for p in horas_vistas(list(Program.objects.filter(
+        channel_id__in=ids, end_time__gt=desde - RETRASO_MAX, start_time__lt=hasta
+    ))) if p.ver_fin > desde and p.ver_ini < hasta]
+    programs.sort(key=lambda p: (p.channel_id, p.ver_ini))
 
     scheduled = set()
     device = get_device_from_request(request)
@@ -1445,21 +1436,7 @@ def handle_epg_rejilla(request):
 
     data = {i: [] for i in ids}
     for prog in programs:
-        data.setdefault(str(prog.channel_id), []).append({
-            'id': str(prog.id),
-            'ch_id': str(prog.channel_id),
-            'name': prog.title,
-            'descr': (prog.description or '')[:700],
-            'category': prog.category or '',
-            't_time': timezone.localtime(prog.start_time).strftime('%H:%M'),
-            't_time_end': timezone.localtime(prog.end_time).strftime('%H:%M'),
-            'start_timestamp': int(prog.start_time.timestamp()),
-            'stop_timestamp': int(prog.end_time.timestamp()),
-            'progress': prog.progress_percent,
-            'past': 1 if prog.end_time < now else 0,
-            'current': 1 if prog.start_time <= now <= prog.end_time else 0,
-            'rec': 1 if prog.id in scheduled else 0,
-        })
+        data.setdefault(str(prog.channel_id), []).append(programa_epg(prog, now, scheduled, 700))
     return stalker_response({'data': data, 'from': int(desde.timestamp()),
                              'to': int(hasta.timestamp()), 'now': int(now.timestamp())})
 
@@ -1660,7 +1637,10 @@ def handle_archive_link(request):
     # pantalla sigue la hora de la guia: el deco solo se entera por "desde".
     from apps.epg.eit import tramo_real
     from apps.epg.models import Program
-    programa = Program.objects.filter(channel=channel, start_time=start).first()
+    # El deco manda la hora que se enseña (eit.horas_vistas), que puede ser la
+    # real o la de la guia con retraso: se busca por las tres.
+    programa = (Program.objects.filter(channel=channel, start_time=start).first()
+                or Program.objects.filter(channel=channel, inicio_real=start).first())
     if programa:
         inicio_real, fin_real = tramo_real(programa)
         fin = start + timezone.timedelta(seconds=duration)

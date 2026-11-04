@@ -259,3 +259,85 @@ def tramo_real(programa):
         # adelanta el final, que es preferible que sobre a que falte.
         fin = fin + (inicio - programa.start_time)
     return inicio, fin
+
+
+# ---------- Las horas que se enseñan ----------
+#
+# La guia de las fuentes va a menudo por detras de lo que se emite: Veo7
+# empezaba cada programa 25-35 minutos despues de lo que decia la guia durante
+# todo el dia, y Warner o À Punt entre 5 y 20. La EIT dice cuando empezo de
+# verdad lo que ya se ha emitido; lo que viene detras suele ir con el mismo
+# retraso, asi que se le suma, sin pasar de unas horas: los canales se vuelven
+# a poner en hora en algun momento (las noticias, el prime time).
+RETRASO_MAX = timedelta(minutes=45)
+ARRASTRE = timedelta(hours=4)
+
+
+def horas_vistas(programas):
+    """
+    Pone a cada programa .ver_ini y .ver_fin: la hora real si se sabe, si no
+    la de la guia con el retraso que llevaba el canal en lo ultimo visto.
+    Los programas pueden ser de varios canales; se ordenan por canal y hora.
+    """
+    from apps.epg.models import Program
+
+    por_canal = {}
+    for p in programas:
+        por_canal.setdefault(p.channel_id, []).append(p)
+    if not por_canal:
+        return programas
+    for lista in por_canal.values():
+        lista.sort(key=lambda x: x.start_time)
+
+    # Lo ultimo visto de cada canal antes de su primer programa, para saber
+    # con que retraso llega.
+    primero = {c: l[0].start_time for c, l in por_canal.items()}
+    previos = {}
+    for p in Program.objects.filter(
+            channel_id__in=list(por_canal), inicio_real__isnull=False,
+            start_time__gte=min(primero.values()) - ARRASTRE,
+            start_time__lt=max(primero.values())).order_by('start_time'):
+        if p.start_time < primero[p.channel_id]:
+            previos[p.channel_id] = p
+
+    for canal, lista in por_canal.items():
+        ref = None   # (hora de guia del ultimo visto, retraso)
+        previo = previos.get(canal)
+        if previo:
+            d = previo.inicio_real - previo.start_time
+            if abs(d) <= RETRASO_MAX:
+                ref = (previo.start_time, d)
+        antes = None
+        for p in lista:
+            real = p.inicio_real if p.inicio_real and abs(p.inicio_real - p.start_time) <= VENTANA else None
+            # Al dejar de sumar el retraso, el de antes se quedaria encogido
+            # (un Big Bang de 5 minutos): mientras pase eso, se sigue sumando.
+            encoge = (antes is not None and antes.end_time == p.start_time and
+                      p.start_time - antes.ver_ini < (antes.end_time - antes.start_time) / 2)
+            if real:
+                p.ver_ini = real
+                d = real - p.start_time
+                ref = (p.start_time, d) if abs(d) <= RETRASO_MAX else None
+            elif ref and (p.start_time - ref[0] <= ARRASTRE or encoge):
+                p.ver_ini = p.start_time + ref[1]
+            else:
+                p.ver_ini = p.start_time
+            antes = p
+        for i, p in enumerate(lista):
+            sig = lista[i + 1] if i + 1 < len(lista) else None
+            if p.fin_real and abs(p.fin_real - p.end_time) <= VENTANA * 2 and p.fin_real > p.ver_ini:
+                fin = p.fin_real
+            elif sig and sig.start_time == p.end_time:
+                fin = sig.ver_ini
+            else:
+                fin = p.end_time + (p.ver_ini - p.start_time)
+            p.ver_fin = fin if fin > p.ver_ini else p.end_time
+    return programas
+
+
+def progreso(p, ahora):
+    if ahora < p.ver_ini:
+        return 0
+    if ahora >= p.ver_fin:
+        return 100
+    return int((ahora - p.ver_ini).total_seconds() * 100 / max(1, (p.ver_fin - p.ver_ini).total_seconds()))
