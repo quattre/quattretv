@@ -15,6 +15,9 @@
     var genreIdx = 0;
     var genreFilter = '';       // '' = todas las categorias
     var favOnly = false;
+    // Las radios van aparte, en su seccion del menu: mezcladas con la tele
+    // salian al final de la lista con numeros de cuatro cifras.
+    var soloRadio = false;
     var numBuffer = '';
     var numTimeout = null;
     var pinBuffer = '';
@@ -44,6 +47,7 @@
         canales: '<rect x="3" y="4" width="26" height="18" rx="3"/><path d="M11 28h10M16 22v6"/>',
         semana: '<rect x="3" y="6" width="26" height="20" rx="3"/><path d="M13 11.5v9l7.5-4.5z"/>',
         categorias: '<rect x="4" y="4" width="10" height="10" rx="2"/><rect x="18" y="4" width="10" height="10" rx="2"/><rect x="4" y="18" width="10" height="10" rx="2"/><rect x="18" y="18" width="10" height="10" rx="2"/>',
+        radio: '<rect x="3" y="11" width="26" height="17" rx="3"/><path d="M8 11L24 4"/><circle cx="11" cy="19.5" r="4"/><path d="M19 17h6M19 22h6"/>',
         favoritos: '<path d="M16 3.5l3.8 7.8 8.5 1.2-6.2 6 1.5 8.5L16 23l-7.6 4 1.5-8.5-6.2-6 8.5-1.2z"/>',
         grabaciones: '<circle cx="16" cy="16" r="12.5"/><circle cx="16" cy="16" r="5" fill="currentColor"/>',
         guia: '<rect x="4" y="5" width="24" height="23" rx="3"/><path d="M4 12h24M11 3v5M21 3v5M9 17h4M9 22h4M17 17h6M17 22h6"/>',
@@ -148,6 +152,8 @@
     var relojRed = null;
     var vueltaRed = 0;
     var ESPERAS_RED = [2000, 4000, 8000, 15000];   // ms entre reintentos
+    // La barra de informacion al cambiar de canal: con 12 s se hacia pesada.
+    var TIEMPO_OSD = 5000;
     var TIEMPO_PETICION = 12000;                   // ms antes de dar por muerta una peticion
 
     function avisoRed(texto) {
@@ -1289,7 +1295,8 @@
         channels = [];
         for (var i = 0; i < allChannels.length; i++) {
             var c = allChannels[i];
-            if (genreFilter && String(c.genre_id) !== String(genreFilter)) continue;
+            if (!!c.radio !== soloRadio) continue;
+            if (genreFilter && !soloRadio && String(c.genre_id) !== String(genreFilter)) continue;
             if (favOnly && !c.fav) continue;
             channels.push(c);
         }
@@ -1301,6 +1308,36 @@
                 if (channels[j].id === anterior) { currentChannel = j; break; }
             }
         }
+    }
+
+    // Pasar de la tele a la radio y al reves, sin filtros. Cada una recuerda
+    // donde se quedo, y lo que suena sigue sonando hasta que se elige otra cosa.
+    var ultimoDe = {};
+    function ponerRadio(si) {
+        if (channels[currentChannel]) ultimoDe[soloRadio] = channels[currentChannel].id;
+        var suena = channels[playingChannelIdx] ? channels[playingChannelIdx].id : null;
+        soloRadio = si;
+        favOnly = false;
+        genreFilter = '';
+        applyFilters();
+        currentChannel = 0;
+        playingChannelIdx = -1;
+        for (var i = 0; i < channels.length; i++) {
+            if (channels[i].id === ultimoDe[si]) currentChannel = i;
+            if (channels[i].id === suena) playingChannelIdx = i;
+        }
+        rj.fila = Math.min(rj.fila, Math.max(0, channels.length - 1));
+    }
+
+    function hayRadios() {
+        for (var i = 0; i < allChannels.length; i++) if (allChannels[i].radio) return true;
+        return false;
+    }
+
+    // Las radios llevan 1001, 1002... para no chocar con la tele; en su lista
+    // se ven y se marcan como 1, 2..., igual que en Ministra.
+    function numero(c) {
+        return (c && c.radio && c.number > 1000) ? c.number - 1000 : (c ? c.number : '');
     }
 
     function loadGenres() {
@@ -1478,10 +1515,10 @@
 
     // Cuantos canales hay en cada categoria, como en la maqueta.
     function canalesDeGenero(id) {
-        if (id === '' || id === undefined || id === null) return allChannels.length;
         var n = 0;
         for (var i = 0; i < allChannels.length; i++) {
-            if (String(allChannels[i].genre_id) === String(id)) n++;
+            if (allChannels[i].radio) continue;
+            if (id === '' || id === undefined || id === null || String(allChannels[i].genre_id) === String(id)) n++;
         }
         return n || '';
     }
@@ -1848,7 +1885,7 @@
             (subtitulo ? '<div class="osd-epg">' + esc(subtitulo) + '</div>' : '');
         if (diferido) {
             clearTimeout(osdTimeout);
-            osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 12000);
+            osdTimeout = setTimeout(function() { osd.style.display = "none"; }, TIEMPO_OSD);
         }
     }
 
@@ -1858,6 +1895,7 @@
     // grabador, la opcion de grabaciones ni aparece.
     var MENU_COMPLETO = [
         {id: 'canales',     titulo: 'Canales',        modulo: 'tv'},
+        {id: 'radio',       titulo: 'Radio',          modulo: 'tv'},
         {id: 'guia',        titulo: 'Guia',           modulo: 'lateral'},
         {id: 'semana',      titulo: 'Videoclub 7 dias', modulo: 'semana'},
         {id: 'categorias',  titulo: 'Categorias',     modulo: 'tv'},
@@ -1923,7 +1961,8 @@
     function elegirMenu() {
         var opcion = MENU[menuIdx];
         if (!opcion) return;
-        if (opcion.id === 'canales') showChannels();
+        if (opcion.id === 'canales') { if (soloRadio) ponerRadio(false); showChannels(); startPreview(); }
+        else if (opcion.id === 'radio') abrirRadio();
         else if (opcion.id === 'guia') openGuide();
         else if (opcion.id === 'categorias') openGenres();
         else if (opcion.id === 'favoritos') toggleFavOnly();
@@ -1957,7 +1996,16 @@
 
     function alinear(t) { return t - (t % RJ_PASO); }
 
+    function abrirRadio() {
+        if (!hayRadios()) { toast('No hay emisoras de radio'); return; }
+        if (!soloRadio || favOnly) ponerRadio(true);
+        showChannels();
+        startPreview();
+    }
+
     function openRejilla() {
+        // La parrilla es de la tele: las radios no tienen programacion.
+        if (soloRadio) ponerRadio(false);
         if (!channels.length) return;
         var vuelta = rj.volver;
         rj.volver = false;
@@ -2115,7 +2163,7 @@
 
         // Arriba a la izquierda, el programa elegido.
         h += '<div class="rj-info" style="left:' + px(190) + ';top:' + px(56) + ';width:' + px(hx - 230) + ';height:' + px(hh) + '">';
-        if (ch) h += '<div class="rj-canal">' + ch.number + ' · ' + esc(ch.name) + '</div>';
+        if (ch) h += '<div class="rj-canal">' + numero(ch) + ' · ' + esc(ch.name) + '</div>';
         if (p) {
             h += '<div class="rj-titulo">' + esc(p.name);
             if (p.current) h += ' <span class="live">AHORA</span>';
@@ -2157,7 +2205,7 @@
             var y = Y0 + f * ALTO;
             h += '<div class="rj-ch' + (i === rj.fila ? ' sel' : '') + '" style="left:' + px(190) + ';top:' + px(y) +
                  ';width:' + px(X0 - 200) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
-                 '<b>' + c.number + '</b>' + esc(c.name) + '</div>';
+                 '<b>' + numero(c) + '</b>' + esc(c.name) + '</div>';
             var l = progsDe(c), alguno = false;
             for (var j = 0; j < l.length; j++) {
                 var q = l[j];
@@ -2413,6 +2461,7 @@
         if (view === "genres") return 'categorias';
         if (view === "recordings") return 'grabaciones';
         if (view === "ayuda") return 'ayuda';
+        if (soloRadio) return 'radio';
         if (favOnly) return 'favoritos';
         if (genreFilter) return 'categorias';
         return 'canales';
@@ -2487,8 +2536,11 @@
         }
         if (op.id === 'canales') {
             // Canales es la lista entera: sin favoritos ni categoria.
-            if (favOnly || genreFilter) { favOnly = false; genreFilter = ''; applyFilters(); }
+            if (favOnly || genreFilter || soloRadio) ponerRadio(false);
             showChannels();
+            startPreview();
+        } else if (op.id === 'radio') {
+            abrirRadio();
         } else if (op.id === 'guia') {
             // En los decos, la guia de la barra es la parrilla de todos los
             // canales; la de un canal sigue con ▶ desde la lista.
@@ -3350,6 +3402,8 @@
                     if (js2 && js2.data) {
                         allChannels = js2.data;
                         applyFilters();
+                        // Solo llegaba la primera pagina: 50 canales de 81.
+                        if ((js2.total_items || 0) > js2.data.length) loadPage(1);
                     }
                     showChannels();
                     if (siguiente) siguiente();
@@ -3380,7 +3434,7 @@
         if (!objetivo) return;
 
         for (var i = 0; i < channels.length; i++) {
-            if (channels[i].number === objetivo) {
+            if (numero(channels[i]) === objetivo) {
                 if (view === "rejilla") { cambiarFilaRejilla(i); return; }
                 currentChannel = i;
                 if (isFullscreen) {
@@ -3406,14 +3460,15 @@
         var h = '<div class="panel">';
         h += '<div class="header"><div class="logo">' + LOGO + '</div>';
         var etiqueta = channels.length + ' canales';
-        if (favOnly) etiqueta = 'Favoritos: ' + channels.length;
+        if (soloRadio) etiqueta = (favOnly ? 'Radio favoritas: ' : 'Radio: ') + channels.length;
+        else if (favOnly) etiqueta = 'Favoritos: ' + channels.length;
         else if (genreFilter) etiqueta = generoActual() + ': ' + channels.length;
         // El acceso directo al videoclub va arriba, siempre a la vista. Al pie
         // de la ayuda no cabia y quedaba fuera del panel.
         if (haySemana() && !usarRail()) h += '<div class="boton-semana' + (focoSemana ? ' sel' : '') +
                               '" data-tecla="405"><i></i>Videoclub 7 dias</div>';
         // Cuantos canales, solo con un filtro puesto: es cuando importa saberlo.
-        if (favOnly || genreFilter) h += '<div class="counter">' + esc(etiqueta) + '</div>';
+        if (favOnly || genreFilter || soloRadio) h += '<div class="counter">' + esc(etiqueta) + '</div>';
         h += '</div>';
 
         h += '<div class="list">';
@@ -3424,7 +3479,7 @@
             var c = channels[i];
             var cls = (i === currentChannel) ? "item sel" : "item";
             h += '<div class="' + cls + '" data-i="' + i + '">';
-            h += '<div class="num">' + c.number + '</div>';
+            h += '<div class="num">' + numero(c) + '</div>';
             // El hueco va siempre, con logotipo o sin el: si falta, la lista se
             // descuadra porque el nombre arranca en otro sitio. Los que no
             // tienen logotipo llevan sus iniciales.
@@ -4178,7 +4233,7 @@
         }
 
         html += '<div class="txt">';
-        html += '<div class="t">' + ch.number + '. ' + esc(ch.name) + '</div>';
+        html += '<div class="t">' + numero(ch) + '. ' + esc(ch.name) + '</div>';
         if (ch.cur_playing) {
             html += '<div class="e">' + esc(ch.epg_cur_start) + ' - ' + esc(ch.epg_cur_end) +
                     '  ' + esc(ch.cur_playing) + '</div>';
@@ -4213,7 +4268,7 @@
         var hora = ('0' + ahora.getHours()).slice(-2) + ':' + ('0' + ahora.getMinutes()).slice(-2);
 
         var h = '<div class="osd-fila">';
-        h += '<div class="osd-num">' + ch.number + '</div>';
+        h += '<div class="osd-num">' + numero(ch) + '</div>';
         if (MOSTRAR_LOGOS && ch.logo) h += '<div class="osd-ico"><img src="' + esc(ch.logo) + '" onerror="this.style.display=0"></div>';
 
         h += '<div class="osd-datos">';
@@ -4310,7 +4365,7 @@
         osd.innerHTML = diferido ? osdDiferido(diferido) : osdFor(ch);
         osd.style.display = "block";
         clearTimeout(osdTimeout);
-        osdTimeout = setTimeout(function() { osd.style.display = "none"; }, 12000);
+        osdTimeout = setTimeout(function() { osd.style.display = "none"; }, TIEMPO_OSD);
     }
 
     function goFullscreen() {
