@@ -1191,6 +1191,37 @@
 
     var audioInformado = {};
 
+    // El MAG 322 se quedaba en negro cambiando rapido de canal: cada pulsacion
+    // era una orden de reproducir nueva y su reproductor, mas lento que el de
+    // los otros modelos, se atascaba a medias y no volvia. Haciendo zapping
+    // seguido solo se reproduce el canal en el que se para (la barra del canal
+    // sigue cambiando en cada pulsacion), y si a los 6 segundos no ha arrancado
+    // nada, se vuelve a pedir una vez.
+    var colaStb = null, ultimaPeticionStb = 0, testigoStb = 0, arrancoStb = false;
+    function reproducirStb(ch) {
+        var ahora = new Date().getTime();
+        var seguido = ahora - ultimaPeticionStb < 700;
+        ultimaPeticionStb = ahora;
+        clearTimeout(colaStb);
+        if (seguido) colaStb = setTimeout(function() { ordenStb(ch, 0); }, 400);
+        else ordenStb(ch, 0);
+    }
+
+    function ordenStb(ch, intento) {
+        var yo = ++testigoStb;
+        arrancoStb = false;
+        try { if (intento) stbAPI.Stop(); stbAPI.Play(ch.cmd); } catch(err) {}
+        if (!ch.id || intento) return;     // lo emitido no se repite: perderia el sitio
+        setTimeout(function() {
+            if (yo !== testigoStb || arrancoStb) return;
+            var pistas = [];
+            try { pistas = pistasAudio(); } catch(err) {}
+            if (pistas.length) return;
+            api('type=stb&action=log&diag=' + encodeURIComponent('repro reintento ' + (ch.name || ch.id)), function() {});
+            ordenStb(ch, 1);
+        }, 6000);
+    }
+
     function playChannel(ch) {
         // Un canal de verdad (con id) es el directo; {cmd: url} es el archivo,
         // una grabacion o el videoclub, que ponen su propio estado.
@@ -1202,7 +1233,7 @@
         } else if (androidPlayer) {
             try { androidPlayer.reproducir(ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '')); } catch(err) {}
         } else if (stbAPI) {
-            try { stbAPI.Play(ch.cmd); } catch(err) {}
+            reproducirStb(ch);
         } else if (player) {
             try { player.play({uri: ch.cmd}); } catch(err) {}
         }
@@ -1244,6 +1275,8 @@
         if (tarjeta) tarjeta.style.display = 'none';
         try { if (useHTML5 && htmlPlayer) { htmlPlayer.pause(); htmlPlayer.style.display = 'none'; } } catch(err) {}
         try { if (androidPlayer) androidPlayer.parar(); } catch(err) {}
+        clearTimeout(colaStb);
+        testigoStb++;
         try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
         try { if (player && player.stop) player.stop(); } catch(err) {}
         playingChannelIdx = -1;
@@ -4579,6 +4612,7 @@
             toast('Abriendo la configuracion del equipo');
             // Se para la reproduccion antes: con el video en marcha, su menu
             // queda por debajo de la imagen y no se lee.
+            clearTimeout(colaStb); testigoStb++;
             try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
             playingChannelIdx = -1;
             try { if (stbAPI && stbAPI.EnableServiceButton) stbAPI.EnableServiceButton(true); } catch(err) {}
@@ -5261,6 +5295,7 @@
     // "se acabo lo que se estaba reproduciendo".
     window.stbEvent = window.stbEvent || {};
     window.stbEvent.onEvent = function(evento) {
+        if (String(evento) === '4') arrancoStb = true;     // empezo a reproducir
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
     };
