@@ -369,13 +369,19 @@
             if (!acabado) return;
             clearInterval(reloj);
             contar('estados ' + vistos.join(','));
-            var d = '';
+            var d = '', version = '';
             try {
-                d = ' (' + stbUpdate.getStatusStr() + ') version=' + stbUpdate.getImageVersionStr() +
+                version = String(stbUpdate.getImageVersionStr() || '');
+                d = ' (' + stbUpdate.getStatusStr() + ') version=' + version +
                     ' desc=' + stbUpdate.getImageDescStr() + ' fecha=' + stbUpdate.getImageDateStr();
             } catch (e) {}
             contar('comprobado estado=' + s + d);
-            if (s === 24 && f.instalar) {
+            // El 420 (2.20.05) no se queda en 24 al acabar la comprobacion:
+            // vuelve a 21 con los datos de la imagen ya leidos. Vale cualquiera
+            // de los dos; la firma la vuelve a mirar el actualizador antes de
+            // escribir nada, y si no vale se para (17) sin tocar la memoria.
+            var leida = s === 24 || (s === 21 && version !== '');
+            if (leida && f.instalar) {
                 contar('instalando');
                 try { stbUpdate.startAutoUpdate(f.url, false); } catch (e) { contar('error startAutoUpdate ' + e); }
             } else if (volver) {
