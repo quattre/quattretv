@@ -332,7 +332,53 @@
             location.reload();
         } else if (evento === 'mensaje' && js && js.msg) {
             mostrarMensaje(js.msg.titulo, js.msg.texto);
+        } else if (evento === 'firmware' && js && js.firmware) {
+            firmwareRemoto(js.firmware);
         }
+    }
+
+    // Probar un firmware en este deco desde el panel (eventos.pedir_firmware),
+    // sin ir a casa del cliente. Primero se comprueba la imagen: el deco dice
+    // si el modelo y la firma valen y que version trae, y todo va al registro.
+    // Solo si la comprobacion sale bien (24) y se pidio instalar, se lanza su
+    // propio actualizador, el mismo que usa la actualizacion por web: enseña
+    // el progreso y reinicia solo. Con cualquier otra respuesta no se toca nada
+    // y se vuelve a lo que se estaba viendo.
+    var FINALES_FW = [1, 2, 3, 4, 7, 16, 17, 19, 20, 22, 24, 25, 27];
+    function firmwareRemoto(f) {
+        function contar(t) {
+            api('type=stb&action=log&diag=' + encodeURIComponent('firmware ' + t), function() {});
+        }
+        if (typeof stbUpdate === 'undefined' || !f.url) { contar('sin stbUpdate'); return; }
+        try {
+            contar('inicio banco=' + stbUpdate.getActiveBank() + ' bancos=' + stbUpdate.GetFlashBankCount() +
+                   ' estado=' + stbUpdate.getStatus() + ' url=' + f.url);
+        } catch (e) {}
+        var volver = channels[playingChannelIdx];
+        pararVideo();
+        try { stbUpdate.startCheck(f.url); } catch (e) { contar('error startCheck ' + e); return; }
+        var vueltas = 0;
+        var reloj = setInterval(function() {
+            var s = -1;
+            try { s = stbUpdate.getStatus(); } catch (e) {}
+            vueltas++;
+            var acabado = FINALES_FW.indexOf(s) >= 0 || (s === 21 && vueltas > 15) || vueltas > 180;
+            if (!acabado) return;
+            clearInterval(reloj);
+            var d = '';
+            try {
+                d = ' (' + stbUpdate.getStatusStr() + ') version=' + stbUpdate.getImageVersionStr() +
+                    ' desc=' + stbUpdate.getImageDescStr() + ' fecha=' + stbUpdate.getImageDateStr();
+            } catch (e) {}
+            contar('comprobado estado=' + s + d);
+            if (s === 24 && f.instalar) {
+                contar('instalando');
+                try { stbUpdate.startAutoUpdate(f.url, false); } catch (e) { contar('error startAutoUpdate ' + e); }
+            } else if (volver) {
+                playChannel(volver);
+                playingChannelIdx = channels.indexOf(volver);
+            }
+        }, 1000);
     }
 
     // Un aviso mandado desde el panel. Se queda hasta que se pulse una tecla:

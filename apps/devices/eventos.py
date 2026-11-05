@@ -51,6 +51,24 @@ def pedir_mensaje(device, titulo, texto):
     return True
 
 
+def pedir_firmware(device, url, instalar=False):
+    """
+    Que un deco compruebe (y si `instalar`, instale) el firmware de `url`.
+
+    Sirve para probar un firmware nuevo en un deco concreto sin tocar la
+    direccion de actualizacion automatica, que la comparten todos los decos de
+    ese modelo. El deco cuenta al registro (DIAG firmware ...) lo que ve: si la
+    firma y el modelo valen, y que version trae. Solo instala si la
+    comprobacion sale bien.
+    """
+    try:
+        cache.set(_clave(device), {'tipo': 'firmware', 'url': url,
+                                   'instalar': bool(instalar)}, CADUCA)
+    except Exception:
+        return False
+    return True
+
+
 def pedir_recarga_general():
     try:
         cache.set(CLAVE_GENERAL, int(time.time()), CADUCA * 7)
