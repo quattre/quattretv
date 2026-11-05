@@ -384,6 +384,17 @@
             if (leida && f.instalar) {
                 contar('instalando');
                 try { stbUpdate.startAutoUpdate(f.url, false); } catch (e) { contar('error startAutoUpdate ' + e); }
+                // Mientras graba, el estado y el porcentaje al registro cada
+                // 15 s: desde aqui no se ve la pantalla, y en el 322 tarda
+                // bastante mas que en el 420 (alguien lo reinicio a mano
+                // creyendo que se habia quedado parado).
+                var ultimo = '', rondas = 0;
+                var seguir = setInterval(function() {
+                    var t = '';
+                    try { t = stbUpdate.getStatus() + ' ' + stbUpdate.getPercents() + '% ' + stbUpdate.getStatusStr(); } catch (e) { t = 'error ' + e; }
+                    if (t !== ultimo) { contar('progreso ' + t); ultimo = t; }
+                    if (++rondas > 80) clearInterval(seguir);
+                }, 15000);
             } else if (volver) {
                 playChannel(volver);
                 playingChannelIdx = channels.indexOf(volver);
