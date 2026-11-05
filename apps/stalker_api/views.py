@@ -2183,8 +2183,13 @@ def handle_watchdog(request, action):
                 device.update_activity(channel=canal)
 
         # Ordenes del panel (recargar, reiniciar): ver apps/devices/eventos.py.
+        # Solo se entregan en el latido, que es el que lleva "cargado": el aviso
+        # de cambio de canal tambien pasa por aqui y no mira la respuesta, asi
+        # que haciendo zapping se comia las ordenes sin ejecutarlas.
         cargado = request.GET.get('cargado', '')
-        evento = eventos.recoger(device, int(cargado) if cargado.isdigit() else None)
+        evento = None
+        if cargado.isdigit():
+            evento = eventos.recoger(device, int(cargado))
         if isinstance(evento, dict) and evento.get('tipo') == 'firmware':
             respuesta['event'] = 'firmware'
             respuesta['firmware'] = {'url': evento.get('url', ''),
