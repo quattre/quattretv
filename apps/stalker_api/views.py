@@ -2167,7 +2167,7 @@ def handle_watchdog(request, action):
         if request.GET.get('init') == '1':
             return stalker_response({'data': {'msgs': 0}})
         if cache.add(f'evento:ministra:{device.id}', 1, 120):
-            logger_equipos.info('Deco %s con el portal de Ministra: recargar', device.mac_address)
+            logger_equipos.warning('Deco %s con el portal de Ministra: recargar', device.mac_address)
             return stalker_response({'data': {
                 'msgs': 1, 'id': int(timezone.now().timestamp()), 'event': 'reload_portal',
                 'need_confirm': 0, 'msg': '', 'reboot_after_ok': 0,
