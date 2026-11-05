@@ -1211,12 +1211,19 @@
         var yo = ++testigoStb;
         arrancoStb = false;
         try { if (intento) stbAPI.Stop(); stbAPI.Play(ch.cmd); } catch(err) {}
-        if (!ch.id || intento) return;     // lo emitido no se repite: perderia el sitio
+        if (!ch.id) return;                // lo emitido no se repite: perderia el sitio
         setTimeout(function() {
-            if (yo !== testigoStb || arrancoStb) return;
-            var pistas = [];
-            try { pistas = pistasAudio(); } catch(err) {}
-            if (pistas.length) return;
+            if (yo !== testigoStb) return;
+            // El 322 da la lista de pistas vacia aunque ya suene: lo que dice
+            // que no hay nada es que tampoco tenga pista puesta (65535).
+            var pistas = [], suena = 65535;
+            try { pistas = pistasAudio(); suena = stbAPI.GetAudioPID(); } catch(err) {}
+            var va = arrancoStb || pistas.length || (suena >= 0 && suena !== 65535);
+            if (intento) {
+                api('type=stb&action=log&diag=' + encodeURIComponent('repro tras reintento ' + (ch.name || ch.id) + (va ? ' va' : ' sigue sin nada')), function() {});
+                return;
+            }
+            if (va) return;
             api('type=stb&action=log&diag=' + encodeURIComponent('repro reintento ' + (ch.name || ch.id)), function() {});
             ordenStb(ch, 1);
         }, 6000);
