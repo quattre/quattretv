@@ -357,14 +357,18 @@
         var volver = channels[playingChannelIdx];
         pararVideo();
         try { stbUpdate.startCheck(f.url); } catch (e) { contar('error startCheck ' + e); return; }
-        var vueltas = 0;
+        var vueltas = 0, vistos = [];
         var reloj = setInterval(function() {
             var s = -1;
             try { s = stbUpdate.getStatus(); } catch (e) {}
             vueltas++;
-            var acabado = FINALES_FW.indexOf(s) >= 0 || (s === 21 && vueltas > 15) || vueltas > 180;
+            if (vistos[vistos.length - 1] !== s) vistos.push(s);
+            // 21 (en reposo) tambien es lo que se ve antes de que empiece: se
+            // espera un minuto por si tarda en arrancar la comprobacion.
+            var acabado = FINALES_FW.indexOf(s) >= 0 || (s === 21 && vueltas > 60) || vueltas > 180;
             if (!acabado) return;
             clearInterval(reloj);
+            contar('estados ' + vistos.join(','));
             var d = '';
             try {
                 d = ' (' + stbUpdate.getStatusStr() + ') version=' + stbUpdate.getImageVersionStr() +
