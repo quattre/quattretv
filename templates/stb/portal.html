@@ -4687,6 +4687,10 @@
         if (!stbAPI || !stbAPI.GetAudioPIDs) return;
         var t = '';
         try { t = JSON.stringify(pistasAudio()) + ' suena=' + stbAPI.GetAudioPID(); } catch (err) { t = 'error ' + err; }
+        // Lo que dice el deco del video: un MAG520 (05/11) sonaba con la imagen en negro.
+        try { if (stbAPI.GetVideoInfo) t += ' video=' + String(stbAPI.GetVideoInfo()).replace(/\s+/g, ''); } catch (err) {}
+        try { if (stbAPI.GetAlphaLevel) t += ' alfa=' + stbAPI.GetAlphaLevel(); } catch (err) {}
+        try { if (stbAPI.GetTopWin) t += ' arriba=' + stbAPI.GetTopWin(); } catch (err) {}
         var ch = channels[playingChannelIdx] || {};
         api('type=stb&action=log&diag=' + encodeURIComponent('audio ' + motivo + ' ' + (ch.name || '') + ' ' + t), function() {});
     }
