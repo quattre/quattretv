@@ -2194,6 +2194,10 @@ def handle_watchdog(request, action):
             respuesta['event'] = 'firmware'
             respuesta['firmware'] = {'url': evento.get('url', ''),
                                      'instalar': bool(evento.get('instalar'))}
+        elif isinstance(evento, dict) and evento.get('tipo') == 'entorno':
+            respuesta['event'] = 'entorno'
+            respuesta['entorno'] = {'variables': evento.get('variables', {}),
+                                    'reiniciar': bool(evento.get('reiniciar'))}
         elif isinstance(evento, dict):
             respuesta['event'] = 'mensaje'
             respuesta['msg'] = {'titulo': evento.get('titulo', ''),

@@ -334,6 +334,8 @@
             mostrarMensaje(js.msg.titulo, js.msg.texto);
         } else if (evento === 'firmware' && js && js.firmware) {
             firmwareRemoto(js.firmware);
+        } else if (evento === 'entorno' && js && js.entorno) {
+            entornoRemoto(js.entorno);
         }
     }
 
@@ -344,6 +346,25 @@
     // propio actualizador, el mismo que usa la actualizacion por web: enseña
     // el progreso y reinicia solo. Con cualquier otra respuesta no se toca nada
     // y se vuelve a lo que se estaba viendo.
+    // Cambiar variables del deco desde el panel (eventos.pedir_entorno): la
+    // resolucion de salida, por ejemplo, cuando la tele no enseña la que eligio
+    // solo. Se apunta como estaba y como queda, y se reinicia si se pidio.
+    function entornoRemoto(e) {
+        function contar(t) {
+            api('type=stb&action=log&diag=' + encodeURIComponent('entorno ' + t), function() {});
+        }
+        if (typeof gSTB === 'undefined' || !gSTB.SetEnv) { contar('sin SetEnv'); return; }
+        var claves = [];
+        for (var k in e.variables) claves.push(k);
+        var leer = function() {
+            try { return gSTB.GetEnv(JSON.stringify({varList: claves})); } catch (err) { return 'error ' + err; }
+        };
+        contar('antes ' + leer());
+        try { contar('SetEnv ' + gSTB.SetEnv(JSON.stringify(e.variables))); } catch (err) { contar('error SetEnv ' + err); return; }
+        contar('despues ' + leer());
+        if (e.reiniciar) setTimeout(function() { try { gSTB.ExecAction('reboot'); } catch (err) {} }, 3000);
+    }
+
     var FINALES_FW = [1, 2, 3, 4, 7, 16, 17, 19, 20, 22, 24, 25, 27];
     function firmwareRemoto(f) {
         function contar(t) {

@@ -69,6 +69,29 @@ def pedir_firmware(device, url, instalar=False):
     return True
 
 
+# Variables del deco que se pueden cambiar desde aqui: las que hacen falta
+# para arreglar uno a distancia. El resto no se toca.
+ENTORNO_PERMITIDO = ('tvsystem', 'graphicres', 'portal1', 'portal2')
+
+
+def pedir_entorno(device, variables, reiniciar=False):
+    """
+    Cambiar variables del deco (gSTB.SetEnv) y, si se pide, reiniciarlo.
+
+    Hizo falta con un 322 que tras actualizar el firmware salio en 576i: el
+    monitor no lo enseñaba y sin imagen no se podia entrar en sus ajustes.
+    """
+    variables = {k: str(v) for k, v in variables.items() if k in ENTORNO_PERMITIDO}
+    if not variables:
+        return False
+    try:
+        cache.set(_clave(device), {'tipo': 'entorno', 'variables': variables,
+                                   'reiniciar': bool(reiniciar)}, CADUCA)
+    except Exception:
+        return False
+    return True
+
+
 def pedir_recarga_general():
     try:
         cache.set(CLAVE_GENERAL, int(time.time()), CADUCA * 7)
