@@ -1204,6 +1204,11 @@
     // nada, se vuelve a pedir una vez.
     var colaStb = null, ultimaPeticionStb = 0, testigoStb = 0, arrancoStb = false;
     var canalStb = null, inicioStb = 0, eventosStb = {};
+    // PRUEBA (05/11): en el 420 y el 322 la imagen tarda unos 3 s y en el 540
+    // medio. Se alterna el reproductor del deco en cada cambio para medir cual
+    // abre antes el HLS; cuando se sepa, se deja el bueno y se quita esto.
+    var modeloStb = '', PREFIJOS_PRUEBA = ['', 'ffmpeg ', 'auto '], vueltaPrefijo = 0, prefijoStb = '';
+    try { modeloStb = String(gSTB.GetDeviceModelExt() || ''); } catch(err) {}
     function reproducirStb(ch) {
         var ahora = new Date().getTime();
         var seguido = ahora - ultimaPeticionStb < 700;
@@ -1219,7 +1224,10 @@
         canalStb = ch.id ? ch : null;
         inicioStb = new Date().getTime();
         eventosStb = {};
-        try { if (intento) stbAPI.Stop(); stbAPI.Play(ch.cmd); } catch(err) {}
+        prefijoStb = '';
+        if (ch.id && /MAG(420|322)/.test(modeloStb) && !/^\w+ /.test(ch.cmd))
+            prefijoStb = PREFIJOS_PRUEBA[vueltaPrefijo++ % PREFIJOS_PRUEBA.length];
+        try { if (intento) stbAPI.Stop(); stbAPI.Play(prefijoStb + ch.cmd); } catch(err) {}
         if (!ch.id) return;                // lo emitido no se repite: perderia el sitio
         setTimeout(function() {
             if (yo !== testigoStb) return;
@@ -5318,14 +5326,16 @@
         if (canalStb && !eventosStb[ev] && ev !== '4') {
             eventosStb[ev] = 1;
             api('type=stb&action=log&diag=' + encodeURIComponent('repro evento ' + ev + ' ' +
-                (new Date().getTime() - inicioStb) + ' ms ' + (canalStb.name || canalStb.id)), function() {});
+                (new Date().getTime() - inicioStb) + ' ms ' + (canalStb.name || canalStb.id) +
+                ' [' + (prefijoStb || 'nada').trim() + ']'), function() {});
         }
         if (String(evento) === '4' && !arrancoStb) {       // empezo a reproducir
             arrancoStb = true;
             // Cuanto tarda en salir la imagen: el 322 y el 420 van mas lentos
             // que el resto y hay que ver cuanto y en que canales.
             if (canalStb) api('type=stb&action=log&diag=' + encodeURIComponent('repro arranca ' +
-                (new Date().getTime() - inicioStb) + ' ms ' + (canalStb.name || canalStb.id)), function() {});
+                (new Date().getTime() - inicioStb) + ' ms ' + (canalStb.name || canalStb.id) +
+                ' [' + (prefijoStb || 'nada').trim() + ']'), function() {});
         }
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
