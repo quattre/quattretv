@@ -178,11 +178,16 @@ def _replace_programs(programs):
 
     # Algunas fuentes repiten el programa del cambio de dia en los dos dias
     # del fichero, y salia dos veces en la guia (72 en un dia). Uno por hora.
+    # epgshare01 lo repite a veces con duracion cero (Warner, El mito de
+    # Bourne 23:55-23:55 y luego 23:55-01:40): ese no vale aunque tenga sinopsis.
+    def mejor(p):
+        return (p.end_time > p.start_time, len(p.description or ''))
+
     unicos = {}
     for prog in programs:
         clave = (prog.channel_id, prog.start_time)
         otro = unicos.get(clave)
-        if otro is None or len(prog.description or '') > len(otro.description or ''):
+        if otro is None or mejor(prog) > mejor(otro):
             unicos[clave] = prog
     programs = list(unicos.values())
 
@@ -241,7 +246,14 @@ def update_all_epg_sources():
     from .models import EpgSource
 
     sources = EpgSource.objects.filter(is_active=True, auto_update=True)
+    hora = timezone.localtime().hour
     for source in sources:
+        # open-epg deja bajar cada fichero 20 veces al dia y esto corre cada
+        # hora: a partir de las 20 sus tres fuentes devolvian un aviso en vez
+        # de la guia y se quedaban sin actualizar hasta el dia siguiente.
+        # Cada dos horas son 12 y quedan bajadas para recargar a mano.
+        if 'open-epg.com' in source.url and hora % 2:
+            continue
         update_epg_source.delay(source.id)
 
 
