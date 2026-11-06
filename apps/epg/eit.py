@@ -26,6 +26,12 @@ VENTANA = timedelta(minutes=60)   # cuanto puede desviarse la guia
 # no se sabe cual es: solo se acepta el que esta casi a su hora.
 VENTANA_REPETIDO = timedelta(minutes=10)
 FRESCO = timedelta(minutes=10)    # un cambio de verdad, no un dato viejo
+# Canales (nombre en el CDN) cuya EIT no va con la imagen. Warner: desde el
+# cambio de hora del 25/10 su EIT cambia de programa una hora despues de lo
+# que se emite (06/11: daba FBI con El caso Bourne ya empezado), y las guias
+# publicadas si cuadran con la imagen. Fiarse de ella la retrasaba una hora.
+# TCM no va aqui: el CDN emite TCM +1 y su EIT es la buena.
+SIN_EIT = {'warner'}
 
 
 def _fecha(texto):
@@ -73,7 +79,10 @@ def aplicar(cambios):
             if c.get('tipo') != 'AHORA':
                 continue
             inicio, visto = _fecha(c['inicio']), _fecha(c['visto'])
-            canal = canales.get((c.get('canal') or '').lower())
+            nombre_cdn = (c.get('canal') or '').lower()
+            if nombre_cdn in SIN_EIT:
+                continue
+            canal = canales.get(nombre_cdn)
         except (KeyError, TypeError, ValueError):
             continue
         # Si lo que dice que ha empezado no acaba de empezar, no es un cambio
