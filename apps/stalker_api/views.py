@@ -1511,6 +1511,8 @@ def handle_tv_archive(request, action):
         return handle_archive_row(request)
     if action == 'get_similar':
         return handle_archive_similar(request)
+    if action == 'search':
+        return handle_archive_search(request)
     if action == 'set_progress':
         return handle_archive_progress(request)
 
@@ -1562,6 +1564,16 @@ def handle_archive_similar(request):
         return sin_permiso
     return stalker_response({'data': semana.similares(
         device, request.GET.get('group', ''), request.GET.get('title', ''))})
+
+
+def handle_archive_search(request):
+    """El buscador del videoclub: lo que lleva en el titulo lo escrito."""
+    from . import semana
+
+    device, sin_permiso = aparato_o_error(request)
+    if sin_permiso:
+        return sin_permiso
+    return stalker_response({'data': semana.buscar(device, request.GET.get('q', '')[:60])})
 
 
 def handle_archive_progress(request):

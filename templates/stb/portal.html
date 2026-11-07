@@ -2774,6 +2774,18 @@
     // por la lista no se debe colar en el videoclub sin querer.
     var focoSemana = false;
     var SEMANA_VISIBLES = 5;
+
+    // ---------- El buscador ----------
+    //
+    // Entre 690 peliculas no habia forma de dar con una ("El imperio del
+    // fuego" salia la 113 de su fila). Una pestaña mas, la primera, como en
+    // Netflix. El mando no tiene letras: un teclado en pantalla que se recorre
+    // con las flechas. Los numeros del mando y un teclado de verdad (las teles
+    // que lo tienen, o el navegador) escriben directamente.
+    var TECLAS_BUSCAR = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ'.split('')
+        .concat(['Espacio', 'Borrar', 'Limpiar'], '1234567890'.split(''));
+    var BUSCAR_COLS = 10;
+    var busca = {texto: '', tecla: 0, foco: 'teclado', res: [], col: 0, timer: null, pedido: '', estado: ''};
     var SEMANA_VIGENCIA = 300000;    // lo cargado vale 5 minutos
 
     // ---------- "Seguir viendo": por donde va lo que se ve del archivo ----------
@@ -2820,7 +2832,7 @@
             if (view !== "semana") return;
             // Al volver de ver algo se queda donde estaba (en su ficha, si
             // venia de ella); si ha pasado un rato, se pide otra vez.
-            if (volver && semana.filas.length) {
+            if (volver && (semana.filas.length || semana.pestana === 'buscar')) {
                 renderSemana();
                 cargarPestana(semana.pestana);   // Seguir viendo ha cambiado
                 return;
@@ -2833,9 +2845,21 @@
         });
     }
 
+    function conBuscar(lista) {
+        return [['buscar', 'Buscar']].concat(lista || []);
+    }
+
     function cargarPestana(nombre) {
         var guardada = semana.porPestana[nombre];
         semana.pestana = nombre;
+        if (nombre === 'buscar') {
+            semana.filas = [];
+            for (var b = 0; b < semana.pestanas.length; b++) {
+                if (semana.pestanas[b][0] === 'buscar') semana.tabIdx = b;
+            }
+            renderSemana();
+            return;
+        }
         if (guardada && new Date().getTime() - guardada.cargado < SEMANA_VIGENCIA) {
             ponerPestana(guardada);
             return;
@@ -2853,7 +2877,7 @@
                     '</div><div class="sem-ayuda"><span data-tecla="37">◀</span> Volver</div>';
                 return;
             }
-            semana.pestanas = datos.pestanas || [];
+            semana.pestanas = conBuscar(datos.pestanas);
             guardada = {filas: datos.filas, cargado: new Date().getTime(), fila: 0, cols: []};
             for (var i = 0; i < datos.filas.length; i++) guardada.cols.push(0);
             semana.porPestana[datos.pestana] = guardada;
@@ -2890,7 +2914,7 @@
         api("type=tv_archive&action=get_catalog&tab=inicio", function(js) {
             var datos = (js && js.data) ? js.data : null;
             if (!datos || !datos.filas || !datos.filas.length || view === "semana") return;
-            semana.pestanas = datos.pestanas || [];
+            semana.pestanas = conBuscar(datos.pestanas);
             var g = {filas: datos.filas, cargado: new Date().getTime(), fila: 0, cols: []};
             for (var i = 0; i < datos.filas.length; i++) g.cols.push(0);
             semana.porPestana[datos.pestana] = g;
@@ -2925,6 +2949,7 @@
             return fi.foco === 'similares' && fi.similares[fi.idx] ? fi.similares[fi.idx] : fi.it;
         }
         if (semana.episodios) return semana.episodios[semana.epIdx];
+        if (semana.pestana === 'buscar') return busca.foco === 'res' ? busca.res[busca.col] || null : null;
         var f = semana.filas[semana.fila];
         return f ? f.items[semana.cols[semana.fila]] : null;
     }
@@ -3116,7 +3141,9 @@
         if (semana.filas[semana.fila + 2]) precargarFilas([semana.filas[semana.fila + 2]], SEMANA_VISIBLES + 1);
         // La caratula de lo elegido, grande y apagada detras de todo, como el
         // fondo de Netflix. Sin desenfoque, que al MAG le cuesta.
-        var h = (actual && actual.img ? '<div class="sem-fondo"' + estiloImagen(actual) + '></div>' : '') +
+        // En el buscador, mientras se escribe, detras va lo primero que sale.
+        var deFondo = actual || (semana.pestana === 'buscar' && !semana.ficha && !semana.episodios ? busca.res[0] : null);
+        var h = (deFondo && deFondo.img ? '<div class="sem-fondo"' + estiloImagen(deFondo) + '></div>' : '') +
                 '<div class="sem-velo"></div>' + pestanasSemana() + heroSemana(actual);
         if (semana.ficha) {
             var fi = semana.ficha;
@@ -3140,6 +3167,8 @@
                      (vistoDe(e) ? '  ·  empezado, vas por el ' + hms(vistoDe(e)) : '')) + '</div></div></div>';
             }
             h += '</div>';
+        } else if (semana.pestana === 'buscar') {
+            h += pantallaBuscar();
         } else {
             // La fila elegida arriba y la siguiente asomando debajo.
             for (var r = semana.fila; r < Math.min(semana.filas.length, semana.fila + 2); r++) {
@@ -3173,7 +3202,7 @@
         return semanaEpsCaben !== 3;
     }
 
-    function teclaSemana(k) {
+    function teclaSemana(k, e) {
         var salir = (k === 8 || k === 27 || k === TECLA_ATRAS);
         if (k === TECLA_AMARILLO || k === 114) {
             // A la tele: la lista de canales con el canal en pequeño.
@@ -3197,11 +3226,14 @@
             if (k === 37 && semana.tabIdx > 0) { semana.tabIdx--; elegirPestana(); }
             else if (k === 37 && usarRail()) abrirRail();
             else if (k === 39 && semana.tabIdx < semana.pestanas.length - 1) { semana.tabIdx++; elegirPestana(); }
+            else if ((k === 40 || k === 13) && semana.pestana === 'buscar') { semana.foco = 'filas'; busca.foco = 'teclado'; renderSemana(); }
             else if ((k === 40 || k === 13) && semana.filas.length) { semana.foco = 'filas'; renderSemana(); }
             // Arriba no hace nada: salia del videoclub sin querer.
             else if (salir) cerrarSemana();
             return;
         }
+
+        if (semana.pestana === 'buscar') { teclaBuscar(k, salir, e); return; }
 
         var f = semana.filas[semana.fila];
         var col = semana.cols[semana.fila];
@@ -3225,6 +3257,115 @@
             else if (it.n > 1) abrirEmisiones(it.grupo || f.id, it);
             else abrirFichaSemana(it);
         }
+    }
+
+    function pantallaBuscar() {
+        var h = '';
+        if (busca.foco !== 'res') {
+            h += '<div class="sem-buscar"><div class="sem-campo">' +
+                 (busca.texto ? esc(busca.texto) : '<i>Escribe parte del titulo</i>') + '<b></b></div>' +
+                 '<div class="sem-teclado">';
+            for (var i = 0; i < TECLAS_BUSCAR.length; i++) {
+                var t = TECLAS_BUSCAR[i];
+                h += '<span data-buscar="' + i + '" class="' + (t.length > 1 ? 'larga' : '') +
+                     (semana.foco === 'filas' && i === busca.tecla ? ' sel' : '') + '">' + esc(t) + '</span>';
+                if (i % BUSCAR_COLS === BUSCAR_COLS - 1) h += '<br>';
+            }
+            h += '</div><div class="sem-pista"><span data-tecla="13">OK</span> Escribir ' +
+                 '<span data-tecla="27">Atras</span> Borrar' +
+                 (busca.res.length ? ' <span data-tecla="40">▼</span> Ir a lo encontrado' : '') + '</div></div>';
+        }
+        if (busca.res.length) {
+            var activa = busca.foco === 'res' && semana.foco === 'filas';
+            var cuenta = (activa ? (busca.col + 1) + ' / ' : '') + busca.res.length;
+            return h + filaSemana('Encontrado', cuenta, busca.res, busca.col, activa, '');
+        }
+        var q = busca.texto.replace(/^\s+|\s+$/g, '');
+        var aviso = busca.estado === 'buscando' ? 'Buscando...' :
+                    busca.estado === 'nada' ? 'No hay nada con "' + q + '" en los ultimos 7 dias' :
+                    q.length === 1 ? 'Escribe al menos dos letras' :
+                    'Peliculas, series y programas de los ultimos 7 dias';
+        return h + '<div class="sem-fila"><div class="sem-nombre">' + esc(aviso) + '</div></div>';
+    }
+
+    // Letras de un teclado de verdad y numeros del mando. En el MAG las
+    // teclas de reproduccion llegan como letras con Alt: esas no escriben.
+    function letraDeTecla(k, e) {
+        if (e && (e.altKey || e.ctrlKey || e.metaKey)) return '';
+        if (k >= 48 && k <= 57) return String(k - 48);
+        if (k >= 96 && k <= 105) return String(k - 96);
+        if (k >= 65 && k <= 90) return String.fromCharCode(k);
+        if (k === 192) return 'Ñ';
+        if (k === 32) return ' ';
+        return '';
+    }
+
+    function escribirBusca(texto) {
+        texto = texto.replace(/^\s+/, '').replace(/\s\s+/g, ' ').substring(0, 40);
+        if (texto === busca.texto) return;
+        busca.texto = texto;
+        busca.col = 0;
+        clearTimeout(busca.timer);
+        busca.timer = setTimeout(pedirBusca, 450);
+        renderSemana();
+    }
+
+    function pulsarTeclaBuscar(i) {
+        var t = TECLAS_BUSCAR[i];
+        if (t === 'Borrar') escribirBusca(busca.texto.substring(0, busca.texto.length - 1));
+        else if (t === 'Limpiar') escribirBusca('');
+        else escribirBusca(busca.texto + (t === 'Espacio' ? ' ' : t));
+    }
+
+    function pedirBusca() {
+        var q = busca.texto.replace(/^\s+|\s+$/g, '');
+        busca.pedido = q;
+        if (q.length < 2) {
+            busca.res = [];
+            busca.estado = '';
+            if (view === "semana" && semana.pestana === 'buscar') renderSemana();
+            return;
+        }
+        busca.estado = 'buscando';
+        api("type=tv_archive&action=search&q=" + encodeURIComponent(q), function(js) {
+            if (busca.pedido !== q) return;
+            busca.res = (js && js.data) ? js.data : [];
+            busca.estado = busca.res.length ? '' : 'nada';
+            busca.col = 0;
+            if (!busca.res.length) busca.foco = 'teclado';
+            for (var i = 0; i < Math.min(busca.res.length, SEMANA_VISIBLES + 3); i++) precargar(busca.res[i].img);
+            if (view === "semana" && semana.pestana === 'buscar') renderSemana();
+        });
+    }
+
+    function teclaBuscar(k, salir, e) {
+        if (busca.foco === 'res') {
+            var it = busca.res[busca.col];
+            if (k === 39 && busca.col < busca.res.length - 1) { busca.col++; renderSemana(); }
+            else if (k === 37 && busca.col > 0) { busca.col--; renderSemana(); }
+            else if (k === 38 || k === 37 || salir) { busca.foco = 'teclado'; renderSemana(); }
+            else if (k === 13 && it) {
+                if (it.n > 1) abrirEmisiones(it.grupo, it);
+                else abrirFichaSemana(it);
+            }
+            return;
+        }
+        var letra = letraDeTecla(k, e);
+        if (letra) { escribirBusca(busca.texto + letra); return; }
+        var i = busca.tecla, n = TECLAS_BUSCAR.length;
+        if (k === 37 && i % BUSCAR_COLS > 0) busca.tecla--;
+        else if (k === 37 && usarRail()) { abrirRail(); return; }
+        else if (k === 39 && i % BUSCAR_COLS < BUSCAR_COLS - 1 && i < n - 1) busca.tecla++;
+        else if (k === 38 && i >= BUSCAR_COLS) busca.tecla -= BUSCAR_COLS;
+        else if (k === 38) semana.foco = 'pestanas';
+        else if (k === 40 && i + BUSCAR_COLS < n) busca.tecla += BUSCAR_COLS;
+        else if (k === 40 && busca.res.length) busca.foco = 'res';
+        else if (k === 13) { pulsarTeclaBuscar(i); return; }
+        // Atras borra lo ultimo escrito; sin nada escrito, sale.
+        else if (salir && busca.texto) { escribirBusca(busca.texto.substring(0, busca.texto.length - 1)); return; }
+        else if (salir) { cerrarSemana(); return; }
+        else return;
+        renderSemana();
     }
 
     // Moverse por las pestañas no carga nada hasta que se para: pasar de
@@ -5013,7 +5154,9 @@
                     renderPin('');
                 }
             } else {
-                if (view !== "semana") pushDigit(digito);
+                // En el videoclub solo escriben, en el buscador.
+                if (view === "semana") teclaSemana(k, e);
+                else pushDigit(digito);
             }
             return false;
         }
@@ -5186,7 +5329,7 @@
                 salirDeGuia();
             }
         } else if (view === "semana") {
-            teclaSemana(k);
+            teclaSemana(k, e);
         } else if (view === "recordings") {
             if (k === 38 && recIdx > 0) {
                 recIdx--;
@@ -5324,6 +5467,16 @@
         // que el clic hace exactamente lo que haria esa tecla — y sirve para
         // todas las pantallas sin repetir la logica en ninguna.
         // Seguir viendo / desde el principio, en la ficha del videoclub.
+        // Las teclas del buscador, apuntadas con el Magic Remote.
+        var teclaB = atributoPulsado(destino, 'data-buscar');
+        if (teclaB !== null && view === "semana" && semana.pestana === 'buscar') {
+            semana.foco = 'filas';
+            busca.foco = 'teclado';
+            busca.tecla = parseInt(teclaB, 10);
+            pulsarTeclaBuscar(busca.tecla);
+            return;
+        }
+
         var boton = atributoPulsado(destino, 'data-boton');
         if (boton !== null && view === "semana" && semana.ficha) {
             semana.ficha.boton = parseInt(boton, 10);
@@ -6255,6 +6408,24 @@
             position: absolute; left: 60px; right: 60px; bottom: 24px;
             font-size: 20px; color: #a8b2b5; text-align: right;
         }
+        /* El buscador: el campo y el teclado en el sitio de la cabecera. */
+        .sem-buscar { position: relative; height: 330px; margin-bottom: 26px; overflow: hidden; }
+        .sem-campo {
+            width: 790px; height: 62px; line-height: 62px; padding: 0 22px; margin-bottom: 14px;
+            font-size: 32px; font-weight: 500; white-space: nowrap; overflow: hidden;
+            background: rgba(255,255,255,.08); border: 2px solid rgba(217,217,217,.4); border-radius: 10px;
+        }
+        .sem-campo i { font-style: normal; font-weight: 400; color: #7d878a; }
+        .sem-campo b { display: inline-block; width: 3px; height: 36px; margin-left: 4px; vertical-align: middle; background: #bff102; }
+        .sem-teclado { white-space: nowrap; }
+        .sem-teclado span {
+            display: inline-block; width: 71px; height: 46px; line-height: 46px; margin: 0 8px 8px 0;
+            text-align: center; font-size: 26px; font-weight: 500; color: #e4e7e8;
+            background: rgba(255,255,255,.07); border-radius: 8px;
+        }
+        .sem-teclado span.larga { font-size: 15px; }
+        .sem-teclado span.sel { background: #bff102; color: #1d2023; font-weight: 700; }
+        .sem-buscar .sem-pista { margin-top: 4px; }
         .sem-fila { height: 270px; opacity: .55; }
         .sem-fila.activa { opacity: 1; }
         .sem-nombre {

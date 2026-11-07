@@ -609,6 +609,45 @@ def similares(device, grupo, titulo, maximo=20):
     return [t for _, _, t in puntuadas[:maximo]]
 
 
+# Primero lo que empieza por lo escrito, luego lo que tiene una palabra que
+# empieza asi, y luego lo que lo lleva en medio.
+ORDEN_TIPOS = {'peliculas': 0, 'series': 1, 'documentales': 2, 'infantil': 3}
+
+
+def buscar(device, texto, maximo=60):
+    """
+    Lo del archivo cuyo titulo lleva lo escrito, sin mirar acentos ni
+    mayusculas. Entre 690 peliculas no habia forma de dar con una: "El
+    imperio del fuego" salia la 113 de su fila.
+    """
+    buscado = ' '.join(plano(texto).split())
+    if len(buscado) < 2:
+        return []
+    halladas = []
+    for grupo, lista in catalogo(device).items():
+        for t in lista:
+            titulo = plano(t['titulo'])
+            if buscado not in titulo:
+                continue
+            if titulo.startswith(buscado):
+                nivel = 0
+            elif (' ' + buscado) in (' ' + titulo):
+                nivel = 1
+            else:
+                nivel = 2
+            halladas.append((nivel, ORDEN_TIPOS.get(grupo, 9), -t['ini'], t))
+    halladas.sort(key=lambda x: x[:3])
+    # Un titulo puede estar en dos tipos (una emision sin genero cae en
+    # programas): sale una vez, la del tipo que mas se busca.
+    salida, vistos = [], set()
+    for _, _, _, t in halladas:
+        clave = plano(t['titulo'])
+        if clave not in vistos:
+            vistos.add(clave)
+            salida.append(t)
+    return salida[:maximo]
+
+
 # ---------- "Seguir viendo" y "Lo mas visto" ----------
 
 def guardar_progreso(device, ch_id, ini, pos, dur):
