@@ -133,6 +133,7 @@ def leer_programa(el):
     datos['icon'] = src if src.startswith(('http://', 'https://')) and len(src) <= 500 else ''
 
     datos['ini'] = parse_xmltv_time(el.get('start'))
+    datos['fin'] = parse_xmltv_time(el.get('stop')) if el.get('stop') else None
     datos['plano'] = plano(datos['titulo'])
     return datos
 
@@ -223,6 +224,70 @@ def buscar(programa, suyos, inicios, desfase, sin_titulo):
     return None
 
 
+# Las fuentes que cargan la guia se quedan a veces con la parrilla vieja de
+# las peliculas: el 07/11 Warner emitia La ciudad perdida y tres fuentes daban
+# Uncharted, y Syfy anunciaba Jumper a las 22:00 donde la guia ponia SciFi
+# Games. dobleM (sale de la guia de Movistar) si recoge esos cambios. Asi que
+# si en la misma franja dobleM dice que es una pelicula y con otro titulo,
+# manda la suya. Solo pelis: en deportes dobleM pone "DIRECTO" tambien a las
+# repeticiones, y en lo demas cada guia lo llama a su manera.
+FRANJA_FIN = 900        # segundos que puede variar el final de la franja
+LARGO = timedelta(minutes=60)
+CORRECCIONES = 'epg:titulos'
+
+
+def otra_pelicula(programa, suyos, inicios, desfase):
+    """La pelicula que dobleM pone en la franja de este programa, si es otra."""
+    if generico(programa.title) or programa.end_time - programa.start_time < LARGO:
+        return None
+    momento = programa.start_time.timestamp() + desfase
+    fin = programa.end_time.timestamp() + desfase
+    nuestro = plano(programa.title)
+    i = bisect.bisect_left(inicios, momento - MARGEN)
+    while i < len(inicios) and inicios[i] <= momento + MARGEN:
+        d = suyos[i]
+        if d['fin'] and abs(d['fin'].timestamp() - fin) <= FRANJA_FIN \
+                and plano(d['category']).startswith('cine') \
+                and d['titulo'] and not generico(d['titulo']) and not parecido(nuestro, d['plano']):
+            return d
+        i += 1
+    return None
+
+
+def _recordar(nuevas):
+    """
+    Las fuentes se recargan cada hora y volvian a poner el titulo viejo hasta
+    que esto corria otra vez: se guarda lo corregido para que la recarga lo
+    respete (ver corregir_titulos).
+    """
+    from django.core.cache import cache
+    try:
+        guardadas = cache.get(CORRECCIONES) or {}
+        limite = (timezone.now() - timedelta(days=1)).timestamp()
+        guardadas = {k: v for k, v in guardadas.items() if k[1] >= limite}
+        guardadas.update(nuevas)
+        cache.set(CORRECCIONES, guardadas, 9 * 86400)
+    except Exception:
+        logger.warning('No se pudieron guardar los titulos corregidos')
+
+
+def corregir_titulos(programas):
+    """Al recargar una fuente, vuelve a poner las pelis que corrigio dobleM."""
+    from django.core.cache import cache
+    try:
+        guardadas = cache.get(CORRECCIONES) or {}
+    except Exception:
+        return
+    for p in programas:
+        c = guardadas.get((p.channel_id, p.start_time.timestamp()))
+        # Solo si la fuente sigue con el titulo viejo: si lo ha cambiado por
+        # otro, sabra por que.
+        if c and parecido(plano(p.title), c['antes']):
+            p.title = c['titulo']
+            for campo in CAMPOS:
+                setattr(p, campo, c[campo])
+
+
 def desfase_de(programas, suyos, inicios):
     """La hora entera que hay que sumar a la nuestra para dar con la suya."""
     mejor, aciertos = 0, -1
@@ -250,6 +315,7 @@ def completar(url=None, guardar=True):
     ahora = timezone.now()
     tocados = 0
     desfasados = {}
+    corregidas = {}
     for canal, suyos in fuente.items():
         programas = list(Program.objects.filter(
             channel=canal,
@@ -263,6 +329,18 @@ def completar(url=None, guardar=True):
             desfasados[canal.name] = desfase // 3600
         cambiados = []
         for p in programas:
+            peli = otra_pelicula(p, suyos, inicios, desfase)
+            if peli:
+                corregidas[(p.channel_id, p.start_time.timestamp())] = dict(
+                    {campo: peli[campo] for campo in CAMPOS},
+                    antes=plano(p.title), titulo=peli['titulo'][:500])
+                logger.info('Guia: %s %s era %s y es %s', canal.name,
+                            timezone.localtime(p.start_time).strftime('%d %H:%M'), p.title, peli['titulo'])
+                p.title = peli['titulo'][:500]
+                for campo in CAMPOS:
+                    setattr(p, campo, peli[campo])
+                cambiados.append(p)
+                continue
             sin_titulo = generico(p.title)
             # "Cine" a secas puede ganar el genero, asi que no se da por completo.
             sin_genero = plano(p.category) in ('cine', 'pelicula', 'peliculas', 'series', 'serie')
@@ -288,6 +366,8 @@ def completar(url=None, guardar=True):
         if cambiados and guardar:
             Program.objects.bulk_update(cambiados, ('title',) + CAMPOS, batch_size=500)
         tocados += len(cambiados)
+    if corregidas and guardar:
+        _recordar(corregidas)
     if desfasados:
         logger.warning('La guia de %s va con la hora cambiada en: %s', url, desfasados)
     logger.info('Guia completada con %s: %s programas en %s canales', url, tocados, len(fuente))

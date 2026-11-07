@@ -190,6 +190,8 @@ def _replace_programs(programs):
         if otro is None or mejor(prog) > mejor(otro):
             unicos[clave] = prog
     programs = list(unicos.values())
+    from .completar import corregir_titulos
+    corregir_titulos(programs)
 
     windows = {}
     for prog in programs:
