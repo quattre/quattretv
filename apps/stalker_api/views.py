@@ -749,7 +749,10 @@ def ventanas_de_archivo():
         is_active=True, role__in=[StorageRole.ARCHIVE, StorageRole.BOTH])
     limite = timezone.now() - timedelta(minutes=ARCHIVO_SIN_CONTACTO_MIN)
 
-    if de_archivo.filter(last_sync__gte=limite).exists():
+    # Un grabador nuestro que pide tareas y cuyo disco no se puede mirar se da
+    # por bueno para todo. Los que se miran por SSH (storage1n, que solo
+    # archiva los canales que tiene asignados) no: cuenta lo que hay en disco.
+    if de_archivo.filter(last_sync__gte=limite, ssh_host='').exists():
         resultado = None
     else:
         sirve = de_archivo.filter(controlado_por_ministra=False).exists()
