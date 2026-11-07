@@ -1,20 +1,20 @@
 #!/bin/bash
-# Archivo (catchup) de los canales que Ministra no archiva, en record1.
+# Archivo (catchup) de los canales que Ministra no archiva, en storage1.
 #
-# storage1 no tiene sitio para ellos (una semana de 18 canales son ~5,5 TB con
-# 7 libres); record1 tiene 27 TB y esta ocioso. Nuestra copia del grabador
-# (quattretv_storage, la que obedece a iptv2) ya sabe archivar: le falta el
-# bucle que pide las tareas, que en Ministra es tvarchivetasks.service. Esto
-# pone uno igual para la copia. iptv2 solo le manda los canales que tienen
-# "archivo en" este grabador (Channel.archivo_en), asi que no duplica nada del
-# archivo de Ministra.
+# Nuestra copia del grabador de storage1 (quattretv_storage, storage1n, la que
+# obedece a iptv2) hasta ahora solo servia con su get.php el archivo de
+# Ministra. Ya sabe archivar: le falta el bucle que pide las tareas, que en
+# Ministra es tvarchivetasks.service. Esto pone uno igual para la copia. iptv2
+# solo le manda los canales que tienen "archivo en" storage1n
+# (Channel.archivo_en): cada uno en su carpeta archive/<id>, que Ministra no
+# usa, y nunca uno de los que archiva Ministra.
 #
-# Uso, en record1 y como root:
+# Uso, en storage1 y como root:
 #   sudo bash archivo_propio.sh --probar     solo comprueba y dice lo que haria
 #   sudo bash archivo_propio.sh              instala y arranca
 #   sudo bash archivo_propio.sh --deshacer   para y quita el servicio; lo grabado
-#                                            se queda en disco
-# Ministra no se toca: ni su carpeta, ni su servicio, ni su disco de grabaciones.
+#                                            se queda en disco (se borra a mano)
+# Ministra no se toca: ni su carpeta del grabador, ni su servicio, ni sus canales.
 set -euo pipefail
 
 COPIA=/var/www/stalker_portal/quattretv_storage
@@ -51,7 +51,13 @@ case "$API" in *iptv2*) ;; *) echo "ERROR: la copia no obedece a iptv2"; exit 1 
 case "$DIR" in /var/www/*|"") echo "ERROR: RECORDS_DIR raro: $DIR"; exit 1 ;; esac
 MONTAJE=$(findmnt -n -o TARGET -T "$DIR")
 [ "$MONTAJE" != / ] || { echo "ERROR: $DIR esta en el disco del sistema"; exit 1; }
+case "$NOMBRE" in storage1|record1b|"") echo "ERROR: STORAGE_NAME $NOMBRE es el de Ministra"; exit 1 ;; esac
 echo "Disco de $DIR: $MONTAJE"; df -h "$MONTAJE" | tail -1
+[ -d "${DIR}archive" ] || { echo "ERROR: no existe ${DIR}archive"; exit 1; }
+# El mismo usuario que escribe hoy el archivo (el de Ministra): no se cambia
+# ningun permiso de su carpeta.
+USUARIO=$(stat -c %U "${DIR}archive"); GRUPO=$(stat -c %G "${DIR}archive")
+echo "La carpeta del archivo es de $USUARIO:$GRUPO; el servicio ira con ese usuario"
 [ -f "$COPIA/tvarchivesync.php" ] || { echo "ERROR: no hay $COPIA/tvarchivesync.php"; exit 1; }
 FIJAS=$(grep -rlF "/var/www/stalker_portal/storage/" "$COPIA" --include='*.php' --include='*.sh' --include=dumpstream || true)
 if [ -n "$FIJAS" ]; then
@@ -81,10 +87,12 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=www-data
-Group=www-data
+User=$USUARIO
+Group=$GRUPO
 WorkingDirectory=$COPIA
-ExecStart=/bin/bash -c 'while true; do php $COPIA/tvarchivesync.php; sleep $CADA; done'
+# Si el disco grande no esta montado no se pide nada: se escribiria en el del
+# sistema, que ya va justo.
+ExecStart=/bin/bash -c 'while true; do mountpoint -q $MONTAJE && php $COPIA/tvarchivesync.php; sleep $CADA; done'
 Restart=always
 RestartSec=30
 
@@ -95,4 +103,5 @@ systemctl daemon-reload
 systemctl enable --now "$SERVICIO"
 sleep 20
 systemctl --no-pager --lines=5 status "$SERVICIO" || true
-echo "dumpstream de la copia en marcha: $(pgrep -fc "$DIR" || true)"
+echo "dumpstream de la copia en marcha: $(pgrep -fc "$COPIA/dumpstream" || true)"
+ls -d "$DIR"archive/*/ 2>/dev/null | wc -l | xargs echo "carpetas en el archivo:"

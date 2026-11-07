@@ -17,7 +17,6 @@ from django.conf import settings
 from django.core import signing
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse, QueryDict
-from django.db.models import Q
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
@@ -294,12 +293,10 @@ def tv_archive_tasks(request, storage_name):
     ).first()
     if not storage or storage.controlado_por_ministra:
         return JsonResponse({'results': []})
-    # A un grabador de grabaciones (record1) solo se le mandan los canales que
-    # tiene asignados (Channel.archivo_en); al de archivo, ademas, los que no
-    # tienen ninguno.
+    # Solo los canales que tiene asignados (Channel.archivo_en). Nuestra copia
+    # de storage1 escribe en la misma carpeta que Ministra: si se le mandaran
+    # tambien los que archiva Ministra, los dos escribirian el mismo fichero.
     canales = archive_channels().filter(archivo_en=storage)
-    if storage.records_archive:
-        canales = archive_channels().filter(Q(archivo_en=storage) | Q(archivo_en__isnull=True))
 
     results = [
         {

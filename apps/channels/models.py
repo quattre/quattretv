@@ -242,15 +242,14 @@ class Channel(TimeStampedModel, ActivableModel):
                   '"archivo anterior hasta", cuando venia por otra señal.'
     )
     archivo_anterior_hasta = models.DateTimeField(null=True, blank=True)
-    # El archivo de Ministra (storage1) no tiene sitio para los canales que
-    # Ministra no archiva: 20 canales serian 6 TB la semana con 7 libres. Esos
-    # los archiva nuestro grabador de record1, que pide sus tareas y guarda en
-    # su disco.
+    # Los canales que Ministra no archiva los archiva nuestra copia del
+    # grabador de storage1 (storage1n), que pide sus tareas a iptv2 y escribe
+    # en la misma carpeta de archivo, cada canal en la suya.
     archivo_en = models.ForeignKey(
         'pvr.StorageServer', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='canales_archivados',
-        help_text='Grabador nuestro que archiva este canal. Vacio = el archivo '
-                  'de Ministra en storage1.'
+        help_text='Grabador nuestro que archiva este canal. Vacio = lo archiva '
+                  'Ministra en storage1.'
     )
 
     @property
