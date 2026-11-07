@@ -325,16 +325,24 @@ def _corregir(e, corregidos, con_ocultos=False):
 def emisiones(canales, con_ocultos=False):
     """Lo ya emitido que sigue en el archivo de esos canales, lo mas nuevo antes."""
     from apps.epg.models import Program
+    from .views import limites_archivo, ventanas_de_archivo
 
     ahora = timezone.now()
+    ventanas = ventanas_de_archivo()
     salida = []
     seguros = {}
     for canal, horas in canales.items():
         desde = ahora - timedelta(hours=horas)
+        hasta = ahora - timedelta(minutes=2)
+        # Una señal que cambio de canal: a cada uno, lo suyo.
+        desde_canal, hasta_canal = limites_archivo(canal, ventanas)
+        if desde_canal:
+            desde = max(desde, desde_canal)
+        if hasta_canal:
+            hasta = min(hasta, hasta_canal)
         tipo_canal = canal.category.name if canal.category else ''
         programas = Program.objects.filter(
-            channel=canal, start_time__gte=desde,
-            end_time__lte=ahora - timedelta(minutes=2),
+            channel=canal, start_time__gte=desde, end_time__lte=hasta,
         ).only('title', 'description', 'start_time', 'end_time', 'category',
                'episode_title', 'season', 'episode', 'year', 'icon')
         for p in programas:
@@ -751,6 +759,7 @@ def populares(tarjetas, maximo=20):
 def todas_las_emisiones():
     """Lo emitido de todos los canales con archivo, sin mirar el aparato."""
     from apps.channels.models import Channel
+    from django.db.models import Q
     canales = Channel.objects.filter(is_active=True, has_catchup=True, is_adult=False) \
-        .exclude(origen_grabador='').select_related('category')
+        .filter(~Q(origen_grabador='') | Q(archivo_anterior__isnull=False)).select_related('category')
     return emisiones({c: c.timeshift_hours or 168 for c in canales})

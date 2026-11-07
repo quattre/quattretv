@@ -2312,12 +2312,19 @@
         return dosCifras(d.getHours()) + ':' + dosCifras(d.getMinutes());
     }
 
+    // Si el programa esta en el archivo del canal. archive_until: lo de despues
+    // es de otro canal que vino por la misma señal (Atreseries/La Séptima).
+    function enArchivo(ch, p) {
+        if (!ch || !ch.archive) return false;
+        return !ch.archive_until || !p || !p.start_timestamp || p.start_timestamp < ch.archive_until;
+    }
+
     // Lo que se puede hacer con el programa: lo mismo que promete la guia.
     function opcionesRejilla(ch, p) {
         var ops = [];
         if (!p) return [{id: 'canal', t: 'Ver ' + ch.name}];
         if (p.current) ops.push({id: 'canal', t: 'Ver ahora'});
-        if ((p.past || p.current) && ch.archive) ops.push({id: 'archivo', t: p.current ? 'Ver desde el principio' : 'Ver'});
+        if ((p.past || p.current) && enArchivo(ch, p)) ops.push({id: 'archivo', t: p.current ? 'Ver desde el principio' : 'Ver'});
         if (!p.past && hayGrabaciones() && ch.pvr) {
             ops.push({id: 'grabar', t: p.rec ? (p.current ? 'Parar la grabacion' : 'Quitar la grabacion') : 'Grabar'});
         }
@@ -2593,7 +2600,7 @@
         var idx = playingChannelIdx >= 0 ? playingChannelIdx : currentChannel;
         var ch = channels[idx];
         if (!ch) return;
-        if (!ch.archive) { toast('Este canal no se puede retroceder'); return; }
+        if (!ch.archive || ch.archive_until) { toast('Este canal no se puede retroceder'); return; }
         var ahora = ahoraSeg();
         diferido = {
             etiqueta: 'EN DIFERIDO', canal: ch.name, titulo: ch.cur_playing || '',
@@ -4040,7 +4047,7 @@
     function pistaGuia(p) {
         if (!p) return '';
         if (p.past) {
-            return (guideChannel && guideChannel.archive)
+            return enArchivo(guideChannel, p)
                 ? '<span data-tecla="13">OK</span> Ver desde el archivo' : '';
         }
         if (p.rec && p.current) return '<span data-tecla="13">OK</span> Parar la grabacion';
@@ -4408,6 +4415,7 @@
 
     function playCatchup(p) {
         if (!guideChannel.archive) { toast('Este canal no tiene archivo'); return; }
+        if (!enArchivo(guideChannel, p)) { toast('Este programa no esta en el archivo'); return; }
         api("type=tv_archive&action=create_link&ch_id=" + guideChannel.id +
             "&utc=" + p.start_timestamp + "&lutc=" + finConMargen(p.stop_timestamp), function(js) {
             if (js && js.cmd) {
@@ -4704,7 +4712,7 @@
         // sale de todas las pantallas de la app, ya se ha usado para llegar
         // hasta aqui, y ademas vuelve a decirse dentro de la ficha.
         var pistas = '';
-        if (ch.archive) pistas += '<span data-tecla="37">◀</span> Retroceder ';
+        if (ch.archive && !ch.archive_until) pistas += '<span data-tecla="37">◀</span> Retroceder ';
         if (ch.cur_playing) pistas += '<span data-tecla="39">▶</span> Informacion ';
         if (hayGrabaciones() && ch.pvr) {
             pistas += seGraba(ch) ? '<span class="rojo" data-tecla="403">●</span> Parar grabacion'

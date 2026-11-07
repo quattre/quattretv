@@ -134,16 +134,21 @@ def medir_pendientes(horas=168, presupuesto=3000):
     ahora = timezone.localtime().replace(minute=0, second=0, microsecond=0)
     canales = list(Channel.objects.filter(
         has_catchup=True, is_active=True, archive_hls_since__isnull=True))
-    medidores = {c.id: Medidor(base, id_en_archivo(c), make_archive_token(0, c.id)) for c in canales}
+    # Por carpeta y no por canal: la de una señal que cambio de canal la
+    # comparten dos (Channel.archivo_anterior) y se mide una vez.
+    medidores = {}
     cortas = 0
     for atras in range(1, horas + 1):
         hora = ahora - timedelta(hours=atras)
         for c in canales:
-            clave = _clave(id_en_archivo(c), hora)
+            carpeta = id_en_archivo(c, hora)
+            clave = _clave(carpeta, hora)
             if cache.get(clave) is not None:
                 continue
+            if carpeta not in medidores:
+                medidores[carpeta] = Medidor(base, carpeta, make_archive_token(0, c.id))
             try:
-                medida = medidores[c.id].medir(hora)
+                medida = medidores[carpeta].medir(hora)
             except requests.RequestException as exc:
                 logger.warning('pieza %s %s: %s', c.name, hora, exc)
                 continue

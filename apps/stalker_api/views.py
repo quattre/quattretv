@@ -789,17 +789,49 @@ def archivo_del_canal(channel, device, ventanas):
     # El archivo en HLS lo graba otro proceso desde el multicast del CDN; el de
     # Ministra necesita su direccion.
     origen = channel.origen_para_grabar or (channel.archive_hls_since and channel.multicast_url)
-    if not (channel.has_catchup and origen):
+    anterior = channel.archivo_anterior and channel.archivo_anterior_hasta
+    if not (channel.has_catchup and (origen or anterior)):
         return False, 0
     if not puede_ver_archivo(device, channel):
         return False, 0
-    if ventanas is None:
-        return True, channel.timeshift_hours
-    ventana = ventanas.get(id_en_archivo(channel))
-    if not ventana:
+    ahora = timezone.now()
+    inicios = []
+    if origen:
+        if ventanas is None:
+            inicios.append(ahora - timezone.timedelta(hours=channel.timeshift_hours))
+        elif ventanas.get(id_en_archivo(channel)):
+            inicios.append(ventanas[id_en_archivo(channel)]['desde'])
+    if anterior and ventanas and ventanas.get(channel.archivo_anterior):
+        desde = ventanas[channel.archivo_anterior]['desde']
+        if desde < channel.archivo_anterior_hasta:
+            inicios.append(desde)
+    if not inicios:
         return False, 0
-    horas = int((timezone.now() - ventana['desde']).total_seconds() // 3600)
+    desde = min(inicios)
+    if channel.archivo_desde:
+        desde = max(desde, channel.archivo_desde)
+    horas = int((ahora - desde).total_seconds() // 3600)
     return True, max(1, horas)
+
+
+def limites_archivo(channel, ventanas):
+    """
+    (desde, hasta) de lo que hay en el archivo de este canal; None = sin limite.
+
+    Cuando una señal cambia de canal (Channel.archivo_desde/archivo_anterior),
+    el archivo tiene antes del cambio un canal y despues otro. Atreseries tiene
+    lo de antes en la carpeta de La Séptima y, mientras no se grabe su señal
+    nueva, nada despues: ofrecerlo seria poner La Séptima.
+    """
+    from .storage_views import id_en_archivo
+
+    hasta = None
+    if channel.archivo_anterior and channel.archivo_anterior_hasta:
+        propio = ventanas.get(id_en_archivo(channel)) if ventanas is not None \
+            else channel.origen_para_grabar
+        if not propio:
+            hasta = channel.archivo_anterior_hasta
+    return channel.archivo_desde, hasta
 
 
 def canales_visibles(qs, device):
@@ -913,6 +945,9 @@ def handle_get_ordered_list(request):
             'fav': 1 if ch.id in favorites else 0,
             'archive': 1 if has_archive else 0,
             'archive_range': horas_archivo,
+            # Lo de despues no esta en el archivo de este canal (limites_archivo).
+            'archive_until': int(limites_archivo(ch, ventanas)[1].timestamp())
+            if has_archive and limites_archivo(ch, ventanas)[1] else 0,
             # Hasta cuando esta grabando este cliente el canal (0 = nada).
             'rec_until': grabando.get(ch.id, (0, 0))[0],
             'rec_from': grabando.get(ch.id, (0, 0))[1],
@@ -1638,7 +1673,8 @@ def handle_archive_link(request):
 
     # La lista de canales ya no lo ofrece si no hay grabador vivo, pero el deco
     # puede pedirlo igual con una lista que tuviera en memoria.
-    tiene_archivo, horas_archivo = archivo_del_canal(channel, device, ventanas_de_archivo())
+    ventanas = ventanas_de_archivo()
+    tiene_archivo, horas_archivo = archivo_del_canal(channel, device, ventanas)
     if not tiene_archivo:
         return stalker_response({'error': 'Archivo no disponible en este momento'})
 
@@ -1657,6 +1693,9 @@ def handle_archive_link(request):
     oldest = timezone.now() - timezone.timedelta(hours=horas_archivo)
     if start < oldest:
         return stalker_response({'error': 'El programa ya no está en el archivo'})
+    _, hasta_archivo = limites_archivo(channel, ventanas)
+    if hasta_archivo and start >= hasta_archivo:
+        return stalker_response({'error': 'El programa no está en el archivo'})
 
     duration = 3600
     if lutc:
@@ -1684,6 +1723,10 @@ def handle_archive_link(request):
         if inicio_real >= oldest:
             start = inicio_real
         duration = max(60, int((fin - start).total_seconds()))
+
+    # Que no se pase al canal que vino despues por la misma señal.
+    if hasta_archivo:
+        duration = max(60, min(duration, int((hasta_archivo - start).total_seconds())))
 
     url = build_catchup_url(channel, start, duration, device)
     if not url:

@@ -226,6 +226,23 @@ class Channel(TimeStampedModel, ActivableModel):
                   'en el archivo (TCM: -55). 0 = el archivo va a la par.'
     )
 
+    # Una misma señal puede cambiar de canal. La 239.20.70.1 era Atreseries y
+    # desde el 05/11/2026 a las 04:14 es La Séptima: su archivo tiene una
+    # semana de lo uno y lo que va de lo otro. Lo de antes del cambio es de
+    # Atreseries (archivo_anterior = esa carpeta, hasta el cambio) y La
+    # Séptima no tiene que ofrecerlo (archivo_desde = el cambio).
+    archivo_desde = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Lo anterior en el archivo de este canal es de otro canal. '
+                  'Vacio = todo es suyo.'
+    )
+    archivo_anterior = models.IntegerField(
+        null=True, blank=True,
+        help_text='Carpeta del archivo (id) donde esta lo de este canal hasta '
+                  '"archivo anterior hasta", cuando venia por otra señal.'
+    )
+    archivo_anterior_hasta = models.DateTimeField(null=True, blank=True)
+
     @property
     def origen_para_grabar(self):
         # Sin la direccion de Ministra no se puede grabar: los grabadores que

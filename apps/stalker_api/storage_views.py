@@ -44,14 +44,19 @@ def archive_storage():
     ).order_by('controlado_por_ministra').first()
 
 
-def id_en_archivo(channel):
+def id_en_archivo(channel, momento=None):
     """
     Con que numero esta guardado el canal en el archivo de storage1.
 
     El archivo en MPEG-TS lo empezo Ministra y sus carpetas llevan el id interno
     de alli (archive/<id>/). Se sigue usando para no perder ni una hora al
     cambiar; un canal nuevo, que Ministra no tuvo nunca, usa el id de aqui.
+    Con `momento`, lo de antes de que el canal cambiara de señal esta en la
+    carpeta de la señal vieja (Channel.archivo_anterior).
     """
+    if (momento is not None and channel.archivo_anterior
+            and channel.archivo_anterior_hasta and momento < channel.archivo_anterior_hasta):
+        return channel.archivo_anterior
     return channel.ministra_id or channel.id
 
 
@@ -86,9 +91,10 @@ def build_ts_catchup_url(storage, channel, start, duration, device=None):
     from apps.stalker_api.piezas import corregir
     # Si a la pieza de esa hora le falta un trozo, el segundo de get.php no es
     # el de la hora (ver piezas.py).
-    pieza, segundo, duration = corregir(id_en_archivo(channel), timezone.localtime(start), int(duration))
+    carpeta = id_en_archivo(channel, start)
+    pieza, segundo, duration = corregir(carpeta, timezone.localtime(start), int(duration))
     params = {
-        'ch_id': id_en_archivo(channel),
+        'ch_id': carpeta,
         'filename': pieza.strftime('%Y%m%d-%H') + '.mpg',
         # get.php lee 'start'. Con otro nombre lo ignoraba y todo empezaba en
         # la hora en punto, no donde empieza el programa.
