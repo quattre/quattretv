@@ -313,8 +313,47 @@
         var ch = channels[playingChannelIdx >= 0 ? playingChannelIdx : currentChannel];
         api("type=watchdog&action=get_events&cargado=" + PORTAL_CARGADO +
             (ch ? "&ch_id=" + ch.id : ""), function(js) {
+            if (js && js.canales) {
+                if (!marcaCanales) marcaCanales = js.canales;
+                else if (js.canales !== marcaCanales) refrescarCanales(js.canales);
+            }
             if (js && js.event) ordenDelPanel(js.event, js);
         });
+    }
+
+    // Un canal nuevo o cambiado de numero se veia solo al recargar el portal o
+    // reiniciar el deco (Atreseries y La Septima, 07/11/2026). El latido trae
+    // una marca de la lista; si cambia, se vuelve a pedir por detras, sin
+    // cortar lo que se esta viendo. En la guia, la parrilla y demas pantallas
+    // que van por posicion de canal se espera al siguiente latido; y si falla
+    // la peticion, igual: la marca solo se apunta cuando la lista ha llegado.
+    var marcaCanales = null, refrescandoCanales = false;
+    var VISTAS_REFRESCO = {list: 1, menu: 1, semana: 1, recordings: 1, ayuda: 1};
+
+    function refrescarCanales(marca) {
+        if (refrescandoCanales || !VISTAS_REFRESCO[view]) return;
+        refrescandoCanales = true;
+        var nuevos = [];
+        function pagina(p) {
+            api("type=itv&action=get_ordered_list&p=" + p, function(js) {
+                if (!js || !js.data) { refrescandoCanales = false; return; }
+                nuevos = nuevos.concat(js.data);
+                var porPagina = js.max_page_items || 50;
+                if (nuevos.length < (js.total_items || 0) && js.data.length >= porPagina) { pagina(p + 1); return; }
+                refrescandoCanales = false;
+                if (!VISTAS_REFRESCO[view]) return;
+                marcaCanales = marca;
+                var suena = channels[playingChannelIdx] ? channels[playingChannelIdx].id : null;
+                allChannels = nuevos;
+                applyFilters();
+                playingChannelIdx = -1;
+                for (var i = 0; i < channels.length; i++) {
+                    if (channels[i].id === suena) playingChannelIdx = i;
+                }
+                if (view === "list") showChannels();
+            }, true);
+        }
+        pagina(0);
     }
 
     // Ordenes que llegan desde el panel en el latido (apps/devices/eventos.py).

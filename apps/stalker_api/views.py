@@ -2147,6 +2147,19 @@ def handle_pvr_link(request):
 
 # ============== Other Handlers ==============
 
+def marca_canales():
+    """Cambia cuando se toca algun canal: cuantos hay y el ultimo cambio."""
+    from django.core.cache import cache
+    from django.db.models import Count, Max
+
+    marca = cache.get('canales:marca')
+    if marca is None:
+        datos = Channel.objects.filter(is_active=True).aggregate(n=Count('id'), u=Max('updated_at'))
+        marca = '%s-%s' % (datos['n'], int(datos['u'].timestamp()) if datos['u'] else 0)
+        cache.set('canales:marca', marca, 60)
+    return marca
+
+
 def handle_watchdog(request, action):
     """
     Handle watchdog/keepalive.
@@ -2199,6 +2212,11 @@ def handle_watchdog(request, action):
         # de cambio de canal tambien pasa por aqui y no mira la respuesta, asi
         # que haciendo zapping se comia las ordenes sin ejecutarlas.
         cargado = request.GET.get('cargado', '')
+        # La lista de canales cambia (un canal nuevo, otro numero): el deco
+        # compara esta marca con la de la vez anterior y, si cambia, la vuelve
+        # a pedir por detras. Antes habia que recargar el portal o reiniciar.
+        if cargado.isdigit():
+            respuesta['canales'] = marca_canales()
         evento = None
         if cargado.isdigit():
             evento = eventos.recoger(device, int(cargado))
