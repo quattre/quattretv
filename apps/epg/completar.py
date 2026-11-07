@@ -246,12 +246,18 @@ def otra_pelicula(programa, suyos, inicios, desfase):
     i = bisect.bisect_left(inicios, momento - MARGEN)
     while i < len(inicios) and inicios[i] <= momento + MARGEN:
         d = suyos[i]
+        titulo = titulo_peli(d['titulo'])
         if d['fin'] and abs(d['fin'].timestamp() - fin) <= FRANJA_FIN \
                 and plano(d['category']).startswith('cine') \
-                and d['titulo'] and not generico(d['titulo']) and not parecido(nuestro, d['plano']):
+                and titulo and not generico(titulo) and not parecido(nuestro, plano(titulo)):
             return d
         i += 1
     return None
+
+
+def titulo_peli(titulo):
+    """dobleM añade a veces el titulo otra vez: "La ciudad perdida · La Ciudad Perdida"."""
+    return (titulo or '').split(' · ')[0].strip()[:500]
 
 
 def _recordar(nuevas):
@@ -333,10 +339,10 @@ def completar(url=None, guardar=True):
             if peli:
                 corregidas[(p.channel_id, p.start_time.timestamp())] = dict(
                     {campo: peli[campo] for campo in CAMPOS},
-                    antes=plano(p.title), titulo=peli['titulo'][:500])
+                    antes=plano(p.title), titulo=titulo_peli(peli['titulo']))
                 logger.info('Guia: %s %s era %s y es %s', canal.name,
                             timezone.localtime(p.start_time).strftime('%d %H:%M'), p.title, peli['titulo'])
-                p.title = peli['titulo'][:500]
+                p.title = titulo_peli(peli['titulo'])
                 for campo in CAMPOS:
                     setattr(p, campo, peli[campo])
                 cambiados.append(p)
