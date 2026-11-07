@@ -19,9 +19,30 @@
 # un dumpstream que ya corre no relee el fichero.
 set -euo pipefail
 
-# direccion puerto enlace del CDN (el mismo :1500 que usa la tabla de Ministra)
+# direccion puerto enlace del CDN (el mismo :1500 que usa la tabla de Ministra).
+# 07/11/2026: los 20 canales de la plataforma nueva sin direccion de Ministra
+# (multicast_url del canal -> su HLS en el CDN, sacado de iptv2).
 CANALES=(
-    "234.5.2.10 20000 http://cdn11.quattre.com:1500/hls/a3series/index.m3u8"   # Atreseries, 07/11/2026
+    "234.5.2.116 20000 http://cdn11.quattre.com:1500/hls/canal33/index.m3u8"   # Canal 33
+    "234.5.2.117 20000 http://cdn11.quattre.com:1500/hls/sport3/index.m3u8"   # Esport 3
+    "234.5.2.10 20000 http://cdn11.quattre.com:1500/hls/a3series/index.m3u8"   # Atreseries
+    "239.20.70.4 5004 http://cdn10.quattre.com:1500/hls/ten/index.m3u8"   # Ten
+    "234.5.2.39 20000 http://cdn10.quattre.com:1500/hls/13tv/index.m3u8"   # 13TV
+    "239.20.10.2 5004 http://cdn11.quattre.com:1500/hls/paramount/index.m3u8"   # Squirrel dos
+    "224.168.11.101 20000 http://cdn10.quattre.com:1500/hls/buenviaje/index.m3u8"   # AMC Western
+    "239.110.120.5 6000 http://cdn11.quattre.com:1500/hls/iberalia_caza/index.m3u8"   # Iberalia Caza
+    "239.110.120.4 6000 http://cdn11.quattre.com:1500/hls/iberalia_pesca/index.m3u8"   # Iberalia Pesca
+    "224.168.11.173 2173 http://cdn11.quattre.com:1500/hls/decasa/index.m3u8"   # AMC Living
+    "239.20.70.3 5004 http://cdn10.quattre.com:1500/hls/realmadridtv/index.m3u8"   # Real Madrid TV
+    "239.10.100.5 5004 http://cdn10.quattre.com:1500/hls/eurosport1/index.m3u8"   # Eurosport 1
+    "234.5.2.44 20000 http://cdn10.quattre.com:1500/hls/24h/index.m3u8"   # 24 Horas
+    "234.5.2.137 20000 http://cdn10.quattre.com:1500/hls/intereconomia/index.m3u8"   # Intereconomia
+    "234.5.2.118 20000 http://cdn10.quattre.com:1500/hls/extremaduratv/index.m3u8"   # Extremadura TV
+    "234.5.2.131 20000 http://cdn11.quattre.com:1500/hls/etb1/index.m3u8"   # ETB 1
+    "234.5.2.132 20000 http://cdn10.quattre.com:1500/hls/etb2/index.m3u8"   # ETB 2
+    "239.20.60.1 5004 http://cdn10.quattre.com:1500/hls/valenciatv/index.m3u8"   # 7 Valencia TV
+    "239.20.100.1 5004 http://cdn10.quattre.com:1500/hls/laochomed/index.m3u8"   # La 8 Mediterraneo
+    "239.20.60.2 5004 http://cdn11.quattre.com:1500/hls/levantetv/index.m3u8"   # Levante TV
 )
 
 CARPETA="${1:-}"
