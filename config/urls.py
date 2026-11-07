@@ -2,10 +2,10 @@
 URL configuration for QuattreTV.
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 
 from apps.core.health import health, ping
 from apps.stalker_api import storage_urls
@@ -48,6 +48,16 @@ urlpatterns = [
     path('server/api/', include(
         (storage_urls.portal_api_urlpatterns, 'storage_api'), namespace='storage_api'
     )),
+
+    # La direccion del portal que llevan los decos en el firmware
+    # (iptv1.quattre.com/quattretv/c/index.html). En Ministra es una
+    # redireccion a stalker_portal/c/; los decos ya pasados (ver
+    # redirigir_decos.sh) mandan la cookie mac y Ministra nos reenvia la
+    # peticion tal cual. Aqui no existia: al recargar el portal el deco se
+    # quedaba pidiendo /quattretv/c cada 3 s (404) y solo arrancaba
+    # reiniciandolo. Relativa, para que el deco siga hablando con iptv1.
+    re_path(r'^quattretv/c(?:/(?:index\.html)?)?$',
+            RedirectView.as_view(url='/stalker_portal/c/index.html', query_string=True)),
 
     # QuattreTV STB endpoint (alternativa a stalker_portal)
     path('quattretv/stb/', include('apps.stalker_api.urls')),
