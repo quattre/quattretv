@@ -125,12 +125,11 @@ def medir_pendientes(horas=168, presupuesto=3000):
     """Mide las piezas ya cerradas que aun no se han medido, de la mas nueva a
     la mas vieja, hasta `presupuesto` peticiones a get.php."""
     from apps.channels.models import Channel
-    from apps.stalker_api.storage_views import archive_storage, id_en_archivo, make_archive_token
+    from apps.stalker_api.storage_views import (
+        almacen_archivo, archive_storage, clave_archivo, id_en_archivo, make_archive_token)
 
-    st = archive_storage()
-    if not st:
+    if not archive_storage():
         return 0
-    base = st.build_url('get.php', public=True)
     ahora = timezone.localtime().replace(minute=0, second=0, microsecond=0)
     canales = list(Channel.objects.filter(
         has_catchup=True, is_active=True, archive_hls_since__isnull=True))
@@ -141,12 +140,16 @@ def medir_pendientes(horas=168, presupuesto=3000):
     for atras in range(1, horas + 1):
         hora = ahora - timedelta(hours=atras)
         for c in canales:
-            carpeta = id_en_archivo(c, hora)
+            carpeta = clave_archivo(c, hora)
             clave = _clave(carpeta, hora)
             if cache.get(clave) is not None:
                 continue
+            st = almacen_archivo(c, hora)
+            if not st:
+                continue
             if carpeta not in medidores:
-                medidores[carpeta] = Medidor(base, carpeta, make_archive_token(0, c.id))
+                medidores[carpeta] = Medidor(st.build_url('get.php'), id_en_archivo(c, hora),
+                                             make_archive_token(0, c.id))
             try:
                 medida = medidores[carpeta].medir(hora)
             except requests.RequestException as exc:

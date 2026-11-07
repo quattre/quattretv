@@ -758,6 +758,15 @@ def ventanas_de_archivo():
         if sirve and de_ministra:
             resultado = {k: v for k, v in (archivo.ventanas(de_ministra) or {}).items()
                          if v['grabando']}
+        # Lo que archivan nuestros grabadores (Channel.archivo_en), mirado en su
+        # disco; va con el numero del grabador delante (clave_archivo).
+        propios = StorageServer.objects.filter(
+            is_active=True, controlado_por_ministra=False,
+            canales_archivados__isnull=False).exclude(ssh_host='').distinct()
+        for propio in propios:
+            for carpeta, ventana in (archivo.ventanas(propio) or {}).items():
+                if ventana['grabando']:
+                    resultado['%s:%s' % (propio.id, carpeta)] = ventana
 
     try:
         cache.set('archivo:ventanas', 'todos' if resultado is None else resultado, 60)
@@ -784,7 +793,7 @@ def archivo_del_canal(channel, device, ventanas):
     """
     (tiene archivo, horas que se pueden ver) para este canal y este aparato.
     """
-    from .storage_views import id_en_archivo
+    from .storage_views import clave_archivo
 
     # El archivo en HLS lo graba otro proceso desde el multicast del CDN; el de
     # Ministra necesita su direccion.
@@ -799,8 +808,8 @@ def archivo_del_canal(channel, device, ventanas):
     if origen:
         if ventanas is None:
             inicios.append(ahora - timezone.timedelta(hours=channel.timeshift_hours))
-        elif ventanas.get(id_en_archivo(channel)):
-            inicios.append(ventanas[id_en_archivo(channel)]['desde'])
+        elif ventanas.get(clave_archivo(channel)):
+            inicios.append(ventanas[clave_archivo(channel)]['desde'])
     if anterior and ventanas and ventanas.get(channel.archivo_anterior):
         desde = ventanas[channel.archivo_anterior]['desde']
         if desde < channel.archivo_anterior_hasta:
@@ -823,11 +832,11 @@ def limites_archivo(channel, ventanas):
     lo de antes en la carpeta de La Séptima y, mientras no se grabe su señal
     nueva, nada despues: ofrecerlo seria poner La Séptima.
     """
-    from .storage_views import id_en_archivo
+    from .storage_views import clave_archivo
 
     hasta = None
     if channel.archivo_anterior and channel.archivo_anterior_hasta:
-        propio = ventanas.get(id_en_archivo(channel)) if ventanas is not None \
+        propio = ventanas.get(clave_archivo(channel)) if ventanas is not None \
             else channel.origen_para_grabar
         if not propio:
             hasta = channel.archivo_anterior_hasta

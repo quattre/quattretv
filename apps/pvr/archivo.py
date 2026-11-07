@@ -20,7 +20,7 @@ CACHE_SECONDS = 300
 ESPERA = 30
 
 ORDEN = (
-    f'cfg={CONFIG_MINISTRA}; '
+    'cfg={config}; '
     "dir=$(sed -nE \"s/.*define\\('RECORDS_DIR', *'([^']+)'.*/\\1/p\" $cfg)archive; "
     'cd "$dir" 2>/dev/null || exit 3; '
     'for d in */; do '
@@ -35,6 +35,15 @@ def _hora(nombre):
         return timezone.make_aware(datetime.strptime(nombre[:11], '%Y%m%d-%H'))
     except ValueError:
         return None
+
+
+def config_de(storage):
+    """config.php del grabador: el de su carpeta (la de api_url bajo /var/www)."""
+    from urllib.parse import urlparse
+    ruta = urlparse(storage.api_url or '').path.strip('/')
+    if not ruta.startswith('stalker_portal/'):
+        return CONFIG_MINISTRA
+    return '/var/www/%s/config.php' % ruta
 
 
 def ventanas(storage):
@@ -58,7 +67,7 @@ def ventanas(storage):
         proceso = subprocess.run(
             [ssh_bin(), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new',
              '-o', 'ConnectTimeout=8', '-p', str(storage.ssh_port),
-             f'{storage.ssh_user}@{storage.ssh_host}', ORDEN],
+             f'{storage.ssh_user}@{storage.ssh_host}', ORDEN.replace('{config}', config_de(storage))],
             capture_output=True, text=True, timeout=ESPERA)
     except (OSError, subprocess.TimeoutExpired):
         return None

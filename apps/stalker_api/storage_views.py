@@ -17,6 +17,7 @@ from django.conf import settings
 from django.core import signing
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse, QueryDict
+from django.db.models import Q
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
@@ -60,6 +61,25 @@ def id_en_archivo(channel, momento=None):
     return channel.ministra_id or channel.id
 
 
+def almacen_archivo(channel, momento=None):
+    """Grabador que tiene el archivo del canal en `momento` (Channel.archivo_en)."""
+    if channel.archivo_en_id and id_en_archivo(channel, momento) == id_en_archivo(channel):
+        return channel.archivo_en
+    return archive_storage()
+
+
+def clave_archivo(channel, momento=None):
+    """
+    Con que se busca el canal en ventanas_de_archivo() y en la cache de piezas.
+    Las carpetas de storage1 van por su numero, como siempre; las de un
+    grabador nuestro llevan delante el suyo, porque los numeros se repiten.
+    """
+    carpeta = id_en_archivo(channel, momento)
+    if channel.archivo_en_id and carpeta == id_en_archivo(channel):
+        return '%s:%s' % (channel.archivo_en_id, carpeta)
+    return carpeta
+
+
 def build_catchup_url(channel, start, duration, device=None):
     """
     Build the playback URL for the archive at `start`.
@@ -70,7 +90,7 @@ def build_catchup_url(channel, start, duration, device=None):
     That is what makes the migration seamless: no gap, no re-encoding of the
     past, and rolling back is just clearing the field.
     """
-    storage = archive_storage()
+    storage = almacen_archivo(channel, start)
     if not storage:
         return None
     # Hora del directo -> hora en la señal que se graba (ver Channel.desfase_archivo).
@@ -92,7 +112,7 @@ def build_ts_catchup_url(storage, channel, start, duration, device=None):
     # Si a la pieza de esa hora le falta un trozo, el segundo de get.php no es
     # el de la hora (ver piezas.py).
     carpeta = id_en_archivo(channel, start)
-    pieza, segundo, duration = corregir(carpeta, timezone.localtime(start), int(duration))
+    pieza, segundo, duration = corregir(clave_archivo(channel, start), timezone.localtime(start), int(duration))
     params = {
         'ch_id': carpeta,
         'filename': pieza.strftime('%Y%m%d-%H') + '.mpg',
@@ -103,7 +123,9 @@ def build_ts_catchup_url(storage, channel, start, duration, device=None):
         'token': make_archive_token(device.id if device else 0, channel.id),
     }
     query = '&'.join(f'{k}={v}' for k, v in params.items())
-    return storage.build_url('get.php', public=True) + '?' + query
+    # get.php esta al lado de rest.php (api_url): en record1 la de reproducir
+    # es la carpeta de las grabaciones, no la del grabador.
+    return storage.build_url('get.php') + '?' + query
 
 
 def build_hls_catchup_url(channel, start, duration, device=None):
@@ -270,8 +292,14 @@ def tv_archive_tasks(request, storage_name):
     storage = StorageServer.objects.filter(
         name=storage_name, is_active=True
     ).first()
-    if not storage or not storage.records_archive:
+    if not storage or storage.controlado_por_ministra:
         return JsonResponse({'results': []})
+    # A un grabador de grabaciones (record1) solo se le mandan los canales que
+    # tiene asignados (Channel.archivo_en); al de archivo, ademas, los que no
+    # tienen ninguno.
+    canales = archive_channels().filter(archivo_en=storage)
+    if storage.records_archive:
+        canales = archive_channels().filter(Q(archivo_en=storage) | Q(archivo_en__isnull=True))
 
     results = [
         {
@@ -279,7 +307,7 @@ def tv_archive_tasks(request, storage_name):
             'cmd': channel.origen_para_grabar,
             'parts_number': channel.timeshift_hours,
         }
-        for channel in archive_channels()
+        for channel in canales
     ]
 
     storage.last_sync = timezone.now()
