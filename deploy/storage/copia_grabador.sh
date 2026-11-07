@@ -117,6 +117,9 @@ hacer sed -i -E \
 #    varias vacias o cortadas. Solo video y audio.
 hacer sed -i 's/-sn -map 0 -t/-sn -map 0:v? -map 0:a? -t/g' "$COPIA/dumpstream"
 
+#    Los canales que la tabla de dumpstream no conoce (Atreseries...).
+[ "$MODO" = probar ] || bash "$(dirname "$0")/linktv_extra.sh" "$COPIA"
+
 # 4. Sus carpetas. Las del original tienen permisos abiertos y se copian igual.
 #    En modo archivo la de grabaciones es la de Ministra y no se toca.
 if [ "$ARCHIVO" = 1 ]; then
