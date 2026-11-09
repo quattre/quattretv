@@ -1382,7 +1382,7 @@
             var url = ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '');
             arrancarVideo(url);
         } else if (androidPlayer) {
-            try { androidPlayer.reproducir(ch.cmd.replace('ffmpeg ', '').replace('ffrt ', '')); } catch(err) {}
+            reproducirAndroid(ch.cmd.replace('ffmpeg ', '').replace('ffrt ', ''));
         } else if (stbAPI) {
             reproducirStb(ch);
         } else if (player) {
@@ -1409,6 +1409,24 @@
         }
     }
 
+    // Zapping en Android TV: cada canal arranca y para el decodificador por
+    // hardware, y en la Xiaomi TV Box S (Amlogic) tres seguidos en medio
+    // segundo lo dejaban 4-5 s sin imagen (uno solo tarda 0,4 s). El primer
+    // cambio va al momento; si llegan mas mientras tanto, solo se carga el
+    // ultimo, cuando se deja de pulsar.
+    var colaAndroid = null, ultimoAndroid = 0;
+    function reproducirAndroid(url) {
+        clearTimeout(colaAndroid);
+        var ahora = Date.now(), seguido = ahora - ultimoAndroid < 600;
+        ultimoAndroid = ahora;
+        var cargar = function() {
+            ultimoAndroid = Date.now();
+            try { androidPlayer.reproducir(url); } catch(err) {}
+        };
+        if (seguido) colaAndroid = setTimeout(cargar, 350);
+        else cargar();
+    }
+
     // Cortar el video de verdad. Hace falta para los canales bloqueados: dejar
     // de mandar la orden de reproducir no basta, porque lo que se estaba viendo
     // sigue en pantalla y parece que el canal bloqueado se esta viendo igual.
@@ -1425,6 +1443,7 @@
         var tarjeta = document.getElementById('radio');
         if (tarjeta) tarjeta.style.display = 'none';
         try { if (useHTML5 && htmlPlayer) { htmlPlayer.pause(); htmlPlayer.style.display = 'none'; } } catch(err) {}
+        clearTimeout(colaAndroid);
         try { if (androidPlayer) androidPlayer.parar(); } catch(err) {}
         clearTimeout(colaStb);
         testigoStb++;
