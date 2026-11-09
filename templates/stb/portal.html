@@ -2580,10 +2580,12 @@
             rj.volver = true;
             playCatchup(p);
         } else if (op.id === 'grabar') {
+            // Elegido en el menu del programa: ya es una decision, no se
+            // vuelve a preguntar (el rojo en la parrilla si pregunta).
             prepararGuiaRejilla(ch, p);
-            if (p.rec && p.current) pararGrabacion(ch, p);
-            else if (p.rec) quitarGrabacion(p);
-            else recordProgram(p);
+            if (p.rec && p.current) pararGrabacion(ch, p, true);
+            else if (p.rec) quitarGrabacion(p, true);
+            else recordProgram(p, true);
             renderRejilla();
         } else if (op.id === 'ficha') {
             prepararGuiaRejilla(ch, p);
