@@ -4304,7 +4304,11 @@
         }
     }
 
-    function quitarGrabacion(p) {
+    function quitarGrabacion(p, confirmado) {
+        if (!confirmado) {
+            preguntar('¿Quitar la grabacion programada?', horarioDe(p), 'Quitar', function() { quitarGrabacion(p, true); });
+            return;
+        }
         api("type=pvr&action=delete_task&program_id=" + p.id, function(js) {
             if (js && js.result) {
                 p.rec = 0;
@@ -4334,7 +4338,49 @@
         return false;
     }
 
-    function recordProgram(p) {
+    // ---------- Preguntar antes de grabar ----------
+    //
+    // OK sobre un programa de la guia y el boton rojo grababan al momento, y
+    // es facil pulsarlos sin querer. Ahora se pregunta: ◀▶ elige, OK acepta,
+    // Atras cancela; el rojo otra vez tambien acepta. Igual en todos los
+    // aparatos (decos, LG, Samsung, Android TV).
+    var pregunta = null;
+    function preguntar(titulo, texto, si, accion) {
+        pregunta = {botones: [si, 'Cancelar'], foco: 0, accion: accion};
+        var caja = document.getElementById('pregunta');
+        caja.innerHTML = '<div class="pq-titulo">' + esc(titulo) + '</div>' +
+            '<div class="pq-texto">' + esc(texto || '') + '</div><div id="pq-botones"></div>';
+        pintarPregunta();
+        graficosDelante();
+        caja.style.display = 'block';
+    }
+    function pintarPregunta() {
+        var h = '';
+        for (var i = 0; i < pregunta.botones.length; i++) {
+            h += '<span class="pq-b' + (i === pregunta.foco ? ' sel' : '') + '" data-pq="' + i + '">' +
+                 esc(pregunta.botones[i]) + '</span>';
+        }
+        document.getElementById('pq-botones').innerHTML = h;
+    }
+    function cerrarPregunta(aceptar) {
+        var accion = pregunta && pregunta.accion;
+        pregunta = null;
+        var caja = document.getElementById('pregunta');
+        caja.style.display = 'none';
+        caja.innerHTML = '';
+        if (aceptar && accion) accion();
+    }
+    function teclaPregunta(k, e) {
+        if (k === 37 || k === 39) { pregunta.foco = 1 - pregunta.foco; pintarPregunta(); }
+        else if (k === 13) cerrarPregunta(pregunta.foco === 0);
+        else if (k === TECLA_ROJO || k === 112) cerrarPregunta(true);
+        else if (k === 27 || k === 8) cerrarPregunta(false);
+    }
+    function horarioDe(p) {
+        return (p && p.t_time ? p.t_time + (p.t_time_end ? '-' + p.t_time_end : '') + '  ' : '') + (p && p.name ? p.name : '');
+    }
+
+    function recordProgram(p, confirmado) {
         if (!p) return;
         if (!hayGrabaciones()) {
             toast('Las grabaciones no estan disponibles');
@@ -4345,6 +4391,10 @@
                 toast('Este canal no se puede grabar');
                 return;
             }
+        }
+        if (!confirmado) {
+            preguntar('¿Grabar este programa?', horarioDe(p), 'Grabar', function() { recordProgram(p, true); });
+            return;
         }
         api("type=pvr&action=create_task&program_id=" + p.id, function(js) {
             if (js && js.result) {
@@ -4603,7 +4653,11 @@
         });
     }
 
-    function pararGrabacion(ch, p) {
+    function pararGrabacion(ch, p, confirmado) {
+        if (!confirmado) {
+            preguntar('¿Parar la grabacion?', horarioDe(p), 'Parar', function() { pararGrabacion(ch, p, true); });
+            return;
+        }
         api("type=pvr&action=stop_task&program_id=" + p.id, function(js) {
             if (js && js.result) {
                 p.rec = 0;
@@ -4833,21 +4887,39 @@
     function showVolume() {
         graficosDelante();
         var v = document.getElementById("vol");
-        v.innerHTML = "Vol: " + volume;
+        v.innerHTML = silencio ? "Silencio" : "Vol: " + volume;
         v.style.display = "block";
         clearTimeout(volTimeout);
-        volTimeout = setTimeout(function() { v.style.display = "none"; }, 2000);
+        // En silencio el rotulo se queda puesto, como en la tele: si no, no
+        // hay forma de saber por que no se oye.
+        if (!silencio) volTimeout = setTimeout(function() { v.style.display = "none"; }, 2000);
+    }
+
+    // Silencio: el boton de mute de los MAG (Alt+192, como en Ministra) no
+    // hacia nada. Se baja a 0 sin perder el volumen que habia, y subir o
+    // bajar el volumen lo quita, como en cualquier tele.
+    var silencio = false;
+    function aplicarVolumen() {
+        var v = silencio ? 0 : volume;
+        if (useHTML5 && htmlPlayer) {
+            htmlPlayer.volume = v / 100;
+        } else if (androidPlayer) {
+            try { androidPlayer.volumen(v); } catch(err) {}
+        } else if (stbAPI && stbAPI.SetVolume) {
+            try { stbAPI.SetVolume(v); } catch(err) {}
+        }
+    }
+
+    function alternarSilencio() {
+        silencio = !silencio;
+        aplicarVolumen();
+        showVolume();
     }
 
     function adjustVolume(delta) {
+        silencio = false;
         volume = Math.max(0, Math.min(100, volume + delta));
-        if (useHTML5 && htmlPlayer) {
-            htmlPlayer.volume = volume / 100;
-        } else if (androidPlayer) {
-            try { androidPlayer.volumen(volume); } catch(err) {}
-        } else if (stbAPI && stbAPI.SetVolume) {
-            try { stbAPI.SetVolume(volume); } catch(err) {}
-        }
+        aplicarVolumen();
         showVolume();
     }
 
@@ -5197,6 +5269,7 @@
         if ((k === 71 && e.altKey) || (k === 122 && isFullscreen)) { cambiarAudio(); return false; }
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
+        if (pregunta && k !== 107 && k !== 109) { teclaPregunta(k, e); return false; }
         if (avisoAbierto && k !== 107 && k !== 109) { teclaAviso(k); return false; }
         // Los colores valen tambien con el menu de la izquierda abierto: se
         // cierra y la tecla sigue a lo suyo.
@@ -5204,6 +5277,7 @@
         if (rail.abierto && k !== 107 && k !== 109) { teclaRail(k); return false; }
 
         if (atajoGlobal(e)) return false;
+        if ((k === 192 && e.altKey) || k === 173) { alternarSilencio(); return false; }
         if (k === 107) { adjustVolume(5); return false; }
         if (k === 109) { adjustVolume(-5); return false; }
 
@@ -5498,6 +5572,12 @@
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block") {
             if (atributoPulsado(destino, 'data-tecla') !== null) cerrarVideoAyuda();
             else teclaVideoAyuda(13);
+            return;
+        }
+        // La pregunta de grabar: sus botones; fuera de ellos, nada.
+        if (pregunta) {
+            var pq = atributoPulsado(destino, 'data-pq');
+            if (pq !== null) cerrarPregunta(pq === '0');
             return;
         }
         // La barra lateral: un clic en una seccion va a ella; fuera, la cierra.
@@ -6289,6 +6369,22 @@
             border: 1px solid rgba(255,255,255,.07);
             box-shadow: 0 18px 60px rgba(0,0,0,.8);
         }
+        /* Grabar, parar o quitar una grabacion se pregunta antes: una caja en
+           el centro, sobre el video, que no lo para. */
+        #pregunta {
+            display: none; position: fixed; z-index: 37; top: 50%; left: 50%;
+            transform: translate(-50%,-50%); width: 900px; padding: 44px 56px 40px;
+            background: #2c3236; border: 1px solid rgba(255,255,255,.1); border-radius: 18px;
+            box-shadow: 0 18px 60px rgba(0,0,0,.85); color: #fff; text-align: center;
+        }
+        #pregunta .pq-titulo { font-size: 34px; font-weight: 600; margin-bottom: 14px; }
+        #pregunta .pq-texto { font-size: 26px; color: #d9d9d9; line-height: 38px; margin-bottom: 34px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #pregunta .pq-b {
+            display: inline-block; margin: 0 12px; padding: 14px 44px; border-radius: 40px;
+            font-size: 26px; font-weight: 500; cursor: pointer; border: 2px solid rgba(217,217,217,.7);
+        }
+        #pregunta .pq-b.sel { background: #bff102; border-color: #bff102; color: #1d2023; font-weight: 600; }
         #vol {
             top: 50%; left: 50%; transform: translate(-50%,-50%);
             padding: 26px 52px; font-size: 30px; border-radius: 16px;
@@ -6729,6 +6825,7 @@
          pasa es que la propia app lo escriba y alguien lo lea en voz alta. -->
     <div id="diag"></div>
     <div id="vol" style="z-index:20;"></div>
+    <div id="pregunta"></div>
     <div id="toast"></div>
     <div id="reloj"></div>
     <div id="mensaje"></div>
