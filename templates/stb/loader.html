@@ -2,6 +2,9 @@
 <html>
 <head>
     <title>Quattretv</title>
+    <!-- Como el portal: maquetado a 1920x1080. Sin esto, en las teles Android
+         de densidad 2 (Xiaomi TV Box S) la entrada salia al doble. -->
+    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script>
     function log(msg) {
         document.getElementById('msg').innerHTML = msg;
