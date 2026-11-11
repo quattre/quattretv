@@ -1754,6 +1754,14 @@
         // adelanto cambia de alto con cada programa.
         var sig = caja.nextElementSibling;
         if (sig && sig.offsetHeight) lim = Math.min(lim, sig.getBoundingClientRect().top);
+        // Por si un aparato no ajusta la caja (ni flex ni -webkit-box-flex): si
+        // lo de debajo se sale de la pantalla, se sube el limite lo que sobra.
+        var fin = caja.parentNode && caja.parentNode.lastElementChild;
+        if (fin && fin !== caja && fin.offsetHeight) {
+            var pb = parseFloat(window.getComputedStyle(caja.parentNode).paddingBottom) || 0;
+            var pasa = fin.getBoundingClientRect().bottom - ((window.innerHeight || 1e9) - pb);
+            if (pasa > 0) lim -= pasa;
+        }
         return lim;
     }
     function huecoVisible(caja) {
