@@ -89,20 +89,30 @@ def de_tvmaze(titulo, anio=''):
             continue
         if anio and (serie.get('premiered') or '')[:4] not in ('', str(anio)):
             continue
-        c = requests.get('%s/shows/%s/cast' % (TVMAZE, serie['id']), timeout=ESPERA)
-        c.raise_for_status()
-        personas = []
-        for papel in c.json():
-            p = papel.get('person') or {}
-            foto = (p.get('image') or {}).get('medium') or ''
-            if not p.get('name'):
-                continue
-            personas.append({'nombre': p['name'], 'papel': (papel.get('character') or {}).get('name', ''),
-                             'foto': foto, 'autor': '', 'licencia': ''})
-            if len(personas) >= MAXIMO:
-                break
-        return {'personas': personas, 'fuente': 'TVmaze (tvmaze.com, CC BY-SA)'}
+        return reparto_tvmaze(serie['id'])
+    # En TVmaze van por el nombre original ("The Golden Girls") y la guia da
+    # el de aqui ("Las chicas de oro"): la Wikipedia en español lo encuentra y
+    # Wikidata guarda el numero de la serie en TVmaze (P8600).
+    ids = por_wikipedia(titulo, None, serie=True)
+    if len(ids) == 1:
+        return reparto_tvmaze(ids[0])
     return {}
+
+
+def reparto_tvmaze(id_serie):
+    c = requests.get('%s/shows/%s/cast' % (TVMAZE, id_serie), timeout=ESPERA)
+    c.raise_for_status()
+    personas = []
+    for papel in c.json():
+        p = papel.get('person') or {}
+        foto = (p.get('image') or {}).get('medium') or ''
+        if not p.get('name'):
+            continue
+        personas.append({'nombre': p['name'], 'papel': (papel.get('character') or {}).get('name', ''),
+                         'foto': foto, 'autor': '', 'licencia': ''})
+        if len(personas) >= MAXIMO:
+            break
+    return {'personas': personas, 'fuente': 'TVmaze (tvmaze.com, CC BY-SA)'} if personas else {}
 
 
 def _sparql(consulta):
@@ -179,14 +189,16 @@ def de_wikidata(titulo, anio=''):
     return {'personas': personas, 'fuente': 'Wikidata; fotos de Wikimedia Commons'}
 
 
-def por_wikipedia(titulo, anio):
+def por_wikipedia(titulo, anio, serie=False):
     """
     La pelicula por la Wikipedia en español, que tiene los titulos de España
     como redirecciones ("Arma letal" -> Lethal Weapon) aunque Wikidata no los
-    tenga. Solo se acepta si en Wikidata es una pelicula de ese año.
+    tenga. Solo se acepta si en Wikidata es una pelicula de ese año. Con
+    serie=True, las series con numero de TVmaze (y se devuelve ese numero).
     """
+    busqueda = ('"%s" serie de televisión' % titulo) if serie else ('"%s" película %d' % (titulo, anio))
     r = requests.get(WIKIPEDIA, params={'action': 'query', 'list': 'search', 'srlimit': 3,
-                                        'srsearch': '"%s" película %d' % (titulo, anio), 'format': 'json'},
+                                        'srsearch': busqueda, 'format': 'json'},
                      headers=CABECERAS, timeout=ESPERA)
     r.raise_for_status()
     titulos = [x['title'] for x in r.json().get('query', {}).get('search', [])]
@@ -207,6 +219,11 @@ def por_wikipedia(titulo, anio):
     buenas = []
     for qid, ent in e.json().get('entities', {}).items():
         claims = ent.get('claims', {})
+        if serie:
+            tvmaze = [((c.get('mainsnak') or {}).get('datavalue') or {}).get('value')
+                      for c in claims.get('P8600', [])]
+            buenas += [t for t in tvmaze if t and t not in buenas]
+            continue
         es_peli = any(((c.get('mainsnak') or {}).get('datavalue') or {}).get('value', {}).get('id') in tipos
                       for c in claims.get('P31', []))
         anios = {(((c.get('mainsnak') or {}).get('datavalue') or {}).get('value') or {}).get('time', '')[1:5]
