@@ -1751,15 +1751,25 @@
         // El fondo util del panel: su borde de abajo (o el de la pantalla)
         // menos su margen. Y encima de eso tiene que caber la ayuda: mirar solo
         // donde esta la ayuda no basta, porque si la lista crece la empuja.
-        var panel = caja.parentNode, ayuda = document.querySelector("#content .help");
+        //
+        // Todo lo que va debajo de la lista, no solo la ayuda: en la guia estan
+        // el adelanto y "Ver la informacion completa", y sin contarlos las
+        // filas se estiraban hasta encima de ellos.
+        var panel = caja.parentNode;
         if (panel && panel.offsetHeight > 0) {
             var pr = panel.getBoundingClientRect(), esc = pr.height / panel.offsetHeight || 1;
             var util = Math.min(pr.bottom, window.innerHeight || 1e9) -
                        (parseFloat(window.getComputedStyle(panel).paddingBottom) || 0) * esc;
-            if (ayuda && ayuda.offsetHeight > 0) util -= ayuda.offsetHeight * esc + 14 * esc;
+            util -= (parseFloat(window.getComputedStyle(caja).marginBottom) || 0) * esc;
+            for (var e = caja.nextElementSibling; e; e = e.nextElementSibling) {
+                if (!e.offsetHeight) continue;
+                var cs = window.getComputedStyle(e);
+                util -= (e.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0)) * esc;
+            }
             lim = Math.min(lim, util);
+            if (caja.nextElementSibling && caja.nextElementSibling.offsetHeight)
+                lim = Math.min(lim, caja.nextElementSibling.getBoundingClientRect().top);
         }
-        if (ayuda && ayuda.offsetHeight > 0) lim = Math.min(lim, ayuda.getBoundingClientRect().top);
         return lim;
     }
     function huecoVisible(caja) {
@@ -1796,6 +1806,11 @@
         // Con menos filas que las que caben (tres favoritos) no se estira; el
         // relleno ya calculado se queda para cuando la lista vuelva a estar llena.
         if (n < 2 || n < filasCaben[lista]) return;
+        // Solo si lo de debajo es la ayuda y nada mas: en la guia el adelanto
+        // cambia de alto con cada programa y unas filas estiradas se le
+        // meterian encima.
+        var sig = caja.nextElementSibling;
+        if (!sig || !/(^|\s)help(\s|$)/.test(sig.className) || sig.nextElementSibling) return;
         var r = caja.getBoundingClientRect(), esc = (caja.offsetHeight > 0 && r.height > 0) ? r.height / caja.offsetHeight : 1;
         var sobra = (limiteLista(caja) - filas[n - 1].getBoundingClientRect().bottom) / esc;
         var cada;
