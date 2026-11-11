@@ -635,6 +635,10 @@ EMPTY_EPG = {
     'epg_progress': 0,
     'epg_next': '',
     'epg_next_start': '',
+    # Los tres siguientes, [[hora, titulo], ...]: el portal los enseña debajo
+    # de la imagen y en la barra del canal. epg_next se deja para los decos
+    # que no son nuestro portal.
+    'epg_luego': [],
     'epg_cur_start': '',
     'epg_cur_end': '',
     # La caratula del programa. Los decos de Infomir ignoran las claves que no
@@ -689,6 +693,7 @@ def epg_now_next(channel_ids):
         if p.ver_ini <= now < p.ver_fin and p.channel_id not in result:
             result[p.channel_id] = dict(
                 EMPTY_EPG,
+                epg_luego=[],
                 cur_playing=p.title,
                 epg_start=p.ver_ini.isoformat(),
                 epg_end=p.ver_fin.isoformat(),
@@ -698,14 +703,15 @@ def epg_now_next(channel_ids):
                 epg_icon=p.icon or '',
                 epg_end_ts=int(p.ver_fin.timestamp()),
             )
-    seen = set()
     for p in progs:
-        if p.ver_ini <= now or p.channel_id in seen:
+        if p.ver_ini <= now:
             continue
-        seen.add(p.channel_id)
-        entry = result.setdefault(p.channel_id, dict(EMPTY_EPG))
-        entry['epg_next'] = p.title
-        entry['epg_next_start'] = timezone.localtime(p.ver_ini).strftime('%H:%M')
+        entry = result.setdefault(p.channel_id, dict(EMPTY_EPG, epg_luego=[]))
+        if not entry['epg_next']:
+            entry['epg_next'] = p.title
+            entry['epg_next_start'] = timezone.localtime(p.ver_ini).strftime('%H:%M')
+        if len(entry['epg_luego']) < 3:
+            entry['epg_luego'].append([timezone.localtime(p.ver_ini).strftime('%H:%M'), p.title])
 
     try:
         cache.set(key, result, EPG_CACHE_SECONDS)

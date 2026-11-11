@@ -2781,7 +2781,14 @@
     // al azar, para que no pregunten todos los decos a la vez), y como mucho
     // cada 10 minutos.
     var CAMPOS_AHORA = ['cur_playing', 'epg_start', 'epg_end', 'epg_progress', 'epg_next',
-                        'epg_next_start', 'epg_cur_start', 'epg_cur_end', 'epg_icon', 'epg_end_ts'];
+                        'epg_next_start', 'epg_luego', 'epg_cur_start', 'epg_cur_end', 'epg_icon', 'epg_end_ts'];
+
+    // Los programas que vienen despues: los tres siguientes si el servidor
+    // los manda (epg_luego) y si no, el de siempre.
+    function luegoDe(ch) {
+        if (ch.epg_luego && ch.epg_luego.length) return ch.epg_luego;
+        return ch.epg_next ? [[ch.epg_next_start, ch.epg_next]] : [];
+    }
     var ahoraPedido = new Date().getTime(), ahoraEspera = Math.floor(Math.random() * 20);
 
     function quizaRefrescarAhora() {
@@ -4840,8 +4847,10 @@
             html += '<div class="bar" style="max-width:520px;"><i style="width:' +
                     (ch.epg_progress || 0) + '%"></i></div>';
         }
-        if (ch.epg_next) {
-            html += '<div class="e despues">Despues ' + esc(ch.epg_next_start) + ' h &nbsp; ' + esc(ch.epg_next) + '</div>';
+        var luego = luegoDe(ch);
+        for (var li = 0; li < luego.length; li++) {
+            html += '<div class="e despues"><span class="lbl">' + (li ? '' : 'Despues') + '</span>' +
+                    '<span class="hh">' + esc(luego[li][0]) + '</span>' + esc(luego[li][1]) + '</div>';
         }
         // Que se puede hacer con este canal. Solo cuando este aparato graba:
         // en las teles no se ofrece y no tiene sentido decir que no se puede.
@@ -4892,9 +4901,11 @@
             h += '<div class="osd-prog osd-singuia">Sin informacion de programacion</div>';
             h += '<div class="bar" style="visibility:hidden"></div>';
         }
-        if (ch.epg_next) {
-            h += '<div class="osd-epg">Despues &middot; ' + esc(ch.epg_next_start) +
-                 '  ' + esc(ch.epg_next) + '</div>';
+        var siguen = luegoDe(ch);
+        if (siguen.length) {
+            var tx = [];
+            for (var si = 0; si < siguen.length; si++) tx.push('<b>' + esc(siguen[si][0]) + '</b> ' + esc(siguen[si][1]));
+            h += '<div class="osd-epg">Despues &middot; ' + tx.join(' &nbsp;&middot;&nbsp; ') + '</div>';
         } else {
             h += '<div class="osd-epg" style="visibility:hidden">&nbsp;</div>';
         }
@@ -6260,7 +6271,10 @@
             font-size: 42px; font-weight: 700; line-height: 1.15;
         }
         #preview-cap .e { font-size: 21px; color: #d9d9d9; margin-top: 8px; }
-        #preview-cap .e.despues { font-style: italic; font-size: 19px; color: #c3c8ca; }
+        #preview-cap .e.despues { font-style: italic; font-size: 19px; color: #c3c8ca; margin-top: 4px;
+                                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #preview-cap .e.despues .lbl { display: inline-block; width: 92px; }
+        #preview-cap .e.despues .hh { display: inline-block; width: 66px; font-style: normal; color: #e6e6e6; }
 
         /* La caratula del programa, que ahora llega en el EPG. Cada fuente la
            manda con una forma: Movistar+ vertical 2:3 y sincroguia apaisada
@@ -6325,7 +6339,9 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .osd-prog b { color: #bff102; font-weight: 600; margin-right: 14px; }
-        .osd-epg { font-size: 19px; color: #98a3a6; margin-top: 8px; }
+        .osd-epg { font-size: 19px; color: #98a3a6; margin-top: 8px;
+                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .osd-epg b { color: #c3c8ca; font-weight: 600; }
         .dif {
             display: inline-block; font-size: 15px; font-weight: 700; letter-spacing: 1px;
             padding: 4px 10px; margin-right: 12px; border-radius: 5px;
@@ -6930,7 +6946,9 @@
             #preview-cap { top: 518px; left: 499px; width: 719px; }
             #preview-cap .t { font-size: 28px; }
             #preview-cap .e { font-size: 14px; margin-top: 5px; }
-            #preview-cap .e.despues { font-size: 13px; }
+            #preview-cap .e.despues { font-size: 13px; margin-top: 3px; }
+            #preview-cap .e.despues .lbl { width: 61px; }
+            #preview-cap .e.despues .hh { width: 44px; }
             .cartel { height: 101px; max-width: 173px; margin-left: 16px; border-radius: 3px; }
             .osd-cartel { height: 80px; max-width: 143px; margin-right: 19px; border-radius: 5px; }
 
