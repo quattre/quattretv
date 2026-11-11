@@ -4078,6 +4078,16 @@
         toast('No existe el canal ' + objetivo);
     }
 
+    // El nombre de una fila con sus etiquetas (AHORA, REC, HD...). Con todo en
+    // la misma linea recortada, un titulo largo se llevaba las etiquetas por
+    // delante y el AHORA desaparecia. Ahora solo se recorta el titulo, que no
+    // pasa del 68 % del ancho cuando hay etiquetas. Con inline-block y no con
+    // flex, que el navegador de los MAG no lo entiende.
+    function nombreConEtiquetas(nombre, etiquetas) {
+        return '<div class="name' + (etiquetas ? ' con-etq' : '') + '"><span class="tit">' + esc(nombre) +
+               '</span>' + (etiquetas || '') + '</div>';
+    }
+
     function showChannels() {
         rj.volver = false;
         view = "list";
@@ -4116,18 +4126,18 @@
                 else h += '<b>' + esc(iniciales(c.name)) + '</b>';
                 h += '</div>';
             }
-            h += '<div class="info"><div class="name">' + esc(c.name);
-            if (c.hd) h += ' <span class="hd">HD</span>';
-            if (c.fav) h += ' <span class="fav">★</span>';
+            var etqC = '';
+            if (c.hd) etqC += ' <span class="hd">HD</span>';
+            if (c.fav) etqC += ' <span class="fav">★</span>';
             // REC si el cliente lo esta grabando (va por hora, para que se
             // apague sola al terminar) y ARCHIVO si tiene catchup. El simbolo
             // que habia (ver osdFor) se quito porque salia en casi todos los
             // canales sin que hubiera archivo de verdad; ahora el servidor solo
             // lo manda si el canal esta grabado en disco y el aparato lo puede
             // abrir, y va en texto, que se lee en cualquier tele.
-            h += etiquetasCanal(c);
-            if (c.locked) h += ' <span class="lock">🔒</span>';
-            h += '</div>';
+            etqC += etiquetasCanal(c);
+            if (c.locked) etqC += ' <span class="lock">🔒</span>';
+            h += '<div class="info">' + nombreConEtiquetas(c.name, etqC);
             // El programa y la barra de avance van SIEMPRE, haya programacion o
             // no. Pintandolos solo cuando hay EPG, las filas de los canales que
             // no la tienen salen mas bajas, y entonces la lista pega un salto
@@ -4312,13 +4322,13 @@
                 if (p.past) cls += " past";
                 h += '<div class="' + cls + '" data-i="' + i + '">';
                 h += '<div class="num sm">' + esc(p.t_time) + '</div>';
-                h += '<div class="info"><div class="name">' + esc(p.name);
-                if (p.rec) h += ' <span class="rec">REC</span>';
-                if (p.current) h += ' <span class="live">AHORA</span>';
+                var etq = '';
+                if (p.rec) etq += ' <span class="rec">REC</span>';
+                if (p.current) etq += ' <span class="live">AHORA</span>';
                 // Flecha en la fila marcada: la señal de "aqui se puede entrar"
                 // tiene que estar en la fila, no solo en la ayuda de abajo.
-                if (i === guideIdx && !guiaFocoDias) h += ' <span class="entrar">▶</span>';
-                h += '</div>';
+                if (i === guideIdx && !guiaFocoDias) etq += ' <span class="entrar">▶</span>';
+                h += '<div class="info">' + nombreConEtiquetas(p.name, etq);
                 if (p.current) h += '<div class="bar"><i style="width:' + (p.progress || 0) + '%"></i></div>';
                 h += '</div></div>';
             }
@@ -4802,8 +4812,8 @@
                 var cls = (i === recIdx) ? "item sel" : "item";
                 h += '<div class="' + cls + '" data-i="' + i + '">';
                 h += '<div class="num sm">' + esc(r.start_time.substring(11)) + '</div>';
-                h += '<div class="info"><div class="name">' + esc(r.name);
-                h += ' <span class="st ' + esc(r.status) + '">' + esc(statusLabel(r.status)) + '</span></div>';
+                h += '<div class="info">' + nombreConEtiquetas(r.name,
+                     ' <span class="st ' + esc(r.status) + '">' + esc(statusLabel(r.status)) + '</span>');
                 var detalle = r.ch_name + ' · ' + r.start_time;
                 if (r.status === 'recording' && r.rec_from) {
                     detalle = r.ch_name + ' · lleva ' + duracionDesde(r.rec_from) +
@@ -6193,6 +6203,9 @@
             font-size: 28px; font-weight: 600; color: #d3d7d9; white-space: nowrap;
             overflow: hidden; text-overflow: ellipsis; line-height: 1.25;
         }
+        .name .tit { display: inline-block; vertical-align: bottom; max-width: 100%;
+                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .name.con-etq .tit { max-width: 68%; }
         .epg {
             font-size: 17px; color: #c3c8ca; margin-top: 3px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
