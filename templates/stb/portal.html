@@ -1951,6 +1951,13 @@
         var ya = Math.floor(new Date().getTime() / 1000) - 60;
         return Math.max(fin, Math.min(fin + ARCHIVO_DESPUES, ya));
     }
+    // Las pelis del videoclub, con mas: al acabar se pregunta si ha terminado
+    // y se puede seguir viendo (ver vigilarFinArchivo).
+    var MARGEN_VIDEOCLUB = 45 * 60;
+    function finVideoclub(fin) {
+        var ya = Math.floor(new Date().getTime() / 1000) - 60;
+        return Math.max(fin, Math.min(fin + MARGEN_VIDEOCLUB, ya));
+    }
     var salto = null;   // {dir, n, destino, timer}
 
     // Instante del programa (segundos UTC) que se esta viendo ahora.
@@ -2125,25 +2132,40 @@
         vigilarFinArchivo();
     }
 
-    // Lo ya emitido se acaba solo. Al archivo se le pide hasta un rato despues
-    // del final, pero el deco no avisa siempre de que se ha terminado y seguia
-    // con lo que vino despues en el canal: la peli del videoclub acababa y la
-    // tele seguia sin parar. Pasado el final (con margen para los creditos, y
-    // mas si la hora de fin es la de la guia y no la vista en la emision) se
-    // vuelve a donde se estaba, igual que con Atras.
+    // Lo ya emitido no sigue sin parar. El deco no avisa siempre de que se ha
+    // terminado y seguia con lo que vino despues en el canal: la peli del
+    // videoclub acababa y la tele seguia. Cortar a una hora fija tampoco: si
+    // la guia va mal, se comeria el final. Asi que se pregunta:
+    //   - si la hora de fin es la vista en la emision, a los 2 minutos (los
+    //     creditos); si es la de la guia, a los 15, por si va desfasada;
+    //   - si no contesta nadie en un minuto, se vuelve a donde se estaba;
+    //   - si dice que sigue, se vuelve a preguntar a los 15 minutos.
+    // Al videoclub se le pide el video hasta 45 minutos pasado el final (ver
+    // MARGEN_VIDEOCLUB) para que haya de donde seguir.
     var relojFinArchivo = null;
-    function limiteArchivo(d) {
-        if (d.cero) return d.final + (d.finVisto ? 3 * 60 : 10 * 60);
-        return d.fin + ARCHIVO_DESPUES;
+    var REPREGUNTAR = 15 * 60, ESPERA_RESPUESTA = 60;
+    function primeraPregunta(d) {
+        if (d.cero) return d.final + (d.finVisto ? 2 * 60 : 15 * 60);
+        return d.fin + 15 * 60;
     }
     function vigilarFinArchivo() {
         clearInterval(relojFinArchivo);
         if (!diferido || diferido.tipo !== 'archivo') return;
         var mio = diferido;
+        mio.preguntarEn = primeraPregunta(mio);
         relojFinArchivo = setInterval(function() {
             if (diferido !== mio || !isFullscreen) { clearInterval(relojFinArchivo); return; }
-            if (salto || mio.pausaDesde) return;
-            if (momentoDiferido() >= limiteArchivo(mio)) terminarArchivo();
+            if (salto || mio.pausaDesde || pregunta) return;
+            if (momentoDiferido() < mio.preguntarEn) return;
+            var peli = !!mio.cero, donde = mio.volver === 'semana' ? 'al videoclub' : 'a la tele';
+            mostrarOsd(null);
+            preguntar(peli ? '¿Ha terminado la pelicula?' : '¿Ha terminado el programa?', '',
+                      'Si, salir', terminarArchivo, {
+                no: 'Seguir viendo',
+                alNo: function() { mio.preguntarEn = momentoDiferido() + REPREGUNTAR; },
+                espera: ESPERA_RESPUESTA,
+                cuenta: function(seg) { return 'Si no contestas, se vuelve ' + donde + ' en ' + seg + ' s'; }
+            });
         }, 5000);
     }
     function terminarArchivo() {
@@ -3610,7 +3632,7 @@
         // Unos segundos antes, para enganchar la frase en la que se corto.
         var utc = it.ini + (desde > 30 ? Math.floor(desde) - 10 : 0);
         api("type=tv_archive&action=create_link&ch_id=" + it.ch_id + "&ini=" + it.ini +
-            "&utc=" + utc + "&lutc=" + finConMargen(it.fin), function(js) {
+            "&utc=" + utc + "&lutc=" + finVideoclub(it.fin), function(js) {
             semanaAbriendo = 0;
             if (view !== "semana") return;
             if (js && js.cmd) {
@@ -4418,8 +4440,23 @@
         return !isFullscreen && (view === 'list' || view === 'guide' || view === 'ficha') &&
                cap && cap.style.display !== 'none' && cap.offsetWidth > 0;
     }
-    function preguntar(titulo, texto, si, accion) {
-        pregunta = {botones: [si, 'Cancelar'], foco: 0, accion: accion, abajo: preguntaBajoImagen()};
+    // opciones (todas opcionales): no = texto del otro boton, alNo = que hacer
+    // si se elige, espera = segundos tras los que se da por aceptada sola, y
+    // cuenta(seg) = el texto mientras corre esa espera.
+    function preguntar(titulo, texto, si, accion, opciones) {
+        var o = opciones || {};
+        pregunta = {botones: [si, o.no || 'Cancelar'], foco: 0, accion: accion, alNo: o.alNo,
+                    abajo: preguntaBajoImagen()};
+        if (o.espera) {
+            var mia = pregunta, quedan = o.espera;
+            mia.reloj = setInterval(function() {
+                if (pregunta !== mia) { clearInterval(mia.reloj); return; }
+                if (--quedan <= 0) { cerrarPregunta(true); return; }
+                var t = document.querySelector(mia.abajo ? '#preview-cap .pq-cap .e' : '#pregunta .pq-texto');
+                if (t && o.cuenta) t.innerHTML = esc(o.cuenta(quedan));
+            }, 1000);
+            if (o.cuenta) texto = o.cuenta(quedan);
+        }
         graficosDelante();
         if (pregunta.abajo) {
             var cap = document.getElementById('preview-cap');
@@ -4445,12 +4482,15 @@
     }
     function cerrarPregunta(aceptar) {
         var accion = pregunta && pregunta.accion, abajo = pregunta && pregunta.abajo;
+        var alNo = pregunta && pregunta.alNo;
+        if (pregunta && pregunta.reloj) clearInterval(pregunta.reloj);
         pregunta = null;
         var caja = document.getElementById('pregunta');
         caja.style.display = 'none';
         caja.innerHTML = '';
         if (abajo) updatePreviewCap(channels[currentChannel]);
         if (aceptar && accion) accion();
+        else if (!aceptar && alNo) alNo();
     }
     function teclaPregunta(k, e) {
         if (k === 37 || k === 39) { pregunta.foco = 1 - pregunta.foco; pintarPregunta(); }
