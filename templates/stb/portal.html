@@ -1748,28 +1748,12 @@
 
     function limiteLista(caja) {
         var lim = Math.min(caja.getBoundingClientRect().bottom, window.innerHeight || 1e9);
-        // El fondo util del panel: su borde de abajo (o el de la pantalla)
-        // menos su margen. Y encima de eso tiene que caber la ayuda: mirar solo
-        // donde esta la ayuda no basta, porque si la lista crece la empuja.
-        //
-        // Todo lo que va debajo de la lista, no solo la ayuda: en la guia estan
-        // el adelanto y "Ver la informacion completa", y sin contarlos las
-        // filas se estiraban hasta encima de ellos.
-        var panel = caja.parentNode;
-        if (panel && panel.offsetHeight > 0) {
-            var pr = panel.getBoundingClientRect(), esc = pr.height / panel.offsetHeight || 1;
-            var util = Math.min(pr.bottom, window.innerHeight || 1e9) -
-                       (parseFloat(window.getComputedStyle(panel).paddingBottom) || 0) * esc;
-            util -= (parseFloat(window.getComputedStyle(caja).marginBottom) || 0) * esc;
-            for (var e = caja.nextElementSibling; e; e = e.nextElementSibling) {
-                if (!e.offsetHeight) continue;
-                var cs = window.getComputedStyle(e);
-                util -= (e.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0)) * esc;
-            }
-            lim = Math.min(lim, util);
-            if (caja.nextElementSibling && caja.nextElementSibling.offsetHeight)
-                lim = Math.min(lim, caja.nextElementSibling.getBoundingClientRect().top);
-        }
+        // Hasta lo que vaya justo debajo (la ayuda, o en la guia el adelanto).
+        // Con -webkit-box-flex en .list la caja ya mide lo que le toca en los
+        // decos; restar a mano lo de debajo dejaba un hueco en la guia, cuyo
+        // adelanto cambia de alto con cada programa.
+        var sig = caja.nextElementSibling;
+        if (sig && sig.offsetHeight) lim = Math.min(lim, sig.getBoundingClientRect().top);
         return lim;
     }
     function huecoVisible(caja) {
@@ -6297,8 +6281,10 @@
             animation: latir 1.6s ease-in-out infinite;
         }
         @keyframes latir { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+        /* Separada del adelanto: sin margen, la pastilla de la flecha se
+           montaba sobre el borde de abajo del recuadro. */
         .ver-mas {
-            color: #bff102; font-size: 19px; padding: 0 6px 12px;
+            color: #bff102; font-size: 19px; padding: 0 6px 12px; margin-top: 12px;
         }
         .ver-mas span {
             background: rgba(191,241,2,.14); border-radius: 6px;
@@ -6949,7 +6935,7 @@
             .pintecla { width: 78px; height: 56px; line-height: 56px; font-size: 25px; margin: 4px; }
             .num { width: 49px; font-size: 25px; }
             .num.sm { font-size: 16px; width: 56px; }
-            .ver-mas { font-size: 13px; padding: 0 4px 8px; }
+            .ver-mas { font-size: 13px; padding: 0 4px 8px; margin-top: 8px; }
             .ver-mas span { border-radius: 4px; padding: 1px 6px; margin-right: 5px; }
             .ficha-datos { font-size: 12px; }
             .ficha-texto { font-size: 13px; }
