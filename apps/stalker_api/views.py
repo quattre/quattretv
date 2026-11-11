@@ -1566,10 +1566,24 @@ def handle_tv_archive(request, action):
         return handle_archive_similar(request)
     if action == 'search':
         return handle_archive_search(request)
+    if action == 'get_cast':
+        return handle_archive_cast(request)
     if action == 'set_progress':
         return handle_archive_progress(request)
 
     return stalker_response({'error': 'Unknown action'})
+
+
+def handle_archive_cast(request):
+    """El reparto con foto para la ficha del videoclub (ver reparto.py)."""
+    from . import reparto
+    from .caratulas import GRUPOS
+    if not get_device_from_request(request):
+        return stalker_response({'error': 'Not authenticated'})
+    titulo = request.GET.get('title', '')
+    anio = request.GET.get('year', '')
+    tipo = GRUPOS.get(request.GET.get('group', ''), 'movie')
+    return stalker_response(reparto.buscar(titulo, anio if anio.isdigit() else '', tipo) or {})
 
 
 def handle_archive_catalog(request):
