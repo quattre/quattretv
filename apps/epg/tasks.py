@@ -378,3 +378,13 @@ def buscar_reparto(titulo, anio, tipo):
     from apps.stalker_api import reparto
     res = reparto.buscar(titulo, anio, tipo)
     return len(res.get('personas', [])) if res else 0
+
+
+@shared_task
+def hacer_miniaturas(pendientes):
+    """Las caratulas 16:9 del videoclub, fuera del servidor web (ver miniaturas.py)."""
+    import collections
+    from apps.stalker_api import miniaturas
+    cuenta = collections.Counter(miniaturas.hacer(titulo, img, otras) for titulo, img, otras in pendientes)
+    cuenta['borradas'] = miniaturas.limpiar()
+    return dict(cuenta)

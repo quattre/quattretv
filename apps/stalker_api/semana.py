@@ -542,6 +542,12 @@ def filas_de(lista, por_grupo=POR_GRUPO):
             # Si la mas reciente no tiene caratula, vale la de otra emision.
             if not de_fila[clave_titulo]['img'] and e['img']:
                 de_fila[clave_titulo]['img'] = e['img']
+            # Las otras imagenes del titulo: alguna puede ser apaisada
+            # (ver miniaturas.py).
+            elif e['img'] and e['img'] != de_fila[clave_titulo]['img']:
+                otras = de_fila[clave_titulo].setdefault('_otras', [])
+                if e['img'] not in otras and len(otras) < 6:
+                    otras.append(e['img'])
             # Y el genero, igual: la guia complementaria solo trae una semana.
             if not de_fila[clave_titulo]['etiquetas'] and e['etiquetas']:
                 de_fila[clave_titulo]['etiquetas'] = e['etiquetas']

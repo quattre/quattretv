@@ -4545,20 +4545,32 @@
         repartoEnFicha(p);
     }
 
-    // El reparto con foto tambien en la ficha de la guia, solo en pelis y
-    // series. Va dentro del texto, debajo de la sinopsis, y se desplaza con
+    // El reparto con foto tambien en la ficha de la guia, siempre que se
+    // encuentre. Va dentro del texto, debajo de la sinopsis, y se desplaza con
     // ▲▼ como el resto: el panel es estrecho y no hay sitio para otra fila.
+    // Sin categoria clara se prueba como serie y, si dura como una pelicula,
+    // como pelicula; noticias y deportes no tienen reparto que buscar.
     function repartoEnFicha(p) {
         var cat = (p.category || '').toLowerCase();
-        var grupo = /^(cine|pel)/.test(cat) ? 'peliculas' : /^serie/.test(cat) ? 'series' : '';
-        if (!grupo) return;
+        var grupos;
+        if (/^(cine|pel)/.test(cat)) grupos = ['peliculas'];
+        else if (/^serie/.test(cat)) grupos = ['series'];
+        else if (/(notici|informativ|deport|tiempo)/.test(cat)) return;
+        else {
+            grupos = ['series'];
+            if (p.start_timestamp && p.stop_timestamp && p.stop_timestamp - p.start_timestamp >= 80 * 60) grupos.push('peliculas');
+        }
         var intentos = 0;
         function pedir() {
-            api("type=tv_archive&action=get_cast&group=" + grupo + "&title=" + encodeURIComponent(p.name) +
+            api("type=tv_archive&action=get_cast&group=" + grupos[0] + "&title=" + encodeURIComponent(p.name) +
                 "&year=" + encodeURIComponent(p.year || ''), function(js) {
                 if (view !== "ficha" || guide[guideIdx] !== p || !js) return;
                 if (js.pendiente) { if (++intentos < 4) setTimeout(pedir, 4000); return; }
-                if (!js.personas || !js.personas.length) return;
+                if (!js.personas || !js.personas.length) {
+                    grupos.shift();
+                    if (grupos.length) { intentos = 0; pedir(); }
+                    return;
+                }
                 var txt = document.getElementById('ficha-texto'), caja = document.querySelector('.ficha-caja');
                 if (!txt || !caja) return;
                 var h = '<div class="fr-titulo">Reparto</div>', creditos = [];
@@ -4588,7 +4600,7 @@
     function pintarScrollFicha() {
         var txt = document.getElementById('ficha-texto');
         if (!txt) return;
-        txt.style.transform = 'translateY(-' + fichaScroll + 'px)';
+        txt.style.webkitTransform = txt.style.transform = 'translateY(-' + fichaScroll + 'px)';
         var mas = document.getElementById('ficha-mas');
         if (mas) mas.style.display = (fichaScroll < fichaScrollMax) ? 'block' : 'none';
     }

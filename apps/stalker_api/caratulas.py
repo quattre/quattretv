@@ -92,7 +92,16 @@ def _clave_vieja(grupo, titulo):
 
 
 def completar(items):
-    """Pone la caratula guardada a las tarjetas que no traen imagen."""
+    """
+    Pone la caratula guardada a las tarjetas que no traen imagen, y a todas
+    su version 16:9 (ver miniaturas.py).
+    """
+    from . import miniaturas
+    _completar(items)
+    miniaturas.poner(items)
+
+
+def _completar(items):
     # Una lista por titulo: los capitulos de una serie se llaman igual, y con
     # un diccionario de uno solo la caratula le llegaba solo al ultimo (Bluey
     # salia sin imagen en 158 de sus emisiones).
