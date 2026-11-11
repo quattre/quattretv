@@ -401,6 +401,31 @@ def device_edit(request, device_id):
 
 
 @staff_member_required
+def device_firmware(request, device_id):
+    """
+    Probar un firmware en un deco concreto (eventos.pedir_firmware): primero
+    'comprobar' (el deco lee la imagen y cuenta al registro modelo, firma y
+    version, sin tocar nada) y luego 'instalar'.
+    """
+    from apps.devices import eventos
+
+    device = get_object_or_404(Device, id=device_id)
+    if request.method == 'POST':
+        url = request.POST.get('url', '').strip()
+        instalar = request.POST.get('accion') == 'instalar'
+        if device.device_type != 'mag':
+            messages.error(request, 'El firmware solo se puede mandar a un deco MAG.')
+        elif not url.startswith(('http://', 'https://')):
+            messages.error(request, 'Pon la dirección completa de la imagen (http://...).')
+        elif eventos.pedir_firmware(device, url, instalar=instalar):
+            messages.success(request, ('Instalar' if instalar else 'Comprobar') +
+                             ' firmware: el deco lo recoge en menos de un minuto si está encendido.')
+        else:
+            messages.error(request, 'No se ha podido apuntar la orden: la caché (Redis) no responde.')
+    return redirect('portal:device_edit', device_id=device.id)
+
+
+@staff_member_required
 def device_evento(request, device_id):
     """Recargar el portal o reiniciar un aparato en su proximo latido."""
     from apps.devices import eventos

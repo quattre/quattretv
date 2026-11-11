@@ -358,7 +358,21 @@
 
     // Ordenes que llegan desde el panel en el latido (apps/devices/eventos.py).
     function ordenDelPanel(evento, js) {
-        if (evento === 'reiniciar') {
+        // Cada orden queda en el registro del servidor al llegar: desde el
+        // panel no se ve la pantalla del deco y no habia forma de saber si
+        // habia llegado y que habia hecho.
+        api('type=stb&action=log&diag=' + encodeURIComponent('orden ' + evento + ' recibida, vista=' + view +
+            (isFullscreen ? ' pantalla completa' : '')), function() {});
+        if (evento === 'apagar') {
+            try {
+                if (typeof gSTB !== 'undefined' && gSTB.StandBy) {
+                    pararVideo();
+                    gSTB.StandBy(true);
+                    return;
+                }
+            } catch (e) {}
+            api('type=stb&action=log&diag=' + encodeURIComponent('orden apagar: este aparato no puede'), function() {});
+        } else if (evento === 'reiniciar') {
             try {
                 if (typeof gSTB !== 'undefined' && gSTB.ExecAction) {
                     gSTB.ExecAction('reboot');
@@ -473,6 +487,11 @@
         graficosDelanteInsistiendo();
         caja.style.display = "block";
         mensajeAbierto = true;
+        setTimeout(function() {
+            var r = caja.getBoundingClientRect();
+            api('type=stb&action=log&diag=' + encodeURIComponent('mensaje en pantalla ' + caja.style.display +
+                ' ' + Math.round(r.left) + ',' + Math.round(r.top) + ' ' + Math.round(r.width) + 'x' + Math.round(r.height)), function() {});
+        }, 500);
     }
     function cerrarMensaje() {
         document.getElementById("mensaje").style.display = "none";

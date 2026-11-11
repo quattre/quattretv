@@ -102,9 +102,33 @@
                     </button>
                     <button name="evento" value="reiniciar" class="flex-1 px-3 py-2 text-sm bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition"
                             onclick="return confirm('¿Reiniciar el aparato?')">
-                        <i class="bi bi-power"></i> Reiniciar
+                        <i class="bi bi-arrow-repeat"></i> Reiniciar
                     </button>
+                    {% if device.device_type == 'mag' %}
+                    <button name="evento" value="apagar" class="flex-1 px-3 py-2 text-sm bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition"
+                            onclick="return confirm('¿Apagar el deco? Se queda en reposo y se enciende con el mando.')">
+                        <i class="bi bi-power"></i> Apagar
+                    </button>
+                    {% endif %}
                 </form>
+                {% if device.device_type == 'mag' %}
+                <form method="post" action="{% url 'portal:device_firmware' device.id %}" class="mt-4 space-y-2">
+                    {% csrf_token %}
+                    <p class="text-xs font-medium text-gray-700">Firmware</p>
+                    <input type="url" name="url" required placeholder="http://.../imageupdate"
+                           class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex gap-2">
+                        <button name="accion" value="comprobar" class="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+                            <i class="bi bi-search"></i> Comprobar
+                        </button>
+                        <button name="accion" value="instalar" class="flex-1 px-3 py-2 text-sm bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition"
+                                onclick="return confirm('¿Instalar este firmware en el deco? Se reinicia solo al acabar.')">
+                            <i class="bi bi-download"></i> Instalar
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500">Comprobar no toca nada: el deco lee la imagen y deja en el registro si el modelo y la firma valen y qué versión trae. Instalar solo sigue si la comprobación sale bien.</p>
+                </form>
+                {% endif %}
             </div>
         </div>
     </div>

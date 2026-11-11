@@ -19,6 +19,9 @@ from django.core.cache import cache
 EVENTOS = {
     'recargar': 'Recargar el portal',
     'reiniciar': 'Reiniciar el aparato',
+    # En reposo (gSTB.StandBy): el deco apaga la imagen y se enciende con el
+    # mando. Solo decos: las teles no dejan apagarse desde una app.
+    'apagar': 'Apagar el deco (reposo)',
 }
 CADUCA = 24 * 3600
 CLAVE_GENERAL = 'evento:recarga_general'
