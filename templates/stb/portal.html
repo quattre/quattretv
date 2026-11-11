@@ -1687,7 +1687,17 @@
     // la propia caja (ver el comentario del paso, mas arriba).
     function limiteLista(caja) {
         var lim = Math.min(caja.getBoundingClientRect().bottom, window.innerHeight || 1e9);
-        var ayuda = document.querySelector("#content .help");
+        // El fondo util del panel: su borde de abajo (o el de la pantalla)
+        // menos su margen. Y encima de eso tiene que caber la ayuda: mirar solo
+        // donde esta la ayuda no basta, porque si la lista crece la empuja.
+        var panel = caja.parentNode, ayuda = document.querySelector("#content .help");
+        if (panel && panel.offsetHeight > 0) {
+            var pr = panel.getBoundingClientRect(), esc = pr.height / panel.offsetHeight || 1;
+            var util = Math.min(pr.bottom, window.innerHeight || 1e9) -
+                       (parseFloat(window.getComputedStyle(panel).paddingBottom) || 0) * esc;
+            if (ayuda && ayuda.offsetHeight > 0) util -= ayuda.offsetHeight * esc + 14 * esc;
+            lim = Math.min(lim, util);
+        }
         if (ayuda && ayuda.offsetHeight > 0) lim = Math.min(lim, ayuda.getBoundingClientRect().top);
         return lim;
     }
@@ -5928,7 +5938,9 @@
             display: flex; flex-direction: column;
             background: #2c3236 url({% static 'stb/fondo.jpg' %}) no-repeat 0 0;
             -webkit-background-size: 1920px 1080px; background-size: 1920px 1080px;
-            padding: 46px 40px 34px 64px;
+            /* Abajo, 54 px: las teles recortan un poco el borde y la ayuda se
+               salia. Es el 5 %, el margen seguro de siempre en television. */
+            padding: 46px 40px 54px 64px;
             border-right: 1px solid rgba(217,217,217,.35);
         }
         /* Lo que rodea al video, con el mismo fondo: sin esto el deco deja
@@ -5970,7 +5982,10 @@
         .counter.dias.sel .fl { opacity: 1; }
 
         /* ---------- Lista ---------- */
-        .list { flex: 1; overflow: hidden; margin-bottom: 14px; }
+        /* -webkit-box-flex para los decos: su navegador monta el panel con
+           -webkit-box (arriba) y no entiende 'flex'; sin esto la lista medía lo
+           que su contenido, crecia y echaba la ayuda fuera de la pantalla. */
+        .list { -webkit-box-flex: 1; flex: 1; overflow: hidden; margin-bottom: 14px; }
         /* Ojo con 'gap': la television lleva Chrome 53 (webOS de 2016) y ahi
            no existe para flexbox — llego en Chrome 84. Se deja porque no
            estorba en un navegador moderno, pero la separacion de verdad la dan
@@ -6779,7 +6794,7 @@
         .sem-ep-txt .m { font-size: 19px; color: #98a3a6; margin-top: 8px; }
 
         @media (max-width: 1919px) {
-            .panel { width: 470px; height: 720px; padding: 31px 27px 23px 43px;
+            .panel { width: 470px; height: 720px; padding: 31px 27px 36px 43px;
                      -webkit-background-size: 1280px 720px; background-size: 1280px 720px; }
             .tapa { -webkit-background-size: 1280px 720px; background-size: 1280px 720px; }
             .tapa.b { background-position: 0 -485px; }
