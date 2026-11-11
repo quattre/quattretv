@@ -1630,11 +1630,12 @@
         // Medir en cada pintado parecia mejor y no lo es: segun el tramo de la
         // lista toca una mezcla distinta de filas altas y bajas, sale un numero
         // distinto cada vez y la lista cambia de tamaño sola mientras navegas.
-        if (midiendoFilas || !usadas || filasCaben[lista]) return;
+        if (midiendoFilas || !usadas) return;
+        if (filasCaben[lista]) { recortarSiSale(lista, usadas, repintar); return; }
         var caja = document.querySelector("#content .list");
         if (!caja || caja.children.length < 1) return;
         var filas = caja.children;
-        var hueco = caja.clientHeight;
+        var hueco = huecoVisible(caja);
         if (hueco <= 0) return;
 
         // El paso de una fila a la siguiente, no la altura de la fila:
@@ -1673,6 +1674,35 @@
         var caben = Math.max(3, Math.floor((hueco + sobra) / paso));
         filasCaben[lista] = caben;
         if (caben === usadas) return;
+        midiendoFilas = true;
+        try { repintar(); } finally { midiendoFilas = false; }
+    }
+
+    // Lo que se ve de la lista de verdad: hasta la ayuda de abajo y el borde de
+    // la pantalla. En el MAG la caja no encoge (su navegador no entiende el
+    // flex que la ajusta) y mide lo que su contenido: clientHeight daba sitio
+    // para mas filas de las que se ven y las ultimas quedaban debajo de la
+    // ayuda; al bajar se cambiaba de canal sin ver donde se estaba.
+    // Se mide en pantalla y se pasa a pixeles de maquetacion con la escala de
+    // la propia caja (ver el comentario del paso, mas arriba).
+    function limiteLista(caja) {
+        var lim = Math.min(caja.getBoundingClientRect().bottom, window.innerHeight || 1e9);
+        var ayuda = document.querySelector("#content .help");
+        if (ayuda && ayuda.offsetHeight > 0) lim = Math.min(lim, ayuda.getBoundingClientRect().top);
+        return lim;
+    }
+    function huecoVisible(caja) {
+        var r = caja.getBoundingClientRect();
+        var escala = (caja.offsetHeight > 0 && r.height > 0) ? r.height / caja.offsetHeight : 1;
+        return Math.min(caja.clientHeight, Math.floor((limiteLista(caja) - r.top) / escala));
+    }
+    // Y si aun asi la ultima fila no se ve entera (la letra llego despues, una
+    // tele mide distinto...), una fila menos.
+    function recortarSiSale(lista, usadas, repintar) {
+        var caja = document.querySelector("#content .list");
+        if (!caja || !caja.lastElementChild || usadas <= 3) return;
+        if (caja.lastElementChild.getBoundingClientRect().bottom <= limiteLista(caja) + 2) return;
+        filasCaben[lista] = usadas - 1;
         midiendoFilas = true;
         try { repintar(); } finally { midiendoFilas = false; }
     }
