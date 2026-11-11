@@ -1673,6 +1673,7 @@
         var sobra = (alto > 0 && paso > alto) ? paso - alto : 0;
         var caben = Math.max(3, Math.floor((hueco + sobra) / paso));
         filasCaben[lista] = caben;
+        contarLista(lista, hueco, paso);
         if (caben === usadas) return;
         midiendoFilas = true;
         try { repintar(); } finally { midiendoFilas = false; }
@@ -1685,6 +1686,29 @@
     // ayuda; al bajar se cambiaba de canal sin ver donde se estaba.
     // Se mide en pantalla y se pasa a pixeles de maquetacion con la escala de
     // la propia caja (ver el comentario del paso, mas arriba).
+    // Como queda la lista en el aparato, una vez por carga: en los decos no se
+    // puede mirar la pantalla desde aqui, y es la unica forma de saber cuantas
+    // filas caben y donde cae la ayuda.
+    var listaContada = {};
+    function contarLista(lista, hueco, paso) {
+        if (listaContada[lista] || !stbAPI) return;
+        listaContada[lista] = 1;
+        setTimeout(function() {
+            try {
+                var caja = document.querySelector("#content .list"), ay = document.querySelector("#content .help");
+                var pa = caja && caja.parentNode;
+                if (!caja || !pa) return;
+                var r = function(e) { var b = e.getBoundingClientRect(); return Math.round(b.top) + '-' + Math.round(b.bottom); };
+                var ultima = caja.lastElementChild;
+                api('type=stb&action=log&diag=' + encodeURIComponent('lista ' + lista + ' filas=' + caja.children.length +
+                    ' caben=' + filasCaben[lista] + ' hueco=' + hueco + ' paso=' + paso +
+                    ' pantalla=' + window.innerWidth + 'x' + window.innerHeight +
+                    ' panel=' + r(pa) + ' display=' + window.getComputedStyle(pa).display +
+                    ' caja=' + r(caja) + ' ultima=' + (ultima ? r(ultima) : '-') + ' ayuda=' + (ay ? r(ay) : '-')), function() {});
+            } catch (err) {}
+        }, 1500);
+    }
+
     function limiteLista(caja) {
         var lim = Math.min(caja.getBoundingClientRect().bottom, window.innerHeight || 1e9);
         // El fondo util del panel: su borde de abajo (o el de la pantalla)
@@ -5949,9 +5973,10 @@
             display: flex; flex-direction: column;
             background: #2c3236 url({% static 'stb/fondo.jpg' %}) no-repeat 0 0;
             -webkit-background-size: 1920px 1080px; background-size: 1920px 1080px;
-            /* Abajo, 54 px: las teles recortan un poco el borde y la ayuda se
-               salia. Es el 5 %, el margen seguro de siempre en television. */
-            padding: 46px 40px 54px 64px;
+            /* Abajo, lo mismo que arriba: la ayuda queda a la misma distancia
+               del borde que el logo. Se salia de la tele porque la lista la
+               empujaba (ver .list), no por falta de margen. */
+            padding: 46px 40px 46px 64px;
             border-right: 1px solid rgba(217,217,217,.35);
         }
         /* Lo que rodea al video, con el mismo fondo: sin esto el deco deja
@@ -6810,7 +6835,7 @@
         .sem-ep-txt .m { font-size: 19px; color: #98a3a6; margin-top: 8px; }
 
         @media (max-width: 1919px) {
-            .panel { width: 470px; height: 720px; padding: 31px 27px 36px 43px;
+            .panel { width: 470px; height: 720px; padding: 31px 27px 31px 43px;
                      -webkit-background-size: 1280px 720px; background-size: 1280px 720px; }
             .tapa { -webkit-background-size: 1280px 720px; background-size: 1280px 720px; }
             .tapa.b { background-position: 0 -485px; }
