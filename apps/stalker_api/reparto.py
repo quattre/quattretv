@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 TVMAZE = 'https://api.tvmaze.com'
 SPARQL = 'https://query.wikidata.org/sparql'
 WIKIDATA = 'https://www.wikidata.org/w/api.php'
+WIKIPEDIA = 'https://es.wikipedia.org/w/api.php'
 COMMONS = 'https://commons.wikimedia.org/w/api.php'
 # Wikimedia pide identificarse; sin esto contesta 403.
 CABECERAS = {'User-Agent': 'QuattreTV/1.0 (+https://iptv2.quattre.com) reparto-videoclub'}
@@ -105,7 +106,7 @@ def de_tvmaze(titulo, anio=''):
 
 
 def _sparql(consulta):
-    r = requests.get(SPARQL, params={'query': consulta, 'format': 'json'}, headers=CABECERAS, timeout=ESPERA)
+    r = requests.get(SPARQL, params={'query': consulta, 'format': 'json'}, headers=CABECERAS, timeout=ESPERA + 4)
     r.raise_for_status()
     return r.json()['results']['bindings']
 
@@ -125,6 +126,8 @@ def de_wikidata(titulo, anio=''):
           %s
         } LIMIT 3""" % (' '.join(TIPOS_PELI), texto, texto, texto, filtro))
     pelis = [f['peli']['value'].rsplit('/', 1)[-1] for f in filas]
+    if not pelis and str(anio).isdigit():
+        pelis = por_wikipedia(titulo, int(anio))
     # Dos peliculas con el mismo titulo y sin año para distinguirlas: mejor nada.
     if len(pelis) != 1:
         return {}
@@ -174,6 +177,43 @@ def de_wikidata(titulo, anio=''):
                          'foto': foto.get('url', ''), 'autor': foto.get('autor', ''),
                          'licencia': foto.get('licencia', '')})
     return {'personas': personas, 'fuente': 'Wikidata; fotos de Wikimedia Commons'}
+
+
+def por_wikipedia(titulo, anio):
+    """
+    La pelicula por la Wikipedia en español, que tiene los titulos de España
+    como redirecciones ("Arma letal" -> Lethal Weapon) aunque Wikidata no los
+    tenga. Solo se acepta si en Wikidata es una pelicula de ese año.
+    """
+    r = requests.get(WIKIPEDIA, params={'action': 'query', 'list': 'search', 'srlimit': 3,
+                                        'srsearch': '"%s" película %d' % (titulo, anio), 'format': 'json'},
+                     headers=CABECERAS, timeout=ESPERA)
+    r.raise_for_status()
+    titulos = [x['title'] for x in r.json().get('query', {}).get('search', [])]
+    if not titulos:
+        return []
+    p = requests.get(WIKIPEDIA, params={'action': 'query', 'titles': '|'.join(titulos), 'redirects': 1,
+                                        'prop': 'pageprops', 'ppprop': 'wikibase_item', 'format': 'json'},
+                     headers=CABECERAS, timeout=ESPERA)
+    p.raise_for_status()
+    qids = [pg['pageprops']['wikibase_item'] for pg in p.json().get('query', {}).get('pages', {}).values()
+            if (pg.get('pageprops') or {}).get('wikibase_item')]
+    if not qids:
+        return []
+    e = requests.get(WIKIDATA, params={'action': 'wbgetentities', 'ids': '|'.join(qids), 'props': 'claims',
+                                       'format': 'json'}, headers=CABECERAS, timeout=ESPERA)
+    e.raise_for_status()
+    tipos = {t.split(':')[1] for t in TIPOS_PELI}
+    buenas = []
+    for qid, ent in e.json().get('entities', {}).items():
+        claims = ent.get('claims', {})
+        es_peli = any(((c.get('mainsnak') or {}).get('datavalue') or {}).get('value', {}).get('id') in tipos
+                      for c in claims.get('P31', []))
+        anios = {(((c.get('mainsnak') or {}).get('datavalue') or {}).get('value') or {}).get('time', '')[1:5]
+                 for c in claims.get('P577', [])}
+        if es_peli and str(anio) in anios:
+            buenas.append(qid)
+    return buenas
 
 
 def fotos_commons(ficheros):
