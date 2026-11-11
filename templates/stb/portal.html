@@ -297,6 +297,7 @@
         // Señal de vida: sin esto, un aparato que lleva rato con un canal
         // puesto no vuelve a pedir nada y en el panel figura como apagado.
         setInterval(latido, 60000);
+        contarEquipo();
         setInterval(refrescarPosicionOsd, 1000);
         setInterval(pintarReloj, 2000);
         setInterval(quizaRefrescarAhora, 20000);
@@ -308,6 +309,17 @@
     // Cuando se cargo este portal, para que el panel pueda recargar de golpe
     // todos los que tengan una version anterior.
     var PORTAL_CARGADO = Math.floor(new Date().getTime() / 1000);
+
+    // Modelo y firmware del deco, una vez al arrancar: se guardan en su ficha
+    // del panel para saber que version tiene cada uno y cuales actualizar.
+    function contarEquipo() {
+        if (typeof gSTB === 'undefined') return;
+        var m = '', fw = '', desc = '';
+        try { m = String(gSTB.GetDeviceModelExt() || ''); } catch (e) {}
+        try { fw = String(gSTB.GetDeviceImageVersionCurrent() || ''); } catch (e) {}
+        try { desc = String(gSTB.GetDeviceImageDesc() || ''); } catch (e) {}
+        api('type=stb&action=log&diag=' + encodeURIComponent('equipo modelo=' + m + ' fw=' + fw + ' desc=' + desc), function() {});
+    }
 
     function latido() {
         var ch = channels[playingChannelIdx >= 0 ? playingChannelIdx : currentChannel];

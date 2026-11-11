@@ -330,6 +330,18 @@ def handle_log(request):
         import logging
         logging.getLogger('quattretv.diag').warning(
             'DIAG %s %s', device.mac_address if device else 'sin-aparato', datos)
+        # Al arrancar, el deco cuenta su modelo y firmware: a su ficha.
+        if device and datos.startswith('equipo '):
+            import re as _re
+            m = _re.search(r'modelo=(\S*)', datos)
+            fw = _re.search(r'fw=(.*?)(?: desc=|$)', datos)
+            cambios = {}
+            if m and m.group(1):
+                cambios['model'] = m.group(1)[:100]
+            if fw and fw.group(1).strip():
+                cambios['firmware_version'] = fw.group(1).strip()[:50]
+            if cambios and any(getattr(device, k) != v for k, v in cambios.items()):
+                type(device).objects.filter(pk=device.pk).update(**cambios)
         try:
             cache.set(
                 f'diag:{device.mac_address if device else "anonimo"}',

@@ -115,7 +115,16 @@
                 <form method="post" action="{% url 'portal:device_firmware' device.id %}" class="mt-4 space-y-2">
                     {% csrf_token %}
                     <p class="text-xs font-medium text-gray-700">Firmware</p>
+                    <p class="text-xs text-gray-600">
+                        Modelo: <b>{{ device.model|default:"(aun no lo ha dicho; recarga el portal del deco)" }}</b> ·
+                        tiene: <b>{{ device.firmware_version|default:"?" }}</b>
+                        {% if firmware %}· publicado para su modelo: <b>{{ firmware.version }}</b> ({{ firmware.fecha }})
+                            {% if firmware.nuevo %}<span class="text-blue-700 font-medium">— hay uno más nuevo</span>
+                            {% elif firmware.actual %}<span class="text-green-700">— ya lo tiene o uno más nuevo; no hace falta</span>{% endif %}
+                        {% elif device.model %}· no hay firmware publicado para este modelo{% endif %}
+                    </p>
                     <input type="url" name="url" required placeholder="http://.../imageupdate"
+                           value="{% if firmware %}{{ firmware.url }}{% endif %}"
                            class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div class="flex gap-2">
                         <button name="accion" value="comprobar" class="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">

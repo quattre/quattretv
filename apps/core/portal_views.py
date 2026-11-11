@@ -396,6 +396,8 @@ def device_edit(request, device_id):
         'device': device,
         'all_users': User.objects.all(),
     }
+    from apps.devices import eventos
+    context['firmware'] = eventos.firmware_para(device)
 
     return render(request, 'portal/pages/device_edit.html', context)
 

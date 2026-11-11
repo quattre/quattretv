@@ -72,6 +72,34 @@ def pedir_firmware(device, url, instalar=False):
     return True
 
 
+# Las imagenes de firmware que hay publicadas, por modelo: estan en el
+# servidor viejo (/var/www/firmware de 185.25.27.50, servido por su web) y son
+# las firmadas para Quattre. Medido el 11/11/2026. El MAG420 no tiene.
+FIRMWARE_BASE = 'http://185.25.27.50/firmware/'
+FIRMWARES = {
+    'MAG256': ('256/imageupdate', 218, '31/12/2022'),
+    'MAG322': ('322/imageupdate', 201, '31/07/2019'),
+    'MAG324': ('322/imageupdate', 201, '31/07/2019'),
+    'MAG520': ('520/imageupdate', 220, '09/01/2023'),
+    'MAG524': ('524/imageupdate', 207, '14/02/2023'),
+    'MAG540': ('540/imageupdate', 208, '04/06/2024'),
+}
+
+
+def firmware_para(device):
+    """{'url', 'version', 'fecha', 'actual', 'nuevo'} para la ficha del panel, o None."""
+    modelo = (device.model or '').upper().replace(' ', '')
+    clave = next((k for k in FIRMWARES if modelo.startswith(k)), None)
+    if not clave:
+        return None
+    ruta, version, fecha = FIRMWARES[clave]
+    import re
+    m = re.search(r'(\d{3})', device.firmware_version or '')
+    actual = int(m.group(1)) if m else None
+    return {'url': FIRMWARE_BASE + ruta, 'version': version, 'fecha': fecha, 'actual': actual,
+            'nuevo': actual is not None and actual < version}
+
+
 # Variables del deco que se pueden cambiar desde aqui: las que hacen falta
 # para arreglar uno a distancia. El resto no se toca.
 ENTORNO_PERMITIDO = ('tvsystem', 'graphicres', 'portal1', 'portal2')
