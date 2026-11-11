@@ -1408,6 +1408,7 @@ def programa_epg(prog, now, grabaciones, descr=None):
         'name': prog.title,
         'descr': texto[:descr] if descr else texto,
         'category': prog.category or '',
+        'year': str(prog.year) if prog.year else '',
         'icon': prog.icon or '',
         'ch_id': str(prog.channel_id),
         'start_timestamp': int(prog.ver_ini.timestamp()),

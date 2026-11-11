@@ -4530,6 +4530,47 @@
                 '<span>▲▼</span> Desplazar ' + (accion ? accion + ' ' : '') + volver;
         }
         pintarScrollFicha();
+        repartoEnFicha(p);
+    }
+
+    // El reparto con foto tambien en la ficha de la guia, solo en pelis y
+    // series. Va dentro del texto, debajo de la sinopsis, y se desplaza con
+    // ▲▼ como el resto: el panel es estrecho y no hay sitio para otra fila.
+    function repartoEnFicha(p) {
+        var cat = (p.category || '').toLowerCase();
+        var grupo = /^(cine|pel)/.test(cat) ? 'peliculas' : /^serie/.test(cat) ? 'series' : '';
+        if (!grupo) return;
+        var intentos = 0;
+        function pedir() {
+            api("type=tv_archive&action=get_cast&group=" + grupo + "&title=" + encodeURIComponent(p.name) +
+                "&year=" + encodeURIComponent(p.year || ''), function(js) {
+                if (view !== "ficha" || guide[guideIdx] !== p || !js) return;
+                if (js.pendiente) { if (++intentos < 4) setTimeout(pedir, 4000); return; }
+                if (!js.personas || !js.personas.length) return;
+                var txt = document.getElementById('ficha-texto'), caja = document.querySelector('.ficha-caja');
+                if (!txt || !caja) return;
+                var h = '<div class="fr-titulo">Reparto</div>', creditos = [];
+                for (var i = 0; i < js.personas.length; i++) {
+                    var q = js.personas[i];
+                    var foto = q.foto && !/['"()\\\s]/.test(q.foto) ? ' style="background-image:url(' + esc(q.foto) + ')"' : '';
+                    h += '<div class="fr-cara"><i class="rp-foto"' + foto + '>' + (foto ? '' : esc(iniciales(q.nombre))) +
+                         '</i><b>' + esc(q.nombre) + '</b><span>' + esc(q.papel || '') + '</span></div>';
+                    if (q.licencia) creditos.push(q.nombre + ': ' + (q.autor ? q.autor + ', ' : '') + q.licencia);
+                }
+                h += '<div class="rp-credito">' + esc(js.fuente || '') + (creditos.length ? ' · ' + esc(creditos.join(' · ')) : '') + '</div>';
+                var d = document.createElement('div');
+                d.className = 'ficha-reparto';
+                d.innerHTML = h;
+                txt.appendChild(d);
+                fichaScrollMax = Math.max(0, txt.offsetHeight - (caja.offsetHeight - 16));
+                if (fichaScrollMax > 0) {
+                    var ay = document.getElementById('ficha-ayuda');
+                    if (ay && ay.innerHTML.indexOf('Desplazar') < 0) ay.innerHTML = '<span>▲▼</span> Desplazar ' + ay.innerHTML;
+                }
+                pintarScrollFicha();
+            });
+        }
+        pedir();
     }
 
     function pintarScrollFicha() {
@@ -6926,6 +6967,14 @@
         .rp-cara b { font-size: 19px; color: #fff; font-weight: 600; }
         .rp-cara span { font-size: 16px; color: #9aa5a8; font-style: italic; margin-top: 2px; }
         .rp-credito { font-size: 13px; color: #7d878a; margin-top: 10px; line-height: 18px; max-height: 36px; overflow: hidden; }
+        .ficha-reparto { font-style: normal; margin-top: 18px; }
+        .fr-titulo { font-size: 19px; font-weight: 600; color: #fff; margin-bottom: 10px; }
+        .fr-cara { display: inline-block; vertical-align: top; width: 31%; margin: 0 1% 12px 0; text-align: center; line-height: 1.3; }
+        .fr-cara .rp-foto { width: 84px; height: 84px; border-radius: 42px; line-height: 84px; font-size: 28px; margin-bottom: 6px; }
+        .fr-cara b, .fr-cara span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fr-cara b { font-size: 16px; color: #fff; }
+        .fr-cara span { font-size: 14px; color: #9aa5a8; font-style: italic; }
+        .ficha-reparto .rp-credito { max-height: none; }
         .sem-fila.activa { opacity: 1; }
         .sem-nombre {
             font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 28px;
@@ -7095,6 +7144,11 @@
             .rp-cara b { font-size: 13px; }
             .rp-cara span { font-size: 11px; }
             .rp-credito { font-size: 9px; line-height: 12px; max-height: 24px; margin-top: 7px; }
+            .ficha-reparto { margin-top: 12px; }
+            .fr-titulo { font-size: 13px; margin-bottom: 7px; }
+            .fr-cara .rp-foto { width: 56px; height: 56px; border-radius: 28px; line-height: 56px; font-size: 19px; margin-bottom: 4px; }
+            .fr-cara b { font-size: 11px; }
+            .fr-cara span { font-size: 10px; }
             .sem-nombre { font-size: 19px; margin-bottom: 9px; }
             .sem-nombre span { font-size: 15px; margin-left: 8px; }
             .sem-tarjeta { width: 224px; height: 126px; margin-right: 16px; border-radius: 4px; border-width: 3px; }
