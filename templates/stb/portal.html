@@ -2092,6 +2092,37 @@
         // puesta todo el video y tapaba los rotulos de abajo.
         clearTimeout(osdTimeout);
         osdTimeout = setTimeout(function() { osd.style.display = "none"; }, TIEMPO_OSD);
+        vigilarFinArchivo();
+    }
+
+    // Lo ya emitido se acaba solo. Al archivo se le pide hasta un rato despues
+    // del final, pero el deco no avisa siempre de que se ha terminado y seguia
+    // con lo que vino despues en el canal: la peli del videoclub acababa y la
+    // tele seguia sin parar. Pasado el final (con margen para los creditos, y
+    // mas si la hora de fin es la de la guia y no la vista en la emision) se
+    // vuelve a donde se estaba, igual que con Atras.
+    var relojFinArchivo = null;
+    function limiteArchivo(d) {
+        if (d.cero) return d.final + (d.finVisto ? 3 * 60 : 10 * 60);
+        return d.fin + ARCHIVO_DESPUES;
+    }
+    function vigilarFinArchivo() {
+        clearInterval(relojFinArchivo);
+        if (!diferido || diferido.tipo !== 'archivo') return;
+        var mio = diferido;
+        relojFinArchivo = setInterval(function() {
+            if (diferido !== mio || !isFullscreen) { clearInterval(relojFinArchivo); return; }
+            if (salto || mio.pausaDesde) return;
+            if (momentoDiferido() >= limiteArchivo(mio)) terminarArchivo();
+        }, 5000);
+    }
+    function terminarArchivo() {
+        clearInterval(relojFinArchivo);
+        if (!diferido || diferido.tipo !== 'archivo') return;
+        toast(diferido.cero ? 'Fin de la pelicula' : 'Fin del programa');
+        if (diferido.volver === 'semana') openSemana();
+        else if (rj.volver) volverARejilla();
+        else showMenu();
     }
 
     // ---------- Menu principal ----------
@@ -2375,7 +2406,7 @@
         h += '<i class="rj-f" style="left:' + px(hx) + ';top:' + px(hy + hh) + ';width:' + px(1920 - hx) + ';height:' + px(1080 - hy - hh) + '"></i>';
 
         // Arriba a la izquierda, el programa elegido.
-        h += '<div class="rj-info" style="left:' + px(190) + ';top:' + px(56) + ';width:' + px(hx - 230) + ';height:' + px(hh) + '">';
+        h += '<div class="rj-info" style="left:' + px(190) + ';top:' + px(56) + ';width:' + px(hx - 350) + ';height:' + px(hh) + '">';
         if (ch) h += '<div class="rj-canal">' + numero(ch) + ' · ' + esc(ch.name) + '</div>';
         if (p) {
             h += '<div class="rj-titulo">' + esc(p.name);
@@ -3560,6 +3591,7 @@
                 reproducirPantallaCompleta(js.cmd, it.titulo, cap, {
                     titulo: it.titulo, sub: cap, descr: it.descr,
                     cero: js.real_ini || it.ini, final: js.real_fin || it.fin,
+                    finVisto: !!(js.real_fin && js.real_fin !== it.fin),
                     tipo: 'archivo', chId: it.ch_id, inicio: it.ini, fin: it.fin, base: js.desde || utc,
                     volver: 'semana'
                 });
@@ -4346,14 +4378,31 @@
     // es facil pulsarlos sin querer. Ahora se pregunta: ◀▶ elige, OK acepta,
     // Atras cancela; el rojo otra vez tambien acepta. Igual en todos los
     // aparatos (decos, LG, Samsung, Android TV).
+    //
+    // Con el video pequeño la pregunta va debajo de la imagen, en el sitio de
+    // "Despues ...": una caja grande en el centro tapaba la lista y en los MAG
+    // salia fuera de la pantalla. A pantalla completa sigue en el centro.
     var pregunta = null;
+    function preguntaBajoImagen() {
+        var cap = document.getElementById('preview-cap');
+        return !isFullscreen && (view === 'list' || view === 'guide' || view === 'ficha') &&
+               cap && cap.style.display !== 'none' && cap.offsetWidth > 0;
+    }
     function preguntar(titulo, texto, si, accion) {
-        pregunta = {botones: [si, 'Cancelar'], foco: 0, accion: accion};
+        pregunta = {botones: [si, 'Cancelar'], foco: 0, accion: accion, abajo: preguntaBajoImagen()};
+        graficosDelante();
+        if (pregunta.abajo) {
+            var cap = document.getElementById('preview-cap');
+            cap.innerHTML = '<i class="tapa a"></i><i class="tapa b"></i><i class="tapa i"></i><i class="tapa d"></i>' +
+                '<div class="txt pq-cap"><div class="t">' + esc(titulo) + '</div>' +
+                '<div class="e">' + esc(texto || '') + '</div><div id="pq-botones"></div></div>';
+            pintarPregunta();
+            return;
+        }
         var caja = document.getElementById('pregunta');
         caja.innerHTML = '<div class="pq-titulo">' + esc(titulo) + '</div>' +
             '<div class="pq-texto">' + esc(texto || '') + '</div><div id="pq-botones"></div>';
         pintarPregunta();
-        graficosDelante();
         caja.style.display = 'block';
     }
     function pintarPregunta() {
@@ -4365,11 +4414,12 @@
         document.getElementById('pq-botones').innerHTML = h;
     }
     function cerrarPregunta(aceptar) {
-        var accion = pregunta && pregunta.accion;
+        var accion = pregunta && pregunta.accion, abajo = pregunta && pregunta.abajo;
         pregunta = null;
         var caja = document.getElementById('pregunta');
         caja.style.display = 'none';
         caja.innerHTML = '';
+        if (abajo) updatePreviewCap(channels[currentChannel]);
         if (aceptar && accion) accion();
     }
     function teclaPregunta(k, e) {
@@ -5732,6 +5782,8 @@
         }
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
+        else if (String(evento) === '1' && diferido && diferido.tipo === 'archivo' && isFullscreen &&
+                 momentoDiferido() >= (diferido.cero ? diferido.final : diferido.fin)) terminarArchivo();
     };
 
     // La barra lateral refleja donde se esta y si la pantalla es completa:
@@ -6375,7 +6427,8 @@
            el centro, sobre el video, que no lo para. */
         #pregunta {
             display: none; position: fixed; z-index: 37; top: 50%; left: 50%;
-            transform: translate(-50%,-50%); width: 900px; padding: 44px 56px 40px;
+            -webkit-transform: translate(-50%,-50%); transform: translate(-50%,-50%);
+            width: 900px; padding: 44px 56px 40px;
             background: #2c3236; border: 1px solid rgba(255,255,255,.1); border-radius: 18px;
             box-shadow: 0 18px 60px rgba(0,0,0,.85); color: #fff; text-align: center;
         }
@@ -6387,8 +6440,16 @@
             font-size: 26px; font-weight: 500; cursor: pointer; border: 2px solid rgba(217,217,217,.7);
         }
         #pregunta .pq-b.sel { background: #bff102; border-color: #bff102; color: #1d2023; font-weight: 600; }
+        #preview-cap .pq-cap .t { font-size: 34px; }
+        #preview-cap .pq-cap .e { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #preview-cap .pq-cap #pq-botones { margin-top: 16px; }
+        #preview-cap .pq-b {
+            display: inline-block; margin: 0 16px 0 0; padding: 8px 34px; border-radius: 30px;
+            font-size: 22px; font-weight: 500; cursor: pointer; border: 2px solid rgba(217,217,217,.7);
+        }
+        #preview-cap .pq-b.sel { background: #bff102; border-color: #bff102; color: #1d2023; font-weight: 600; }
         #vol {
-            top: 50%; left: 50%; transform: translate(-50%,-50%);
+            top: 50%; left: 50%; -webkit-transform: translate(-50%,-50%); transform: translate(-50%,-50%);
             padding: 26px 52px; font-size: 30px; border-radius: 16px;
         }
         #reloj {
@@ -6396,7 +6457,9 @@
             font-size: 32px; font-weight: 600; letter-spacing: 1px; color: #e6e6e6;
             text-shadow: 0 1px 4px rgba(0,0,0,.7);
         }
-        #reloj.rj { top: 10px; font-size: 28px; }
+        /* En la parrilla, a la izquierda del video pequeño y a la altura del
+           titulo. Antes subia a 10 px del borde y las teles lo recortaban. */
+        #reloj.rj { top: 56px; right: 715px; font-size: 28px; }
         .sem-tabs .sem-logo { display: inline-block; vertical-align: middle; margin: -6px 26px 0 0; }
         .sem-tabs .sem-logo img { display: block; height: 36px; width: auto; }
         #toast {
@@ -6732,7 +6795,7 @@
             .sem-tabs .sem-logo { margin: -4px 17px 0 0; }
             .sem-tabs .sem-logo img { height: 24px; }
             #reloj { top: 24px; right: 61px; font-size: 21px; }
-            #reloj.rj { top: 7px; font-size: 19px; }
+            #reloj.rj { top: 37px; right: 477px; font-size: 19px; }
             .sem-tabs b { font-size: 12px; letter-spacing: 2px; margin-right: 17px; }
             .sem-tabs span { font-size: 16px; padding: 5px 12px 4px; margin-right: 5px; border-bottom-width: 2px; }
             .sem-tabs.activa span.sel { border-radius: 16px; }
@@ -6799,6 +6862,13 @@
             #osd .bar { width: 55%; max-width: 460px; height: 5px; margin-top: 7px; }
 
             #vol { padding: 17px 35px; font-size: 20px; border-radius: 11px; }
+            #pregunta { width: 600px; padding: 29px 37px 27px; border-radius: 12px; }
+            #pregunta .pq-titulo { font-size: 23px; margin-bottom: 9px; }
+            #pregunta .pq-texto { font-size: 17px; line-height: 25px; margin-bottom: 23px; }
+            #pregunta .pq-b { margin: 0 8px; padding: 9px 29px; font-size: 17px; border-radius: 27px; }
+            #preview-cap .pq-cap .t { font-size: 23px; }
+            #preview-cap .pq-cap #pq-botones { margin-top: 11px; }
+            #preview-cap .pq-b { margin: 0 11px 0 0; padding: 5px 23px; font-size: 15px; border-radius: 20px; }
             #toast { bottom: 43px; padding: 13px 24px; font-size: 15px; border-radius: 9px; }
             #numjump { top: 43px; right: 48px; padding: 15px 28px; font-size: 40px; }
             .pinbox { font-size: 37px; letter-spacing: 8px; padding: 15px 21px; min-width: 187px; }
