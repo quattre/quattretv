@@ -109,15 +109,22 @@ def _cartel(im):
 
 
 def otras_de(titulo, img, otras):
-    """Las imagenes del mismo titulo en las guias, sin repetir."""
+    """
+    Las imagenes del mismo titulo en las guias, sin repetir y sin las de
+    relleno: Sincroguia pone la misma de unas palomitas a muchas peliculas, y
+    una imagen que sale con varios titulos no es de ninguno.
+    """
     from apps.epg.models import Program
     vistas, salida = {img}, []
     deguias = Program.objects.filter(title__iexact=titulo).exclude(icon='') \
-        .values_list('icon', flat=True).distinct()[:10]
+        .order_by().values_list('icon', flat=True).distinct()[:10]
     for u in list(otras) + list(deguias):
-        if u and u not in vistas:
-            vistas.add(u)
-            salida.append(u)
+        if not u or u in vistas:
+            continue
+        vistas.add(u)
+        if Program.objects.filter(icon=u).order_by().values('title').distinct().count() > 2:
+            continue
+        salida.append(u)
     return salida[:8]
 
 
