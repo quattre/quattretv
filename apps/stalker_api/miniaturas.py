@@ -59,8 +59,14 @@ def poner(items):
             continue
         nombre = _nombre(i.get('titulo', ''), img)
         ruta = os.path.join(CARPETA, nombre)
-        if os.path.exists(ruta):
-            i['img'] = URL + nombre
+        try:
+            tam = os.path.getsize(ruta)
+        except OSError:
+            tam = None
+        if tam:
+            # Con el tamaño en la direccion: nginx las da para 7 dias, y una
+            # rehecha tiene que llegar al deco sin esperar.
+            i['img'] = '%s%s?v=%d' % (URL, nombre, tam)
             try:
                 os.utime(ruta)      # en uso: que limpiar() no la borre
             except OSError:
