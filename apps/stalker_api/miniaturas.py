@@ -122,10 +122,15 @@ def otras_de(titulo, img, otras):
         if not u or u in vistas:
             continue
         vistas.add(u)
-        if Program.objects.filter(icon=u).order_by().values('title').distinct().count() > 2:
+        if de_relleno(u):
             continue
         salida.append(u)
     return salida[:8]
+
+
+def de_relleno(url):
+    from apps.epg.models import Program
+    return Program.objects.filter(icon=url).order_by().values('title').distinct().count() > 2
 
 
 def hacer(titulo, img, otras=()):
@@ -134,16 +139,19 @@ def hacer(titulo, img, otras=()):
     destino = os.path.join(CARPETA, nombre)
     if os.path.exists(destino):
         return 'ya'
+    alternativas = otras_de(titulo, img, otras)
+    # La de la guia es de relleno (la misma para muchas): mejor otra del titulo.
+    origen = alternativas.pop(0) if alternativas and de_relleno(img) else img
     try:
-        principal = _abrir(img)
+        principal = _abrir(origen)
     except Exception as e:
-        logger.info('miniatura: no se puede abrir %s (%s)', img, e)
+        logger.info('miniatura: no se puede abrir %s (%s)', origen, e)
         return 'error'
     if principal.width / principal.height >= HORIZONTAL:
         hecha, como = _apaisada(principal), 'horizontal'
     else:
         hecha, como = None, 'cartel'
-        for u in otras_de(titulo, img, otras):
+        for u in alternativas:
             try:
                 im = _abrir(u)
             except Exception:
