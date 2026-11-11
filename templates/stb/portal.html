@@ -1631,7 +1631,10 @@
         // lista toca una mezcla distinta de filas altas y bajas, sale un numero
         // distinto cada vez y la lista cambia de tamaño sola mientras navegas.
         if (midiendoFilas || !usadas) return;
-        if (filasCaben[lista]) { recortarSiSale(lista, usadas, repintar); return; }
+        if (filasCaben[lista]) {
+            if (!recortarSiSale(lista, usadas, repintar)) repartirHueco(lista);
+            return;
+        }
         var caja = document.querySelector("#content .list");
         if (!caja || caja.children.length < 1) return;
         var filas = caja.children;
@@ -1674,7 +1677,7 @@
         var caben = Math.max(3, Math.floor((hueco + sobra) / paso));
         filasCaben[lista] = caben;
         contarLista(lista, hueco, paso);
-        if (caben === usadas) return;
+        if (caben === usadas) { repartirHueco(lista); return; }
         midiendoFilas = true;
         try { repintar(); } finally { midiendoFilas = false; }
     }
@@ -1734,11 +1737,38 @@
     // tele mide distinto...), una fila menos.
     function recortarSiSale(lista, usadas, repintar) {
         var caja = document.querySelector("#content .list");
-        if (!caja || !caja.lastElementChild || usadas <= 3) return;
-        if (caja.lastElementChild.getBoundingClientRect().bottom <= limiteLista(caja) + 2) return;
+        if (!caja || !caja.lastElementChild || usadas <= 3) return false;
+        if (caja.lastElementChild.getBoundingClientRect().bottom <= limiteLista(caja) + 2) return false;
         filasCaben[lista] = usadas - 1;
         midiendoFilas = true;
         try { repintar(); } finally { midiendoFilas = false; }
+        return true;
+    }
+
+    // Lo que sobra al final de la lista llena, repartido entre las filas. Las
+    // filas no se parten, asi que quedaba un hueco de casi una fila entre la
+    // ultima y la ayuda (en un MAG, 60 px: 7 filas de 69 en 529). Solo con la
+    // lista llena: con tres favoritos no se separan.
+    function repartirHueco(lista) {
+        var caja = document.querySelector("#content .list");
+        if (!caja) return;
+        var filas = caja.children, n = filas.length;
+        if (n < 2 || n < filasCaben[lista]) return;
+        var r = caja.getBoundingClientRect(), esc = (caja.offsetHeight > 0 && r.height > 0) ? r.height / caja.offsetHeight : 1;
+        var sobra = (limiteLista(caja) - filas[n - 1].getBoundingClientRect().bottom) / esc;
+        var cada;
+        sobra = Math.min(sobra, n * Math.round(filas[0].offsetHeight / 3));
+        // Mas alta cada fila (relleno arriba y abajo) y no mas separadas: las
+        // filas son franjas pegadas con una raya entre ellas, y un margen
+        // dejaba ver el fondo entre franja y franja.
+        cada = Math.floor(sobra / n);
+        if (cada < 2) return;
+        var arriba = Math.floor(cada / 2);
+        for (var i = 0; i < n; i++) {
+            var cs = window.getComputedStyle(filas[i]);
+            filas[i].style.paddingTop = ((parseFloat(cs.paddingTop) || 0) + arriba) + 'px';
+            filas[i].style.paddingBottom = ((parseFloat(cs.paddingBottom) || 0) + cada - arriba) + 'px';
+        }
     }
 
     // Si cambia el tamaño de la ventana —el teclado del televisor la encoge—
