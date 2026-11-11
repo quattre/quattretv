@@ -1632,7 +1632,18 @@
         // distinto cada vez y la lista cambia de tamaño sola mientras navegas.
         if (midiendoFilas || !usadas) return;
         if (filasCaben[lista]) {
-            if (!recortarSiSale(lista, usadas, repintar)) repartirHueco(lista);
+            // La comprobacion de que la ultima fila se ve y el reparto del
+            // hueco leen medidas, y cada lectura obliga al aparato a recolocar
+            // la pagina entera: en cada pulsacion, un MAG 256 iba lento al
+            // cambiar de canal y de pantalla. Se hace una vez por medida; en
+            // los demas pintados solo se pone la clase con el relleno, que no
+            // lee nada.
+            if (comprobadas[lista] !== filasCaben[lista]) {
+                comprobadas[lista] = filasCaben[lista];
+                if (!recortarSiSale(lista, usadas, repintar)) repartirHueco(lista);
+            } else {
+                ponerRelleno(lista);
+            }
             return;
         }
         var caja = document.querySelector("#content .list");
@@ -1677,7 +1688,11 @@
         var caben = Math.max(3, Math.floor((hueco + sobra) / paso));
         filasCaben[lista] = caben;
         contarLista(lista, hueco, paso);
-        if (caben === usadas) { repartirHueco(lista); return; }
+        if (caben === usadas) {
+            comprobadas[lista] = caben;
+            if (!recortarSiSale(lista, usadas, repintar)) repartirHueco(lista);
+            return;
+        }
         midiendoFilas = true;
         try { repintar(); } finally { midiendoFilas = false; }
     }
@@ -1749,10 +1764,18 @@
     // filas no se parten, asi que quedaba un hueco de casi una fila entre la
     // ultima y la ayuda (en un MAG, 60 px: 7 filas de 69 en 529). Solo con la
     // lista llena: con tres favoritos no se separan.
+    var comprobadas = {}, rellenos = {};
+    function ponerRelleno(lista) {
+        if (!rellenos[lista]) return;
+        var caja = document.querySelector("#content .list");
+        if (caja) caja.className += ' rl-' + lista;
+    }
     function repartirHueco(lista) {
         var caja = document.querySelector("#content .list");
         if (!caja) return;
         var filas = caja.children, n = filas.length;
+        // Con menos filas que las que caben (tres favoritos) no se estira; el
+        // relleno ya calculado se queda para cuando la lista vuelva a estar llena.
         if (n < 2 || n < filasCaben[lista]) return;
         var r = caja.getBoundingClientRect(), esc = (caja.offsetHeight > 0 && r.height > 0) ? r.height / caja.offsetHeight : 1;
         var sobra = (limiteLista(caja) - filas[n - 1].getBoundingClientRect().bottom) / esc;
@@ -1764,11 +1787,19 @@
         cada = Math.floor(sobra / n);
         if (cada < 2) return;
         var arriba = Math.floor(cada / 2);
-        for (var i = 0; i < n; i++) {
-            var cs = window.getComputedStyle(filas[i]);
-            filas[i].style.paddingTop = ((parseFloat(cs.paddingTop) || 0) + arriba) + 'px';
-            filas[i].style.paddingBottom = ((parseFloat(cs.paddingBottom) || 0) + cada - arriba) + 'px';
+        var cs = window.getComputedStyle(filas[0]);
+        rellenos[lista] = 1;
+        var regla = '#content .list.rl-' + lista + ' > * { padding-top: ' +
+            ((parseFloat(cs.paddingTop) || 0) + arriba) + 'px !important; padding-bottom: ' +
+            ((parseFloat(cs.paddingBottom) || 0) + cada - arriba) + 'px !important; }';
+        var st = document.getElementById('relleno-' + lista);
+        if (!st) {
+            st = document.createElement('style');
+            st.id = 'relleno-' + lista;
+            document.getElementsByTagName('head')[0].appendChild(st);
         }
+        st.innerHTML = regla;
+        ponerRelleno(lista);
     }
 
     // Si cambia el tamaño de la ventana —el teclado del televisor la encoge—
