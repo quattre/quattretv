@@ -370,3 +370,11 @@ def parse_xmltv_time(time_str):
 
     # No offset in the feed: assume it is already in the portal timezone.
     return timezone.make_aware(dt)
+
+
+@shared_task
+def buscar_reparto(titulo, anio, tipo):
+    """El reparto de la ficha del videoclub, fuera del servidor web (ver reparto.py)."""
+    from apps.stalker_api import reparto
+    res = reparto.buscar(titulo, anio, tipo)
+    return len(res.get('personas', [])) if res else 0

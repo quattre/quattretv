@@ -3425,6 +3425,7 @@
                 '<div class="sem-velo"></div>' + pestanasSemana() + heroSemana(actual);
         if (semana.ficha) {
             var fi = semana.ficha;
+            if (fi.reparto) h += repartoSemana(fi.reparto);
             if (fi.similares.length) {
                 h += filaSemana('Mas como esta', '', fi.similares, fi.idx,
                                 fi.foco === 'similares', fi.it.grupo);
@@ -3688,6 +3689,39 @@
             fi.similares = (js && js.data) ? js.data : [];
             if (view === "semana") renderSemana();
         });
+        // El reparto, con foto (ver apps/stalker_api/reparto.py). Las noticias
+        // y el deporte no tienen; la primera vez puede tardar unos segundos y
+        // la ficha no lo espera.
+        var intentos = 0;
+        function pedirReparto() {
+            api("type=tv_archive&action=get_cast&group=" + encodeURIComponent(it.grupo) +
+                "&title=" + encodeURIComponent(it.titulo) + "&year=" + encodeURIComponent(it.anio || ''), function(js) {
+                if (semana.ficha !== fi || !js) return;
+                // Se esta buscando por primera vez: se vuelve a preguntar.
+                if (js.pendiente) { if (++intentos < 4) setTimeout(pedirReparto, 4000); return; }
+                if (!js.personas || !js.personas.length) return;
+                fi.reparto = js;
+                if (view === "semana") renderSemana();
+            });
+        }
+        if (it.grupo && !SEMANA_POR_FECHA[it.grupo]) pedirReparto();
+    }
+
+    // Caras del reparto y, debajo, de donde salen y de quien son las fotos:
+    // las licencias de las fotos (CC BY, CC BY-SA) piden citar al autor.
+    function repartoSemana(rp) {
+        var h = '<div class="sem-reparto"><div class="sem-nombre">Reparto</div><div class="rp-caras">';
+        var creditos = [];
+        for (var i = 0; i < rp.personas.length; i++) {
+            var p = rp.personas[i];
+            var foto = p.foto && !/['"()\\\s]/.test(p.foto) ? ' style="background-image:url(' + esc(p.foto) + ')"' : '';
+            h += '<div class="rp-cara"><i class="rp-foto"' + foto + '>' + (foto ? '' : esc(iniciales(p.nombre))) + '</i>' +
+                 '<b>' + esc(p.nombre) + '</b><span>' + esc(p.papel || '') + '</span></div>';
+            if (p.licencia) creditos.push(p.nombre + ': ' + (p.autor ? p.autor + ', ' : '') + p.licencia);
+        }
+        h += '</div><div class="rp-credito">' + esc(rp.fuente || '') +
+             (creditos.length ? ' · ' + esc(creditos.join(' · ')) : '') + '</div></div>';
+        return h;
     }
 
     function teclaFicha(k, salir) {
@@ -6882,6 +6916,16 @@
         .sem-teclado span.sel { background: #bff102; color: #1d2023; font-weight: 700; }
         .sem-buscar .sem-pista { margin-top: 4px; }
         .sem-fila { height: 270px; opacity: .55; }
+        .sem-reparto { position: relative; height: 230px; margin: 0 0 6px 64px; overflow: hidden; }
+        .rp-caras { white-space: nowrap; overflow: hidden; }
+        .rp-cara { display: inline-block; vertical-align: top; width: 170px; margin-right: 22px; text-align: center; }
+        .rp-foto { display: block; width: 104px; height: 104px; margin: 0 auto 10px; border-radius: 52px;
+                   background: #40474c no-repeat center 20%; -webkit-background-size: cover; background-size: cover;
+                   font-style: normal; font-size: 34px; line-height: 104px; color: #9aa5a8; font-weight: 600; }
+        .rp-cara b, .rp-cara span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rp-cara b { font-size: 19px; color: #fff; font-weight: 600; }
+        .rp-cara span { font-size: 16px; color: #9aa5a8; font-style: italic; margin-top: 2px; }
+        .rp-credito { font-size: 13px; color: #7d878a; margin-top: 10px; line-height: 18px; max-height: 36px; overflow: hidden; }
         .sem-fila.activa { opacity: 1; }
         .sem-nombre {
             font-family: Poppins, 'Segoe UI', Arial, sans-serif; font-size: 28px;
@@ -7045,6 +7089,12 @@
             .sem-pista span:first-child { margin-left: 0; }
             .sem-ayuda { left: 40px; right: 40px; bottom: 16px; font-size: 13px; }
             .sem-fila { height: 180px; }
+            .sem-reparto { height: 153px; margin: 0 0 4px 43px; }
+            .rp-cara { width: 113px; margin-right: 15px; }
+            .rp-foto { width: 69px; height: 69px; border-radius: 35px; margin-bottom: 7px; font-size: 23px; line-height: 69px; }
+            .rp-cara b { font-size: 13px; }
+            .rp-cara span { font-size: 11px; }
+            .rp-credito { font-size: 9px; line-height: 12px; max-height: 24px; margin-top: 7px; }
             .sem-nombre { font-size: 19px; margin-bottom: 9px; }
             .sem-nombre span { font-size: 15px; margin-left: 8px; }
             .sem-tarjeta { width: 224px; height: 126px; margin-right: 16px; border-radius: 4px; border-width: 3px; }

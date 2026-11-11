@@ -47,18 +47,44 @@ def _clave(titulo, anio, tipo):
     return 'reparto:' + hashlib.md5(('%s|%s|%s' % (plano(titulo), anio or '', tipo)).encode()).hexdigest()
 
 
+def guardado(titulo, anio='', tipo='movie'):
+    """Lo ya buscado, o None si no se ha buscado todavia."""
+    consulta = limpiar(titulo or '')
+    if len(consulta) < 2:
+        return {}
+    try:
+        return cache.get(_clave(consulta, anio, tipo))
+    except Exception:
+        return {}
+
+
+def pedir(titulo, anio='', tipo='movie'):
+    """
+    Lo guardado o, si no lo hay, la busqueda encargada a Celery y None. La
+    primera busqueda tarda hasta unos segundos (Wikidata) y no puede ocupar un
+    proceso del servidor mientras tanto: los decos se quedarian esperando.
+    """
+    ya = guardado(titulo, anio, tipo)
+    if ya is not None:
+        return ya
+    from apps.epg.tasks import buscar_reparto
+    try:
+        if cache.add('reparto:buscando:' + _clave(limpiar(titulo), anio, tipo), 1, 60):
+            buscar_reparto.delay(titulo, anio, tipo)
+    except Exception:
+        return {}
+    return None
+
+
 def buscar(titulo, anio='', tipo='movie'):
     """{'personas': [{nombre, papel, foto, autor, licencia}], 'fuente': ...} o vacio."""
     consulta = limpiar(titulo or '')
     if len(consulta) < 2:
         return {}
     clave = _clave(consulta, anio, tipo)
-    try:
-        guardado = cache.get(clave)
-    except Exception:
-        guardado = None
-    if guardado is not None:
-        return guardado
+    ya = guardado(titulo, anio, tipo)
+    if ya is not None:
+        return ya
     try:
         if tipo == 'tv':
             res = de_tvmaze(consulta, anio)
@@ -254,6 +280,9 @@ def fotos_commons(ficheros):
             continue
         autor = re.sub(r'<[^>]+>', '', (meta.get('Artist') or {}).get('value', '')).strip()
         titulo = pagina.get('title', '')
-        res[normal.get(titulo, titulo)] = {'url': info.get('thumburl') or info.get('url', ''),
+        # Los parentesis y comillas de algunos nombres rompen el url() del CSS.
+        url = (info.get('thumburl') or info.get('url', '')).replace('(', '%28').replace(')', '%29') \
+            .replace("'", '%27').replace(' ', '%20')
+        res[normal.get(titulo, titulo)] = {'url': url,
                                            'autor': autor[:80], 'licencia': licencia}
     return res

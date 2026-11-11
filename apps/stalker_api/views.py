@@ -1583,7 +1583,9 @@ def handle_archive_cast(request):
     titulo = request.GET.get('title', '')
     anio = request.GET.get('year', '')
     tipo = GRUPOS.get(request.GET.get('group', ''), 'movie')
-    return stalker_response(reparto.buscar(titulo, anio if anio.isdigit() else '', tipo) or {})
+    res = reparto.pedir(titulo, anio if anio.isdigit() else '', tipo)
+    # None: se esta buscando; el deco vuelve a preguntar en unos segundos.
+    return stalker_response({'pendiente': 1} if res is None else res)
 
 
 def handle_archive_catalog(request):
