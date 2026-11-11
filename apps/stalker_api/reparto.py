@@ -33,6 +33,7 @@ COMMONS = 'https://commons.wikimedia.org/w/api.php'
 # Wikimedia pide identificarse; sin esto contesta 403.
 CABECERAS = {'User-Agent': 'QuattreTV/1.0 (+https://iptv2.quattre.com) reparto-videoclub'}
 ESPERA = 6
+IDIOMAS_SERIE = ('English', 'Spanish', 'Catalan')
 MAXIMO = 6
 SI, NO = 30 * 86400, 7 * 86400
 # Peliculas, telefilmes y animacion.
@@ -81,6 +82,10 @@ def de_tvmaze(titulo, anio=''):
         serie = resultado.get('show') or {}
         if plano(serie.get('name')) != buscado:
             continue
+        # Lo que se emite aqui es casi siempre de habla inglesa o española:
+        # "Big Bang" daba un programa noruego con el mismo nombre.
+        if serie.get('language') not in IDIOMAS_SERIE:
+            continue
         if anio and (serie.get('premiered') or '')[:4] not in ('', str(anio)):
             continue
         c = requests.get('%s/shows/%s/cast' % (TVMAZE, serie['id']), timeout=ESPERA)
@@ -112,11 +117,13 @@ def de_wikidata(titulo, anio=''):
     filas = _sparql("""
         SELECT DISTINCT ?peli WHERE {
           VALUES ?tipo { %s }
-          { ?peli rdfs:label "%s"@es } UNION { ?peli rdfs:label "%s"@en }
+          # El titulo de España suele ser un alias: el nombre principal en
+          # español es a veces el de Hispanoamerica ("Arma mortal").
+          { ?peli rdfs:label "%s"@es } UNION { ?peli skos:altLabel "%s"@es } UNION { ?peli rdfs:label "%s"@en }
           ?peli wdt:P31 ?tipo .
           OPTIONAL { ?peli wdt:P577 ?fecha }
           %s
-        } LIMIT 3""" % (' '.join(TIPOS_PELI), texto, texto, filtro))
+        } LIMIT 3""" % (' '.join(TIPOS_PELI), texto, texto, texto, filtro))
     pelis = [f['peli']['value'].rsplit('/', 1)[-1] for f in filas]
     # Dos peliculas con el mismo titulo y sin año para distinguirlas: mejor nada.
     if len(pelis) != 1:
