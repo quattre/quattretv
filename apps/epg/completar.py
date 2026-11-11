@@ -322,6 +322,7 @@ def completar(url=None, guardar=True):
     tocados = 0
     desfasados = {}
     corregidas = {}
+    relevados = {}
     for canal, suyos in fuente.items():
         programas = list(Program.objects.filter(
             channel=canal,
@@ -372,9 +373,95 @@ def completar(url=None, guardar=True):
         if cambiados and guardar:
             Program.objects.bulk_update(cambiados, ('title',) + CAMPOS, batch_size=500)
         tocados += len(cambiados)
+        if guardar:
+            n = relevo(canal, suyos, desfase, ahora)
+            if n:
+                relevados[canal.name] = n
+    if relevados:
+        logger.warning('Guia de relevo con %s (su fuente no trae nada): %s', url, relevados)
     if corregidas and guardar:
         _recordar(corregidas)
     if desfasados:
         logger.warning('La guia de %s va con la hora cambiada en: %s', url, desfasados)
     logger.info('Guia completada con %s: %s programas en %s canales', url, tocados, len(fuente))
-    return {'programas': tocados, 'canales': len(fuente), 'desfasados': desfasados}
+    return {'programas': tocados, 'canales': len(fuente), 'desfasados': desfasados,
+            'relevo': relevados}
+
+
+# ---------- Relevo: cuando la fuente de un canal deja de traer guia ----------
+#
+# El 09/11/2026 epgshare01 se quedo con la guia del 06 al 09 y siguio
+# publicando el fichero cada dia igual: 16 canales (La 1, Antena 3, Warner...)
+# se quedaron sin guia dos dias sin que nada fallara. Y hay canales que solo
+# estan en esa fuente (Iberalia Caza y Pesca, VinTV). dobleM trae una semana
+# de casi todo, asi que si a un canal le falta guia de aqui a RELEVO, se pone
+# la de dobleM en lo que falte. El dia que su fuente vuelva, la recarga borra
+# esa franja y pone la suya (tasks._replace_programs), sin hacer nada.
+RELEVO = timedelta(hours=12)
+EPG_RELEVO = 'dobleM'
+NUMEROS = ('season', 'episode', 'year')
+
+
+def cuadra_con_eit(canal, suyos, desfase, ahora):
+    """
+    Si la señal dice lo que emite, la guia de relevo tiene que coincidir. El
+    Canal 33 que recibimos lleva de dia la programacion infantil (SX3) y dobleM
+    trae la de El 33: ahi vale mas la guia hecha con la EIT.
+    """
+    from . import eit
+    from .models import ObservacionEit
+
+    vistos = list(ObservacionEit.objects.filter(channel=canal, inicio__gte=ahora - timedelta(hours=6)))
+    if len(vistos) < 3:
+        return True
+    inicios = [d['ini'].timestamp() - desfase for d in suyos]
+    aciertos = 0
+    for o in vistos:
+        momento, nombre = o.inicio.timestamp(), plano(eit._raiz(o.nombre))
+        i = bisect.bisect_left(inicios, momento - 900)
+        while i < len(inicios) and inicios[i] <= momento + 900:
+            if parecido(plano(eit._raiz(suyos[i]['titulo'])), nombre):
+                aciertos += 1
+                break
+            i += 1
+    if aciertos * 2 < len(vistos):
+        logger.warning('Guia de relevo: %s no se pone, no cuadra con la EIT (%d de %d)',
+                       canal.name, aciertos, len(vistos))
+        return False
+    return True
+
+
+def relevo(canal, suyos, desfase, ahora):
+    """Pone la guia de dobleM donde el canal se ha quedado sin; cuantos."""
+    from . import eit
+    from .models import Program
+
+    # Lo hecho con la EIT no cuenta: es solo lo de ahora, sin lo de despues.
+    propios = Program.objects.filter(channel=canal).exclude(epg_id=eit.EPG_EIT)
+    hasta = propios.order_by('-end_time').values_list('end_time', flat=True).first()
+    if hasta and hasta >= ahora + RELEVO:
+        return 0
+    if not cuadra_con_eit(canal, suyos, desfase, ahora):
+        return 0
+    desde = max(hasta, ahora - timedelta(hours=36)) if hasta else ahora - timedelta(hours=36)
+    nuevos = []
+    for i, d in enumerate(suyos):
+        fin = d['fin'] or (suyos[i + 1]['ini'] if i + 1 < len(suyos) else None)
+        if not d['ini'] or not fin or fin <= d['ini']:
+            continue
+        ini, fin = d['ini'] - timedelta(seconds=desfase), fin - timedelta(seconds=desfase)
+        if ini < desde or not d['titulo']:
+            continue
+        nuevos.append(Program(
+            channel=canal, epg_id=EPG_RELEVO, title=d['titulo'][:500],
+            start_time=ini, end_time=fin,
+            **{campo: d[campo] if d[campo] is not None or campo in NUMEROS else ''
+               for campo in CAMPOS}))
+    if not nuevos:
+        return 0
+    # Lo que habia puesto la EIT en esa franja se quita: si no, saldria dos veces.
+    Program.objects.filter(channel=canal, epg_id=eit.EPG_EIT,
+                           start_time__gte=nuevos[0].start_time).delete()
+    Program.objects.bulk_create(nuevos, batch_size=500)
+    eit.reaplicar({canal.id}, nuevos[0].start_time, nuevos[-1].end_time)
+    return len(nuevos)
