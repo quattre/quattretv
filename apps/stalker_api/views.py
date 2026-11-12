@@ -311,8 +311,33 @@ def handle_stb(request, action):
         return handle_check_pin(request)
     elif action == 'log':
         return handle_log(request)
+    elif action in ('set_volume', 'get_volume'):
+        return handle_volumen(request, action)
 
     return stalker_response({'error': 'Unknown action'})
+
+
+def handle_volumen(request, action):
+    """
+    El volumen de cada aparato, para que no se pierda al reiniciar: el deco
+    arranca siempre con el de su firmware (audio_initial_volume, 25). Se
+    guarda solo si alguien lo ha cambiado; si no, get_volume no dice nada y
+    se queda el del deco.
+    """
+    device = get_device_from_request(request)
+    if not device:
+        return stalker_response({'volume': None})
+    clave = 'volumen:%d' % device.id
+    if action == 'set_volume':
+        try:
+            vol = max(0, min(100, int(request.GET.get('vol', ''))))
+        except ValueError:
+            return stalker_response({'error': 'vol'})
+        cache.set(clave, vol, None)
+        if device.volume != vol:
+            type(device).objects.filter(pk=device.pk).update(volume=vol)
+        return stalker_response({'volume': vol})
+    return stalker_response({'volume': cache.get(clave)})
 
 
 def handle_log(request):

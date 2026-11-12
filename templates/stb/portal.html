@@ -286,6 +286,7 @@
 
     function loadData() {
         contarComoSoy();
+        recuperarVolumen();
         // Las novedades, lo primero: antes salian a los 4 segundos, con el
         // canal ya sonando, y se veia la tele un momento y luego el aviso. El
         // canal no arranca hasta saber si hay alguno (ver esperandoAvisos).
@@ -5390,6 +5391,26 @@
         volume = Math.max(0, Math.min(100, volume + delta));
         aplicarVolumen();
         showVolume();
+        guardarVolumen();
+    }
+
+    // Al reiniciar, el deco volvia al volumen de su firmware. Se guarda en el
+    // servidor (cuando se deja de tocar, no a cada pulsacion) y se pone al
+    // arrancar. Mientras nadie lo cambie no se guarda nada y manda el del deco.
+    var relojVolumen = null;
+    function guardarVolumen() {
+        clearTimeout(relojVolumen);
+        relojVolumen = setTimeout(function() {
+            api('type=stb&action=set_volume&vol=' + volume, function() {}, true);
+        }, 3000);
+    }
+    function recuperarVolumen() {
+        api('type=stb&action=get_volume', function(js) {
+            var v = js ? parseInt(js.volume, 10) : NaN;
+            if (isNaN(v) || v < 0 || v > 100) return;
+            volume = v;
+            aplicarVolumen();
+        }, true);
     }
 
     // teclasAvisadas se llamaba teclasVistas, igual que la lista del
