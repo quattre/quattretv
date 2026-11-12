@@ -431,6 +431,13 @@
     }
 
     var FINALES_FW = [1, 2, 3, 4, 7, 16, 17, 19, 20, 22, 24, 25, 27];
+    // Mientras se carga, un aviso en pantalla: si no, la tele se quedaba en
+    // negro un minuto sin decir nada y daba ganas de tocar o desenchufar.
+    var firmwareEnCurso = false;
+    function avisoFirmware(texto, acabado) {
+        firmwareEnCurso = !acabado;
+        mostrarMensaje('Actualizando el aparato', texto, acabado ? undefined : 'No toques el mando ni lo desenchufes');
+    }
     function firmwareRemoto(f) {
         function contar(t) {
             api('type=stb&action=log&diag=' + encodeURIComponent('firmware ' + t), function() {});
@@ -442,7 +449,13 @@
         } catch (e) {}
         var volver = channels[playingChannelIdx];
         pararVideo();
-        try { stbUpdate.startCheck(f.url); } catch (e) { contar('error startCheck ' + e); return; }
+        avisoFirmware(f.instalar ? 'Se va a cargar un firmware nuevo. Tarda unos minutos y al acabar se reinicia solo.'
+                                 : 'Comprobando el firmware. Es un momento.');
+        function terminar(texto) {
+            avisoFirmware(texto, true);
+            if (volver) { playChannel(volver); playingChannelIdx = channels.indexOf(volver); }
+        }
+        try { stbUpdate.startCheck(f.url); } catch (e) { contar('error startCheck ' + e); terminar('No se ha podido comprobar. No se ha cambiado nada.'); return; }
         var vueltas = 0, vistos = [];
         var reloj = setInterval(function() {
             var s = -1;
@@ -469,21 +482,37 @@
             var leida = s === 24 || (s === 21 && version !== '');
             if (leida && f.instalar) {
                 contar('instalando');
-                try { stbUpdate.startAutoUpdate(f.url, false); } catch (e) { contar('error startAutoUpdate ' + e); }
-                // Mientras graba, el estado y el porcentaje al registro cada
-                // 15 s: desde aqui no se ve la pantalla, y en el 322 tarda
+                avisoFirmware('Cargando el firmware nuevo. Tarda unos minutos y al acabar se reinicia solo.');
+                try { stbUpdate.startAutoUpdate(f.url, false); } catch (e) { contar('error startAutoUpdate ' + e); terminar('No se ha podido cargar. No se ha cambiado nada.'); return; }
+                // Mientras graba, el estado y el porcentaje al registro (cada
+                // 5 s, solo si cambia): desde aqui no se ve la pantalla, y en el 322 tarda
                 // bastante mas que en el 420 (alguien lo reinicio a mano
                 // creyendo que se habia quedado parado).
                 var ultimo = '', rondas = 0;
                 var seguir = setInterval(function() {
-                    var t = '';
-                    try { t = stbUpdate.getStatus() + ' ' + stbUpdate.getPercents() + '% ' + stbUpdate.getStatusStr(); } catch (e) { t = 'error ' + e; }
+                    var t = '', st = -1, pct = 0;
+                    try { st = stbUpdate.getStatus(); pct = stbUpdate.getPercents(); t = st + ' ' + pct + '% ' + stbUpdate.getStatusStr(); } catch (e) { t = 'error ' + e; }
                     if (t !== ultimo) { contar('progreso ' + t); ultimo = t; }
-                    if (++rondas > 80) clearInterval(seguir);
-                }, 15000);
-            } else if (volver) {
-                playChannel(volver);
-                playingChannelIdx = channels.indexOf(volver);
+                    // Firma que no vale (17) u otro final sin escribir: se dice y se vuelve a la tele.
+                    if (st === 17) {
+                        clearInterval(seguir);
+                        terminar('Este aparato no acepta este firmware (la firma no vale). No se ha cambiado nada.');
+                        return;
+                    }
+                    rondas++;
+                    // Sin empezar al medio minuto: el actualizador no ha arrancado (suele
+                    // quedar abierta la ventana de un intento anterior).
+                    if (st === 21 && pct === 0 && rondas >= 6) {
+                        clearInterval(seguir);
+                        terminar('No ha empezado a cargar. No se ha cambiado nada.');
+                        return;
+                    }
+                    if (pct > 0) avisoFirmware('Cargando el firmware nuevo: ' + pct + ' %. Al acabar se reinicia solo.');
+                    // El 322 tarda bastante mas que el 420: hasta 20 minutos.
+                    if (rondas > 240) { clearInterval(seguir); firmwareEnCurso = false; }
+                }, 5000);
+            } else {
+                terminar(!leida ? 'No se ha podido leer el firmware. No se ha cambiado nada.' : 'Comprobado. No se ha cambiado nada.');
             }
         }, 1000);
     }
@@ -491,11 +520,11 @@
     // Un aviso mandado desde el panel. Se queda hasta que se pulse una tecla:
     // si se fuera solo, quien no estuviera mirando no lo veria nunca.
     var mensajeAbierto = false;
-    function mostrarMensaje(titulo, texto) {
+    function mostrarMensaje(titulo, texto, pie) {
         var caja = document.getElementById("mensaje");
         caja.innerHTML = (titulo ? '<div class="m-t">' + esc(titulo) + '</div>' : '') +
             '<div class="m-x">' + esc(texto || '') + '</div>' +
-            '<div class="m-p"><span data-tecla="13">OK</span> Cerrar</div>';
+            '<div class="m-p">' + (pie === undefined ? '<span data-tecla="13">OK</span> Cerrar' : pie) + '</div>';
         graficosDelanteInsistiendo();
         caja.style.display = "block";
         mensajeAbierto = true;
@@ -5693,6 +5722,8 @@
     function handleKey(e) {
         apuntarTecla(e);
         // Con un aviso del panel en pantalla, la primera tecla solo lo cierra.
+        // Cargando un firmware no se hace caso a nada: el aviso dice que no se toque.
+        if (firmwareEnCurso) return false;
         if (mensajeAbierto) { cerrarMensaje(); return false; }
         if (quizaDiagnostico(normalizarTecla(e.keyCode))) return false;
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
