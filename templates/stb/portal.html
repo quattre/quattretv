@@ -497,7 +497,12 @@
                     // Firma que no vale (17) u otro final sin escribir: se dice y se vuelve a la tele.
                     if (st === 17) {
                         clearInterval(seguir);
-                        terminar('Este aparato no acepta este firmware (la firma no vale). No se ha cambiado nada.');
+                        // La ventana "Wrong signature" del deco se queda delante y no
+                        // deja hacer nada (12/11, el 256): se reinicia para volver a la tele.
+                        avisoFirmware('Este aparato no acepta este firmware (la firma no vale). ' +
+                                      'No se ha cambiado nada. Se reinicia en 10 segundos.');
+                        contar('firma rechazada, reinicio');
+                        setTimeout(function() { try { gSTB.ExecAction('reboot'); } catch (err) {} }, 10000);
                         return;
                     }
                     rondas++;
