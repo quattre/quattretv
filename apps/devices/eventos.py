@@ -189,6 +189,11 @@ def apuntar_equipo(device, fw, desc):
         if prueba and prueba.get('fase') in ('escribiendo', 'escrita'):
             if (fw, desc) != (antes.get('fw'), antes.get('desc')):
                 _fase(prueba, 'instalada', 'Instalada: ha arrancado con %s (%s).' % (fw or '?', desc or 'sin descripcion'))
+            elif prueba.get('fase') == 'escrita':
+                # Llego al 100 % y arranca igual: era la misma que ya tenia
+                # (el 12/11 se reinstalo la final de 2022 en un 256 que la llevaba).
+                _fase(prueba, 'instalada', 'Instalada al 100 %%. Arranca con %s (%s), lo mismo que llevaba: '
+                      'era la misma version.' % (fw or '?', desc or 'sin descripcion'))
             else:
                 _fase(prueba, 'error', 'Se ha reiniciado pero sigue con el mismo firmware (%s).' % (fw or '?'))
             cache.set(_clave_prueba(device), prueba, CADUCA * 7)
