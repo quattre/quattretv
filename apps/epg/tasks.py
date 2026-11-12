@@ -373,6 +373,13 @@ def parse_xmltv_time(time_str):
 
 
 @shared_task
+def buscar_repartos():
+    """El reparto de lo del videoclub y la guia, antes de que nadie abra su ficha."""
+    from apps.stalker_api import reparto
+    return reparto.buscar_los_que_faltan()
+
+
+@shared_task
 def buscar_reparto(titulo, anio, tipo):
     """El reparto de la ficha del videoclub, fuera del servidor web (ver reparto.py)."""
     from apps.stalker_api import reparto

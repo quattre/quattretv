@@ -3432,17 +3432,22 @@
         // La caratula de lo elegido, grande y apagada detras de todo, como el
         // fondo de Netflix. Sin desenfoque, que al MAG le cuesta.
         // En el buscador, mientras se escribe, detras va lo primero que sale.
+        if (actual && !semana.ficha && actual.grupo && !SEMANA_POR_FECHA[actual.grupo]) {
+            adelantarReparto([actual.grupo], actual.titulo, actual.anio);
+        }
         var deFondo = actual || (semana.pestana === 'buscar' && !semana.ficha && !semana.episodios ? busca.res[0] : null);
         var h = (deFondo && deFondo.img ? '<div class="sem-fondo"' + estiloImagen(deFondo) + '></div>' : '') +
                 '<div class="sem-velo"></div>' + pestanasSemana() + heroSemana(actual);
         if (semana.ficha) {
             var fi = semana.ficha;
             if (fi.reparto) h += repartoSemana(fi.reparto);
+            // "Mas como esta" siempre abajo del todo: no salta cuando llega el
+            // reparto, y no se pega al texto de la pelicula cuando no hay.
             if (fi.similares.length) {
-                h += filaSemana('Mas como esta', '', fi.similares, fi.idx,
-                                fi.foco === 'similares', fi.it.grupo);
+                h += '<div class="sem-abajo">' + filaSemana('Mas como esta', '', fi.similares, fi.idx,
+                                fi.foco === 'similares', fi.it.grupo) + '</div>';
             } else if (fi.cargando) {
-                h += '<div class="sem-fila"><div class="sem-nombre">Mas como esta</div></div>';
+                h += '<div class="sem-abajo"><div class="sem-fila"><div class="sem-nombre">Mas como esta</div></div></div>';
             }
         } else if (semana.episodios) {
             var n = semana.episodios.length, vis = semanaEpsCaben || 3;
@@ -3702,21 +3707,54 @@
             if (view === "semana") renderSemana();
         });
         // El reparto, con foto (ver apps/stalker_api/reparto.py). Las noticias
-        // y el deporte no tienen; la primera vez puede tardar unos segundos y
-        // la ficha no lo espera.
-        var intentos = 0;
-        function pedirReparto() {
-            api("type=tv_archive&action=get_cast&group=" + encodeURIComponent(it.grupo) +
-                "&title=" + encodeURIComponent(it.titulo) + "&year=" + encodeURIComponent(it.anio || ''), function(js) {
+        // y el deporte no tienen. Casi siempre ya esta: el servidor lo busca
+        // de antemano y la tarjeta lo pide al pararse en ella.
+        if (it.grupo && !SEMANA_POR_FECHA[it.grupo]) {
+            traerReparto([it.grupo], it.titulo, it.anio, function(js) {
                 if (semana.ficha !== fi || !js) return;
-                // Se esta buscando por primera vez: se vuelve a preguntar.
-                if (js.pendiente) { if (++intentos < 4) setTimeout(pedirReparto, 4000); return; }
-                if (!js.personas || !js.personas.length) return;
                 fi.reparto = js;
                 if (view === "semana") renderSemana();
             });
         }
-        if (it.grupo && !SEMANA_POR_FECHA[it.grupo]) pedirReparto();
+    }
+
+    // ---------- El reparto, con memoria ----------
+    // Lo ya pedido se guarda aqui, y las fotos se cargan antes de hacer
+    // falta: al abrir la ficha sale todo a la vez, sin que aparezca despues.
+    var repartos = {}, numRepartos = 0, repartoAdelantado = null;
+
+    // cb(respuesta con personas) o cb(null). Prueba los grupos por orden.
+    function traerReparto(grupos, titulo, anio, cb) {
+        var clave = grupos.join(',') + '|' + titulo + '|' + (anio || '');
+        if (repartos.hasOwnProperty(clave)) { cb(repartos[clave]); return; }
+        var i = 0, intentos = 0;
+        function guardar(js) {
+            if (numRepartos > 300) { repartos = {}; numRepartos = 0; }
+            repartos[clave] = js;
+            numRepartos++;
+            if (js) for (var f = 0; f < js.personas.length; f++) precargar(js.personas[f].foto);
+            cb(js);
+        }
+        function pedir() {
+            api("type=tv_archive&action=get_cast&group=" + encodeURIComponent(grupos[i]) +
+                "&title=" + encodeURIComponent(titulo) + "&year=" + encodeURIComponent(anio || ''), function(js) {
+                if (!js) { cb(null); return; }          // sin red: no se guarda
+                // Se esta buscando por primera vez: se vuelve a preguntar.
+                if (js.pendiente) { if (++intentos < 4) setTimeout(pedir, 4000); else cb(null); return; }
+                if (js.personas && js.personas.length) { guardar(js); return; }
+                if (++i < grupos.length) { intentos = 0; pedir(); return; }
+                guardar(null);
+            }, true);
+        }
+        pedir();
+    }
+
+    // Al pararse en una tarjeta o un programa: se pide un momento despues,
+    // para no pedir el de todas las que se pasan de largo.
+    function adelantarReparto(grupos, titulo, anio) {
+        clearTimeout(repartoAdelantado);
+        if (!grupos || !grupos.length || !titulo) return;
+        repartoAdelantado = setTimeout(function() { traerReparto(grupos, titulo, anio, function() {}); }, 700);
     }
 
     // Caras del reparto y, debajo, de donde salen y de quien son las fotos:
@@ -4381,6 +4419,7 @@
             h += '</div>';
 
             var sel = guiaFocoDias ? null : guide[guideIdx];
+            if (sel) adelantarReparto(gruposReparto(sel), sel.name, sel.year);
             if (sel) {
                 // El adelanto, y debajo el aviso de que hay ficha. Va en su
                 // propia linea y en verde porque ahi es donde el ojo ya esta
@@ -4550,51 +4589,43 @@
     // ▲▼ como el resto: el panel es estrecho y no hay sitio para otra fila.
     // Sin categoria clara se prueba como serie y, si dura como una pelicula,
     // como pelicula; noticias y deportes no tienen reparto que buscar.
-    function repartoEnFicha(p) {
+    function gruposReparto(p) {
         var cat = (p.category || '').toLowerCase();
-        var grupos;
-        if (/^(cine|pel)/.test(cat)) grupos = ['peliculas'];
-        else if (/^serie/.test(cat)) grupos = ['series'];
-        else if (/(notici|informativ|deport|tiempo)/.test(cat)) return;
-        else {
-            grupos = ['series'];
-            if (p.start_timestamp && p.stop_timestamp && p.stop_timestamp - p.start_timestamp >= 80 * 60) grupos.push('peliculas');
-        }
-        var intentos = 0;
-        function pedir() {
-            api("type=tv_archive&action=get_cast&group=" + grupos[0] + "&title=" + encodeURIComponent(p.name) +
-                "&year=" + encodeURIComponent(p.year || ''), function(js) {
-                if (view !== "ficha" || guide[guideIdx] !== p || !js) return;
-                if (js.pendiente) { if (++intentos < 4) setTimeout(pedir, 4000); return; }
-                if (!js.personas || !js.personas.length) {
-                    grupos.shift();
-                    if (grupos.length) { intentos = 0; pedir(); }
-                    return;
-                }
-                var txt = document.getElementById('ficha-texto'), caja = document.querySelector('.ficha-caja');
-                if (!txt || !caja) return;
-                var h = '<div class="fr-titulo">Reparto</div>', creditos = [];
-                for (var i = 0; i < js.personas.length; i++) {
-                    var q = js.personas[i];
-                    var foto = q.foto && !/['"()\\\s]/.test(q.foto) ? ' style="background-image:url(' + esc(q.foto) + ')"' : '';
-                    h += '<div class="fr-cara"><i class="rp-foto"' + foto + '>' + (foto ? '' : esc(iniciales(q.nombre))) +
-                         '</i><b>' + esc(q.nombre) + '</b><span>' + esc(q.papel || '') + '</span></div>';
-                    if (q.licencia) creditos.push(q.nombre + ': ' + (q.autor ? q.autor + ', ' : '') + q.licencia);
-                }
-                h += '<div class="rp-credito">' + esc(js.fuente || '') + (creditos.length ? ' · ' + esc(creditos.join(' · ')) : '') + '</div>';
-                var d = document.createElement('div');
-                d.className = 'ficha-reparto';
-                d.innerHTML = h;
-                txt.appendChild(d);
-                fichaScrollMax = Math.max(0, txt.offsetHeight - (caja.offsetHeight - 16));
-                if (fichaScrollMax > 0) {
-                    var ay = document.getElementById('ficha-ayuda');
-                    if (ay && ay.innerHTML.indexOf('Desplazar') < 0) ay.innerHTML = '<span>▲▼</span> Desplazar ' + ay.innerHTML;
-                }
-                pintarScrollFicha();
-            });
-        }
-        pedir();
+        if (/^(cine|pel)/.test(cat)) return ['peliculas'];
+        if (/^serie/.test(cat)) return ['series'];
+        if (/(notici|informativ|deport|tiempo)/.test(cat)) return null;
+        var grupos = ['series'];
+        if (p.start_timestamp && p.stop_timestamp && p.stop_timestamp - p.start_timestamp >= 80 * 60) grupos.push('peliculas');
+        return grupos;
+    }
+
+    function repartoEnFicha(p) {
+        var grupos = gruposReparto(p);
+        if (!grupos) return;
+        traerReparto(grupos, p.name, p.year, function(js) {
+            if (view !== "ficha" || guide[guideIdx] !== p || !js) return;
+            var txt = document.getElementById('ficha-texto'), caja = document.querySelector('.ficha-caja');
+            if (!txt || !caja) return;
+            var h = '<div class="fr-titulo">Reparto</div>', creditos = [];
+            for (var i = 0; i < js.personas.length; i++) {
+                var q = js.personas[i];
+                var foto = q.foto && !/['"()\\\s]/.test(q.foto) ? ' style="background-image:url(' + esc(q.foto) + ')"' : '';
+                h += '<div class="fr-cara"><i class="rp-foto"' + foto + '>' + (foto ? '' : esc(iniciales(q.nombre))) +
+                     '</i><b>' + esc(q.nombre) + '</b><span>' + esc(q.papel || '') + '</span></div>';
+                if (q.licencia) creditos.push(q.nombre + ': ' + (q.autor ? q.autor + ', ' : '') + q.licencia);
+            }
+            h += '<div class="rp-credito">' + esc(js.fuente || '') + (creditos.length ? ' · ' + esc(creditos.join(' · ')) : '') + '</div>';
+            var d = document.createElement('div');
+            d.className = 'ficha-reparto';
+            d.innerHTML = h;
+            txt.appendChild(d);
+            fichaScrollMax = Math.max(0, txt.offsetHeight - (caja.offsetHeight - 16));
+            if (fichaScrollMax > 0) {
+                var ay = document.getElementById('ficha-ayuda');
+                if (ay && ay.innerHTML.indexOf('Desplazar') < 0) ay.innerHTML = '<span>▲▼</span> Desplazar ' + ay.innerHTML;
+            }
+            pintarScrollFicha();
+        });
     }
 
     function pintarScrollFicha() {
@@ -6982,6 +7013,8 @@
         .sem-buscar .sem-pista { margin-top: 4px; }
         .sem-fila { height: 270px; opacity: .55; }
         .sem-reparto { position: relative; height: 290px; margin: 0 0 6px 64px; overflow: hidden; }
+        .sem-abajo { position: absolute; left: 60px; right: 60px; bottom: 34px; }
+        .con-rail .sem-abajo { left: 150px; }
         .rp-caras { white-space: nowrap; overflow: hidden; }
         .rp-cara { display: inline-block; vertical-align: top; width: 170px; margin-right: 22px; text-align: center; }
         .rp-foto { display: block; width: 104px; height: 104px; margin: 0 auto 10px; border-radius: 52px;
@@ -7163,6 +7196,8 @@
             .sem-ayuda { left: 40px; right: 40px; bottom: 16px; font-size: 13px; }
             .sem-fila { height: 180px; }
             .sem-reparto { height: 193px; margin: 0 0 4px 43px; }
+            .sem-abajo { left: 40px; right: 40px; bottom: 22px; }
+            .con-rail .sem-abajo { left: 100px; }
             .rp-cara { width: 113px; margin-right: 15px; }
             .rp-foto { width: 69px; height: 69px; border-radius: 35px; margin-bottom: 7px; font-size: 23px; line-height: 69px; }
             .rp-cara b { font-size: 13px; }

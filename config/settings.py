@@ -237,6 +237,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.epg.tasks.buscar_caratulas',
         'schedule': crontab(minute='*/30'),
     },
+    'archivo-buscar-repartos': {
+        'task': 'apps.epg.tasks.buscar_repartos',
+        'schedule': crontab(minute='5,35'),
+    },
     'pvr-borrar-caducadas': {
         'task': 'apps.pvr.tasks.borrar_caducadas',
         'schedule': crontab(hour=5, minute=10),

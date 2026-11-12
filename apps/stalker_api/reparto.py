@@ -76,6 +76,62 @@ def pedir(titulo, anio='', tipo='movie'):
     return None
 
 
+def buscar_los_que_faltan(minutos=20):
+    """
+    Busca de antemano el reparto de lo que hay en el videoclub y de las pelis
+    y series de la guia de hoy y mañana, para que la ficha lo tenga al abrirla
+    (como las caratulas). Uno detras de otro y con tiempo tope: Wikidata pide
+    no apretarle, y la tarea no puede quedarse con Celery para ella sola.
+    """
+    import time
+    from datetime import timedelta
+    from django.utils import timezone
+    from apps.epg.models import Program
+    from .caratulas import GRUPOS
+    from .semana import todas_las_emisiones
+
+    if not cache.add('reparto:precarga', 1, minutos * 60 + 60):
+        return 0
+    pendientes = {}
+
+    def apuntar(titulo, anio, tipo):
+        anio = str(anio or '')
+        anio = anio if anio.isdigit() else ''
+        clave = _clave(limpiar(titulo or ''), anio, tipo)
+        if clave not in pendientes:
+            pendientes[clave] = (titulo, anio, tipo)
+
+    # Lo del videoclub, como lo pide su ficha (ver handle_archive_cast).
+    for e in todas_las_emisiones():
+        if e['grupo'] in ('peliculas', 'series', 'infantil', 'documentales'):
+            apuntar(e['titulo'], e['anio'], GRUPOS[e['grupo']])
+    # Y lo de la guia, como lo pide la suya (repartoEnFicha en el portal).
+    ahora = timezone.now()
+    for titulo, anio, cat in Program.objects.filter(
+            start_time__lt=ahora + timedelta(hours=36), end_time__gt=ahora) \
+            .exclude(category='').values_list('title', 'year', 'category').distinct():
+        cat = (cat or '').lower()
+        if re.match(r'(cine|pel)', cat):
+            apuntar(titulo, anio, 'movie')
+        elif cat.startswith('serie'):
+            apuntar(titulo, anio, 'tv')
+
+    tope = time.time() + minutos * 60
+    hechas = 0
+    try:
+        for clave, (titulo, anio, tipo) in pendientes.items():
+            if time.time() > tope:
+                break
+            if guardado(titulo, anio, tipo) is not None:
+                continue
+            buscar(titulo, anio, tipo)
+            hechas += 1
+    finally:
+        cache.delete('reparto:precarga')
+    logger.info('Reparto buscado de antemano: %s de %s titulos', hechas, len(pendientes))
+    return hechas
+
+
 def buscar(titulo, anio='', tipo='movie'):
     """{'personas': [{nombre, papel, foto, autor, licencia}], 'fuente': ...} o vacio."""
     consulta = limpiar(titulo or '')
