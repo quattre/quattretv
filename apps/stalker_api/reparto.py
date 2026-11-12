@@ -76,12 +76,17 @@ def pedir(titulo, anio='', tipo='movie'):
     return None
 
 
-def buscar_los_que_faltan(minutos=20):
+def buscar_los_que_faltan(tanda=8, seguir=False):
     """
     Busca de antemano el reparto de lo que hay en el videoclub y de las pelis
     y series de la guia de hoy y mañana, para que la ficha lo tenga al abrirla
-    (como las caratulas). Uno detras de otro y con tiempo tope: Wikidata pide
-    no apretarle, y la tarea no puede quedarse con Celery para ella sola.
+    (como las caratulas).
+
+    En tandas pequeñas y con pausa: entre tanda y tanda pasan las busquedas
+    que piden los decos al abrir una ficha, que son las que tienen a alguien
+    esperando. De una en una tenia a Celery ocupado y la ficha se cansaba de
+    esperar. Y si Wikidata empieza a fallar se deja para la proxima vez:
+    apretarle mas solo empeora. Devuelve (buscadas, quedan).
     """
     import time
     from datetime import timedelta
@@ -90,8 +95,12 @@ def buscar_los_que_faltan(minutos=20):
     from .caratulas import GRUPOS
     from .semana import todas_las_emisiones
 
-    if not cache.add('reparto:precarga', 1, minutos * 60 + 60):
-        return 0
+    # Una sola cadena de tandas a la vez; la tarea de cada media hora no
+    # empieza otra si ya hay una en marcha.
+    if seguir:
+        cache.set('reparto:precarga', 1, 600)
+    elif not cache.add('reparto:precarga', 1, 600):
+        return 0, 0
     pendientes = {}
 
     def apuntar(titulo, anio, tipo):
@@ -116,20 +125,22 @@ def buscar_los_que_faltan(minutos=20):
         elif cat.startswith('serie'):
             apuntar(titulo, anio, 'tv')
 
-    tope = time.time() + minutos * 60
-    hechas = 0
-    try:
-        for clave, (titulo, anio, tipo) in pendientes.items():
-            if time.time() > tope:
+    faltan = [t for t in pendientes.values() if guardado(*t) is None]
+    hechas = fallos = 0
+    for titulo, anio, tipo in faltan[:tanda]:
+        buscar(titulo, anio, tipo)
+        hechas += 1
+        if guardado(titulo, anio, tipo) is None:      # la fuente ha fallado
+            fallos += 1
+            if fallos >= 3:
                 break
-            if guardado(titulo, anio, tipo) is not None:
-                continue
-            buscar(titulo, anio, tipo)
-            hechas += 1
-    finally:
+        time.sleep(1)
+    quedan = len(faltan) - hechas
+    if fallos >= 3 or not quedan:
         cache.delete('reparto:precarga')
-    logger.info('Reparto buscado de antemano: %s de %s titulos', hechas, len(pendientes))
-    return hechas
+        quedan = 0 if not quedan else -1
+    logger.info('Reparto de antemano: %s buscados, %s fallos, quedan %s', hechas, fallos, max(quedan, 0))
+    return hechas, quedan
 
 
 def buscar(titulo, anio='', tipo='movie'):

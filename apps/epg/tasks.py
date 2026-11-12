@@ -373,10 +373,16 @@ def parse_xmltv_time(time_str):
 
 
 @shared_task
-def buscar_repartos():
-    """El reparto de lo del videoclub y la guia, antes de que nadie abra su ficha."""
+def buscar_repartos(seguir=False):
+    """
+    El reparto de lo del videoclub y la guia, antes de que nadie abra su
+    ficha. Una tanda y la siguiente un rato despues (ver reparto.py).
+    """
     from apps.stalker_api import reparto
-    return reparto.buscar_los_que_faltan()
+    hechas, quedan = reparto.buscar_los_que_faltan(seguir=seguir)
+    if quedan > 0:
+        buscar_repartos.apply_async(kwargs={'seguir': True}, countdown=20)
+    return hechas
 
 
 @shared_task
