@@ -229,8 +229,13 @@ def apuntar_prueba(device, linea):
         m = re.search(r'estado=(\d+) \((.*?)\) version=(\S*) desc=(.*?) fecha=(.*)$', linea)
         estado, texto, version, desc, fecha = m.groups() if m else ('', '', '', '', '')
         if version and estado in ('21', '24'):
-            _fase(prueba, 'leida', 'Imagen leida y de su modelo: version %s ("%s", %s). La firma se mira al instalar.'
-                  % (version, desc, fecha.strip()))
+            # Las lineas pueden llegar desordenadas (cada una la atiende un
+            # proceso): si ya esta instalando, esta no le hace volver atras.
+            if fase in ('instalando', 'escribiendo', 'escrita', 'rechazada', 'parada'):
+                pass
+            else:
+                _fase(prueba, 'leida', 'Imagen leida y de su modelo: version %s ("%s", %s). La firma se mira al instalar.'
+                      % (version, desc, fecha.strip()))
         else:
             _fase(prueba, 'error', 'No ha podido leer la imagen: %s' % (texto or 'estado ' + estado))
     elif linea.startswith('instalando'):
@@ -241,7 +246,7 @@ def apuntar_prueba(device, linea):
         if estado == 17:
             _fase(prueba, 'rechazada', 'Firma rechazada (Wrong signature), al 0 %: no se ha escrito nada. '
                   'Este deco no tiene la clave con la que esta firmada la imagen: hay que cargarle la transicional por USB.')
-        elif estado == 21 and pct == 0 and fase == 'instalando':
+        elif estado == 21 and pct == 0 and (fase == 'instalando' or (fase == 'leida' and prueba.get('instalar'))):
             _fase(prueba, 'parada', 'El actualizador no arranca. Suele ser que en la tele sigue abierta la ventana '
                   'de un intento anterior: pulsa Exit en el mando y vuelve a probar.')
         elif pct >= 100:
