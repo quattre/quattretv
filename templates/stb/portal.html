@@ -3116,6 +3116,25 @@
         // Lo que se estaba viendo se apunta antes de pedir el catalogo, para
         // que "Seguir viendo" ya lo traiga.
         var volver = diferido && diferido.volver === 'semana';
+        if (!volver) {
+            // Abierto de nuevo: Inicio desde arriba ya, antes de pedir nada.
+            // Se veia un momento donde te habias quedado la otra vez y luego
+            // saltaba al principio.
+            semana.ficha = null;
+            semana.episodios = null;
+            semana.foco = 'filas';
+            semana.pestana = 'inicio';
+            var ini = semana.porPestana.inicio;
+            if (ini) {
+                ini.fila = 0;
+                for (var c = 0; c < ini.cols.length; c++) ini.cols[c] = 0;
+                ponerPestana(ini);
+            } else {
+                semana.filas = [];
+                semana.filasDe = null;
+                document.getElementById("semana").innerHTML = '<div class="sem-vacio">Cargando...</div>';
+            }
+        }
         guardarProgreso(function() {
             diferido = null;
             pararVideo();
@@ -3127,10 +3146,8 @@
                 cargarPestana(semana.pestana);   // Seguir viendo ha cambiado
                 return;
             }
-            // Abierto de nuevo, desde Inicio, como Netflix.
-            semana.ficha = null;
-            semana.episodios = null;
-            semana.foco = 'filas';
+            // Abierto de nuevo, desde Inicio, como Netflix (ya pintado arriba;
+            // si lo que habia es viejo, aqui se renueva).
             cargarPestana('inicio');
         });
     }
@@ -3144,6 +3161,7 @@
         semana.pestana = nombre;
         if (nombre === 'buscar') {
             semana.filas = [];
+            semana.filasDe = null;
             for (var b = 0; b < semana.pestanas.length; b++) {
                 if (semana.pestanas[b][0] === 'buscar') semana.tabIdx = b;
             }
@@ -3170,6 +3188,15 @@
             semana.pestanas = conBuscar(datos.pestanas);
             guardada = {filas: datos.filas, cargado: new Date().getTime(), fila: 0, cols: []};
             for (var i = 0; i < datos.filas.length; i++) guardada.cols.push(0);
+            // Si en pantalla ya estaba esta pestaña (la copia vieja), se sigue
+            // donde estas: no salta al principio al llegar la nueva.
+            if (semana.filasDe === datos.pestana && semana.filas.length) {
+                guardada.fila = Math.min(semana.fila, datos.filas.length - 1);
+                for (var k = 0; k < datos.filas.length; k++) {
+                    var n = (datos.filas[k].items || []).length;
+                    guardada.cols[k] = Math.max(0, Math.min(semana.cols[k] || 0, n - 1));
+                }
+            }
             semana.porPestana[datos.pestana] = guardada;
             semana.pestana = datos.pestana;
             ponerPestana(guardada);
@@ -3216,6 +3243,7 @@
     function ponerPestana(g) {
         precargarFilas(g.filas, SEMANA_VISIBLES + 3);
         semana.filas = g.filas;
+        semana.filasDe = semana.pestana;
         semana.cols = g.cols;
         semana.fila = g.fila;
         for (var i = 0; i < semana.pestanas.length; i++) {
