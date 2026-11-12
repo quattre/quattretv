@@ -123,19 +123,50 @@
                             {% elif firmware.actual %}<span class="text-green-700">— ya lo tiene o uno más nuevo; no hace falta</span>{% endif %}
                         {% elif device.model %}· no hay firmware publicado para este modelo{% endif %}
                     </p>
+                    {% if fw_equipo %}
+                    <p class="text-xs text-gray-600">
+                        Imagen instalada: <b>{{ fw_equipo.desc|default:"sin descripción" }}</b>
+                        {% if fw_lleva %}<br><span class="{% if 'transicional' in fw_lleva %}text-green-700{% else %}text-gray-700{% endif %}">{{ fw_lleva }}</span>{% endif %}
+                    </p>
+                    {% endif %}
+                    {% if fw_imagenes %}
+                    <select onchange="if (this.value) this.form.url.value = this.value"
+                            class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white">
+                        <option value="">Imágenes de prueba de su modelo...</option>
+                        {% for url, nombre in fw_imagenes %}<option value="{{ url }}">{{ nombre }}</option>{% endfor %}
+                    </select>
+                    {% endif %}
                     <input type="url" name="url" required placeholder="http://.../imageupdate"
-                           value="{% if firmware %}{{ firmware.url }}{% endif %}"
+                           value="{% if fw_prueba.url %}{{ fw_prueba.url }}{% elif firmware %}{{ firmware.url }}{% endif %}"
                            class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div class="flex gap-2">
                         <button name="accion" value="comprobar" class="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
-                            <i class="bi bi-search"></i> Comprobar
+                            <i class="bi bi-search"></i> Leer la imagen
                         </button>
                         <button name="accion" value="instalar" class="flex-1 px-3 py-2 text-sm bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition"
-                                onclick="return confirm('¿Instalar este firmware en el deco? Se reinicia solo al acabar.')">
+                                onclick="return confirm('¿Instalar este firmware en el deco? Si la firma no vale se para al 0 % sin tocar nada; si vale, graba y se reinicia solo.')">
                             <i class="bi bi-download"></i> Instalar
                         </button>
                     </div>
-                    <p class="text-xs text-gray-500">Comprobar no toca nada: el deco lee la imagen y deja en el registro si el modelo y la firma valen y qué versión trae. Instalar solo sigue si la comprobación sale bien.</p>
+                    <p class="text-xs text-gray-500">Leer la imagen no toca nada: dice si es de su modelo y qué versión trae, pero <b>no mira la firma</b>. La firma la mira Instalar al empezar: si no vale, se para al 0 % sin escribir nada.</p>
+                    {% if fw_prueba %}
+                    <div id="fw-prueba" class="mt-2 p-3 rounded-lg text-xs
+                        {% if fw_prueba.fase == 'instalada' %}bg-green-50 text-green-800
+                        {% elif fw_prueba.fase == 'rechazada' or fw_prueba.fase == 'error' or fw_prueba.fase == 'parada' %}bg-red-50 text-red-800
+                        {% else %}bg-blue-50 text-blue-800{% endif %}">
+                        <p class="font-medium">Última prueba: {{ fw_prueba.texto }}</p>
+                        <p class="mt-1 text-gray-500 break-all">{{ fw_prueba.url }}</p>
+                        {% if fw_prueba.lineas %}
+                        <details class="mt-1"><summary class="cursor-pointer text-gray-500">Lo que ha contado el deco</summary>
+                            <pre class="mt-1 whitespace-pre-wrap text-gray-600">{% for l in fw_prueba.lineas %}{{ l }}
+{% endfor %}</pre>
+                        </details>
+                        {% endif %}
+                    </div>
+                    {% if fw_en_marcha %}
+                    <script>setTimeout(function() { location.reload(); }, 10000);</script>
+                    {% endif %}
+                    {% endif %}
                 </form>
                 {% endif %}
             </div>

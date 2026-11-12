@@ -342,6 +342,13 @@ def handle_log(request):
                 cambios['firmware_version'] = fw.group(1).strip()[:50]
             if cambios and any(getattr(device, k) != v for k, v in cambios.items()):
                 type(device).objects.filter(pk=device.pk).update(**cambios)
+            desc = _re.search(r' desc=(.*)$', datos)
+            from apps.devices import eventos
+            eventos.apuntar_equipo(device, fw.group(1).strip() if fw else '', desc.group(1).strip() if desc else '')
+        # Lo que va contando al probar un firmware, para la ficha del panel.
+        if device and datos.startswith('firmware '):
+            from apps.devices import eventos
+            eventos.apuntar_prueba(device, datos)
         try:
             cache.set(
                 f'diag:{device.mac_address if device else "anonimo"}',

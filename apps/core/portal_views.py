@@ -398,6 +398,12 @@ def device_edit(request, device_id):
     }
     from apps.devices import eventos
     context['firmware'] = eventos.firmware_para(device)
+    context['fw_imagenes'] = eventos.imagenes_para(device)
+    context['fw_prueba'] = eventos.prueba_de(device)
+    context['fw_en_marcha'] = eventos.en_marcha(context['fw_prueba'])
+    equipo = eventos.equipo_de(device)
+    context['fw_equipo'] = equipo
+    context['fw_lleva'] = eventos.que_lleva(equipo.get('desc')) if equipo else ''
 
     return render(request, 'portal/pages/device_edit.html', context)
 

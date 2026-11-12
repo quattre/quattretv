@@ -67,6 +67,11 @@ def pedir_firmware(device, url, instalar=False):
     try:
         cache.set(_clave(device), {'tipo': 'firmware', 'url': url,
                                    'instalar': bool(instalar)}, CADUCA)
+        cache.set(_clave_prueba(device), {
+            'url': url, 'lineas': [], 'fase': 'pedida', 'instalar': bool(instalar),
+            'texto': ('Instalar' if instalar else 'Leer la imagen') +
+                     ': pedido. El deco lo recoge en su siguiente latido (menos de un minuto si esta encendido).'},
+            CADUCA * 7)
     except Exception:
         return False
     return True
@@ -98,6 +103,155 @@ def firmware_para(device):
     actual = int(m.group(1)) if m else None
     return {'url': FIRMWARE_BASE + ruta, 'version': version, 'fecha': fecha, 'actual': actual,
             'nuevo': actual is not None and actual < version}
+
+
+# Las imagenes de prueba: en iptv2, en media/ayuda/fw-prueba/<modelo>-<lo que
+# sea>/imageupdate, por http (el actualizador del deco no abre https y esa
+# carpeta es la unica de /media/ que nginx da tambien por http).
+CARPETA_PRUEBAS = 'ayuda/fw-prueba'
+
+
+def imagenes_para(device):
+    """[(url, nombre)] de las de prueba de su modelo, las transicionales primero."""
+    import os
+    import re
+    from django.conf import settings
+    m = re.search(r'(\d{3})', (device.model or '').upper())
+    if not m:
+        return []
+    carpeta = os.path.join(str(settings.MEDIA_ROOT), CARPETA_PRUEBAS)
+    try:
+        nombres = sorted(n for n in os.listdir(carpeta) if n.startswith(m.group(1) + '-')
+                         and os.path.isfile(os.path.join(carpeta, n, 'imageupdate')))
+    except OSError:
+        return []
+    host = settings.QUATTRETV.get('PUBLIC_URL', '').split('://')[-1].rstrip('/')
+    nombres.sort(key=lambda n: ('trans' not in n, n))
+    return [('http://%s/media/%s/%s/imageupdate' % (host, CARPETA_PRUEBAS, n), n) for n in nombres]
+
+
+# ---------- Lo que cuenta el deco al probar un firmware ----------
+#
+# El portal manda al registro cada paso ("DIAG firmware ..."): aqui se va
+# apuntando en que punto esta la prueba y que quiere decir, para enseñarlo en
+# la ficha del deco sin tener que leer el registro.
+#
+# Ojo con lo que aprendimos el 05/11/2026: la comprobacion (startCheck) solo
+# lee la imagen, NO mira la firma; un deco con el firmware de Infomir lee bien
+# hasta la transicional. La firma la mira el actualizador al empezar: si no
+# vale se para en 17 ("Wrong signature") al 0 % sin escribir nada.
+
+def _clave_prueba(device):
+    return f'firmware:prueba:{device.id}'
+
+
+def _clave_equipo(device):
+    return f'firmware:equipo:{device.id}'
+
+
+def prueba_de(device):
+    try:
+        return cache.get(_clave_prueba(device))
+    except Exception:
+        return None
+
+
+def equipo_de(device):
+    try:
+        return cache.get(_clave_equipo(device))
+    except Exception:
+        return None
+
+
+def que_lleva(desc):
+    """Lo que dice la descripcion de la imagen instalada (GetDeviceImageDesc)."""
+    d = (desc or '').lower()
+    if 'trans' in d:
+        return 'Lleva la transicional: ya acepta las finales firmadas para Quattre.'
+    if 'final' in d:
+        return 'Lleva una final de operador. Si acepta nuestra firma se sabe al instalar (si no, se para al 0 % sin tocar nada).'
+    if d:
+        return 'No lleva ni transicional ni final de operador: con el firmware de fabrica solo entra la transicional por USB.'
+    return ''
+
+
+def apuntar_equipo(device, fw, desc):
+    """Al arrancar: que firmware lleva. Si habia una instalacion en marcha, si ha entrado."""
+    from django.utils import timezone
+    try:
+        antes = cache.get(_clave_equipo(device)) or {}
+        cache.set(_clave_equipo(device), {'fw': fw, 'desc': desc, 'cuando': timezone.now().isoformat()},
+                  90 * 86400)
+        prueba = cache.get(_clave_prueba(device))
+        if prueba and prueba.get('fase') in ('escribiendo', 'escrita'):
+            if (fw, desc) != (antes.get('fw'), antes.get('desc')):
+                _fase(prueba, 'instalada', 'Instalada: ha arrancado con %s (%s).' % (fw or '?', desc or 'sin descripcion'))
+            else:
+                _fase(prueba, 'error', 'Se ha reiniciado pero sigue con el mismo firmware (%s).' % (fw or '?'))
+            cache.set(_clave_prueba(device), prueba, CADUCA * 7)
+    except Exception:
+        pass
+
+
+def en_marcha(prueba):
+    """Si la prueba aun puede cambiar (la ficha se recarga sola mientras)."""
+    fase = (prueba or {}).get('fase')
+    return fase in ('pedida', 'leyendo', 'instalando', 'escribiendo', 'escrita') or \
+        (fase == 'leida' and prueba.get('instalar'))
+
+
+def _fase(prueba, fase, texto):
+    prueba['fase'], prueba['texto'] = fase, texto
+
+
+def apuntar_prueba(device, linea):
+    """Una linea "firmware ..." del portal: en que punto esta la prueba."""
+    import re
+    from django.utils import timezone
+    ahora = timezone.localtime()
+    try:
+        prueba = cache.get(_clave_prueba(device)) or {}
+    except Exception:
+        return
+    linea = linea[len('firmware '):]
+    if linea.startswith('inicio') or not prueba:
+        m = re.search(r'url=(\S+)', linea)
+        prueba = {'url': m.group(1) if m else '', 'lineas': [], 'instalar': prueba.get('instalar')}
+        _fase(prueba, 'leyendo', 'Leyendo la imagen...')
+    prueba['lineas'] = (prueba.get('lineas') or [])[-14:] + [ahora.strftime('%H:%M:%S ') + linea[:200]]
+    prueba['cuando'] = ahora.isoformat()
+    fase = prueba.get('fase')
+    if linea.startswith('sin stbUpdate'):
+        _fase(prueba, 'error', 'Este aparato no deja actualizar el firmware desde el portal.')
+    elif linea.startswith('error'):
+        _fase(prueba, 'error', 'El deco ha dado un error: ' + linea)
+    elif linea.startswith('comprobado'):
+        m = re.search(r'estado=(\d+) \((.*?)\) version=(\S*) desc=(.*?) fecha=(.*)$', linea)
+        estado, texto, version, desc, fecha = m.groups() if m else ('', '', '', '', '')
+        if version and estado in ('21', '24'):
+            _fase(prueba, 'leida', 'Imagen leida y de su modelo: version %s ("%s", %s). La firma se mira al instalar.'
+                  % (version, desc, fecha.strip()))
+        else:
+            _fase(prueba, 'error', 'No ha podido leer la imagen: %s' % (texto or 'estado ' + estado))
+    elif linea.startswith('instalando'):
+        _fase(prueba, 'instalando', 'Instalando: el deco esta mirando la firma...')
+    elif linea.startswith('progreso'):
+        m = re.match(r'progreso (\d+) (\d+)%', linea)
+        estado, pct = (int(m.group(1)), int(m.group(2))) if m else (-1, 0)
+        if estado == 17:
+            _fase(prueba, 'rechazada', 'Firma rechazada (Wrong signature), al 0 %: no se ha escrito nada. '
+                  'Este deco no tiene la clave con la que esta firmada la imagen: hay que cargarle la transicional por USB.')
+        elif estado == 21 and pct == 0 and fase == 'instalando':
+            _fase(prueba, 'parada', 'El actualizador no arranca. Suele ser que en la tele sigue abierta la ventana '
+                  'de un intento anterior: pulsa Exit en el mando y vuelve a probar.')
+        elif pct >= 100:
+            _fase(prueba, 'escrita', 'Escrita al 100 %: el deco se reinicia solo. Al arrancar se vera aqui si ha entrado.')
+        elif pct > 0:
+            _fase(prueba, 'escribiendo', 'Escribiendo: %d %%. No apagues el deco.' % pct)
+    try:
+        cache.set(_clave_prueba(device), prueba, CADUCA * 7)
+    except Exception:
+        pass
 
 
 # Variables del deco que se pueden cambiar desde aqui: las que hacen falta
