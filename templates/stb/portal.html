@@ -740,7 +740,7 @@
         h += '<div class="list">';
         if (!ayuda.length) h += '<div style="color:#9da3a6;padding:20px;">Pronto habra aqui guias de uso</div>';
         for (var i = 0; i < ayuda.length; i++) {
-            h += '<div class="' + (i === ayudaIdx ? 'item sel' : 'item') + ' menu-op" data-i="' + i + '">' +
+            h += '<div class="' + (i === ayudaIdx ? 'item sel' : 'item') + ' menu-op ay-op" data-i="' + i + '">' +
                  '<div class="info"><div class="name">' + esc(ayuda[i].titulo) +
                  (ayuda[i].video ? ' <span class="live">VIDEO</span>' : '') + '</div></div></div>';
         }
@@ -6353,6 +6353,10 @@
         .menu-op:hover, .menu-op.sel:hover { background: rgba(255,255,255,.05); }
         .menu-op .name { font-size: 30px; font-weight: 400; color: #b9bec1; }
         .menu-op.sel .name { color: #fff; }
+        /* En Ayuda los titulos son largos: en dos lineas si hace falta, y no
+           cortados, que se comian la etiqueta VIDEO ("VID..." o nada). */
+        .ay-op .name { white-space: normal; }
+        .ay-op .live { white-space: nowrap; display: inline-block; }
         .mico { width: 40px; height: 40px; flex-shrink: 0; margin-right: 22px; color: #b9bec1; }
         .menu-op.sel .mico { color: #fff; }
         .cuantos { font-size: 26px; font-weight: 300; color: #b9bec1; margin-left: 16px; flex-shrink: 0; }
