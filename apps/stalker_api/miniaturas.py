@@ -38,7 +38,9 @@ HORIZONTAL = 1.3            # ancho/alto a partir del cual ya es apaisada
 MAX_BYTES = 8 * 1024 * 1024
 DIAS = 30
 CARPETA = os.path.join(str(settings.MEDIA_ROOT), 'miniaturas')
-URL = '/' + settings.MEDIA_URL.strip('/') + '/miniaturas/'
+# Entera y no relativa: el MAG carga el portal por iptv1 (el proxy de la
+# plataforma vieja), que no tiene /media/, y alli daban 404.
+URL = settings.QUATTRETV.get('PUBLIC_URL', '').rstrip('/') + '/' + settings.MEDIA_URL.strip('/') + '/miniaturas/'
 CABECERAS = {'User-Agent': 'Mozilla/5.0 (QuattreTV videoclub)'}
 
 
@@ -55,7 +57,7 @@ def poner(items):
     for i in items:
         otras = i.pop('_otras', None) or []
         img = i.get('img') or ''
-        if not img or img.startswith(URL):
+        if not img or img.startswith(URL) or img.startswith('/'):
             continue
         nombre = _nombre(i.get('titulo', ''), img)
         ruta = os.path.join(CARPETA, nombre)

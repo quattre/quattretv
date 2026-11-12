@@ -10,15 +10,23 @@ De donde sale, por lo que se puede usar en un servicio de pago:
   Carteles de pelicula ahi no hay; solo fotos de los actores.
 TMDB tendria mas, pero su uso comercial pide un acuerdo de pago.
 
+Las fotos se bajan una vez, se recortan a 160x160 y se guardan en
+media/caras: el deco las pide a nuestro servidor y no a Wikimedia o TVmaze,
+que tardan mas, pueden fallar o dejar de dar la foto. Los creditos (autor y
+licencia) se siguen mostrando igual.
+
 Como las caratulas: solo con el titulo exacto (y el año si lo hay), porque un
 reparto equivocado es peor que ninguno. Lo encontrado se guarda un mes y lo no
 encontrado una semana. Si una fuente tarda o falla, la ficha sale sin reparto.
 """
 import hashlib
+import io
 import logging
+import os
 import re
 
 import requests
+from django.conf import settings
 from django.core.cache import cache
 
 from .caratulas import limpiar
@@ -76,6 +84,78 @@ def pedir(titulo, anio='', tipo='movie'):
     return None
 
 
+CARAS = os.path.join(str(settings.MEDIA_ROOT), 'caras')
+LADO = 160
+
+
+def _url_caras():
+    # Entera: el MAG entra por iptv1, que no tiene /media/ (ver miniaturas.py).
+    return settings.QUATTRETV.get('PUBLIC_URL', '').rstrip('/') + '/' + settings.MEDIA_URL.strip('/') + '/caras/'
+
+
+def traer_fotos(res):
+    """
+    Baja las fotos del reparto a media/caras y las cambia por las nuestras.
+    Las que no se pueden bajar se quedan con la de fuera. True si ha cambiado
+    alguna.
+    """
+    from PIL import Image, ImageOps
+    nuestra = _url_caras()
+    cambiada = False
+    for p in (res or {}).get('personas', []):
+        foto = p.get('foto') or ''
+        if not foto or foto.startswith(nuestra):
+            continue
+        nombre = hashlib.md5(foto.encode()).hexdigest() + '.jpg'
+        destino = os.path.join(CARAS, nombre)
+        if not os.path.exists(destino):
+            try:
+                r = requests.get(foto, headers=CABECERAS, timeout=ESPERA)
+                r.raise_for_status()
+                im = Image.open(io.BytesIO(r.content))
+                im = im.convert('RGB')
+                # Cuadrada y con la cara: las fotos de actor son de medio
+                # cuerpo y la cara esta arriba (como el center 20% del portal).
+                im = ImageOps.fit(im, (LADO, LADO), Image.LANCZOS, centering=(0.5, 0.2))
+                os.makedirs(CARAS, exist_ok=True)
+                im.save(destino + '.tmp', 'JPEG', quality=82, optimize=True)
+                os.replace(destino + '.tmp', destino)
+            except Exception as error:
+                logger.info('foto de %s: %s', p.get('nombre'), error)
+                continue
+        p['foto'] = nuestra + nombre
+        cambiada = True
+    return cambiada
+
+
+def pasar_fotos_guardadas(maximo=40):
+    """Las fotos de lo que ya estaba guardado, con las de fuera: a las nuestras."""
+    hechas = 0
+    try:
+        cliente = cache._cache.get_client()
+        claves = [k.decode() if isinstance(k, bytes) else k for k in cliente.scan_iter('*reparto:*', count=500)]
+    except Exception:
+        return 0
+    nuestra = _url_caras()
+    for k in claves:
+        if hechas >= maximo or 'buscando' in k or 'precarga' in k or 'fotos-probadas' in k:
+            continue
+        clave = k.split(':', 2)[-1]         # sin el prefijo de version de Django
+        # Las que no se dejan bajar, como mucho una vez al dia.
+        if not cache.add('reparto:fotos-probadas:' + clave, 1, 86400):
+            continue
+        res = cache.get(clave)
+        if not isinstance(res, dict) or not any(
+                (p.get('foto') or '').startswith('http') and not p['foto'].startswith(nuestra)
+                for p in res.get('personas', [])):
+            continue
+        if traer_fotos(res):
+            ttl = cliente.ttl(k)
+            cache.set(clave, res, ttl if ttl and ttl > 0 else SI)
+            hechas += 1
+    return hechas
+
+
 def buscar_los_que_faltan(tanda=8, seguir=False):
     """
     Busca de antemano el reparto de lo que hay en el videoclub y de las pelis
@@ -125,6 +205,7 @@ def buscar_los_que_faltan(tanda=8, seguir=False):
         elif cat.startswith('serie'):
             apuntar(titulo, anio, 'tv')
 
+    pasadas = pasar_fotos_guardadas()
     faltan = [t for t in pendientes.values() if guardado(*t) is None]
     hechas = fallos = 0
     for titulo, anio, tipo in faltan[:tanda]:
@@ -135,7 +216,7 @@ def buscar_los_que_faltan(tanda=8, seguir=False):
             if fallos >= 3:
                 break
         time.sleep(1)
-    quedan = len(faltan) - hechas
+    quedan = len(faltan) - hechas + pasadas
     if fallos >= 3 or not quedan:
         cache.delete('reparto:precarga')
         quedan = 0 if not quedan else -1
@@ -161,6 +242,7 @@ def buscar(titulo, anio='', tipo='movie'):
         # Fallo de la fuente: no se guarda, se probara la proxima vez.
         logger.warning('reparto de %s: %s', consulta, error)
         return {}
+    traer_fotos(res)
     try:
         cache.set(clave, res, SI if res.get('personas') else NO)
     except Exception:
