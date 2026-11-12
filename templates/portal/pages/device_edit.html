@@ -112,9 +112,9 @@
                     {% endif %}
                 </form>
                 {% if device.device_type == 'mag' %}
-                <form method="post" action="{% url 'portal:device_firmware' device.id %}" class="mt-4 space-y-2">
+                <form id="firmware" method="post" action="{% url 'portal:device_firmware' device.id %}" class="mt-6 pt-4 border-t border-gray-200 space-y-2">
                     {% csrf_token %}
-                    <p class="text-xs font-medium text-gray-700">Firmware</p>
+                    <p class="text-sm font-semibold text-gray-800"><i class="bi bi-cpu"></i> Firmware: probar e instalar</p>
                     <p class="text-xs text-gray-600">
                         Modelo: <b>{{ device.model|default:"(aun no lo ha dicho; recarga el portal del deco)" }}</b> ·
                         tiene: <b>{{ device.firmware_version|default:"?" }}</b>

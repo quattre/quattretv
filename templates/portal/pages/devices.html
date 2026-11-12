@@ -196,6 +196,11 @@
                             <a href="{% url 'portal:device_edit' device.id %}" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% if device.device_type == 'mag' %}
+                            <a href="{% url 'portal:device_edit' device.id %}#firmware" class="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Firmware: probar e instalar">
+                                <i class="bi bi-cpu"></i>
+                            </a>
+                            {% endif %}
                             <form method="post" action="{% url 'portal:device_evento' device.id %}" class="inline-flex">
                                 {% csrf_token %}
                                 <input type="hidden" name="volver" value="lista">
