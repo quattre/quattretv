@@ -99,7 +99,10 @@ def firmware_para(device):
         return None
     ruta, version, fecha = FIRMWARES[clave]
     import re
-    m = re.search(r'(\d{3})', device.firmware_version or '')
+    # Sin el modelo pegado ("2.20.05-256", "2.20.08-pub-540"): ese 256 no es
+    # la version, y hacia decir "ya lo tiene" a un 256 que no la tiene.
+    fw = re.sub(r'-(?:pub-)?\d{3}\b', '', device.firmware_version or '')
+    m = re.search(r'(?<![\d.:])(\d{3})(?![\d.:])', fw)
     actual = int(m.group(1)) if m else None
     return {'url': FIRMWARE_BASE + ruta, 'version': version, 'fecha': fecha, 'actual': actual,
             'nuevo': actual is not None and actual < version}
