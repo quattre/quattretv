@@ -2596,7 +2596,7 @@
         if (p) {
             h += '<div class="rj-titulo">' + esc(p.name);
             if (p.current) h += ' <span class="live">AHORA</span>';
-            if (p.rec) h += ' <span class="rec">REC</span>';
+            if (p.rec) h += ' ' + recDePrograma(p, ch);
             h += '</div>';
             var mins = Math.round((p.stop_timestamp - p.start_timestamp) / 60);
             h += '<div class="rj-datos"><b>' + esc(nombreDiaT(p.start_timestamp)) + ' ' + esc(p.t_time) + ' - ' +
@@ -4407,7 +4407,7 @@
                 h += '<div class="' + cls + '" data-i="' + i + '">';
                 h += '<div class="num sm">' + esc(p.t_time) + '</div>';
                 var etq = '';
-                if (p.rec) etq += ' <span class="rec">REC</span>';
+                if (p.rec) etq += ' ' + recDePrograma(p, guideChannel);
                 if (p.current) etq += ' <span class="live">AHORA</span>';
                 // Flecha en la fila marcada: la señal de "aqui se puede entrar"
                 // tiene que estar en la fila, no solo en la ayuda de abajo.
@@ -4545,7 +4545,7 @@
         h += '<div style="font-size:26px;font-weight:600;line-height:1.25;margin-bottom:8px;">' +
              esc(p.name);
         if (p.current) h += ' <span class="live">AHORA</span>';
-        if (p.rec) h += ' <span class="rec">REC</span>';
+        if (p.rec) h += ' ' + recDePrograma(p, guideChannel);
         h += '</div>';
 
         var horario = esc(p.t_time);
@@ -4822,13 +4822,31 @@
         var h = '';
         // Con lo que lleva grabado: sin eso no se sabia si de verdad estaba
         // grabando ni cuanto faltaba para el corte de las 3 horas.
-        if (seGraba(ch)) h += ' <span class="rec">REC' +
-            (ch.rec_from ? ' ' + duracionDesde(ch.rec_from) : '') + '</span>';
+        if (seGraba(ch)) h += ' ' + recCon(ch);
         // El archivo, con un reloj amarillo y no con la palabra: "ARCHIVO" no
         // se entendia. Lo que significa se explica en la leyenda del canal.
         if (ch.archive) h += ' <i class="ico-arch"></i>';
         return h;
     }
+
+    // "REC 0:12" con lo que lleva grabado el canal. data-desde para que
+    // avance solo (ver relojRec), sin volver a pintar la pantalla entera.
+    function recCon(ch) {
+        if (!seGraba(ch) || !ch.rec_from) return '<span class="rec">REC</span>';
+        return '<span class="rec" data-desde="' + ch.rec_from + '">REC ' + duracionDesde(ch.rec_from) + '</span>';
+    }
+
+    // La etiqueta del programa: con tiempo si es el que se esta grabando ahora.
+    function recDePrograma(p, ch) {
+        return p.current ? recCon(ch) : '<span class="rec">REC</span>';
+    }
+
+    setInterval(function() {
+        var r = document.querySelectorAll ? document.querySelectorAll('span.rec[data-desde]') : [];
+        for (var i = 0; i < r.length; i++) {
+            r[i].innerHTML = 'REC ' + duracionDesde(parseInt(r[i].getAttribute('data-desde'), 10));
+        }
+    }, 30000);
 
     function desmarcarGrabando(ch) {
         if (ch) { ch.rec_until = 0; ch.rec_from = 0; }

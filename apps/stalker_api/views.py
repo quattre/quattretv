@@ -2031,9 +2031,13 @@ def handle_pvr_list(request):
     })
 
 
+# Minutos de mas al grabar un programa de la guia.
+MARGEN_ANTES, MARGEN_DESPUES = 2, 10
+
+
 def handle_pvr_create(request):
     """Schedule a recording, either from an EPG program or a raw time range."""
-    from datetime import datetime, timezone as dt_timezone
+    from datetime import datetime, timedelta, timezone as dt_timezone
     from apps.pvr.models import Recording
 
     device, error = _pvr_device(request, exige_grabador=True)
@@ -2055,7 +2059,12 @@ def handle_pvr_create(request):
         if Recording.objects.filter(user=device.user, program=program).exists():
             return stalker_response({'error': 'Ya está programada'})
 
-        fin, error = recortar_grabacion(device.user, program.start_time, program.end_time)
+        # Con margen, como Ministra: las cadenas no empiezan ni acaban a la
+        # hora de la guia, y lo que se pierde es justo el final. El margen
+        # cuenta para las horas del cliente y para el tope por grabacion.
+        desde = program.start_time - timedelta(minutes=MARGEN_ANTES)
+        fin, error = recortar_grabacion(device.user, desde,
+                                        program.end_time + timedelta(minutes=MARGEN_DESPUES))
         if error:
             return stalker_response({'error': error})
 
@@ -2066,7 +2075,9 @@ def handle_pvr_create(request):
             title=program.title,
             description=program.description,
             start_time=program.start_time,
-            end_time=fin,
+            end_time=min(program.end_time, fin),
+            pre_padding=MARGEN_ANTES,
+            post_padding=max(0, int((fin - program.end_time).total_seconds() // 60)),
         )
         return stalker_response({'id': recording.id, 'result': True})
 
@@ -2195,7 +2206,7 @@ def handle_pvr_stop(request):
     ahora = timezone.now()
     recording.end_time = max(recording.start_time, ahora)
     recording.post_padding = 0
-    recording.duration = int((ahora - recording.actual_start_time).total_seconds())
+    recording.duration = int((ahora - inicio_real(recording)).total_seconds())
     recording.status = RecordingStatus.COMPLETED
     if recording.filename and recording.storage and not recording.stream_url:
         recording.stream_url = recording.storage.build_url(recording.filename, public=True)
