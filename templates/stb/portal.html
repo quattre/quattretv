@@ -466,9 +466,28 @@
     // Mientras se carga, un aviso en pantalla: si no, la tele se quedaba en
     // negro un minuto sin decir nada y daba ganas de tocar o desenchufar.
     var firmwareEnCurso = false;
+    // Con un reloj que corre: la comprobacion y el arranque de la carga son
+    // ratos sin porcentaje, y un aviso quieto parece un aparato colgado.
+    var firmwareDesde = 0, firmwareReloj = null;
+    function tiempoFirmware() {
+        var seg = Math.floor((new Date().getTime() - firmwareDesde) / 1000);
+        return 'Lleva ' + Math.floor(seg / 60) + ':' + (seg % 60 < 10 ? '0' : '') + (seg % 60);
+    }
     function avisoFirmware(texto, acabado) {
         firmwareEnCurso = !acabado;
-        mostrarMensaje('Actualizando el aparato', texto, acabado ? undefined : 'No toques el mando ni lo desenchufes');
+        if (acabado) {
+            if (firmwareReloj) { clearInterval(firmwareReloj); firmwareReloj = null; }
+            firmwareDesde = 0;
+            mostrarMensaje('Actualizando el aparato', texto);
+            return;
+        }
+        if (!firmwareDesde) firmwareDesde = new Date().getTime();
+        mostrarMensaje('Actualizando el aparato', texto,
+            'No toques el mando ni lo desenchufes &nbsp;·&nbsp; <span id="fw-reloj">' + tiempoFirmware() + '</span>');
+        if (!firmwareReloj) firmwareReloj = setInterval(function() {
+            var r = document.getElementById('fw-reloj');
+            if (r) r.innerHTML = tiempoFirmware();
+        }, 1000);
     }
     function firmwareRemoto(f) {
         function contar(t) {
@@ -487,6 +506,10 @@
             avisoFirmware(texto, true);
             if (volver) { playChannel(volver); playingChannelIdx = channels.indexOf(volver); }
         }
+        // Lo que hubiera leido una comprobacion anterior: si ya habia datos, no
+        // sirven para saber cuando acaba esta.
+        var versionAntes = '';
+        try { versionAntes = String(stbUpdate.getImageVersionStr() || ''); } catch (e) {}
         try { stbUpdate.startCheck(f.url); } catch (e) { contar('error startCheck ' + e); terminar('No se ha podido comprobar. No se ha cambiado nada.'); return; }
         var vueltas = 0, vistos = [];
         var reloj = setInterval(function() {
@@ -496,7 +519,11 @@
             if (vistos[vistos.length - 1] !== s) vistos.push(s);
             // 21 (en reposo) tambien es lo que se ve antes de que empiece: se
             // espera un minuto por si tarda en arrancar la comprobacion.
-            var acabado = FINALES_FW.indexOf(s) >= 0 || (s === 21 && vueltas > 60) || vueltas > 180;
+            // El 256 y el 420 vuelven a 21 con la imagen ya leida: en cuanto hay
+            // version no se espera mas (antes se quedaba el minuto entero parado).
+            var yaLeida = false;
+            try { yaLeida = s === 21 && vueltas > 3 && versionAntes === '' && String(stbUpdate.getImageVersionStr() || '') !== ''; } catch (e) {}
+            var acabado = FINALES_FW.indexOf(s) >= 0 || yaLeida || (s === 21 && vueltas > 60) || vueltas > 180;
             if (!acabado) return;
             clearInterval(reloj);
             contar('estados ' + vistos.join(','));
