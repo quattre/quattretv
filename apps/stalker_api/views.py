@@ -1111,7 +1111,7 @@ def handle_get_short_epg(request):
         from apps.pvr.models import Recording
         programadas = set(
             Recording.objects.filter(
-                user=device.user, program__in=programs
+                user=device.user, program__in=programs, status__in=GRABACION_VIVA
             ).values_list('program_id', flat=True)
         )
 
@@ -1501,7 +1501,7 @@ def handle_epg_table(request):
         from apps.pvr.models import Recording
         scheduled = set(
             Recording.objects.filter(
-                user=device.user, program__in=programs
+                user=device.user, program__in=programs, status__in=GRABACION_VIVA
             ).values_list('program_id', flat=True)
         )
 
@@ -1552,7 +1552,8 @@ def handle_epg_rejilla(request):
     if device and programs:
         from apps.pvr.models import Recording
         scheduled = set(Recording.objects.filter(
-            user=device.user, program__in=programs).values_list('program_id', flat=True))
+            user=device.user, program__in=programs,
+            status__in=GRABACION_VIVA).values_list('program_id', flat=True))
 
     data = {i: [] for i in ids}
     for prog in programs:
@@ -1828,6 +1829,12 @@ def handle_archive_link(request):
 
 # ============== PVR (Recordings) Handlers ==============
 
+# Las grabaciones que cuentan como "se esta grabando / se va a grabar". Una
+# parada a mano queda completada y deja de marcar el programa con REC: antes lo
+# seguia marcando, el rojo seguia diciendo "Parar" y parecia que no paraba.
+GRABACION_VIVA = ('scheduled', 'recording')
+
+
 def handle_pvr(request, action):
     """Handle recording actions coming from MAG boxes."""
     if action in ('get_ordered_list', 'get_recordings', 'get_list'):
@@ -2088,7 +2095,9 @@ def handle_pvr_create(request):
         if not program.channel.has_recording:
             return stalker_response({'error': 'Este canal no se puede grabar'})
 
-        if Recording.objects.filter(user=device.user, program=program).exists():
+        # Una que se paro a mano ya no cuenta: se puede volver a grabar el programa.
+        if Recording.objects.filter(user=device.user, program=program,
+                                    status__in=GRABACION_VIVA).exists():
             return stalker_response({'error': 'Ya está programada'})
 
         # Con margen, como Ministra: las cadenas no empiezan ni acaban a la
@@ -2213,7 +2222,10 @@ def handle_pvr_stop(request):
     rec_id = request.GET.get('id') or request.GET.get('cmd')
     recordings = Recording.objects.filter(user=device.user)
     if program_id:
-        recording = recordings.filter(program_id=program_id).first()
+        # La que esta viva, si la hay: de un mismo programa puede quedar otra ya
+        # parada, y esa no es la que se quiere parar.
+        recording = (recordings.filter(program_id=program_id, status__in=GRABACION_VIVA).first()
+                     or recordings.filter(program_id=program_id).order_by('-id').first())
     else:
         recording = recordings.filter(id=rec_id).first() if str(rec_id).isdigit() else None
     if not recording:
@@ -2223,6 +2235,10 @@ def handle_pvr_stop(request):
         return stalker_response({
             'error': 'Esta grabacion se gestiona desde la plataforma antigua'})
 
+    # Ya terminada o parada: no hay nada que parar, y borrarla aqui se llevaba
+    # por delante lo grabado si se pulsaba el rojo dos veces.
+    if recording.status not in GRABACION_VIVA:
+        return stalker_response({'result': True, 'kept': 1})
     if recording.status != RecordingStatus.RECORDING:
         recording.delete()
         return stalker_response({'result': True, 'kept': 0})
