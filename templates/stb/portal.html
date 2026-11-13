@@ -4999,6 +4999,13 @@
         return Math.floor(min / 60) + ':' + dosCifras(min % 60);
     }
 
+    // "1:05:09": horas, minutos y segundos desde un instante. Para el REC de la
+    // lista, que avanza cada segundo: con solo horas y minutos parecia parado.
+    function duracionConSegundos(desde) {
+        var seg = Math.max(0, Math.floor(new Date().getTime() / 1000) - desde);
+        return Math.floor(seg / 3600) + ':' + dosCifras(Math.floor(seg / 60) % 60) + ':' + dosCifras(seg % 60);
+    }
+
     function horasYMinutos(min) {
         var h = Math.floor(min / 60), m = min % 60;
         return h ? h + ' h' + (m ? ' ' + m + ' min' : '') : m + ' min';
@@ -5019,7 +5026,7 @@
     // avance solo (ver relojRec), sin volver a pintar la pantalla entera.
     function recCon(ch) {
         if (!seGraba(ch) || !ch.rec_from) return '<span class="rec">REC</span>';
-        return '<span class="rec" data-desde="' + ch.rec_from + '">REC ' + duracionDesde(ch.rec_from) + '</span>';
+        return '<span class="rec" data-desde="' + ch.rec_from + '">REC ' + duracionConSegundos(ch.rec_from) + '</span>';
     }
 
     // La etiqueta del programa: con tiempo si es el que se esta grabando ahora.
@@ -5028,11 +5035,12 @@
     }
 
     setInterval(function() {
-        var r = document.querySelectorAll ? document.querySelectorAll('span.rec[data-desde]') : [];
+        var r = document.querySelectorAll ? document.querySelectorAll('span[data-desde]') : [];
         for (var i = 0; i < r.length; i++) {
-            r[i].innerHTML = 'REC ' + duracionDesde(parseInt(r[i].getAttribute('data-desde'), 10));
+            var pre = r[i].getAttribute('data-pre');
+            r[i].innerHTML = (pre === null ? 'REC ' : pre) + duracionConSegundos(parseInt(r[i].getAttribute('data-desde'), 10));
         }
-    }, 30000);
+    }, 1000);
 
     function desmarcarGrabando(ch) {
         if (ch) { ch.rec_until = 0; ch.rec_from = 0; }
@@ -5315,7 +5323,7 @@
         // Solo lo que pasa en el canal: si se graba, y hasta cuando hay archivo.
         if (hayGrabaciones()) {
             var estado = '';
-            if (ch.pvr && seGraba(ch)) estado = 'Grabando' + (ch.rec_from ? ' ' + esc(duracionDesde(ch.rec_from)) : '');
+            if (ch.pvr && seGraba(ch)) estado = 'Grabando' + (ch.rec_from ? ' <span data-pre="" data-desde="' + ch.rec_from + '">' + duracionConSegundos(ch.rec_from) + '</span>' : '');
             else if (!ch.pvr) estado = 'No se puede grabar';
             if (ch.archive) {
                 estado += (estado ? '<span class="sep"></span>' : '') + '<i class="ico-arch"></i> Puedes ver lo emitido hasta hace ' +
