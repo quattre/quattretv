@@ -117,7 +117,7 @@ CARPETA_PRUEBAS = 'ayuda/fw-prueba'
 
 
 def imagenes_para(device):
-    """[(url, nombre)] de las de prueba de su modelo, las transicionales primero."""
+    """Las de prueba de su modelo, con lo que dice su cabecera, la mas nueva primero."""
     import os
     import re
     from django.conf import settings
@@ -132,11 +132,10 @@ def imagenes_para(device):
         return []
     host = settings.QUATTRETV.get('PUBLIC_URL', '').split('://')[-1].rstrip('/')
     datos = {n: cabecera_imagen(os.path.join(carpeta, n, 'imageupdate')) for n in nombres}
-    # Las transicionales primero (son el primer paso); luego, la mas nueva arriba.
+    # La mas nueva arriba, por la fecha de montaje que lleva la propia imagen.
     nombres.sort(key=lambda n: datos[n]['orden'], reverse=True)
-    nombres.sort(key=lambda n: 'trans' not in n)
-    return [('http://%s/media/%s/%s/imageupdate' % (host, CARPETA_PRUEBAS, n),
-             ' · '.join(x for x in (datos[n]['texto'], n) if x)) for n in nombres]
+    return [dict(datos[n], nombre=n, transicional='trans' in (datos[n]['desc'] + n).lower(),
+                 url='http://%s/media/%s/%s/imageupdate' % (host, CARPETA_PRUEBAS, n)) for n in nombres]
 
 
 def cabecera_imagen(ruta):
@@ -163,14 +162,8 @@ def cabecera_imagen(ruta):
             fecha = datetime.strptime('%s %s %s %s' % m.groups(), '%b %d %H:%M %Y')
         except ValueError:
             pass
-    partes = []
-    if c.get('Image Version'):
-        partes.append('v' + c['Image Version'])
-    if c.get('Image Description'):
-        partes.append(c['Image Description'])
-    if fecha:
-        partes.append(fecha.strftime('%d/%m/%Y %H:%M'))
-    return {'texto': ' · '.join(partes), 'orden': fecha or datetime.min}
+    return {'version': c.get('Image Version', ''), 'desc': c.get('Image Description', ''),
+            'fecha': fecha.strftime('%d/%m/%Y %H:%M') if fecha else '', 'orden': fecha or datetime.min}
 
 
 # ---------- Lo que cuenta el deco al probar un firmware ----------
