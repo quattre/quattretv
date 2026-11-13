@@ -22,6 +22,8 @@ EVENTOS = {
     # En reposo (gSTB.StandBy): el deco apaga la imagen y se enciende con el
     # mando. Solo decos: las teles no dejan apagarse desde una app.
     'apagar': 'Apagar el deco (reposo)',
+    # Solo lee los bancos de firmware y los ajustes de arranque, al registro.
+    'diagnostico': 'Contar bancos y ajustes de arranque',
 }
 CADUCA = 24 * 3600
 CLAVE_GENERAL = 'evento:recarga_general'

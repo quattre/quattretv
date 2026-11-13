@@ -402,6 +402,32 @@
             firmwareRemoto(js.firmware);
         } else if (evento === 'entorno' && js && js.entorno) {
             entornoRemoto(js.entorno);
+        } else if (evento === 'diagnostico') {
+            diagnosticoRemoto();
+        }
+    }
+
+    // Solo lee: los bancos de firmware y los ajustes de arranque del deco, al
+    // registro. Para entender lo que enseña el arranque sin ir a verlo.
+    function diagnosticoRemoto() {
+        function contar(t) {
+            api('type=stb&action=log&diag=' + encodeURIComponent(('diagnostico ' + t).substring(0, 390)), function() {});
+        }
+        try {
+            contar('bancos activo=' + stbUpdate.getActiveBank() + ' total=' + stbUpdate.GetFlashBankCount());
+        } catch (e) { contar('bancos error ' + e); }
+        try {
+            var m = [];
+            for (var k in stbUpdate) m.push(k);
+            contar('stbUpdate ' + m.join(','));
+        } catch (e) {}
+        var grupos = [['bank', 'bootdelay', 'bootcmd'], ['startup', 'startup_alt', 'startup_emg'],
+                      ['Image_Version', 'Image_Desc', 'Image_Date', 'Boot_Version'],
+                      ['update_url', 'autoupdate_cond', 'betaupdate_cond', 'portal1', 'portal2'],
+                      ['boot_ubi0', 'boot_ubi1', 'bootupgrade', 'dualboot']];
+        for (var g = 0; g < grupos.length; g++) {
+            try { contar('env ' + gSTB.GetEnv(JSON.stringify({varList: grupos[g]}))); }
+            catch (e) { contar('env error ' + e); }
         }
     }
 
