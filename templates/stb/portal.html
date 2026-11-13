@@ -748,8 +748,9 @@
     function verVideoAyuda(abierto) {
         // En el deco, su reproductor y por http: es lo unico que abre.
         if ((stbAPI || player) && abierto.aviso.video_http) {
-            videoAyuda = {volver: abierto.modo, deco: true};
+            videoAyuda = {volver: abierto.modo, deco: true, titulo: abierto.aviso.titulo, pausa: false};
             reproducirPantallaCompleta(abierto.aviso.video_http, abierto.aviso.titulo, '', null);
+            pistaVideoAyuda('');
             vigilarFinVideoAyuda();
             return;
         }
@@ -783,12 +784,57 @@
                 if (stbAPI && stbAPI.GetPosTime) { pos = stbAPI.GetPosTime(); largo = stbAPI.GetMediaLen(); }
                 else if (player) { pos = player.position; largo = player.duration; }
             } catch (err) {}
+            // En pausa no avanza, y no es que haya acabado.
+            if (videoAyuda.pausa) { ultima = pos; quieto = 0; return; }
             if (pos > 0) empezado = true;
             if (empezado && largo > 0 && pos >= largo - 1) { volverDeVideoAyudaDeco(); return; }
             if (empezado && pos === ultima) { if (++quieto >= 5) volverDeVideoAyudaDeco(); }
             else quieto = 0;
             ultima = pos;
         }, 1000);
+    }
+
+    // La barra de abajo del video de ayuda: el titulo y como se maneja y se sale.
+    // Se va sola, menos en pausa.
+    function pistaVideoAyuda(texto) {
+        if (!videoAyuda) return;
+        var osd = document.getElementById("osd");
+        osd.innerHTML = '<div class="osd-ch">' + esc(videoAyuda.titulo || 'Ayuda') + '</div>' +
+            (texto ? '<div class="osd-epg">' + texto + '</div>' : '') +
+            '<div class="osd-pistas"><span data-tecla="13">OK</span> ' + (videoAyuda.pausa ? 'Seguir' : 'Pausa') +
+            ' &nbsp; <span data-tecla="37">◀</span><span data-tecla="39">▶</span> 10 segundos' +
+            ' &nbsp; <span data-tecla="27">Atras</span> Salir del video</div>';
+        osd.style.display = "block";
+        graficosDelanteInsistiendo();
+        clearTimeout(osdTimeout);
+        if (!videoAyuda.pausa) osdTimeout = setTimeout(function() { osd.style.display = "none"; }, TIEMPO_OSD);
+    }
+
+    // Las teclas mientras se ve un video de ayuda con el reproductor del deco. Solo
+    // estas: el resto llegaba a la tele de debajo (cambiaba de canal, se ponia a
+    // grabar...). Cualquier otra tecla enseña como salir.
+    function teclaVideoAyudaDeco(k) {
+        var va = videoAyuda;
+        if (k === 8 || k === 27 || k === TECLA_ATRAS) {
+            try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch (err) {}
+            document.getElementById("osd").style.display = "none";
+            volverDeVideoAyudaDeco();
+        } else if (k === 13) {
+            try {
+                if (stbAPI && stbAPI.Pause) { if (va.pausa) stbAPI.Continue(); else stbAPI.Pause(); va.pausa = !va.pausa; }
+                else if (player && player.pause) { if (va.pausa) player.play(); else player.pause(); va.pausa = !va.pausa; }
+            } catch (err) {}
+            pistaVideoAyuda(va.pausa ? 'En pausa' : '');
+        } else if (k === 37 || k === 39) {
+            var d = k === 39 ? 10 : -10;
+            try {
+                if (stbAPI && stbAPI.SetPosTime) stbAPI.SetPosTime(Math.max(0, stbAPI.GetPosTime() + d));
+                else if (player) player.position = Math.max(0, player.position + d);
+            } catch (err) {}
+            pistaVideoAyuda(va.pausa ? 'En pausa' : '');
+        } else {
+            pistaVideoAyuda(va.pausa ? 'En pausa' : '');
+        }
     }
 
     // Al salir del video puesto con el reproductor del deco.
@@ -5823,12 +5869,15 @@
         // S abria las grabaciones: parar una peli del videoclub te llevaba alli.
         if ((k === 83 && e.altKey) || k === 413) {
             var ayudaPuesta = videoAyuda && document.getElementById("ayuda-video").style.display === "block";
-            if (!ayudaPuesta && !(isFullscreen && diferido)) return false;
+            if (!ayudaPuesta && !(isFullscreen && diferido) && !(videoAyuda && videoAyuda.deco)) return false;
             k = 27;
         }
         // SET/SETUP (120): cinco veces seguidas abre la configuracion del deco, desde
         // cualquier pantalla. Menos de cinco no hace nada.
         if (k === 120 && !e.altKey) { accesoConfiguracion(120); return false; }
+        // El video de ayuda con el reproductor del deco se queda con todas las teclas
+        // (menos el volumen): por debajo esta la tele.
+        if (videoAyuda && videoAyuda.deco && k !== 107 && k !== 109) { teclaVideoAyudaDeco(k); return false; }
         if ((k === 71 && e.altKey) || (k === 122 && isFullscreen)) { cambiarAudio(); return false; }
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
