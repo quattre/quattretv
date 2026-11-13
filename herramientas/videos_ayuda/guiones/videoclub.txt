@@ -1,0 +1,67 @@
+portada:Videoclub 7 días|Todo lo emitido en la última semana, cuando quieras
+voz:El videoclub de siete días: todo lo que se ha emitido en la última semana, para verlo cuando quieras.
+foto:3.5
+finportada
+cap:Se abre con la [amarilla], o desde el menú: Videoclub 7 días.
+voz:Para entrar, pulsa la tecla amarilla del mando, o elige Videoclub siete días en el menú de la izquierda.
+foto:4
+tecla:114
+espera:6
+js:semana.filas=semana.filas.filter(function(f){return f.id!=='seguir'});semana.cols=semana.filas.map(function(){return 0});semana.fila=0;renderSemana();semana.filas.length
+espera:1
+capabajo:Películas, series, documentales y programas de los últimos 7 días.
+voz:Aquí tienes películas, series, documentales y programas, ordenados por filas.
+foto:4.5
+img:videoclub
+capabajo:Con [◀] [▶] recorres cada fila. Con [▲] [▼] cambias de fila.
+voz:Con izquierda y derecha recorres cada fila, y con arriba y abajo cambias de fila.
+foto:2
+tecla:39
+foto:1.2
+tecla:39
+foto:1.2
+tecla:40
+espera:1.5
+foto:2.5
+capabajo:Arriba, las pestañas: Películas, Series, Infantil, Documentales…
+js:semana.foco='pestanas';renderSemana();
+voz:Arriba tienes las pestañas, para ir directo a películas, series, infantil o documentales.
+foto:4
+js:semana.foco='filas';renderSemana();
+capabajo:[OK] en una serie te enseña todos sus capítulos. Elige uno y [OK] otra vez.
+js:(function(){for(var r=0;r<semana.filas.length;r++){var f=semana.filas[r];for(var i=0;i<f.items.length;i++){var it=f.items[i];if(it.n>3){semanaAbriendo=0;abrirEmisiones(it.grupo||f.id,it);return it.titulo}}}})()
+espera:6
+voz:Si eliges una serie y pulsas okey, ves todos sus capítulos. Elige uno y pulsa okey otra vez para verlo.
+foto:5
+img:capitulos
+capabajo:Empieza donde empieza el programa. Si lo dejas a medias, lo tienes en «Seguir viendo».
+voz:Empieza justo donde empieza el programa. Y si lo dejas a medias, lo encontrarás en Seguir viendo.
+foto:5
+js:(function(){semana.episodios=null;for(var r=0;r<semana.filas.length;r++){var f=semana.filas[r];for(var i=0;i<f.items.length;i++){var it=f.items[i];if(it.n<=1&&it.img&&it.grupo==='peliculas'){var x={};for(var k in it)x[k]=it[k];x.dur=(it.fin-it.ini)||5400;x.pos=Math.floor(x.dur*0.4);abrirFichaSemana(x);return it.titulo}}}})()
+espera:3
+capabajo:Si lo dejaste a medias: «Seguir viendo», o con [▶] y [OK], «Desde el principio».
+voz:Al volver a algo que dejaste a medias, puedes seguir por donde ibas, o empezarlo desde el principio.
+foto:3
+tecla:39
+foto:3
+img:seguir
+js:semana.ficha=null;renderSemana();1
+capabajo:Viéndolo, [◀] [▶] retrocede o avanza 30 segundos. Si la cadena pone anuncios antes, [▶] los salta.
+voz:Mientras lo ves, izquierda y derecha retroceden o avanzan treinta segundos. Si la cadena pone anuncios antes de la película, con la derecha te los saltas.
+foto:5
+capabajo:Desde la primera columna, [◀] abre el menú para ir a otra sección.
+js:semana.episodios=null;semana.ficha=null;semana.fila=0;semana.cols[0]=0;renderSemana();abrirRail();1
+voz:Desde la primera columna, la flecha izquierda abre el menú para ir a otra sección.
+foto:4
+js:cerrarRail();1
+espera:1
+capabajo:Y la [amarilla] te devuelve a la tele, con tus canales.
+voz:Y la tecla amarilla te devuelve a la tele, con tus canales.
+foto:3
+tecla:114
+espera:2
+foto:2.5
+cap:
+portada:¿Dudas?|Menú → Ayuda: aquí tienes todas las guías
+voz:¡Que lo disfrutes!
+foto:3.5

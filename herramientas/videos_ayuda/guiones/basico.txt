@@ -1,0 +1,85 @@
+portada:Lo básico|Moverse por la televisión de Quattre
+voz:Bienvenido a la televisión de Quattre. En un minuto te enseñamos lo básico.
+foto:3.5
+finportada
+cap:Con [▲] [▼] eliges canal. A la derecha lo ves en pequeño.
+voz:En la lista de canales, con las flechas arriba y abajo eliges el canal. A la derecha lo ves en pequeño, con el programa que se está emitiendo.
+foto:3
+tecla:40
+foto:1.2
+tecla:38
+foto:2
+cap:[OK] lo pone a pantalla completa.
+tecla:13
+espera:2.5
+voz:Pulsa okey para verlo a pantalla completa.
+foto:3
+cap:Viéndolo, [▶] te da la información del programa.
+tecla:39
+espera:2.5
+voz:Viendo un canal, la flecha derecha te da toda la información del programa. Y con arriba y abajo cambias de canal.
+foto:4
+img:ficha
+tecla:39
+espera:1.5
+js:channels[currentChannel].archive=1;channels[currentChannel].archive_range=168;window.aplicarSalto=function(){var s=salto,d=diferido;salto=null;if(!d)return;d.base=Math.floor(s.destino);d.arrancado=new Date().getTime();mostrarOsd(null)};1
+cap:[◀] vuelve atrás en el tiempo. [OK] pausa y [Atrás] vuelve al directo.
+tecla:37
+voz:Y la flecha izquierda te lleva atrás en el tiempo, por si te has perdido algo. Okey lo pausa, y Atrás te devuelve al directo.
+foto:2.5
+espera:1
+tecla:37
+foto:3
+img:diferido
+espera:2
+js:volverAlDirecto();1
+tecla:27
+espera:1.5
+cap:[Atrás] vuelve a la lista de canales.
+voz:Atrás te devuelve a la lista de canales.
+foto:3
+cap:Con los números del mando vas directo a un canal.
+tecla:53
+espera:3
+voz:Si sabes el número, márcalo con el mando y vas directo a ese canal.
+foto:4
+cap:[▶] abre la guía de ese canal: lo que dan hoy y lo que ya dieron.
+tecla:39
+espera:2.5
+voz:En la lista, la flecha derecha abre la guía de ese canal: la programación de hoy, y lo que ya ha pasado.
+foto:5
+cap:[◀] vuelve a la lista. Otra vez [◀] y se abre el menú.
+tecla:37
+espera:1.5
+voz:La flecha izquierda te devuelve a la lista, y si vuelves a pulsarla, se abre el menú.
+foto:2
+tecla:37
+espera:1.5
+foto:2
+cap:Con [▲] [▼] eliges: Guía, Videoclub, Categorías, Favoritos, Radio, Ayuda… y [OK] entras.
+voz:Ahí eliges a dónde ir: la guía, el videoclub de los últimos siete días, las categorías, tus favoritos, la radio o esta ayuda. Pulsa okey para entrar.
+foto:2
+tecla:40
+foto:1.2
+tecla:40
+foto:1.2
+tecla:40
+foto:2.5
+img:menu
+tecla:39
+espera:1.5
+cap:
+js:(function(){var d=document.createElement('div');d.id='__mando';d.style.cssText='position:fixed;z-index:998;left:0;top:0;width:100%;height:100%;background:#1d2023 url(/static/stb/ayuda/mando.jpg) center/100% 100% no-repeat';document.body.appendChild(d);return 1})()
+espera:1.5
+voz:Así es el mando. Con los números vas directo a un canal, con las flechas te mueves, okey para ver o elegir, y Atrás para volver.
+foto:3
+voz:Y las teclas de colores: la roja graba, la verde abre la guía de todos los canales, la amarilla te lleva al videoclub y de vuelta a la tele, y la azul guarda el canal en favoritos.
+foto:4
+voz:Y si un canal se oye en otro idioma, viéndolo, la tecla Menú cambia el audio.
+foto:3
+img:mando
+js:document.getElementById('__mando').parentNode.removeChild(document.getElementById('__mando'));1
+cap:
+portada:¿Dudas?|Menú → Ayuda: aquí tienes todas las guías
+voz:Si tienes dudas, en el menú, Ayuda, tienes todas estas guías. ¡Que lo disfrutes!
+foto:4

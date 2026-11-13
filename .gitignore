@@ -106,3 +106,8 @@ build/
 *.key
 secrets/
 samsung_app/dist/
+# Videos de ayuda: lo que se genera al grabar (fotogramas, voces, musica, videos)
+herramientas/videos_ayuda/*/
+!herramientas/videos_ayuda/guiones/
+herramientas/videos_ayuda/musica.wav
+herramientas/videos_ayuda/*.mp4

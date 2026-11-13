@@ -1,0 +1,101 @@
+portada:La guía|Lo que dan hoy, y ver lo que ya ha pasado
+voz:La guía: la programación de hoy en cada canal, y cómo ver lo que ya ha pasado.
+foto:3.5
+finportada
+cap:En la lista de canales, [▶] abre la guía del canal elegido.
+voz:En la lista de canales, la flecha derecha abre la guía del canal que tengas elegido.
+foto:3.5
+tecla:39
+espera:2.5
+cap:Lo que se emite ahora sale en verde. Con [▲] [▼] te mueves por el día.
+voz:Lo que se está emitiendo ahora sale marcado en verde. Con arriba y abajo te mueves por el día.
+foto:4.5
+img:guia
+cap:[▲] sube a lo que ya se ha emitido.
+voz:Si subes, llegas a lo que ya se ha emitido.
+foto:1.5
+tecla:38
+foto:1
+tecla:38
+foto:1
+tecla:38
+foto:2
+cap:[OK] lo ves desde el principio, aunque ya haya pasado.
+voz:Pulsa okey y lo ves desde el principio, aunque ya haya pasado. Así no te pierdes nada.
+foto:5
+cap:[▶] abre la ficha con toda la información del programa.
+tecla:39
+espera:2.5
+voz:La flecha derecha abre la ficha, con toda la información del programa.
+foto:5
+img:ficha
+cap:[◀] vuelve a la guía, y otra vez [◀] a los canales.
+tecla:37
+espera:1.5
+voz:Con izquierda vuelves a la guía, y otra vez izquierda, a los canales.
+foto:3.5
+cap:En lo que aún no ha empezado, [OK] o la [roja] lo graba (si tu servicio incluye grabaciones).
+tecla:40
+tecla:40
+tecla:40
+tecla:40
+tecla:40
+espera:1
+voz:Y en lo que aún no ha empezado, pulsa OK o la tecla roja y queda grabándose, si tu servicio incluye grabaciones. Las tienes en el menú, Mis grabaciones.
+foto:5
+js:guideIdx=0;renderGuide();1
+espera:1
+cap:Arriba del todo, [▲] elige el día. Con [◀] [▶] pasas días enteros.
+tecla:38
+voz:Arriba del todo, con la flecha arriba eliges el día. Con izquierda y derecha pasas días enteros: hasta una semana atrás, y los próximos días.
+foto:2.5
+tecla:37
+espera:2
+foto:2
+tecla:39
+espera:1
+tecla:39
+espera:2
+foto:2.5
+tecla:37
+espera:2
+tecla:40
+espera:1
+tecla:37
+espera:1.5
+cap:La [verde] abre la guía de todos los canales (también está en el menú).
+tecla:113
+espera:4
+voz:La tecla verde abre la guía de todos los canales a la vez. También la tienes en el menú de la izquierda.
+foto:4
+img:parrilla
+cap:[▲] [▼] cambias de canal; [◀] [▶] te mueves por las horas.
+voz:Con arriba y abajo cambias de canal, y con izquierda y derecha te mueves por las horas, también hacia atrás.
+foto:2
+tecla:39
+foto:1.5
+tecla:39
+foto:1.5
+tecla:40
+foto:2
+cap:Con [⏪] [⏩] del mando pasas de día, aquí y en la guía de un canal.
+js:cambiarDiaRejilla(1);1
+espera:2
+voz:Y con las teclas de rebobinar y avanzar del mando pasas de un día a otro.
+foto:3.5
+js:cambiarDiaRejilla(-1);1
+espera:2
+cap:[OK] te dice qué puedes hacer: verlo, verlo desde el principio o grabarlo. La [roja] graba directamente.
+tecla:13
+voz:Pulsa okey y te dice qué puedes hacer con ese programa: verlo, verlo desde el principio o grabarlo. Y la tecla roja lo graba directamente.
+foto:5
+tecla:27
+cap:[verde] o [Atrás] cierra la guía.
+voz:Con la tecla verde otra vez, o con Atrás, la cierras.
+foto:3
+tecla:113
+espera:2
+cap:
+portada:¿Dudas?|Menú → Ayuda: aquí tienes todas las guías
+voz:¡Que lo disfrutes!
+foto:3.5

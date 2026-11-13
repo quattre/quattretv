@@ -1,0 +1,104 @@
+portada:La nueva Quattre TV|Todo lo nuevo, de un vistazo
+voz:Bienvenido a la nueva televisión de Quattre. Te enseñamos lo nuevo de un vistazo.
+foto:3.5
+finportada
+cap:Lista nueva: el canal en pequeño y lo que viene después.
+voz:La lista de canales es nueva: a la derecha ves el canal en pequeño, y lo que dan a continuación.
+foto:2
+tecla:40
+foto:1
+tecla:40
+foto:1.5
+tecla:114
+espera:6
+js:semana.filas=semana.filas.filter(function(f){return f.id!=='seguir'});semana.cols=semana.filas.map(function(){return 0});semana.fila=0;renderSemana();semana.filas.length
+espera:1.5
+cap:
+capabajo:Nuevo: Videoclub 7 días. Todo lo de la última semana, con la [amarilla].
+voz:Y lo más importante: el videoclub de siete días. Todo lo que se ha emitido en la última semana, para verlo cuando quieras. Se abre con la tecla amarilla.
+foto:2
+tecla:39
+foto:0.8
+tecla:39
+foto:0.8
+tecla:40
+foto:1.5
+js:semana.foco='pestanas';renderSemana();1
+capabajo:Películas, series, infantil, documentales… y un buscador.
+voz:Películas, series, infantil, documentales, y un buscador para encontrar lo que quieras.
+foto:3.5
+js:semana.foco='filas';renderSemana();1
+js:(function(){semana.episodios=null;for(var r=0;r<semana.filas.length;r++){var f=semana.filas[r];for(var i=0;i<f.items.length;i++){var it=f.items[i];if(it.n<=1&&it.img&&it.grupo==='peliculas'&&it.anio){abrirFichaSemana(it);return it.titulo}}}})()
+espera:7
+capabajo:Cada película con su ficha, su reparto y otras parecidas.
+voz:Cada película tiene su ficha, con el reparto, y otras parecidas.
+foto:4
+img:ficha_peli
+js:(function(){var it=semana.ficha.it;window.__pc=playChannel;window.playChannel=function(){};window.__as=aplicarSalto;window.aplicarSalto=function(){var s=salto,d=diferido;salto=null;if(!d||!s)return;d.base=Math.floor(s.destino);d.arrancado=new Date().getTime();mostrarOsd(null)};var f=document.createElement('div');f.id='__fondo';f.style.cssText='position:fixed;z-index:0;left:0;top:0;width:100%;height:100%;background:#000 url('+it.img+') center/cover no-repeat;filter:brightness(.8)';document.body.insertBefore(f,document.body.firstChild);document.getElementById('semana').style.display='none';reproducirPantallaCompleta('x',it.titulo,'',{titulo:it.titulo,sub:'',descr:it.descr,cero:it.ini,final:it.fin,finVisto:false,tipo:'archivo',chId:it.ch_id,inicio:it.ini,fin:it.fin,base:it.ini,volver:'semana'});return it.titulo})()
+espera:0.8
+capabajo:
+cap:Al ponerla, si empieza con anuncios o con el final de lo anterior, avanza con [▶] hasta la película.
+voz:Al poner una película, puede que empiece con anuncios, o con el final del programa anterior. Pulsa la flecha derecha para avanzar hasta que empiece la película.
+foto:2.5
+tecla:39
+foto:1.6
+tecla:39
+foto:1.6
+tecla:39
+foto:2.2
+cap:
+js:window.playChannel=__pc;window.aplicarSalto=__as;var f=document.getElementById('__fondo');f.parentNode.removeChild(f);1
+tecla:27
+espera:3
+js:semana.ficha=null;semana.episodios=null;renderSemana();(function(){for(var r=0;r<semana.filas.length;r++){var f=semana.filas[r];for(var i=0;i<f.items.length;i++){var it=f.items[i];if(it.n>3){semanaAbriendo=0;abrirEmisiones(it.grupo||f.id,it);return it.titulo}}}})()
+espera:6
+capabajo:En las series, todos los capítulos. Y lo que dejes a medias, en «Seguir viendo».
+voz:En las series tienes todos los capítulos. Y lo que dejes a medias te espera en Seguir viendo.
+foto:4.5
+js:semana.episodios=null;semana.ficha=null;renderSemana();1
+tecla:114
+espera:2
+tecla:113
+espera:5
+capabajo:Con la [verde], la guía de todos los canales.
+voz:Con la tecla verde tienes la guía de todos los canales.
+foto:3
+tecla:37
+foto:0.7
+tecla:37
+foto:0.7
+tecla:37
+foto:1
+capabajo:¿Te lo has perdido? Ve atrás en la guía, [OK], y lo ves desde el principio.
+voz:¿Te has perdido algo? Ve hacia atrás en la guía, pulsa okey, y lo ves desde el principio.
+foto:3.5
+img:rejilla
+tecla:113
+espera:2
+tecla:13
+espera:3
+js:channels[currentChannel].archive=1;channels[currentChannel].archive_range=168;window.aplicarSalto=function(){var s=salto,d=diferido;salto=null;if(!d)return;d.base=Math.floor(s.destino);d.arrancado=new Date().getTime();mostrarOsd(null)};1
+capabajo:
+cap:Y la tele en directo: [◀] la lleva atrás y [OK] la pausa.
+voz:Viendo un canal, la flecha izquierda lo lleva hacia atrás, y okey lo pausa. Atrás vuelve al directo.
+tecla:37
+foto:2.5
+tecla:37
+foto:3
+js:volverAlDirecto();1
+tecla:27
+espera:1.5
+cap:
+js:(function(){var d=document.createElement('div');d.id='__mando';d.style.cssText='position:fixed;z-index:998;left:0;top:0;width:100%;height:100%;opacity:0;transition:opacity .5s;background:#1d2023 url(/static/stb/ayuda/mando.jpg) center/100% 100% no-repeat';document.body.appendChild(d);setTimeout(function(){d.style.opacity='1'},50);return 1})()
+voz:Así es el mando: la roja graba, la verde abre la guía de todos los canales, la amarilla lleva al videoclub y de vuelta a la tele, y la azul guarda el canal en favoritos.
+foto:4
+js:(function(){var d=document.getElementById('__mando');d.style.opacity='0';setTimeout(function(){d.parentNode.removeChild(d)},600);abrirRail();return 1})()
+espera:0.2
+cap:En el menú: favoritos, categorías, radio, tus grabaciones y la ayuda.
+voz:Y en el menú tienes tus favoritos, las categorías, la radio, tus grabaciones y la ayuda.
+foto:4
+img:menu
+cap:
+portada:¡Que lo disfrutes!|Menú → Ayuda: todas las guías, paso a paso
+voz:En el menú, Ayuda, te lo explicamos todo paso a paso. ¡Que lo disfrutes!
+foto:4
