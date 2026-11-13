@@ -217,7 +217,11 @@ class Command(BaseCommand):
                 f'La MAC {mac} de "{usuario.username}" ya es de "{deco.user.username}" aqui: no se mueve')
             return
         if not deco:
-            deco = Device(user=usuario, mac_address=mac, device_type='mag', is_active=True)
+            # Los decos que vienen de Ministra ven los canales por http (puerto 1500),
+            # como alli: los MAG viejos no abren nuestro https y se quedaban en negro.
+            # Solo al crearlo: si luego se le quita a mano, no se le vuelve a poner.
+            deco = Device(user=usuario, mac_address=mac, device_type='mag', is_active=True,
+                          usa_http_legacy=True)
             self.cuenta['decos_nuevos'] += 1
         deco.model = (fila['stb_type'] or '')[:100]
         deco.serial_number = (fila['serial_number'] or '')[:100]
