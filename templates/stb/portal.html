@@ -2421,6 +2421,7 @@
         clearTimeout(osdTimeout);
         osdTimeout = setTimeout(function() { osd.style.display = "none"; }, TIEMPO_OSD);
         vigilarFinArchivo();
+        vigilarFinGrabacion();
     }
 
     // Lo ya emitido no sigue sin parar. El deco no avisa siempre de que se ha
@@ -2458,6 +2459,42 @@
                 cuenta: function(seg) { return 'Si no contestas, se vuelve ' + donde + ' en ' + seg + ' s'; }
             });
         }, 5000);
+    }
+    // Una grabacion si se acaba de verdad (es un fichero), y al acabar la
+    // pantalla se quedaba en negro hasta que alguien pulsaba Atras. Ahora se
+    // vuelve a "Mis grabaciones". El MAG avisa con su evento 1 (ver stbEvent);
+    // por si un modelo no lo manda, se mira cada segundo si ha llegado al final
+    // o se ha quedado parada en los ultimos segundos.
+    var relojFinGrabacion = null;
+    function vigilarFinGrabacion() {
+        clearInterval(relojFinGrabacion);
+        if (!diferido || diferido.tipo !== 'grabacion') return;
+        var mio = diferido, ultima = -1, quieto = 0, empezado = false;
+        relojFinGrabacion = setInterval(function() {
+            if (diferido !== mio || !isFullscreen) { clearInterval(relojFinGrabacion); return; }
+            var pos = -1, largo = 0;
+            try {
+                if (stbAPI && stbAPI.GetPosTime) { pos = stbAPI.GetPosTime(); largo = stbAPI.GetMediaLen(); }
+                else if (player) { pos = player.position; largo = player.duration; }
+                else if (htmlPlayer) { pos = htmlPlayer.currentTime; largo = htmlPlayer.duration; }
+            } catch (err) {}
+            // En pausa o saltando no avanza, y no es que haya acabado.
+            if (salto || mio.pausaDesde || pregunta) { ultima = pos; quieto = 0; return; }
+            if (pos > 0) empezado = true;
+            if (!empezado || !(largo > 0)) { ultima = pos; return; }
+            if (pos >= largo - 1) { terminarGrabacion(); return; }
+            if (pos === ultima && pos >= largo - 20) { if (++quieto >= 6) terminarGrabacion(); }
+            else quieto = 0;
+            ultima = pos;
+        }, 1000);
+    }
+    function terminarGrabacion() {
+        clearInterval(relojFinGrabacion);
+        if (!diferido || diferido.tipo !== 'grabacion' || !isFullscreen) return;
+        toast('Fin de la grabacion');
+        if (rj.volver) { volverARejilla(); return; }
+        showMenu();
+        if (hayGrabaciones()) openRecordings();
     }
     function terminarArchivo() {
         clearInterval(relojFinArchivo);
@@ -6350,6 +6387,7 @@
         }
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
+        else if (String(evento) === '1' && diferido && diferido.tipo === 'grabacion' && isFullscreen && !salto) terminarGrabacion();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'archivo' && isFullscreen &&
                  momentoDiferido() >= (diferido.cero ? diferido.final : diferido.fin)) terminarArchivo();
     };
