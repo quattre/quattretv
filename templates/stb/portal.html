@@ -5499,22 +5499,6 @@
     // diagnostico, y esa la pisaba: casi ninguna tecla desconocida llegaba al registro.
     var teclaRepetida = 0, vecesTecla = 0, relojTecla = null, teclasAvisadas = {};
 
-    // La tecla SET del mando de los MAG (120): dos veces seguidas abren la
-    // configuracion del deco (desde alli se reinicia). Con una sola, solo un
-    // aviso, para que el cliente no entre sin querer.
-    var setPulsado = 0;
-    function teclaSet() {
-        var ahora = new Date().getTime();
-        if (ahora - setPulsado > 3000) {
-            setPulsado = ahora;
-            toast('Pulsa SET otra vez para los ajustes del equipo');
-            return;
-        }
-        setPulsado = 0;
-        teclaRepetida = 120; vecesTecla = 4;
-        accesoConfiguracion(120);
-    }
-
     // Cambiar de pista de audio (Alt+G, la tecla de audio del mando de los
     // MAG, la misma que usaba Ministra, o MENU viendo un canal): pasa a la
     // siguiente y dice cual es.
@@ -5564,9 +5548,9 @@
     function accesoConfiguracion(k) {
         // Cinco pulsaciones seguidas de MENU abren la configuracion del deco. Asi el cliente no entra sin querer y el
         // tecnico si puede.
-        // Solo MENU (122) y SET (120): antes valia cualquier tecla sin uso, y la
-        // flecha arriba al principio de la lista lo es; un cliente entraba sin querer.
-        if (k !== 122 && k !== 120) {
+        // Solo MENU (122): antes valia cualquier tecla sin uso, y la flecha arriba
+        // al principio de la lista lo es; un cliente entraba sin querer.
+        if (k !== 122) {
             teclaRepetida = 0; vecesTecla = 0;
         } else if (k === teclaRepetida) {
             vecesTecla++;
@@ -5842,7 +5826,8 @@
             if (!ayudaPuesta && !(isFullscreen && diferido)) return false;
             k = 27;
         }
-        if (k === 120 && !e.altKey) { teclaSet(); return false; }
+        // SET (120) no hace nada: la configuracion del deco se abre solo con MENU cinco veces.
+        if (k === 120 && !e.altKey) return false;
         if ((k === 71 && e.altKey) || (k === 122 && isFullscreen)) { cambiarAudio(); return false; }
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
