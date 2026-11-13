@@ -403,13 +403,13 @@
         } else if (evento === 'entorno' && js && js.entorno) {
             entornoRemoto(js.entorno);
         } else if (evento === 'diagnostico') {
-            diagnosticoRemoto();
+            diagnosticoRemoto(js && js.diagnostico ? js.diagnostico.variables : null);
         }
     }
 
     // Solo lee: los bancos de firmware y los ajustes de arranque del deco, al
     // registro. Para entender lo que enseña el arranque sin ir a verlo.
-    function diagnosticoRemoto() {
+    function diagnosticoRemoto(pedidas) {
         function contar(t) {
             api('type=stb&action=log&diag=' + encodeURIComponent(('diagnostico ' + t).substring(0, 390)), function() {});
         }
@@ -425,8 +425,13 @@
                       ['Image_Version', 'Image_Desc', 'Image_Date', 'Boot_Version'],
                       ['update_url', 'autoupdate_cond', 'betaupdate_cond', 'portal1', 'portal2'],
                       ['boot_ubi0', 'boot_ubi1', 'bootupgrade', 'dualboot']];
+        if (pedidas && pedidas.length) {
+            grupos = [];
+            for (var p = 0; p < pedidas.length; p += 3) grupos.push(pedidas.slice(p, p + 3));
+        }
         for (var g = 0; g < grupos.length; g++) {
-            try { contar('env ' + gSTB.GetEnv(JSON.stringify({varList: grupos[g]}))); }
+            // En una linea: el registro cortaba el JSON en cada salto.
+            try { contar('env ' + String(gSTB.GetEnv(JSON.stringify({varList: grupos[g]}))).replace(/\s+/g, ' ')); }
             catch (e) { contar('env error ' + e); }
         }
     }

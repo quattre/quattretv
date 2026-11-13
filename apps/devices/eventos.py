@@ -292,6 +292,16 @@ def pedir_entorno(device, variables, reiniciar=False):
     return True
 
 
+def pedir_diagnostico(device, variables):
+    """Que el deco cuente al registro estas variables suyas (solo las lee)."""
+    variables = [str(v) for v in variables if str(v).replace('_', '').isalnum()][:40]
+    try:
+        cache.set(_clave(device), {'tipo': 'diagnostico', 'variables': variables}, CADUCA)
+    except Exception:
+        return False
+    return True
+
+
 def pedir_recarga_general():
     try:
         cache.set(CLAVE_GENERAL, int(time.time()), CADUCA * 7)
