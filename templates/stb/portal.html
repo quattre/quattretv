@@ -5546,11 +5546,11 @@
     }
 
     function accesoConfiguracion(k) {
-        // Cinco pulsaciones seguidas de MENU abren la configuracion del deco. Asi el cliente no entra sin querer y el
+        // Cinco pulsaciones seguidas de MENU o de SETUP abren la configuracion del deco. Asi el cliente no entra sin querer y el
         // tecnico si puede.
-        // Solo MENU (122): antes valia cualquier tecla sin uso, y la flecha arriba
-        // al principio de la lista lo es; un cliente entraba sin querer.
-        if (k !== 122) {
+        // Solo MENU (122) o SETUP (120): antes valia cualquier tecla sin uso, y la
+        // flecha arriba al principio de la lista lo es; un cliente entraba sin querer.
+        if (k !== 122 && k !== 120) {
             teclaRepetida = 0; vecesTecla = 0;
         } else if (k === teclaRepetida) {
             vecesTecla++;
@@ -5826,8 +5826,9 @@
             if (!ayudaPuesta && !(isFullscreen && diferido)) return false;
             k = 27;
         }
-        // SET (120) no hace nada: la configuracion del deco se abre solo con MENU cinco veces.
-        if (k === 120 && !e.altKey) return false;
+        // SET/SETUP (120): cinco veces seguidas abre la configuracion del deco, desde
+        // cualquier pantalla. Menos de cinco no hace nada.
+        if (k === 120 && !e.altKey) { accesoConfiguracion(120); return false; }
         if ((k === 71 && e.altKey) || (k === 122 && isFullscreen)) { cambiarAudio(); return false; }
         if (videoAyuda && document.getElementById("ayuda-video").style.display === "block" &&
                 k !== 107 && k !== 109) { teclaVideoAyuda(k); return false; }
