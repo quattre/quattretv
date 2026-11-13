@@ -131,8 +131,46 @@ def imagenes_para(device):
     except OSError:
         return []
     host = settings.QUATTRETV.get('PUBLIC_URL', '').split('://')[-1].rstrip('/')
-    nombres.sort(key=lambda n: ('trans' not in n, n))
-    return [('http://%s/media/%s/%s/imageupdate' % (host, CARPETA_PRUEBAS, n), n) for n in nombres]
+    datos = {n: cabecera_imagen(os.path.join(carpeta, n, 'imageupdate')) for n in nombres}
+    # Las transicionales primero (son el primer paso); luego, la mas nueva arriba.
+    nombres.sort(key=lambda n: datos[n]['orden'], reverse=True)
+    nombres.sort(key=lambda n: 'trans' not in n)
+    return [('http://%s/media/%s/%s/imageupdate' % (host, CARPETA_PRUEBAS, n),
+             ' · '.join(x for x in (datos[n]['texto'], n) if x)) for n in nombres]
+
+
+def cabecera_imagen(ruta):
+    """
+    Lo que la imagen dice de si misma en su cabecera (texto, al principio):
+    version, descripcion y fecha de montaje. El nombre de la carpeta lo pone
+    quien la sube y no bastaba para saber cual era cual.
+    """
+    from datetime import datetime
+    import re
+    c = {}
+    try:
+        with open(ruta, 'rb') as f:
+            for linea in f.read(600).decode('latin1').split('Start data')[0].splitlines():
+                k, _, v = linea.partition(':')
+                c[k.strip()] = v.strip()
+    except OSError:
+        pass
+    fecha = None
+    # "Fri Nov 13 12:23:23 CET 2026": sin el dia de la semana ni la zona.
+    m = re.match(r'\w+ (\w+) +(\d+) (\d+:\d+):\d+ \w+ (\d{4})', c.get('Date', ''))
+    if m:
+        try:
+            fecha = datetime.strptime('%s %s %s %s' % m.groups(), '%b %d %H:%M %Y')
+        except ValueError:
+            pass
+    partes = []
+    if c.get('Image Version'):
+        partes.append('v' + c['Image Version'])
+    if c.get('Image Description'):
+        partes.append(c['Image Description'])
+    if fecha:
+        partes.append(fecha.strftime('%d/%m/%Y %H:%M'))
+    return {'texto': ' · '.join(partes), 'orden': fecha or datetime.min}
 
 
 # ---------- Lo que cuenta el deco al probar un firmware ----------
