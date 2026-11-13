@@ -5562,10 +5562,13 @@
     }
 
     function accesoConfiguracion(k) {
-        // Cinco pulsaciones seguidas de la misma tecla no reconocida abren la
-        // configuracion del deco. Asi el cliente no entra sin querer y el
+        // Cinco pulsaciones seguidas de MENU abren la configuracion del deco. Asi el cliente no entra sin querer y el
         // tecnico si puede.
-        if (k === teclaRepetida) {
+        // Solo MENU (122) y SET (120): antes valia cualquier tecla sin uso, y la
+        // flecha arriba al principio de la lista lo es; un cliente entraba sin querer.
+        if (k !== 122 && k !== 120) {
+            teclaRepetida = 0; vecesTecla = 0;
+        } else if (k === teclaRepetida) {
             vecesTecla++;
         } else {
             teclaRepetida = k;
