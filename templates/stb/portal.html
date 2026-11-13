@@ -1562,6 +1562,29 @@
         }, 6000);
     }
 
+    // Volver a pedir el canal que se ha caido. Hasta 6 veces seguidas, cada vez
+    // con mas espera; si lleva un minuto bien, la cuenta empieza de nuevo.
+    var recupera = {id: 0, n: 0, cuando: 0, reloj: null};
+    function recuperarDirecto() {
+        var ch = canalStb, ahora = new Date().getTime();
+        if (!ch || !ch.id || !ch.cmd) return;
+        // Recien cambiado de canal, el aviso puede ser del canal anterior; y
+        // si es que este no arranca, de eso ya se ocupa ordenStb a los 6 s.
+        if (ahora - inicioStb < 4000) return;
+        if (recupera.id !== ch.id || ahora - recupera.cuando > 60000) { recupera.id = ch.id; recupera.n = 0; }
+        if (recupera.n >= 6) return;
+        recupera.n++;
+        recupera.cuando = ahora;
+        var yo = testigoStb, n = recupera.n;
+        clearTimeout(recupera.reloj);
+        recupera.reloj = setTimeout(function() {
+            // Si mientras tanto se ha cambiado de canal o se ha parado, nada.
+            if (yo !== testigoStb || canalStb !== ch || diferido) return;
+            api('type=stb&action=log&diag=' + encodeURIComponent('repro recupera ' + n + ' ' + (ch.name || ch.id)), function() {});
+            ordenStb(ch, 1);
+        }, 1000 + 1500 * (n - 1));
+    }
+
     function playChannel(ch) {
         // Un canal de verdad (con id) es el directo; {cmd: url} es el archivo,
         // una grabacion o el videoclub, que ponen su propio estado.
@@ -6385,6 +6408,10 @@
                 (new Date().getTime() - inicioStb) + ' ms ' + (canalStb.name || canalStb.id) +
                 ' [' + (prefijoStb || 'nada').trim() + ']'), function() {});
         }
+        // El directo se cae a veces (el 5 es "no puedo seguir", el 1 "se acabo")
+        // y el deco no vuelve a pedirlo: la imagen se quedaba en negro hasta
+        // cambiar de canal. Se vuelve a pedir el mismo canal, unas pocas veces.
+        if ((ev === '5' || ev === '1') && canalStb && !diferido && !(videoAyuda && videoAyuda.deco)) recuperarDirecto();
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'grabacion' && isFullscreen && !salto) terminarGrabacion();
