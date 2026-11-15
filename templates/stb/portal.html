@@ -2395,6 +2395,8 @@
                 mostrarOsd(null);
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo avanzar');
+                api('type=stb&action=log&diag=' + encodeURIComponent('retroceder fallo ' +
+                    ((js && js.error) ? js.error : 'sin respuesta') + ' utc=' + destino), function() {});
             }
         });
     }
@@ -3055,6 +3057,10 @@
         var idx = playingChannelIdx >= 0 ? playingChannelIdx : currentChannel;
         var ch = channels[idx];
         if (!ch) return;
+        // Al registro: que canal, y si el servidor dice que tiene archivo.
+        api('type=stb&action=log&diag=' + encodeURIComponent('retroceder ' + (ch.name || ch.id) +
+            ' archivo=' + (ch.archive ? 1 : 0) + ' hasta=' + (ch.archive_until || 0) +
+            ' horas=' + (ch.archive_range || 0)), function() {});
         if (!ch.archive || ch.archive_until) { toast('Este canal no se puede retroceder'); return; }
         var ahora = ahoraSeg();
         diferido = {
@@ -6049,8 +6055,10 @@
                 // sacan la barra con la informacion. Antes volvian al directo:
                 // se tocaba sin querer y se perdia la peli. Para salir, Atras.
                 mostrarOsd(null);
-            } else if (k === 37 && !diferido) {
-                // ◀ en el directo: atras en el tiempo, con el archivo.
+            } else if ((k === 37 || (e.altKey && k === 66)) && !diferido) {
+                // ◀ en el directo: atras en el tiempo, con el archivo. Tambien
+                // con la tecla de rebobinar del mando (Alt+B), que en el
+                // directo no hacia nada y solo valia una vez ya en diferido.
                 retrocederDirecto();
             } else if ((k === 38 || k === 40) && channels.length) {
                 // Cambiar canal en fullscreen: ▲ (y CH+) al siguiente numero,
