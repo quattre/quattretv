@@ -1520,6 +1520,7 @@
     // nada, se vuelve a pedir una vez.
     var colaStb = null, ultimaPeticionStb = 0, testigoStb = 0, arrancoStb = false;
     var canalStb = null, inicioStb = 0, eventosStb = {};
+    var insiste = {id: 0, n: 0};
     // PRUEBA (05/11): en el 420 y el 322 la imagen tarda unos 3 s y en el 540
     // medio. Se alterna el reproductor del deco en cada cambio para medir cual
     // abre antes el HLS; cuando se sepa, se deja el bueno y se quita esto.
@@ -1554,6 +1555,19 @@
             var va = arrancoStb || pistas.length || (suena >= 0 && suena !== 65535);
             if (intento) {
                 api('type=stb&action=log&diag=' + encodeURIComponent('repro tras reintento ' + (ch.name || ch.id) + (va ? ' va' : ' sigue sin nada')), function() {});
+                // Antes se dejaba aqui: un reintento y, si tampoco, en negro
+                // hasta que alguien cambiara de canal. El 16/11 La 1 se cayo
+                // unos segundos en el CDN y todos los decos que la tenian
+                // puesta se quedaron asi. Se sigue pidiendo, cada vez mas
+                // despacio (hasta 30 s), unos diez minutos.
+                if (va) { insiste.n = 0; return; }
+                if (insiste.id !== ch.id) { insiste.id = ch.id; insiste.n = 0; }
+                if (insiste.n >= 20) return;
+                insiste.n++;
+                setTimeout(function() {
+                    if (yo !== testigoStb || canalStb !== ch || diferido) return;
+                    ordenStb(ch, 1);
+                }, Math.min(4000 * insiste.n, 30000));
                 return;
             }
             if (va) return;
