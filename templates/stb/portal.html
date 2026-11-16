@@ -286,6 +286,7 @@
 
     function loadData() {
         contarComoSoy();
+        if (arreglarMenusPequenos()) return;
         recuperarVolumen();
         // Las novedades, lo primero: antes salian a los 4 segundos, con el
         // canal ya sonando, y se veia la tele un momento y luego el aviso. El
@@ -460,6 +461,28 @@
         try { contar('SetEnv ' + gSTB.SetEnv(JSON.stringify(e.variables))); } catch (err) { contar('error SetEnv ' + err); return; }
         contar('despues ' + leer());
         if (e.reiniciar) setTimeout(function() { try { gSTB.ExecAction('reboot'); } catch (err) {} }, 3000);
+    }
+
+    // Un deco con los menus a 720x576 (graphicres=720, el ajuste de las teles
+    // cuadradas) pinta este portal cortado por abajo y con la miniatura
+    // recortada: esta hecho para pantalla ancha. Se le pone 1280x720, como
+    // tienen todos los demas, y se reinicia solo; vuelve en unos 40 segundos.
+    // Solo si el ajuste no era ya 1280: si lo era y aun asi la ventana sale
+    // pequeña, reiniciar no arregla nada y seria un bucle.
+    // (00:1A:79:74:87:B3, un MAG520 de cliente, 16/11/2026.)
+    function arreglarMenusPequenos() {
+        if (typeof gSTB === 'undefined' || !gSTB.SetEnv || !gSTB.GetEnv) return false;
+        if (window.innerWidth >= 1000) return false;
+        var tiene = '';
+        try { tiene = String(JSON.parse(gSTB.GetEnv('{"varList":["graphicres"]}')).result.graphicres || ''); } catch (err) { return false; }
+        if (tiene === '1280') return false;
+        var hecho;
+        try { hecho = gSTB.SetEnv('{"graphicres":"1280"}'); } catch (err) { return false; }
+        api('type=stb&action=log&diag=' + encodeURIComponent('menus pequeños: graphicres ' + tiene +
+            ' -> 1280 (' + hecho + '), ventana ' + window.innerWidth + 'x' + window.innerHeight + ', reinicio'), function() {});
+        try { mostrarMensaje('Ajustando la pantalla', 'El aparato se reinicia solo. Tarda menos de un minuto.'); } catch (err) {}
+        setTimeout(function() { try { gSTB.ExecAction('reboot'); } catch (err) {} }, 3000);
+        return true;
     }
 
     var FINALES_FW = [1, 2, 3, 4, 7, 16, 17, 19, 20, 22, 24, 25, 27];
