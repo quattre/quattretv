@@ -39,3 +39,12 @@ guion pueden acabar en otra pantalla. Se sube a `media/ayuda/` de iptv2 guardand
 
 Caja oscura redondeada, **sin barra ni marca de color al lado del texto** (se quitó el 13/11/2026). Arriba a la
 derecha (`cap`) o abajo a lo ancho (`capabajo`). Las teclas van entre corchetes: `[OK]`, `[▶]`, `[amarilla]`.
+
+## La imagen de los canales
+
+En Chrome los canales no se ven, así que detrás va una foto fija por canal: `fondos/<id del canal>.jpg`
+(1920×1080). Se sacan del archivo con ffmpeg (un fotograma de una película o un documental, no de un
+informativo: envejece mal). No están en el repositorio; si falta la carpeta, el vídeo sale con el logo
+en el hueco, como antes. Un canal sin foto usa la de otro.
+
+Los títulos de las guías tienen que caber en una línea del menú Ayuda: unos 23 caracteres si llevan vídeo.

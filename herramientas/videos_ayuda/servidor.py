@@ -14,6 +14,10 @@ class H(http.server.BaseHTTPRequestHandler):
             if not os.path.isfile(f): return self.send_error(404)
             tipo = {'.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.woff': 'font/woff'}.get(os.path.splitext(f)[1], 'application/octet-stream')
             datos = open(f, 'rb').read()
+        elif ruta.startswith('/fondos/'):
+            f = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fondos', os.path.basename(ruta))
+            if not os.path.isfile(f): return self.send_error(404)
+            datos = open(f, 'rb').read(); tipo = 'image/jpeg'
         elif ruta.startswith('/stb') and q:
             if 'type=ayuda' in q:
                 import json as J

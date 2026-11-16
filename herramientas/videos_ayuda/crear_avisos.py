@@ -1,14 +1,13 @@
 from apps.devices.models import Aviso
 
 GUIAS = [
-    dict(orden=0, al_iniciar=True, veces=3, imagen='ayuda/bienvenida.jpg', video_url='ayuda/basico.mp4',
-         titulo='Bienvenido a la nueva Quattre TV',
-         texto='Hemos renovado la televisión. Lo esencial:\n\n'
-               '·  ▲▼ eliges canal y OK lo ves a pantalla completa.\n'
-               '·  ▶ abre la guía del canal. ◀ vuelve atrás y te lleva al menú.\n'
-               '·  Tecla amarilla: Videoclub 7 días, todo lo emitido la última semana.\n'
-               '·  Tecla verde: guarda el canal en tus favoritos.\n\n'
-               'Tienes estas guías siempre en Menú → Ayuda.'),
+    dict(orden=0, al_iniciar=True, veces=3, imagen='ayuda/bienvenida.jpg', video_url='ayuda/novedades.mp4',
+         titulo='Bienvenido: lo nuevo',
+         texto='Hemos renovado la televisión. Lo nuevo:\n\n'
+               '·  VIDEOCLUB 7 DÍAS (tecla amarilla): películas y series de la última semana, cuando quieras.\n'
+               '·  ¿Te lo has perdido? En la guía (tecla verde), OK y lo ves desde el principio.\n'
+               '·  Viendo un canal, ◀ vuelve atrás en el tiempo y OK lo pausa.\n\n'
+               'Míralo en el vídeo: son dos minutos. Lo tienes siempre en Menú → Ayuda.'),
     dict(orden=1, imagen='ayuda/videoclub.jpg', video_url='ayuda/videoclub.mp4',
          titulo='Videoclub 7 días',
          texto='Todo lo emitido en los últimos 7 días, para verlo cuando quieras.\n\n'
@@ -19,7 +18,7 @@ GUIAS = [
                '·  Lo que dejas a medias sigue en «Seguir viendo».\n\n'
                'Empieza a la hora que marca la cadena. Alguna pone un minuto de anuncios propios antes de la película: pulsa ▶ para saltarlos.'),
     dict(orden=2, imagen='ayuda/guia.jpg', video_url='ayuda/guia.mp4',
-         titulo='La guía y ver lo que ya ha pasado',
+         titulo='La guía y lo ya emitido',
          texto='·  En la lista de canales, ▶ (o la tecla azul) abre la guía del canal.\n'
                '·  ▲▼ te mueves por el día. Lo que se emite ahora sale marcado.\n'
                '·  En algo ya emitido, OK lo ves desde el principio (en los canales que lo permiten).\n'

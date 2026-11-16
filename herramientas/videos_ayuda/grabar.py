@@ -64,8 +64,9 @@ PREP = r"""
 (function(){
  if (window.__cap) return;
  var st = document.createElement('style');
- st.textContent = '#preview{background:#16191b url(/static/stb/quattretv-anillo.svg) no-repeat center !important;background-size:220px !important;font-size:0 !important;color:transparent !important}' +
+ st.textContent = '#preview{background:#16191b url(/static/stb/quattretv-anillo.svg) no-repeat center;background-size:220px;font-size:0 !important;color:transparent !important}' +
   '#preview *{display:none !important}' +
+  '#__tv{position:fixed;z-index:0;left:0;top:0;width:100%;height:100%;background:#000 center/cover no-repeat;display:none}' +
   '#__cap{position:fixed;z-index:999;transition:opacity .35s;left:749px;width:1079px;top:14px;padding:14px 26px;border-radius:14px;background:rgba(13,14,16,.92);color:#fff;font:500 30px/44px Poppins,Arial,sans-serif;display:none;box-sizing:border-box}' +
   '#__cap.abajo{left:120px;width:1680px;top:auto;bottom:34px}' +
   '#__cap b{display:inline-block;padding:0 14px;margin:0 4px;border-radius:8px;border:2px solid #fff;font-weight:600;line-height:38px}' +
@@ -75,6 +76,23 @@ PREP = r"""
  document.head.appendChild(st);
  var c = document.createElement('div'); c.id='__cap'; document.body.appendChild(c);
  var p = document.createElement('div'); p.id='__port'; document.body.appendChild(p);
+ // La imagen del canal: en Chrome los canales no se ven, asi que detras se pone
+ // una foto fija de cada uno (fondos/<id del canal>.jpg). En pequeño va en el
+ // hueco de la miniatura; a pantalla completa, detras de todo.
+ var tv = document.createElement('div'); tv.id='__tv'; document.body.insertBefore(tv, document.body.firstChild);
+ var FONDOS = __FONDOS__, puesto = null;
+ setInterval(function(){
+   var i = playingChannelIdx >= 0 ? playingChannelIdx : currentChannel, ch = channels[i];
+   var id = ch ? (FONDOS.indexOf(ch.id) >= 0 ? ch.id : FONDOS[i % FONDOS.length]) : 0;
+   var pv = document.getElementById('preview');
+   if (id !== puesto) {
+     puesto = id;
+     var u = id ? 'url(/fondos/' + id + '.jpg)' : '';
+     tv.style.backgroundImage = u;
+     pv.style.background = id ? '#000 ' + u + ' center/cover no-repeat' : '';
+   }
+   tv.style.display = (id && isFullscreen && !document.getElementById('__fondo')) ? 'block' : 'none';
+ }, 100);
  window.__cap = function(t, abajo){
    if (!t) { c.style.opacity='0'; return; }
    c.className = abajo ? 'abajo' : '';
@@ -128,7 +146,9 @@ try:
     def js(code): return cdp('Runtime.evaluate', expression=code, returnByValue=True)
     cdp('Emulation.setDeviceMetricsOverride', width=1920, height=1080, deviceScaleFactor=1, mobile=False)
     cdp('Page.navigate', url='http://127.0.0.1:8765/stb/')
-    time.sleep(8); js(PREP); time.sleep(.5)
+    fondos = sorted(int(f[:-4]) for f in os.listdir(os.path.join(DIR, 'fondos')) if f.endswith('.jpg')) \
+        if os.path.isdir(os.path.join(DIR, 'fondos')) else []
+    time.sleep(8); js(PREP.replace('__FONDOS__', json.dumps(fondos))); time.sleep(1.5)
     cdp('Page.startScreencast', format='jpeg', quality=90, maxWidth=1920, maxHeight=1080, everyNthFrame=1)
     # Tramos grabados [inicio, fin] y frases (tramo, hora de pared).
     tramos, frases, voz = [], [], None
