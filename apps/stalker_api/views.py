@@ -2487,6 +2487,29 @@ def _aviso_caducan(device):
     }
 
 
+def cargador_ministra(request):
+    """
+    El cargador de JavaScript del portal de Ministra (server/api/load_js.php).
+
+    Al pasar un deco se le manda recargar. Lo normal es que vuelva a pedir la
+    pagina y, como ya manda la cookie mac, reciba la nuestra. Pero la pagina de
+    Ministra (c/index.html) se sirve con 30 dias de cache, y hay decos que
+    recargan con la copia guardada: esa pagina pide este fichero, aqui no
+    existia (404) y el deco se quedaba con la pantalla en blanco y sin volver a
+    llamar a nadie (dos de 25 clientes el 16/11/2026). Se le contesta con un
+    salto a nuestro portal, con un parametro para que no tire otra vez de la
+    cache. loadRequiredFiles es lo que esa pagina llama a continuacion.
+    """
+    logger_equipos.warning('Deco %s con la pagina de Ministra en cache: salto al portal',
+                           request.COOKIES.get('mac', '?'))
+    respuesta = HttpResponse(
+        "this.loadRequiredFiles = function () {};\n"
+        "window.location.replace('/stalker_portal/c/?nuevo=' + new Date().getTime());\n",
+        content_type='application/javascript')
+    respuesta['Cache-Control'] = 'no-store'
+    return respuesta
+
+
 def handle_ayuda(request, action):
     """
     Novedades al arrancar y la seccion Ayuda (ver Aviso en apps/devices/models.py).

@@ -12,4 +12,7 @@ urlpatterns = [
     # El portal de Ministra se recarga pidiendo c/index.html: un deco recien
     # pasado (ver handle_watchdog) llega por aqui la primera vez.
     path('c/index.html', views.portal_handler, name='c_index'),
+    # Lo primero que pide la pagina del portal de Ministra. Un deco recien
+    # pasado que recarga con esa pagina guardada en su cache (ver cargador_ministra).
+    path('server/api/load_js.php', views.cargador_ministra, name='load_js'),
 ]
