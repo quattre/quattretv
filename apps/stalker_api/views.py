@@ -16,6 +16,7 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny
 from apps.devices.models import Device
+from apps.core.maquina import apuntar_muestra
 from apps.channels.models import Channel, Category
 from apps.epg.models import Program
 from apps.vod.models import Movie, Series, VodCategory
@@ -2366,6 +2367,7 @@ def handle_watchdog(request, action):
         # a pedir por detras. Antes habia que recargar el portal o reiniciar.
         if cargado.isdigit():
             respuesta['canales'] = marca_canales()
+        apuntar_muestra()
         evento = None
         if cargado.isdigit():
             evento = eventos.recoger(device, int(cargado))

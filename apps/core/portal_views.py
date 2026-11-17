@@ -13,6 +13,7 @@ from django.db.models import Count, Q
 
 from apps.accounts.models import User, Tariff
 from apps.devices.models import Device
+from .maquina import historia_maquina
 from apps.channels.models import Channel, Category, ChannelStream
 
 
@@ -77,14 +78,14 @@ def dashboard(request):
         is_active=True
     ).select_related('category').order_by('number')[:10]
 
-    # Chart data (mock for now - last 24 hours)
-    chart_labels = [f'{i}:00' for i in range(24)]
-    chart_data = [0] * 24  # Would be real connection data
+    # La grafica: muestras de cada 5 minutos que apuntan los latidos de los decos.
+    historia = historia_maquina()
 
-    # Device types
-    device_types = Device.objects.values('device_type').annotate(count=Count('id'))
-    device_types_labels = [d['device_type'].upper() for d in device_types]
-    device_types_data = [d['count'] for d in device_types]
+    # Decos por modelo, con la cantidad en el rotulo.
+    modelos = (Device.objects.values('model').annotate(count=Count('id'))
+               .order_by('-count'))
+    device_types_labels = ['%s (%d)' % (d['model'] or 'Sin modelo', d['count']) for d in modelos]
+    device_types_data = [d['count'] for d in modelos]
 
     context = {
         'active_page': 'dashboard',
@@ -94,8 +95,7 @@ def dashboard(request):
         'recent_users': recent_users,
         'online_devices': online_devices,
         'top_channels': top_channels,
-        'chart_labels': json.dumps(chart_labels),
-        'chart_data': json.dumps(chart_data),
+        'historia': json.dumps(historia),
         'device_types_labels': json.dumps(device_types_labels if device_types_labels else ['Sin datos']),
         'device_types_data': json.dumps(device_types_data if device_types_data else [1]),
     }
