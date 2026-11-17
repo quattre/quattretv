@@ -22,7 +22,11 @@ def _tiempos_cpu():
 def _cola_peticiones(puerto=8000):
     """Peticiones esperando a que un trabajador las atienda (Recv-Q de ss)."""
     try:
-        salida = subprocess.run(['ss', '-ltnH', 'sport = :%d' % puerto],
+        # El servicio arranca con el PATH del venv y ahi no esta ss: sin la
+        # ruta entera la cola salia siempre con un "?".
+        ss = shutil.which('ss') or next(
+            (r for r in ('/usr/bin/ss', '/usr/sbin/ss', '/bin/ss', '/sbin/ss') if os.path.exists(r)), 'ss')
+        salida = subprocess.run([ss, '-ltnH', 'sport = :%d' % puerto],
                                 capture_output=True, text=True, timeout=2).stdout
         for linea in salida.splitlines():
             trozos = linea.split()

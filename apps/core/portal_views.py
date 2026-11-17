@@ -47,8 +47,11 @@ def dashboard(request):
     # Statistics
     stats = {
         'users_count': User.objects.count(),
-        'users_active': User.objects.filter(
-            subscription_expires__gte=now
+        # Activos: cuentas dadas de alta y sin la suscripcion caducada. Las que
+        # vienen de Ministra no traen fecha, y contando solo las que tenian
+        # fecha salia siempre "1 activos".
+        'users_active': User.objects.filter(is_active=True).filter(
+            Q(subscription_expires__isnull=True) | Q(subscription_expires__gte=now)
         ).count(),
         'devices_count': Device.objects.count(),
         'devices_online': Device.objects.filter(
