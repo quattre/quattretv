@@ -98,7 +98,7 @@ def dashboard(request):
         'active_page': 'dashboard',
         'stats': stats,
         'maquina_tarjetas': [('cpu', 'CPU'), ('carga', 'Carga'), ('mem', 'Memoria'),
-                             ('disco', 'Disco'), ('cola', 'Cola de peticiones')],
+                             ('disco', 'Disco'), ('cola', 'Peticiones en espera')],
         'recent_users': recent_users,
         'online_devices': online_devices,
         'top_channels': top_channels,
