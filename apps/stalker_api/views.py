@@ -370,7 +370,16 @@ def handle_log(request):
                 type(device).objects.filter(pk=device.pk).update(**cambios)
             desc = _re.search(r' desc=(.*)$', datos)
             from apps.devices import eventos
-            eventos.apuntar_equipo(device, fw.group(1).strip() if fw else '', desc.group(1).strip() if desc else '')
+            ver = _re.search(r' ver=(\d+)', datos)
+            eventos.apuntar_equipo(device, fw.group(1).strip() if fw else '', desc.group(1).strip() if desc else '',
+                                   version=int(ver.group(1)) if ver else None)
+        # La version de la imagen instalada, cuando la dice un diagnostico.
+        if device and datos.startswith('diagnostico env') and 'Image_Version' in datos:
+            import re as _re
+            ver = _re.search(r'"Image_Version"\s*:\s*"(\d+)"', datos)
+            if ver:
+                from apps.devices import eventos
+                eventos.apuntar_version(device, ver.group(1))
         # Lo que va contando al probar un firmware, para la ficha del panel.
         if device and datos.startswith('firmware '):
             from apps.devices import eventos

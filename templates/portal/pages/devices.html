@@ -127,6 +127,7 @@
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">MAC Address</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuario</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Firmware</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ultima IP</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ultima conexion</th>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
@@ -172,6 +173,16 @@
                             </span>
                         {% else %}
                             <span class="px-3 py-1 text-xs rounded-full bg-gray-100 text-gray-700">{{ device.get_device_type_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm whitespace-nowrap">
+                        {% if device.device_type != 'mag' %}<span class="text-gray-300">-</span>
+                        {% else %}
+                            <span class="text-gray-500">{{ device.model|default:"" }}</span>
+                            {% if device.fw.al_dia %}<span class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700" title="Tiene el último firmware">{{ device.fw.actual }} ✓</span>
+                            {% elif device.fw.nuevo %}<span class="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800" title="Hay uno más nuevo: la {{ device.fw.version }}">{{ device.fw.actual }} → {{ device.fw.version }}</span>
+                            {% elif device.fw.actual %}<span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{{ device.fw.actual }}</span>
+                            {% else %}<span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-400" title="El deco aún no ha dicho su versión">?</span>{% endif %}
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 text-gray-600">{{ device.last_ip|default:"-" }}</td>
@@ -227,7 +238,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                    <td colspan="8" class="px-6 py-12 text-center text-gray-400">
                         <i class="bi bi-inbox text-5xl block mb-3"></i>
                         <p>No hay dispositivos registrados</p>
                     </td>

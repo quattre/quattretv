@@ -362,7 +362,12 @@ def devices_list(request):
     elif status == 'offline':
         devices = devices.exclude(last_seen__gte=online_threshold)
 
-    devices = devices.order_by('-last_seen')
+    devices = list(devices.order_by('-last_seen'))
+    # La version de firmware de cada deco y si es la ultima de su modelo.
+    from apps.devices import eventos
+    firmwares = eventos.firmware_de_lista(devices)
+    for d in devices:
+        d.fw = firmwares.get(d.id)
 
     context = {
         'active_page': 'devices',

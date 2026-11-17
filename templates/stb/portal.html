@@ -320,7 +320,11 @@
         try { m = String(gSTB.GetDeviceModelExt() || ''); } catch (e) {}
         try { fw = String(gSTB.GetDeviceImageVersionCurrent() || ''); } catch (e) {}
         try { desc = String(gSTB.GetDeviceImageDesc() || ''); } catch (e) {}
-        api('type=stb&action=log&diag=' + encodeURIComponent('equipo modelo=' + m + ' fw=' + fw + ' desc=' + desc), function() {});
+        // La version de la imagen (213, 250...): es lo que se mira en el panel
+        // para saber si lleva la ultima. El texto de fw es el de compilacion.
+        var ver = '';
+        try { ver = String(JSON.parse(gSTB.GetEnv(JSON.stringify({varList: ['Image_Version']}))).result.Image_Version || '').replace(/\D/g, ''); } catch (e) {}
+        api('type=stb&action=log&diag=' + encodeURIComponent('equipo modelo=' + m + (ver ? ' ver=' + ver : '') + ' fw=' + fw + ' desc=' + desc), function() {});
     }
 
     function latido() {

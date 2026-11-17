@@ -94,20 +94,73 @@ FIRMWARES = {
 
 
 def firmware_para(device):
-    """{'url', 'version', 'fecha', 'actual', 'nuevo'} para la ficha del panel, o None."""
-    modelo = (device.model or '').upper().replace(' ', '')
-    clave = next((k for k in FIRMWARES if modelo.startswith(k)), None)
-    if not clave:
+    """
+    Para la ficha y el listado del panel: que version lleva el deco y cual es
+    la ultima final que tenemos para su modelo.
+
+    {'version', 'fecha', 'url', 'actual', 'desc', 'nuevo', 'al_dia'} o None si
+    no hay ninguna imagen final para ese modelo.
+
+    Antes se comparaba con la tabla FIRMWARES (lo publicado en Ministra, la
+    208 del 540) y con un numero sacado del texto de compilacion, que no lo
+    lleva: un 540 con la 213 no decia ni que version tenia ni que era la ultima.
+    """
+    ultima = _ultima_final(imagenes_para(device))
+    if not ultima:
         return None
-    ruta, version, fecha = FIRMWARES[clave]
+    equipo = equipo_de(device) or {}
+    return _comparar(ultima, equipo)
+
+
+def _ultima_final(imagenes):
+    finales = [i for i in imagenes if not i['transicional'] and str(i['version']).isdigit()]
+    if not finales:
+        return None
+    # A igual version, la de la clave normal antes que la de la clave de 2021.
+    return max(finales, key=lambda i: (int(i['version']), 'clave' not in i['nombre']))
+
+
+def _comparar(ultima, equipo):
+    actual = equipo.get('version')
+    version = int(ultima['version'])
+    return {'url': ultima['url'], 'version': version, 'fecha': ultima['fecha'],
+            'actual': actual, 'desc': equipo.get('desc', ''),
+            'nuevo': actual is not None and actual < version,
+            'al_dia': actual is not None and actual >= version}
+
+
+def firmware_de_lista(devices):
+    """
+    Lo mismo que firmware_para, para muchos decos de una vez (el listado):
+    {id: {...}}. Lee las imagenes una vez por modelo y la cache de un golpe.
+    """
+    por_prefijo, salida = {}, {}
+    decos = [d for d in devices if d.device_type == 'mag']
+    try:
+        equipos = cache.get_many([_clave_equipo(d) for d in decos])
+    except Exception:
+        equipos = {}
+    for d in decos:
+        pre = _prefijo(d)
+        if pre not in por_prefijo:
+            por_prefijo[pre] = _ultima_final(imagenes_para(d)) if pre else None
+        equipo = equipos.get(_clave_equipo(d)) or {}
+        if por_prefijo[pre]:
+            salida[d.id] = _comparar(por_prefijo[pre], equipo)
+        elif equipo.get('version') is not None:
+            salida[d.id] = {'version': None, 'actual': equipo['version'], 'desc': equipo.get('desc', ''),
+                            'nuevo': False, 'al_dia': False}
+    return salida
+
+
+# El 322 lleva la imagen del 324 (son la misma familia y la carpeta se llama 324-...).
+FAMILIA_IMAGEN = {'322': '324'}
+
+
+def _prefijo(device):
     import re
-    # Sin el modelo pegado ("2.20.05-256", "2.20.08-pub-540"): ese 256 no es
-    # la version, y hacia decir "ya lo tiene" a un 256 que no la tiene.
-    fw = re.sub(r'-(?:pub-)?\d{3}\b', '', device.firmware_version or '')
-    m = re.search(r'(?<![\d.:])(\d{3})(?![\d.:])', fw)
-    actual = int(m.group(1)) if m else None
-    return {'url': FIRMWARE_BASE + ruta, 'version': version, 'fecha': fecha, 'actual': actual,
-            'nuevo': actual is not None and actual < version}
+    m = re.search(r'(\d{3})', (device.model or '').upper())
+    return FAMILIA_IMAGEN.get(m.group(1), m.group(1)) if m else ''
 
 
 # Las imagenes de prueba: en iptv2, en media/ayuda/fw-prueba/<modelo>-<lo que
@@ -121,12 +174,12 @@ def imagenes_para(device):
     import os
     import re
     from django.conf import settings
-    m = re.search(r'(\d{3})', (device.model or '').upper())
-    if not m:
+    prefijo = _prefijo(device)
+    if not prefijo:
         return []
     carpeta = os.path.join(str(settings.MEDIA_ROOT), CARPETA_PRUEBAS)
     try:
-        nombres = sorted(n for n in os.listdir(carpeta) if n.startswith(m.group(1) + '-')
+        nombres = sorted(n for n in os.listdir(carpeta) if n.startswith(prefijo + '-')
                          and os.path.isfile(os.path.join(carpeta, n, 'imageupdate')))
     except OSError:
         return []
@@ -211,13 +264,32 @@ def que_lleva(desc):
     return ''
 
 
-def apuntar_equipo(device, fw, desc):
+def apuntar_version(device, version, desc=None):
+    """La version de la imagen instalada (Image_Version), cuando el deco la dice."""
+    try:
+        version = int(version)
+        equipo = cache.get(_clave_equipo(device)) or {}
+        equipo['version'] = version
+        if desc is not None:
+            equipo['desc'] = desc
+        cache.set(_clave_equipo(device), equipo, 90 * 86400)
+    except Exception:
+        pass
+
+
+def apuntar_equipo(device, fw, desc, version=None):
     """Al arrancar: que firmware lleva. Si habia una instalacion en marcha, si ha entrado."""
     from django.utils import timezone
     try:
         antes = cache.get(_clave_equipo(device)) or {}
-        cache.set(_clave_equipo(device), {'fw': fw, 'desc': desc, 'cuando': timezone.now().isoformat()},
-                  90 * 86400)
+        equipo = {'fw': fw, 'desc': desc, 'cuando': timezone.now().isoformat()}
+        if version is not None:
+            equipo['version'] = version
+        elif (fw, desc) == (antes.get('fw'), antes.get('desc')) and antes.get('version') is not None:
+            # Los portales viejos no mandan la version: si arranca con lo
+            # mismo, vale la que ya se sabia; si ha cambiado, no se sabe.
+            equipo['version'] = antes['version']
+        cache.set(_clave_equipo(device), equipo, 90 * 86400)
         prueba = cache.get(_clave_prueba(device))
         if prueba and prueba.get('fase') in ('escribiendo', 'escrita'):
             if (fw, desc) != (antes.get('fw'), antes.get('desc')):
@@ -250,6 +322,29 @@ def apuntar_prueba(device, linea):
     import re
     from django.utils import timezone
     ahora = timezone.localtime()
+    # Las lineas llegan casi a la vez y cada una la atiende un proceso: sin
+    # turno, "estados 21" pisaba a "comprobado" y la ficha se quedaba para
+    # siempre en "Leyendo la imagen...".
+    cerrojo = _clave_prueba(device) + ':turno'
+    import time
+    for _ in range(20):
+        try:
+            if cache.add(cerrojo, 1, 5):
+                break
+        except Exception:
+            return
+        time.sleep(0.05)
+    try:
+        _apuntar_prueba(device, linea, ahora)
+    finally:
+        try:
+            cache.delete(cerrojo)
+        except Exception:
+            pass
+
+
+def _apuntar_prueba(device, linea, ahora):
+    import re
     try:
         prueba = cache.get(_clave_prueba(device)) or {}
     except Exception:
