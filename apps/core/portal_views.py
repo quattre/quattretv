@@ -29,6 +29,16 @@ def get_base_stats():
 
 
 @staff_member_required
+def maquina(request):
+    """CPU, memoria, disco y cola de peticiones del servidor, para el panel."""
+    from .maquina import estado_maquina
+    datos = estado_maquina()
+    datos['decos'] = Device.objects.filter(
+        last_seen__gte=timezone.now() - timedelta(minutes=5)).count()
+    return JsonResponse(datos)
+
+
+@staff_member_required
 def dashboard(request):
     """Main dashboard view."""
     now = timezone.now()
@@ -76,6 +86,8 @@ def dashboard(request):
     context = {
         'active_page': 'dashboard',
         'stats': stats,
+        'maquina_tarjetas': [('cpu', 'CPU'), ('carga', 'Carga'), ('mem', 'Memoria'),
+                             ('disco', 'Disco'), ('cola', 'Cola de peticiones')],
         'recent_users': recent_users,
         'online_devices': online_devices,
         'top_channels': top_channels,

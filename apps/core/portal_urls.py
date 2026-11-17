@@ -9,6 +9,7 @@ app_name = 'portal'
 urlpatterns = [
     # Dashboard
     path('', views.dashboard, name='dashboard'),
+    path('maquina/', views.maquina, name='maquina'),
 
     # Users
     path('users/', views.users_list, name='users'),

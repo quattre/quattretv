@@ -63,6 +63,55 @@
     </div>
 </div>
 
+<!-- La maquina: se refresca sola cada 5 segundos -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+        <h5 class="font-semibold"><i class="bi bi-cpu"></i> Servidor</h5>
+        <small class="text-gray-500" id="mq-pie">Cargando…</small>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-6 p-6">
+        {% for clave, nombre in maquina_tarjetas %}
+        <div>
+            <p class="text-gray-500 text-sm">{{ nombre }}</p>
+            <h3 class="text-2xl font-bold" id="mq-{{ clave }}">–</h3>
+            <div class="h-2 bg-gray-100 rounded mt-2"><div class="h-2 rounded bg-emerald-500" id="mq-{{ clave }}-barra" style="width:0"></div></div>
+            <small class="text-gray-500" id="mq-{{ clave }}-nota">&nbsp;</small>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<script>
+(function () {
+    function color(p) { return p >= 85 ? '#ef4444' : (p >= 60 ? '#f59e0b' : '#10b981'); }
+    function poner(clave, texto, porcentaje, nota) {
+        document.getElementById('mq-' + clave).textContent = texto;
+        var b = document.getElementById('mq-' + clave + '-barra');
+        b.style.width = Math.max(0, Math.min(100, porcentaje)) + '%';
+        b.style.background = color(porcentaje);
+        document.getElementById('mq-' + clave + '-nota').textContent = nota;
+    }
+    function pedir() {
+        fetch('{% url "portal:maquina" %}', {credentials: 'same-origin'}).then(function (r) { return r.json(); }).then(function (d) {
+            poner('cpu', d.cpu === null ? '?' : d.cpu + ' %', d.cpu || 0, d.cpus + ' CPU');
+            var carga = d.carga ? d.carga[0] : 0;
+            poner('carga', d.carga ? String(carga).replace('.', ',') : '?', 100 * carga / d.cpus,
+                  d.carga ? 'media 5 y 15 min: ' + d.carga[1] + ' · ' + d.carga[2] : '');
+            poner('mem', d.mem === null ? '?' : d.mem + ' %', d.mem || 0, d.mem_usada + ' de ' + d.mem_total + ' GB');
+            poner('disco', d.disco === null ? '?' : d.disco + ' %', d.disco || 0, d.disco_usado + ' de ' + d.disco_total + ' GB');
+            poner('cola', d.cola === null ? '?' : String(d.cola), d.cola === null ? 0 : Math.min(100, d.cola * 5),
+                  d.cola ? 'peticiones esperando' : 'nadie espera');
+            document.getElementById('mq-pie').textContent = d.decos + ' decos conectados · encendido hace ' +
+                (d.encendida_h >= 48 ? Math.round(d.encendida_h / 24) + ' días' : String(d.encendida_h).replace('.', ',') + ' h') +
+                ' · ' + new Date().toLocaleTimeString();
+        }).catch(function () {
+            document.getElementById('mq-pie').textContent = 'Sin respuesta del servidor · ' + new Date().toLocaleTimeString();
+        });
+    }
+    pedir();
+    setInterval(pedir, 5000);
+})();
+</script>
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     <!-- Connections Chart -->
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
