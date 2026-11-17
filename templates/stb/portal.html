@@ -6101,6 +6101,13 @@
             k = (k === 33) ? 38 : 40;
         }
 
+        // CH+ y CH- del mando de los MAG: llegan como Tab y Mayus+Tab, y nadie
+        // las atendia. Los clientes cambian de canal con ellas (el portal de
+        // Ministra las tenia) y aqui solo les funcionaban los numeros: en un
+        // dia 32 decos las pulsaron sin que pasara nada (17/11/2026).
+        // CH+ es el canal siguiente, igual que ▲.
+        if (k === 9 && typeof gSTB !== 'undefined') k = e.shiftKey ? 40 : 38;
+
         // Rebobinar y avanzar del mando (Alt+B/F en los MAG; 412/417 en las
         // teles): en las guias, un dia entero atras o adelante.
         var diaMando = (e.altKey && (k === 66 || k === 70)) ? (k === 66 ? -1 : 1) :
