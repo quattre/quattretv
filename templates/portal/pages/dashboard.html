@@ -127,10 +127,14 @@
     <!-- Device Types -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100">
-            <h5 class="font-semibold"><i class="bi bi-pie-chart"></i> Decos por modelo</h5>
+            <h5 class="font-semibold"><i class="bi bi-pie-chart"></i> Tipos de dispositivo</h5>
         </div>
         <div class="p-6">
             <canvas id="devicesChart"></canvas>
+            <p class="text-xs text-gray-500 mt-4 leading-relaxed">
+                <span class="font-semibold">Decos por modelo:</span>
+                {% for m in modelos_deco %}{{ m.model|default:"sin modelo" }} <b>{{ m.count }}</b>{% if not forloop.last %} · {% endif %}{% endfor %}
+            </p>
         </div>
     </div>
 </div>

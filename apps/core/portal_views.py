@@ -81,11 +81,18 @@ def dashboard(request):
     # La grafica: muestras de cada 5 minutos que apuntan los latidos de los decos.
     historia = historia_maquina()
 
-    # Decos por modelo, con la cantidad en el rotulo.
-    modelos = (Device.objects.values('model').annotate(count=Count('id'))
-               .order_by('-count'))
-    device_types_labels = ['%s (%d)' % (d['model'] or 'Sin modelo', d['count']) for d in modelos]
-    device_types_data = [d['count'] for d in modelos]
+    # Aparatos por tipo (deco, app de LG, de Samsung, de Android), con la
+    # cantidad en el rotulo, y debajo los decos por modelo.
+    nombres_tipo = {'mag': 'Deco', 'lg': 'App LG', 'samsung': 'App Samsung',
+                    'android': 'App Android'}
+    orden_tipo = ['mag', 'lg', 'samsung', 'android']
+    por_tipo = {d['device_type']: d['count'] for d in
+                Device.objects.values('device_type').annotate(count=Count('id'))}
+    tipos = [t for t in orden_tipo if t in por_tipo] + sorted(t for t in por_tipo if t not in orden_tipo)
+    device_types_labels = ['%s (%d)' % (nombres_tipo.get(t, (t or 'Sin tipo').upper()), por_tipo[t]) for t in tipos]
+    device_types_data = [por_tipo[t] for t in tipos]
+    modelos_deco = list(Device.objects.filter(device_type='mag').values('model')
+                        .annotate(count=Count('id')).order_by('-count'))
 
     context = {
         'active_page': 'dashboard',
@@ -96,6 +103,7 @@ def dashboard(request):
         'online_devices': online_devices,
         'top_channels': top_channels,
         'historia': json.dumps(historia),
+        'modelos_deco': modelos_deco,
         'device_types_labels': json.dumps(device_types_labels if device_types_labels else ['Sin datos']),
         'device_types_data': json.dumps(device_types_data if device_types_data else [1]),
     }
