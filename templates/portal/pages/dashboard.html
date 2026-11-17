@@ -69,7 +69,7 @@
         <h5 class="font-semibold"><i class="bi bi-cpu"></i> Servidor</h5>
         <small class="text-gray-500" id="mq-pie">Cargando…</small>
     </div>
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-6 p-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 p-6">
         {% for clave, nombre in maquina_tarjetas %}
         <div>
             <p class="text-gray-500 text-sm">{{ nombre }}</p>
@@ -98,8 +98,6 @@
                   d.carga ? 'media 5 y 15 min: ' + d.carga[1] + ' · ' + d.carga[2] : '');
             poner('mem', d.mem === null ? '?' : d.mem + ' %', d.mem || 0, d.mem_usada + ' de ' + d.mem_total + ' GB');
             poner('disco', d.disco === null ? '?' : d.disco + ' %', d.disco || 0, d.disco_usado + ' de ' + d.disco_total + ' GB');
-            poner('cola', d.cola === null ? '?' : String(d.cola), d.cola === null ? 0 : Math.min(100, d.cola * 5),
-                  d.cola === null ? '' : (d.cola > 20 ? 'servidor saturado' : (d.cola ? 'empieza a ir justo' : 'bien: nadie espera')));
             document.getElementById('mq-pie').textContent = d.decos + ' dispositivos conectados · encendido hace ' +
                 (d.encendida_h >= 48 ? Math.round(d.encendida_h / 24) + ' días' : String(d.encendida_h).replace('.', ',') + ' h') +
                 ' · ' + new Date().toLocaleTimeString();
@@ -284,7 +282,7 @@
 const historia = {{ historia|safe }};
 const ctx1 = document.getElementById('connectionsChart').getContext('2d');
 new Chart(ctx1, {
-    type: 'line',
+    type: 'bar',
     data: {
         labels: historia.map(function (m) {
             var d = new Date(m[0] * 1000);
@@ -293,14 +291,11 @@ new Chart(ctx1, {
         datasets: [{
             label: 'Dispositivos conectados',
             data: historia.map(function (m) { return m[1]; }),
-            borderColor: '#667eea',
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-            fill: true, tension: 0.3, pointRadius: 0, yAxisID: 'y'
+            backgroundColor: '#667eea', minBarLength: 3, yAxisID: 'y'
         }, {
             label: 'Tráfico de salida (Mbit/s)',
             data: historia.map(function (m) { return m[3]; }),
-            borderColor: '#11998e', borderWidth: 1.5,
-            fill: false, tension: 0.3, pointRadius: 0, yAxisID: 'y1'
+            backgroundColor: '#11998e', minBarLength: 3, yAxisID: 'y1'
         }]
     },
     options: {
