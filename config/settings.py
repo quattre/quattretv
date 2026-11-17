@@ -86,6 +86,12 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', 'quattretv'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
+        # Conexiones que se quedan abiertas. Sin esto cada peticion abria una
+        # nueva a PostgreSQL (un proceso y una autenticacion cada vez), y con
+        # 150 decos eso solo se comia casi la mitad de la CPU del servidor: el
+        # 17/11/2026 se saturo y todos los decos marcaban conexion perdida.
+        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '300')),
+        'CONN_HEALTH_CHECKS': True,
     }
 }
 
