@@ -5971,21 +5971,36 @@
     // el por su cuenta: lo tiene que atender el portal, como hacia el de
     // Ministra, y sin esto el cliente no podia apagarlo (17/11/2026).
     // Reposo "activo": la pagina sigue en marcha y el deco sigue contestando
-    // al panel, que es lo que permite mandarle cosas de noche. Al encender se
-    // recarga el portal: arranca como recien enchufado, con su ultimo canal.
-    var enReposo = false;
+    // al panel, que es lo que permite mandarle cosas de noche.
+    // Al encender se vuelve a pedir el canal que estaba puesto y todo queda
+    // donde estaba (1 s). Solo se para el reproductor, sin pararVideo(), que
+    // ademas borra que canal sonaba. Si lo que habia no era un canal en
+    // directo (archivo, grabacion, video de ayuda, nada) se recarga el
+    // portal, que es lo seguro: arranca como recien enchufado (6 s).
+    var enReposo = false, canalReposo = null;
     function botonApagar() {
         if (typeof gSTB === 'undefined' || !gSTB.StandBy) return;
         try { if (gSTB.GetStandByStatus) enReposo = !!gSTB.GetStandByStatus(); } catch (err) {}
         if (!enReposo) {
-            api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: a reposo'), function() {});
-            try { pararVideo(); } catch (err) {}
+            canalReposo = (!diferido && !videoAyuda && canalStb && canalStb.id && canalStb.cmd) ? canalStb : null;
+            api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: a reposo' +
+                (canalReposo ? ' con ' + (canalReposo.name || canalReposo.id) : ' sin canal')), function() {});
+            enReposo = true;
+            clearTimeout(colaStb);
+            testigoStb++;
+            try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch (err) {}
             try { gSTB.StandByMode = 1; } catch (err) {}
-            try { gSTB.StandBy(true); enReposo = true; } catch (err) {}
+            try { gSTB.StandBy(true); } catch (err) {}
         } else {
             try { gSTB.StandBy(false); } catch (err) {}
             enReposo = false;
-            api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: se enciende'), function() {});
+            var ch = canalReposo;
+            canalReposo = null;
+            api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: se enciende' +
+                (ch ? ', vuelve a ' + (ch.name || ch.id) : ', recarga')), function() {});
+            if (ch && !diferido && !videoAyuda) {
+                try { playChannel(ch); return; } catch (err) {}
+            }
             setTimeout(function() { location.reload(); }, 300);
         }
     }
