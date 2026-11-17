@@ -125,7 +125,7 @@
     <!-- Device Types -->
     <div class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100">
-            <h5 class="font-semibold"><i class="bi bi-pie-chart"></i> Tipos de dispositivo</h5>
+            <h5 class="font-semibold"><i class="bi bi-bar-chart"></i> Tipos de dispositivo</h5>
         </div>
         <div class="p-6">
             <div style="position:relative;height:250px"><canvas id="devicesChart"></canvas></div>
@@ -282,7 +282,7 @@
 const historia = {{ historia|safe }};
 const ctx1 = document.getElementById('connectionsChart').getContext('2d');
 new Chart(ctx1, {
-    type: 'bar',
+    type: 'line',
     data: {
         labels: historia.map(function (m) {
             var d = new Date(m[0] * 1000);
@@ -291,11 +291,14 @@ new Chart(ctx1, {
         datasets: [{
             label: 'Dispositivos conectados',
             data: historia.map(function (m) { return m[1]; }),
-            backgroundColor: '#667eea', minBarLength: 3, yAxisID: 'y'
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            fill: true, tension: 0.3, pointRadius: 0, yAxisID: 'y'
         }, {
             label: 'Tráfico de salida (Mbit/s)',
             data: historia.map(function (m) { return m[3]; }),
-            backgroundColor: '#11998e', minBarLength: 3, yAxisID: 'y1'
+            borderColor: '#11998e', borderWidth: 1.5,
+            fill: false, tension: 0.3, pointRadius: 0, yAxisID: 'y1'
         }]
     },
     options: {
@@ -314,21 +317,23 @@ new Chart(ctx1, {
 // Devices Chart
 const ctx2 = document.getElementById('devicesChart').getContext('2d');
 new Chart(ctx2, {
-    type: 'doughnut',
+    // Barras tumbadas: en la tarta las apps (2, 5) no se veian al lado de
+    // los decos. minBarLength deja siempre una barra visible.
+    type: 'bar',
     data: {
         labels: {{ device_types_labels|safe }},
         datasets: [{
             data: {{ device_types_data|safe }},
-            backgroundColor: ['#667eea', '#11998e', '#f5576c', '#4facfe', '#f093fb']
+            backgroundColor: ['#667eea', '#11998e', '#f5576c', '#4facfe', '#f093fb'],
+            minBarLength: 6, borderRadius: 4
         }]
     },
     options: {
+        indexAxis: 'y',
         responsive: true, maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        }
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } },
+                  y: { ticks: { font: { size: 13 } } } }
     }
 });
 </script>
