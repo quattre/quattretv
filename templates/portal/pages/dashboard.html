@@ -301,11 +301,6 @@ new Chart(ctx1, {
             data: historia.map(function (m) { return m[3]; }),
             borderColor: '#11998e', borderWidth: 1.5,
             fill: false, tension: 0.3, pointRadius: 0, yAxisID: 'y1'
-        }, {
-            label: 'CPU (%)',
-            data: historia.map(function (m) { return m[2]; }),
-            borderColor: '#f5576c', borderWidth: 1.5, hidden: true,
-            fill: false, tension: 0.3, pointRadius: 0, yAxisID: 'y1'
         }]
     },
     options: {
@@ -316,7 +311,7 @@ new Chart(ctx1, {
             x: { ticks: { maxTicksLimit: 12 } },
             y: { beginAtZero: true, title: { display: true, text: 'dispositivos' } },
             y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false },
-                  title: { display: true, text: 'Mbit/s · %' } }
+                  title: { display: true, text: 'Mbit/s' } }
         }
     }
 });
