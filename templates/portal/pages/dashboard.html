@@ -100,7 +100,7 @@
             poner('disco', d.disco === null ? '?' : d.disco + ' %', d.disco || 0, d.disco_usado + ' de ' + d.disco_total + ' GB');
             poner('cola', d.cola === null ? '?' : String(d.cola), d.cola === null ? 0 : Math.min(100, d.cola * 5),
                   d.cola ? 'peticiones esperando' : 'nadie espera');
-            document.getElementById('mq-pie').textContent = d.decos + ' decos conectados · encendido hace ' +
+            document.getElementById('mq-pie').textContent = d.decos + ' dispositivos conectados · encendido hace ' +
                 (d.encendida_h >= 48 ? Math.round(d.encendida_h / 24) + ' días' : String(d.encendida_h).replace('.', ',') + ' h') +
                 ' · ' + new Date().toLocaleTimeString();
         }).catch(function () {
