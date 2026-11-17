@@ -1603,6 +1603,7 @@
     // con mas espera; si lleva un minuto bien, la cuenta empieza de nuevo.
     var recupera = {id: 0, n: 0, cuando: 0, reloj: null};
     function recuperarDirecto() {
+        if (enReposo) return;        // apagado con el mando: no se vuelve a pedir el canal
         var ch = canalStb, ahora = new Date().getTime();
         if (!ch || !ch.id || !ch.cmd) return;
         // Recien cambiado de canal, el aviso puede ser del canal anterior; y
@@ -5966,8 +5967,36 @@
         } catch (err) {}
     }
 
+    // El boton de apagar del mando (Alt+U en los MAG). El deco no hace nada con
+    // el por su cuenta: lo tiene que atender el portal, como hacia el de
+    // Ministra, y sin esto el cliente no podia apagarlo (17/11/2026).
+    // Reposo "activo": la pagina sigue en marcha y el deco sigue contestando
+    // al panel, que es lo que permite mandarle cosas de noche. Al encender se
+    // recarga el portal: arranca como recien enchufado, con su ultimo canal.
+    var enReposo = false;
+    function botonApagar() {
+        if (typeof gSTB === 'undefined' || !gSTB.StandBy) return;
+        try { if (gSTB.GetStandByStatus) enReposo = !!gSTB.GetStandByStatus(); } catch (err) {}
+        if (!enReposo) {
+            api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: a reposo'), function() {});
+            try { pararVideo(); } catch (err) {}
+            try { gSTB.StandByMode = 1; } catch (err) {}
+            try { gSTB.StandBy(true); enReposo = true; } catch (err) {}
+        } else {
+            try { gSTB.StandBy(false); } catch (err) {}
+            enReposo = false;
+            api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: se enciende'), function() {});
+            setTimeout(function() { location.reload(); }, 300);
+        }
+    }
+
     function handleKey(e) {
         apuntarTecla(e);
+        if (e.keyCode === 85 && e.altKey) {
+            if (!firmwareEnCurso) botonApagar();
+            return false;
+        }
+        if (enReposo) return false;
         // Con un aviso del panel en pantalla, la primera tecla solo lo cierra.
         // Cargando un firmware no se hace caso a nada: el aviso dice que no se toque.
         if (firmwareEnCurso) return false;
