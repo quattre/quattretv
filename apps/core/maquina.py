@@ -41,11 +41,17 @@ def estado_maquina():
     datos = {'cpus': os.cpu_count() or 1}
     try:
         t1, p1 = _tiempos_cpu()
-        time.sleep(0.25)
+        r1, h1 = _bytes_red(), time.time()
+        time.sleep(0.5)
         t2, p2 = _tiempos_cpu()
+        r2, h2 = _bytes_red(), time.time()
         datos['cpu'] = round(100.0 * (1 - (p2 - p1) / max(1, t2 - t1)))
+        datos['red_baja'] = round((r2[0] - r1[0]) * 8 / (h2 - h1) / 1e6, 1)   # Mbit/s que entran
+        datos['red_sube'] = round((r2[1] - r1[1]) * 8 / (h2 - h1) / 1e6, 1)   # Mbit/s que salen
     except Exception:
         datos['cpu'] = None
+        datos.setdefault('red_baja', None)
+        datos.setdefault('red_sube', None)
     try:
         datos['carga'] = [round(x, 2) for x in os.getloadavg()]
     except Exception:
@@ -102,32 +108,97 @@ def _bytes_red():
     return rx, tx
 
 
+def _programa(nombre):
+    """El servicio arranca con el PATH del venv: los programas, por su ruta."""
+    return shutil.which(nombre) or next(
+        (r for r in ('/usr/bin/' + nombre, '/usr/sbin/' + nombre, '/bin/' + nombre)
+         if os.path.exists(r)), nombre)
+
+
+def _bytes_salida_cdn(cdn):
+    """
+    Bytes que ha enviado un CDN por su tarjeta de salida, o None.
+
+    Solo lee /proc/net/dev por ssh: en el CDN no se instala ni se cambia nada.
+    Tiene dos tarjetas en marcha, la del multicast (que casi solo recibe) y la
+    publica, por la que sale el video a los clientes: es la que mas envia.
+    """
+    if not cdn.ssh_host:
+        return None
+    try:
+        salida = subprocess.run(
+            [_programa('ssh'), '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=4',
+             '-o', 'StrictHostKeyChecking=accept-new', '-p', str(cdn.ssh_port),
+             '%s@%s' % (cdn.ssh_user, cdn.ssh_host), 'cat /proc/net/dev'],
+            capture_output=True, text=True, timeout=10).stdout
+        mayor = None
+        for linea in salida.splitlines()[2:]:
+            nombre, resto = linea.split(':', 1)
+            if nombre.strip() == 'lo':
+                continue
+            tx = int(resto.split()[8])
+            mayor = tx if mayor is None else max(mayor, tx)
+        return mayor
+    except Exception:
+        return None
+
+
 def apuntar_muestra():
-    from datetime import timedelta
+    """
+    La llaman los latidos de los decos. Uno de cada 5 minutos coge el turno y
+    lanza la muestra en un hilo: preguntar a los CDN tarda un segundo y el
+    deco no tiene por que esperarlo.
+    """
     from django.core.cache import cache
-    from django.utils import timezone
     try:
         if not cache.add('maquina:muestra:turno', 1, MUESTRA_CADA):
             return
+        import threading
+        threading.Thread(target=_tomar_muestra, daemon=True).start()
+    except Exception:
+        pass
+
+
+def _tomar_muestra():
+    from datetime import timedelta
+    from django.core.cache import cache
+    from django.db import connection
+    from django.utils import timezone
+    try:
         from apps.devices.models import Device
+        from apps.channels.models import CdnServer
         ahora = time.time()
         decos = Device.objects.filter(
             last_seen__gte=timezone.now() - timedelta(minutes=5)).count()
         total, parado = _tiempos_cpu()
         rx, tx = _bytes_red()
+        cdns = {c.name: _bytes_salida_cdn(c)
+                for c in CdnServer.objects.filter(is_active=True).order_by('name')}
         antes = cache.get('maquina:contadores')
-        cache.set('maquina:contadores', [ahora, total, parado, rx, tx], None)
+        cache.set('maquina:contadores', [ahora, total, parado, rx, tx, cdns], None)
         cpu = sube = baja = None
-        if antes and ahora > antes[0] and total > antes[1] and tx >= antes[4] and rx >= antes[3]:
+        por_cdn = {}
+        if antes and ahora > antes[0]:
             seg = ahora - antes[0]
-            cpu = round(100.0 * (1 - (parado - antes[2]) / (total - antes[1])))
-            sube = round((tx - antes[4]) * 8 / seg / 1e6, 2)      # Mbit/s
-            baja = round((rx - antes[3]) * 8 / seg / 1e6, 2)
+            if total > antes[1] and tx >= antes[4] and rx >= antes[3]:
+                cpu = round(100.0 * (1 - (parado - antes[2]) / (total - antes[1])))
+                sube = round((tx - antes[4]) * 8 / seg / 1e6, 2)      # Mbit/s
+                baja = round((rx - antes[3]) * 8 / seg / 1e6, 2)
+            antes_cdn = antes[5] if len(antes) > 5 and isinstance(antes[5], dict) else {}
+            for nombre, valor in cdns.items():
+                previo = antes_cdn.get(nombre)
+                if valor is not None and previo is not None and valor >= previo:
+                    por_cdn[nombre] = round((valor - previo) * 8 / seg / 1e6, 1)
         historia = cache.get('maquina:historia') or []
-        historia.append([int(ahora), decos, cpu, sube, baja])
+        historia.append([int(ahora), decos, cpu, sube, baja, por_cdn])
         cache.set('maquina:historia', historia[-MUESTRAS:], None)
     except Exception:
         pass
+    finally:
+        try:
+            connection.close()      # el hilo abre su propia conexion a la base
+        except Exception:
+            pass
 
 
 def historia_maquina():

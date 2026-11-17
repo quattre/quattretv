@@ -69,7 +69,7 @@
         <h5 class="font-semibold"><i class="bi bi-cpu"></i> Servidor</h5>
         <small class="text-gray-500" id="mq-pie">Cargando…</small>
     </div>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 p-6">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-6 p-6">
         {% for clave, nombre in maquina_tarjetas %}
         <div>
             <p class="text-gray-500 text-sm">{{ nombre }}</p>
@@ -98,6 +98,9 @@
                   d.carga ? 'media 5 y 15 min: ' + d.carga[1] + ' · ' + d.carga[2] : '');
             poner('mem', d.mem === null ? '?' : d.mem + ' %', d.mem || 0, d.mem_usada + ' de ' + d.mem_total + ' GB');
             poner('disco', d.disco === null ? '?' : d.disco + ' %', d.disco || 0, d.disco_usado + ' de ' + d.disco_total + ' GB');
+            // Red del propio servidor: lo que sale (↑) y lo que entra (↓). La barra, sobre 1 Gbit.
+            var mb = function (v) { return v === null || v === undefined ? '?' : String(v).replace('.', ','); };
+            poner('red', '↑ ' + mb(d.red_sube) + ' · ↓ ' + mb(d.red_baja), (d.red_sube || 0) / 10, 'Mbit/s: salida · entrada');
             document.getElementById('mq-pie').textContent = d.decos + ' dispositivos conectados · encendido hace ' +
                 (d.encendida_h >= 48 ? Math.round(d.encendida_h / 24) + ' días' : String(d.encendida_h).replace('.', ',') + ' h') +
                 ' · ' + new Date().toLocaleTimeString();
@@ -114,7 +117,7 @@
     <!-- Connections Chart -->
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-            <h5 class="font-semibold"><i class="bi bi-graph-up"></i> Dispositivos conectados y tráfico (últimas 24 h)</h5>
+            <h5 class="font-semibold"><i class="bi bi-graph-up"></i> Dispositivos conectados y tráfico de los CDN (últimas 24 h)</h5>
             <small class="text-gray-400">una muestra cada 5 minutos</small>
         </div>
         <div class="p-6">
@@ -278,8 +281,14 @@
 
 {% block extra_js %}
 <script>
-// Decos conectados y trafico de salida del servidor, ultimas 24 h
+// Dispositivos conectados y trafico de salida de cada CDN, ultimas 24 h
 const historia = {{ historia|safe }};
+// Los CDN que salen en alguna muestra: una linea por cada uno, con el video que envian.
+const cdnsVistos = [];
+historia.forEach(function (m) {
+    Object.keys(m[5] || {}).forEach(function (n) { if (cdnsVistos.indexOf(n) < 0) cdnsVistos.push(n); });
+});
+cdnsVistos.sort();
 const ctx1 = document.getElementById('connectionsChart').getContext('2d');
 new Chart(ctx1, {
     type: 'line',
@@ -294,12 +303,14 @@ new Chart(ctx1, {
             borderColor: '#667eea',
             backgroundColor: 'rgba(102, 126, 234, 0.1)',
             fill: true, tension: 0.3, pointRadius: 0, yAxisID: 'y'
-        }, {
-            label: 'Tráfico de salida (Mbit/s)',
-            data: historia.map(function (m) { return m[3]; }),
-            borderColor: '#11998e', borderWidth: 1.5,
-            fill: false, tension: 0.3, pointRadius: 0, yAxisID: 'y1'
-        }]
+        }].concat(cdnsVistos.map(function (nombre, i) {
+            return {
+                label: nombre + ' (Mbit/s)',
+                data: historia.map(function (m) { return m[5] && m[5][nombre] !== undefined ? m[5][nombre] : null; }),
+                borderColor: ['#11998e', '#f59e0b', '#f5576c', '#4facfe'][i % 4], borderWidth: 1.5,
+                fill: false, tension: 0.3, pointRadius: 0, spanGaps: true, yAxisID: 'y1'
+            };
+        }))
     },
     options: {
         responsive: true, maintainAspectRatio: false,
