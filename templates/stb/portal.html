@@ -6512,6 +6512,12 @@
         // y el deco no vuelve a pedirlo: la imagen se quedaba en negro hasta
         // cambiar de canal. Se vuelve a pedir el mismo canal, unas pocas veces.
         if ((ev === '5' || ev === '1') && canalStb && !diferido && !(videoAyuda && videoAyuda.deco)) recuperarDirecto();
+        // El 32 es "la tele ha vuelto" (HDMI conectado) y el 33 "se ha ido".
+        // Un deco que se queda horas con el canal puesto y la tele apagada
+        // puede volver con la imagen en negro, y asi seguia hasta cambiar de
+        // canal. Al volver la tele se pide otra vez el mismo canal; el mismo
+        // recuperarDirecto se ocupa de no hacerlo en reposo ni en bucle.
+        if (ev === '32' && canalStb && !diferido && !(videoAyuda && videoAyuda.deco)) recuperarDirecto();
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'grabacion' && isFullscreen && !salto) terminarGrabacion();
