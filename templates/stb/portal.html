@@ -1807,7 +1807,10 @@
             try { pistas = pistasAudio(); suena = stbAPI.GetAudioPID(); } catch(err) {}
             var va = arrancoStb || pistas.length || (suena >= 0 && suena !== 65535);
             if (intento) {
-                api('type=stb&action=log&diag=' + encodeURIComponent('repro tras reintento ' + (ch.name || ch.id) + (va ? ' va' : ' sigue sin nada')), function() {});
+                // Pasados los 20 intentos ya no se apunta cada uno: un deco en
+                // reposo llenaria el registro toda la noche.
+                if (va || insiste.id !== ch.id || insiste.n <= 20)
+                    api('type=stb&action=log&diag=' + encodeURIComponent('repro tras reintento ' + (ch.name || ch.id) + (va ? ' va' : ' sigue sin nada')), function() {});
                 // Antes se dejaba aqui: un reintento y, si tampoco, en negro
                 // hasta que alguien cambiara de canal. El 16/11 La 1 se cayo
                 // unos segundos en el CDN y todos los decos que la tenian
@@ -1815,12 +1818,20 @@
                 // despacio (hasta 30 s), unos diez minutos.
                 if (va) { insiste.n = 0; return; }
                 if (insiste.id !== ch.id) { insiste.id = ch.id; insiste.n = 0; }
-                if (insiste.n >= 20) return;
+                // Antes se dejaba a los 20 intentos (unos diez minutos) y el
+                // deco se quedaba sin imagen ni sonido hasta cambiar de canal.
+                // Paso el 18/11 con los decos a los que una recarga pillo en
+                // reposo: en reposo no reproducen, agotaron los intentos, y al
+                // encender la tele seguian mudos. Ahora no se rinde: pasados
+                // los 20, uno por minuto. Y en reposo espera sin pedir nada.
                 insiste.n++;
                 setTimeout(function() {
                     if (yo !== testigoStb || canalStb !== ch || diferido) return;
+                    var dormido = false;
+                    try { dormido = !!(gSTB.GetStandByStatus && gSTB.GetStandByStatus()); } catch (err) {}
+                    if (dormido) { insiste.n = Math.min(insiste.n, 20); arrancoStb = false; }
                     ordenStb(ch, 1);
-                }, Math.min(4000 * insiste.n, 30000));
+                }, insiste.n > 20 ? 60000 : Math.min(4000 * insiste.n, 30000));
                 return;
             }
             if (va) return;
