@@ -20,6 +20,11 @@ urlpatterns = [
     path('users/<int:user_id>/delete/', views.user_delete, name='user_delete'),
 
     # Devices
+    # Tecnicos (usuarios del panel con permisos recortados)
+    path('tecnicos/', views.tecnicos_list, name='tecnicos'),
+    path('tecnicos/<int:user_id>/', views.tecnico_edit, name='tecnico_edit'),
+    path('tecnicos/<int:user_id>/delete/', views.tecnico_delete, name='tecnico_delete'),
+
     path('devices/', views.devices_list, name='devices'),
     path('devices/create/', views.device_create, name='device_create'),
     path('devices/<int:device_id>/', views.device_edit, name='device_edit'),

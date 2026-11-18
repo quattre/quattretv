@@ -49,6 +49,7 @@
                 <i class="bi bi-phone mr-3 text-lg w-6 text-center"></i> Dispositivos
                 <span class="ml-auto bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">{{ stats.devices_online|default:0 }}</span>
             </a>
+            {% if user.is_superuser %}
             <a href="{% url 'portal:tariffs' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'tariffs' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
                 <i class="bi bi-credit-card mr-3 text-lg w-6 text-center"></i> Tarifas
             </a>
@@ -71,7 +72,9 @@
                 <i class="bi bi-question-circle mr-3 text-lg w-6 text-center"></i> Novedades y ayuda
             </a>
 
+            {% endif %}
             <div class="px-5 py-2 text-xs uppercase text-white/40 tracking-wider mt-2">Sistema</div>
+            {% if user.is_superuser %}
             <a href="{% url 'portal:servidores' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'servidores' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
                 <i class="bi bi-hdd-rack mr-3 text-lg w-6 text-center"></i> Servidores
             </a>
@@ -84,15 +87,21 @@
             <a href="{% url 'portal:cdns' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'cdns' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
                 <i class="bi bi-hdd-network mr-3 text-lg w-6 text-center"></i> CDNs
             </a>
+            {% endif %}
             <a href="{% url 'portal:streams' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'streams' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
                 <i class="bi bi-activity mr-3 text-lg w-6 text-center"></i> Streams Activos
             </a>
             <a href="{% url 'portal:logs' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'logs' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
                 <i class="bi bi-journal-text mr-3 text-lg w-6 text-center"></i> Logs
             </a>
+            {% if user.is_superuser %}
             <a href="{% url 'portal:settings' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'settings' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
                 <i class="bi bi-gear mr-3 text-lg w-6 text-center"></i> Configuración
             </a>
+            <a href="{% url 'portal:tecnicos' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'tecnicos' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
+                <i class="bi bi-person-badge mr-3 text-lg w-6 text-center"></i> Técnicos
+            </a>
+            {% endif %}
 
             <div class="px-5 py-2 text-xs uppercase text-white/40 tracking-wider mt-2">Cuenta</div>
             <a href="{% url 'admin:logout' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 border-transparent transition-all">
@@ -121,7 +130,7 @@
                     </button>
                     <div x-show="open" @click.away="open = false" x-cloak class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-2">
                         <a href="#" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-50"><i class="bi bi-person"></i> Mi Perfil</a>
-                        <a href="{% url 'portal:settings' %}" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-50"><i class="bi bi-gear"></i> Configuración</a>
+{% if user.is_superuser %}<a href="{% url 'portal:settings' %}" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-50"><i class="bi bi-gear"></i> Configuración</a>{% endif %}
                         <hr class="my-2">
                         <a href="{% url 'admin:logout' %}" class="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-gray-50"><i class="bi bi-box-arrow-right"></i> Salir</a>
                     </div>

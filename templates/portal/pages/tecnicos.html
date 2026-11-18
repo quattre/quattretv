@@ -1,0 +1,59 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Técnicos - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2"><i class="bi bi-person-badge"></i> Técnicos</h1>
+    <p class="text-gray-500">Usuarios del panel para el servicio técnico. Entran por la misma dirección que tú, con su usuario y contraseña.</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500">
+                <tr><th class="px-4 py-3">Usuario</th><th class="px-4 py-3">Nombre</th><th class="px-4 py-3">Última entrada</th><th class="px-4 py-3">Nueva contraseña</th><th class="px-4 py-3">Activo</th><th class="px-4 py-3"></th></tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for t in tecnicos %}
+                <tr>
+                    <td class="px-4 py-3 font-medium text-gray-800">{{ t.username }}</td>
+                    <td class="px-4 py-3"><input form="f{{ t.id }}" name="nombre" value="{{ t.first_name }}" class="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm"></td>
+                    <td class="px-4 py-3 text-sm text-gray-500">{% if t.last_login %}{{ t.last_login|date:"d/m/Y H:i" }}{% else %}nunca{% endif %}</td>
+                    <td class="px-4 py-3"><input form="f{{ t.id }}" name="password" type="password" autocomplete="new-password" placeholder="sin cambios" class="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm"></td>
+                    <td class="px-4 py-3"><input form="f{{ t.id }}" name="is_active" type="checkbox" {% if t.is_active %}checked{% endif %}></td>
+                    <td class="px-4 py-3 whitespace-nowrap text-right">
+                        <form id="f{{ t.id }}" method="post" action="{% url 'portal:tecnico_edit' t.id %}" class="inline">{% csrf_token %}
+                            <button class="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">Guardar</button>
+                        </form>
+                        <form method="post" action="{% url 'portal:tecnico_delete' t.id %}" class="inline" onsubmit="return confirm('¿Eliminar el técnico {{ t.username }}?')">{% csrf_token %}
+                            <button class="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Eliminar"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Todavía no hay ningún técnico</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="px-4 py-3 bg-gray-50 text-sm text-gray-500">
+            Administradores (lo pueden todo): {% for a in administradores %}<strong>{{ a.username }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
+        </div>
+    </div>
+
+    <div class="space-y-6">
+        <form method="post" class="bg-white rounded-xl shadow-sm p-5 space-y-3">{% csrf_token %}
+            <h5 class="font-semibold text-gray-800">Nuevo técnico</h5>
+            <div><label class="block text-sm text-gray-600 mb-1">Usuario</label><input name="username" required autocomplete="off" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+            <div><label class="block text-sm text-gray-600 mb-1">Nombre</label><input name="nombre" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+            <div><label class="block text-sm text-gray-600 mb-1">Contraseña (8 caracteres o más)</label><input name="password" type="password" required minlength="8" autocomplete="new-password" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+            <button class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Crear técnico</button>
+        </form>
+        <div class="bg-white rounded-xl shadow-sm p-5 text-sm text-gray-600">
+            <h5 class="font-semibold text-gray-800 mb-2">Qué puede hacer un técnico</h5>
+            <p class="mb-1"><strong class="text-green-600">Sí:</strong> ver el inicio, clientes, dispositivos, streams y registros; crear y editar clientes y decos; cambiar la tarifa; recargar o reiniciar un deco y mandarle firmware.</p>
+            <p><strong class="text-red-500">No:</strong> borrar clientes o decos, recargar todos los decos a la vez, ni entrar en canales, tarifas, CDN, servidores, grabaciones, EPG, ayuda o configuración.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -166,11 +166,11 @@ def user_create(request):
     """Create new user."""
     if request.method == 'POST':
         username = request.POST.get('username')
-        email = request.POST.get('email', '')
         password = request.POST.get('password')
         tariff_id = request.POST.get('tariff')
-        duration = int(request.POST.get('duration', 30))
-        max_devices = int(request.POST.get('max_devices', 5))
+        # Vacio = no caduca, como las cuentas que vienen de Ministra. Antes
+        # salia 30 por defecto y un alta hecha con prisa se cortaba al mes.
+        duration = request.POST.get('duration', '').strip()
 
         if User.objects.filter(username=username).exists():
             messages.error(request, 'El usuario ya existe')
@@ -178,15 +178,16 @@ def user_create(request):
 
         user = User.objects.create_user(
             username=username,
-            email=email,
             password=password,
-            max_devices=max_devices,
         )
 
+        # Cuantos equipos puede tener lo marca la tarifa (limite_equipos), no
+        # el alta: es lo que se factura.
         if tariff_id:
             user.tariff_id = tariff_id
-            user.subscription_expires = timezone.now() + timedelta(days=duration)
-            user.save()
+        if duration.isdigit() and int(duration) > 0:
+            user.subscription_expires = timezone.now() + timedelta(days=int(duration))
+        user.save()
 
         messages.success(request, f'Usuario {username} creado correctamente')
 
@@ -207,9 +208,7 @@ def user_edit(request, user_id):
         return redirect('portal:users')
 
     if request.method == 'POST':
-        user.email = request.POST.get('email', '')
         user.tariff_id = request.POST.get('tariff') or None
-        user.max_devices = int(request.POST.get('max_devices', 5))
         user.is_active = 'is_active' in request.POST
         # PIN parental: vacio = los canales de adultos no se bloquean.
         user.parental_password = request.POST.get('parental_password', '').strip()
@@ -291,6 +290,66 @@ def user_delete(request, user_id):
         return JsonResponse({'status': 'ok'})
 
     return JsonResponse({'status': 'error'}, status=400)
+
+
+# ============== Tecnicos ==============
+# Usuarios del panel con permisos recortados: ver apps/core/permisos.py. Estas
+# tres paginas no estan en la lista de los tecnicos, asi que solo las abre un
+# administrador.
+
+@staff_member_required
+def tecnicos_list(request):
+    """Lista de tecnicos y alta de uno nuevo."""
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        nombre = request.POST.get('nombre', '').strip()
+        password = request.POST.get('password', '')
+        if not username or len(password) < 8:
+            messages.error(request, 'Hace falta un usuario y una contraseña de 8 caracteres o más')
+        elif User.objects.filter(username__iexact=username).exists():
+            messages.error(request, f'Ya existe un usuario {username}')
+        else:
+            tecnico = User.objects.create_user(username=username, password=password)
+            tecnico.first_name = nombre
+            tecnico.is_staff = True
+            tecnico.save()
+            messages.success(request, f'Técnico {username} creado')
+        return redirect('portal:tecnicos')
+
+    context = {
+        'active_page': 'tecnicos',
+        'stats': get_base_stats(),
+        'tecnicos': User.objects.filter(is_staff=True, is_superuser=False).order_by('username'),
+        'administradores': User.objects.filter(is_superuser=True).order_by('username'),
+    }
+    return render(request, 'portal/pages/tecnicos.html', context)
+
+
+@staff_member_required
+def tecnico_edit(request, user_id):
+    """Cambiar el nombre, la contraseña o apagar el acceso de un tecnico."""
+    tecnico = get_object_or_404(User, id=user_id, is_staff=True, is_superuser=False)
+    if request.method == 'POST':
+        tecnico.first_name = request.POST.get('nombre', '').strip()
+        tecnico.is_active = 'is_active' in request.POST
+        password = request.POST.get('password', '')
+        if password and len(password) < 8:
+            messages.error(request, 'La contraseña tiene que tener 8 caracteres o más; no se ha cambiado')
+        elif password:
+            tecnico.set_password(password)
+        tecnico.save()
+        messages.success(request, f'Técnico {tecnico.username} actualizado')
+    return redirect('portal:tecnicos')
+
+
+@staff_member_required
+def tecnico_delete(request, user_id):
+    if request.method == 'POST':
+        tecnico = get_object_or_404(User, id=user_id, is_staff=True, is_superuser=False)
+        nombre = tecnico.username
+        tecnico.delete()
+        messages.success(request, f'Técnico {nombre} eliminado')
+    return redirect('portal:tecnicos')
 
 
 @staff_member_required
