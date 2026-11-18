@@ -6251,6 +6251,8 @@
     // directo (archivo, grabacion, video de ayuda, nada) se recarga el
     // portal, que es lo seguro: arranca como recien enchufado (6 s).
     var enReposo = false, canalReposo = null, ultimoApagar = 0;
+    // Cuando salio de reposo por ultima vez (ver el evento 33 en stbEvent).
+    var despertoStb = 0;
     function botonApagar() {
         if (typeof gSTB === 'undefined' || !gSTB.StandBy) return;
         // Una sola pulsacion llega a veces dos veces (el mando repite la tecla
@@ -6275,6 +6277,7 @@
         } else {
             try { gSTB.StandBy(false); } catch (err) {}
             enReposo = false;
+            despertoStb = new Date().getTime();
             var ch = canalReposo;
             canalReposo = null;
             api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: se enciende' +
@@ -6795,6 +6798,20 @@
         // canal. Al volver la tele se pide otra vez el mismo canal; el mismo
         // recuperarDirecto se ocupa de no hacerlo en reposo ni en bucle.
         if (ev === '32' && canalStb && !diferido && !(videoAyuda && videoAyuda.deco)) recuperarDirecto();
+        // En algunos decos, al salir de reposo la salida HDMI no vuelve: no
+        // llega el 32 ("tele conectada") y a los 35 segundos justos el deco
+        // avisa con el 33 de que no hay tele. El cliente ve la pantalla en
+        // negro, cree que se ha apagado solo, vuelve a pulsar y lo manda otra
+        // vez a reposo; acaba desenchufandolo (00:1A:79:74:89:C9, un MAG520,
+        // seis veces el 18/11/2026; 11 decos en un dia). Lo unico que se sabe
+        // que lo arregla es arrancar de nuevo, asi que lo hace el deco solo.
+        // Si es que la tele estaba apagada de verdad, reiniciar no molesta.
+        if (ev === '32') despertoStb = 0;
+        if (ev === '33' && despertoStb && new Date().getTime() - despertoStb < 60000) {
+            despertoStb = 0;
+            api('type=stb&action=log&diag=' + encodeURIComponent('sin HDMI tras salir de reposo: reinicio'), function() {});
+            setTimeout(function() { try { gSTB.ExecAction('reboot'); } catch (err) {} }, 1500);
+        }
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'grabacion' && isFullscreen && !salto) terminarGrabacion();
