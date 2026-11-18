@@ -214,7 +214,15 @@ def user_edit(request, user_id):
         user.tariff_id = request.POST.get('tariff') or None
         user.is_active = 'is_active' in request.POST
         # PIN parental: vacio = los canales de adultos no se bloquean.
-        user.parental_password = request.POST.get('parental_password', '').strip()
+        # Solo numeros: el navegador rellenaba esta casilla con el nombre del
+        # tecnico (la tomaba por el usuario de la contraseña de al lado), y un
+        # PIN "guillem" guardado sin querer dejaria al cliente sin poder abrir
+        # los canales de adultos. Lo que no sean cifras no se guarda.
+        pin = request.POST.get('parental_password', '').strip()
+        if pin and not pin.isdigit():
+            messages.error(request, 'El PIN parental solo puede llevar números; no se ha cambiado')
+        else:
+            user.parental_password = pin
 
         # Caducidad: vacio = no caduca nunca. Antes no habia forma de cambiarla
         # ni de quitarla desde el panel, solo sumar dias con el boton de renovar.
