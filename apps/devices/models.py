@@ -83,6 +83,13 @@ class Device(TimeStampedModel, ActivableModel):
     language = models.CharField(max_length=5, default='es')
     volume = models.PositiveIntegerField(default=50)
     brightness = models.PositiveIntegerField(default=100)
+    # La forma de la imagen (gSTB.SetAspect): 16 ajustar (lo normal), 0
+    # expandir, 48 combinado, 64 ampliar, 80 optimo. Vacio = lo normal. En
+    # Ministra cada cliente la elegia con el mando, canal a canal; aqui se
+    # guarda la que tenia en la mayoria de los canales. Sin esto, un cliente
+    # con la tele en modo antiguo veia la imagen con franjas negras arriba y
+    # abajo y estirada (00:1A:79:73:74:74, 18/11/2026).
+    aspecto = models.PositiveSmallIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Device'

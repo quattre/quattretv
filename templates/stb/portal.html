@@ -5880,6 +5880,15 @@
     }
     function recuperarVolumen() {
         api('type=stb&action=get_volume', function(js) {
+            // La forma de la imagen que el cliente tenia elegida (ver
+            // Device.aspecto). Solo en los decos y solo si hay una guardada.
+            try {
+                var forma = js ? parseInt(js.aspect, 10) : NaN;
+                if (stbAPI && stbAPI.SetAspect && !isNaN(forma) && [0, 16, 32, 48, 64, 80].indexOf(forma) >= 0) {
+                    stbAPI.SetAspect(forma);
+                    if (forma !== 16) api('type=stb&action=log&diag=' + encodeURIComponent('forma de imagen ' + forma), function() {});
+                }
+            } catch (err) {}
             var v = js ? parseInt(js.volume, 10) : NaN;
             if (isNaN(v) || v < 0 || v > 100) return;
             volume = v;

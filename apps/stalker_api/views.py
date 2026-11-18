@@ -338,7 +338,7 @@ def handle_volumen(request, action):
         if device.volume != vol:
             type(device).objects.filter(pk=device.pk).update(volume=vol)
         return stalker_response({'volume': vol})
-    return stalker_response({'volume': cache.get(clave)})
+    return stalker_response({'volume': cache.get(clave), 'aspect': device.aspecto})
 
 
 def handle_log(request):
