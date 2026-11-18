@@ -87,7 +87,7 @@
                 type="text"
                 name="search"
                 class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Buscar MAC, usuario..."
+                placeholder="Buscar MAC, usuario, nombre..."
                 value="{{ request.GET.search }}"
             >
         </div>
@@ -146,7 +146,7 @@
                         {% endif %}
                     </td>
                     <td class="px-6 py-4">
-                        <a href="{% url 'portal:user_edit' device.user.id %}" class="text-blue-500 hover:text-blue-700 hover:underline">{{ device.user.username }}</a>
+                        <a href="{% url 'portal:user_edit' device.user.id %}" class="text-blue-500 hover:text-blue-700 hover:underline">{{ device.user.username }}</a>{% if device.user.first_name %} <span class="text-gray-400 text-sm">{{ device.user.first_name }}</span>{% endif %}
                     </td>
                     <td class="px-6 py-4">
                         {% if device.device_type == 'mag' %}

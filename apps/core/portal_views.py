@@ -129,7 +129,7 @@ def users_list(request):
     if search:
         users = users.filter(
             Q(username__icontains=search) |
-            Q(email__icontains=search)
+            Q(first_name__icontains=search)
         )
 
     tariff_id = request.GET.get('tariff')
@@ -183,6 +183,8 @@ def user_create(request):
 
         # Cuantos equipos puede tener lo marca la tarifa (limite_equipos), no
         # el alta: es lo que se factura.
+        # El «nombre» de Ministra (alli iba el DNI): para encontrar al cliente.
+        user.first_name = request.POST.get('nombre', '').strip()[:150]
         if tariff_id:
             user.tariff_id = tariff_id
         if duration.isdigit() and int(duration) > 0:
@@ -208,6 +210,7 @@ def user_edit(request, user_id):
         return redirect('portal:users')
 
     if request.method == 'POST':
+        user.first_name = request.POST.get('nombre', user.first_name).strip()[:150]
         user.tariff_id = request.POST.get('tariff') or None
         user.is_active = 'is_active' in request.POST
         # PIN parental: vacio = los canales de adultos no se bloquean.
@@ -408,6 +411,7 @@ def devices_list(request):
         devices = devices.filter(
             Q(mac_address__icontains=search) |
             Q(user__username__icontains=search) |
+            Q(user__first_name__icontains=search) |
             Q(name__icontains=search)
         )
 
