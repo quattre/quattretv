@@ -2387,6 +2387,11 @@ def handle_watchdog(request, action):
         # de cambio de canal tambien pasa por aqui y no mira la respuesta, asi
         # que haciendo zapping se comia las ordenes sin ejecutarlas.
         cargado = request.GET.get('cargado', '')
+        # Que esta viendo cuando no es la tele en directo (videoclub, archivo,
+        # grabacion): para la grafica del panel.
+        if cargado.isdigit() and 'viendo' in request.GET:
+            from apps.core.maquina import apuntar_viendo
+            apuntar_viendo(device.id, request.GET.get('viendo'))
         # La lista de canales cambia (un canal nuevo, otro numero): el deco
         # compara esta marca con la de la vez anterior y, si cambia, la vuelve
         # a pedir por detras. Antes habia que recargar el portal o reiniciar.

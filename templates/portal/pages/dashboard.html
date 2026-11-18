@@ -117,7 +117,7 @@
     <!-- Connections Chart -->
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-            <h5 class="font-semibold"><i class="bi bi-graph-up"></i> Dispositivos conectados y tráfico de los CDN (últimas 24 h)</h5>
+            <h5 class="font-semibold"><i class="bi bi-graph-up"></i> Tráfico de los CDN y de los grabadores (últimas 24 h)</h5>
             <small class="text-gray-400">una muestra cada 5 minutos</small>
         </div>
         <div class="p-6">
@@ -137,6 +137,16 @@
                 {% for m in modelos_deco %}{{ m.model|default:"sin modelo" }} <b>{{ m.count }}</b>{% if not forloop.last %} · {% endif %}{% endfor %}
             </p>
         </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+        <h5 class="font-semibold"><i class="bi bi-film"></i> Qué se está viendo fuera del directo (últimas 24 h)</h5>
+        <small class="text-gray-400">decos viendo videoclub, grabaciones o programas ya emitidos</small>
+    </div>
+    <div class="p-6">
+        <div style="position:relative;height:240px"><canvas id="viendoChart"></canvas></div>
     </div>
 </div>
 
@@ -289,26 +299,33 @@ historia.forEach(function (m) {
     Object.keys(m[5] || {}).forEach(function (n) { if (cdnsVistos.indexOf(n) < 0) cdnsVistos.push(n); });
 });
 cdnsVistos.sort();
+const grabVistos = [];
+historia.forEach(function (m) {
+    Object.keys(m[6] || {}).forEach(function (n) { if (grabVistos.indexOf(n) < 0) grabVistos.push(n); });
+});
+grabVistos.sort();
+const horas = historia.map(function (m) {
+    var d = new Date(m[0] * 1000);
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+});
 const ctx1 = document.getElementById('connectionsChart').getContext('2d');
 new Chart(ctx1, {
     type: 'line',
     data: {
-        labels: historia.map(function (m) {
-            var d = new Date(m[0] * 1000);
-            return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
-        }),
-        datasets: [{
-            label: 'Dispositivos conectados',
-            data: historia.map(function (m) { return m[1]; }),
-            borderColor: '#667eea',
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-            fill: true, tension: 0.3, pointRadius: 0, yAxisID: 'y'
-        }].concat(cdnsVistos.map(function (nombre, i) {
+        labels: horas,
+        datasets: cdnsVistos.map(function (nombre, i) {
             return {
                 label: nombre + ' (Mbit/s)',
                 data: historia.map(function (m) { return m[5] && m[5][nombre] !== undefined ? m[5][nombre] : null; }),
                 borderColor: ['#11998e', '#f59e0b', '#f5576c', '#4facfe'][i % 4], borderWidth: 1.5,
-                fill: false, tension: 0.3, pointRadius: 0, spanGaps: true, yAxisID: 'y1'
+                fill: false, tension: 0.3, pointRadius: 0, spanGaps: true
+            };
+        }).concat(grabVistos.map(function (nombre, i) {
+            return {
+                label: nombre + ' (Mbit/s)',
+                data: historia.map(function (m) { return m[6] && m[6][nombre] !== undefined ? m[6][nombre] : null; }),
+                borderColor: ['#667eea', '#a855f7', '#64748b'][i % 3], borderWidth: 1.5, borderDash: [5, 3],
+                fill: false, tension: 0.3, pointRadius: 0, spanGaps: true
             };
         }))
     },
@@ -318,9 +335,34 @@ new Chart(ctx1, {
         plugins: { legend: { display: true, position: 'bottom' } },
         scales: {
             x: { ticks: { maxTicksLimit: 12 } },
-            y: { beginAtZero: true, title: { display: true, text: 'dispositivos' } },
-            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false },
-                  title: { display: true, text: 'Mbit/s' } }
+            y: { beginAtZero: true, title: { display: true, text: 'Mbit/s' } }
+        }
+    }
+});
+
+// Que se esta viendo que no es la tele en directo: lo dicen los decos en el latido.
+const VIENDO = [['videoclub', 'Videoclub', '#f5576c'], ['grabacion', 'Grabaciones', '#667eea'],
+                ['archivo', 'Programas del archivo (guía)', '#11998e'], ['diferido', 'Directo retrocedido', '#f59e0b']];
+new Chart(document.getElementById('viendoChart').getContext('2d'), {
+    type: 'line',
+    data: {
+        labels: horas,
+        datasets: VIENDO.map(function (v) {
+            return {
+                label: v[1],
+                data: historia.map(function (m) { return m[7] ? (m[7][v[0]] || 0) : null; }),
+                borderColor: v[2], backgroundColor: v[2] + '22', borderWidth: 1.5,
+                fill: true, tension: 0.3, pointRadius: 0, stepped: false
+            };
+        })
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: true, position: 'bottom' } },
+        scales: {
+            x: { ticks: { maxTicksLimit: 12 } },
+            y: { beginAtZero: true, stacked: true, ticks: { precision: 0 }, title: { display: true, text: 'decos' } }
         }
     }
 });

@@ -338,7 +338,15 @@
 
     function latido() {
         var ch = channels[playingChannelIdx >= 0 ? playingChannelIdx : currentChannel];
-        api("type=watchdog&action=get_events&cargado=" + PORTAL_CARGADO +
+        // Que se esta viendo, para la grafica del panel: videoclub, un programa
+        // del archivo, el directo retrocedido o una grabacion.
+        var viendo = 'tv';
+        if (diferido) {
+            viendo = diferido.tipo === 'grabacion' ? 'grabacion' :
+                     diferido.tipo === 'directo' ? 'diferido' :
+                     (diferido.cero ? 'videoclub' : 'archivo');
+        }
+        api("type=watchdog&action=get_events&cargado=" + PORTAL_CARGADO + "&viendo=" + viendo +
             (ch ? "&ch_id=" + ch.id : ""), function(js) {
             if (js && js.canales) {
                 if (!marcaCanales) marcaCanales = js.canales;
