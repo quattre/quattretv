@@ -480,6 +480,18 @@
         var tiene = '';
         try { tiene = String(JSON.parse(gSTB.GetEnv('{"varList":["graphicres"]}')).result.graphicres || ''); } catch (err) { return false; }
         if (tiene === '1280') return false;
+        // Salvo con la salida de video de tele antigua (PAL, 576p...): ahi los
+        // menus a 720x576 son lo unico que el deco sabe pintar bien. Al
+        // ponerle 1280 a un MAG520 en 576p-50, el menu salia en blanco de la
+        // primera fila para abajo (00:1A:79:73:74:74, 18/11/2026). Esos decos
+        // se quedan como estan hasta que el portal sepa dibujarse a 720x576.
+        var salida = '';
+        try { salida = String(JSON.parse(gSTB.GetEnv('{"varList":["tvsystem"]}')).result.tvsystem || ''); } catch (err) {}
+        if (/^(PAL|NTSC|SECAM|576|480)/i.test(salida)) {
+            api('type=stb&action=log&diag=' + encodeURIComponent('menus pequeños: salida ' + salida +
+                ', graphicres ' + tiene + ', ventana ' + window.innerWidth + 'x' + window.innerHeight + ', no se toca'), function() {});
+            return false;
+        }
         var hecho;
         try { hecho = gSTB.SetEnv('{"graphicres":"1280"}'); } catch (err) { return false; }
         api('type=stb&action=log&diag=' + encodeURIComponent('menus pequeños: graphicres ' + tiene +
