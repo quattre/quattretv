@@ -6253,32 +6253,6 @@
     var enReposo = false, canalReposo = null, ultimoApagar = 0;
     // Cuando salio de reposo por ultima vez (ver el evento 33 en stbEvent).
     var despertoStb = 0;
-    // Mandar el deco a reposo y sacarlo, lo pida el boton del mando o la tele.
-    function dormirStb(motivo) {
-        canalReposo = (!diferido && !videoAyuda && canalStb && canalStb.id && canalStb.cmd) ? canalStb : null;
-        api('type=stb&action=log&diag=' + encodeURIComponent(motivo + ': a reposo' +
-            (canalReposo ? ' con ' + (canalReposo.name || canalReposo.id) : ' sin canal')), function() {});
-        enReposo = true;
-        clearTimeout(colaStb);
-        testigoStb++;
-        try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch (err) {}
-        try { gSTB.StandByMode = 1; } catch (err) {}
-        try { gSTB.StandBy(true); } catch (err) {}
-    }
-
-    function despertarStb(motivo) {
-        try { gSTB.StandBy(false); } catch (err) {}
-        enReposo = false;
-        var ch = canalReposo;
-        canalReposo = null;
-        api('type=stb&action=log&diag=' + encodeURIComponent(motivo + ': se enciende' +
-            (ch ? ', vuelve a ' + (ch.name || ch.id) : ', recarga')), function() {});
-        if (ch && !diferido && !videoAyuda) {
-            try { playChannel(ch); return; } catch (err) {}
-        }
-        setTimeout(function() { location.reload(); }, 300);
-    }
-
     function botonApagar() {
         if (typeof gSTB === 'undefined' || !gSTB.StandBy) return;
         // Una sola pulsacion llega a veces dos veces (el mando repite la tecla
@@ -6290,42 +6264,29 @@
         if (ahoraApagar - ultimoApagar < 3000) return;
         ultimoApagar = ahoraApagar;
         try { if (gSTB.GetStandByStatus) enReposo = !!gSTB.GetStandByStatus(); } catch (err) {}
-        clearTimeout(relojTele);
         if (!enReposo) {
-            dormirStb('boton apagar');
+            canalReposo = (!diferido && !videoAyuda && canalStb && canalStb.id && canalStb.cmd) ? canalStb : null;
+            api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: a reposo' +
+                (canalReposo ? ' con ' + (canalReposo.name || canalReposo.id) : ' sin canal')), function() {});
+            enReposo = true;
+            clearTimeout(colaStb);
+            testigoStb++;
+            try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch (err) {}
+            try { gSTB.StandByMode = 1; } catch (err) {}
+            try { gSTB.StandBy(true); } catch (err) {}
         } else {
+            try { gSTB.StandBy(false); } catch (err) {}
+            enReposo = false;
             despertoStb = new Date().getTime();
-            despertarStb('boton apagar');
-        }
-    }
-
-    // El deco sigue a la tele, como hacia Ministra con todos los clientes
-    // (standby_on_hdmi_off = true): se apaga la tele y a los 5 segundos el deco
-    // para el canal y se va a reposo; se enciende la tele y el deco despierta y
-    // vuelve a su canal. El cliente no tiene que tocar el mando del deco para
-    // nada. Sin esto el deco se quedaba encendido con la tele apagada, y quien
-    // pulsaba el boton del mando para "encenderlo" lo que hacia era mandarlo a
-    // reposo: de ahi las quejas de que "se apaga solo" (18/11/2026).
-    //
-    // Solo si alguna vez se ha visto la tele por HDMI: un deco conectado con
-    // el cable redondo nunca la ve, y no se le puede mandar a reposo por eso.
-    // Los 5 segundos son para no reaccionar a un parpadeo del HDMI (cambio de
-    // entrada, tele que renegocia): si la tele vuelve antes, no pasa nada.
-    var teleVista = false, relojTele = null;
-    function teleCambia(conectada) {
-        if (typeof gSTB === 'undefined' || !gSTB.StandBy) return;
-        clearTimeout(relojTele);
-        if (conectada) teleVista = true;
-        relojTele = setTimeout(function() {
-            if (firmwareEnCurso) return;
-            var dormido = enReposo;
-            try { if (gSTB.GetStandByStatus) dormido = !!gSTB.GetStandByStatus(); } catch (err) {}
-            if (!conectada) {
-                if (teleVista && !dormido) dormirStb('tele apagada');
-            } else if (dormido) {
-                despertarStb('tele encendida');
+            var ch = canalReposo;
+            canalReposo = null;
+            api('type=stb&action=log&diag=' + encodeURIComponent('boton apagar: se enciende' +
+                (ch ? ', vuelve a ' + (ch.name || ch.id) : ', recarga')), function() {});
+            if (ch && !diferido && !videoAyuda) {
+                try { playChannel(ch); return; } catch (err) {}
             }
-        }, conectada ? 1000 : 5000);
+            setTimeout(function() { location.reload(); }, 300);
+        }
     }
 
     function handleKey(e) {
@@ -6845,12 +6806,12 @@
         // seis veces el 18/11/2026; 11 decos en un dia). Lo unico que se sabe
         // que lo arregla es arrancar de nuevo, asi que lo hace el deco solo.
         // Si es que la tele estaba apagada de verdad, reiniciar no molesta.
-        if (ev === '32') { despertoStb = 0; teleCambia(true); }
+        if (ev === '32') despertoStb = 0;
         if (ev === '33' && despertoStb && new Date().getTime() - despertoStb < 60000) {
             despertoStb = 0;
             api('type=stb&action=log&diag=' + encodeURIComponent('sin HDMI tras salir de reposo: reinicio'), function() {});
             setTimeout(function() { try { gSTB.ExecAction('reboot'); } catch (err) {} }, 1500);
-        } else if (ev === '33') teleCambia(false);
+        }
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'grabacion' && isFullscreen && !salto) terminarGrabacion();
