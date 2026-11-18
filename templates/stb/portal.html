@@ -6028,9 +6028,17 @@
     // ademas borra que canal sonaba. Si lo que habia no era un canal en
     // directo (archivo, grabacion, video de ayuda, nada) se recarga el
     // portal, que es lo seguro: arranca como recien enchufado (6 s).
-    var enReposo = false, canalReposo = null;
+    var enReposo = false, canalReposo = null, ultimoApagar = 0;
     function botonApagar() {
         if (typeof gSTB === 'undefined' || !gSTB.StandBy) return;
+        // Una sola pulsacion llega a veces dos veces (el mando repite la tecla
+        // si se aprieta un poco de mas): el deco se encendia y en el mismo
+        // segundo volvia a reposo, y el cliente veia que "se apaga solo".
+        // Medido el 18/11: 140 veces en un dia, en 47 decos. Tras atender el
+        // boton no se le hace caso otra vez hasta pasados 3 segundos.
+        var ahoraApagar = new Date().getTime();
+        if (ahoraApagar - ultimoApagar < 3000) return;
+        ultimoApagar = ahoraApagar;
         try { if (gSTB.GetStandByStatus) enReposo = !!gSTB.GetStandByStatus(); } catch (err) {}
         if (!enReposo) {
             canalReposo = (!diferido && !videoAyuda && canalStb && canalStb.id && canalStb.cmd) ? canalStb : null;
