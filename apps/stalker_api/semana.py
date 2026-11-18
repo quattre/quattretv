@@ -222,11 +222,6 @@ def canales_con_archivo(device):
     canales = canales_visibles(
         Channel.objects.filter(is_active=True, has_catchup=True, is_adult=False)
         .select_related('category'), device)
-    if device and device.user.tariff:
-        from django.db.models import Q
-        paquetes = device.user.tariff.channel_packages.values_list('id', flat=True)
-        canales = canales.filter(
-            Q(packages__id__in=paquetes) | Q(packages__isnull=True)).distinct()
 
     ventanas = ventanas_de_archivo()
     resultado = {}

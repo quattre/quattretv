@@ -921,10 +921,31 @@ def canales_visibles(qs, device):
     Se filtra en la consulta y no despues porque la lista va paginada de 50 en
     50: filtrar en Python descuadraria el total y dejaria paginas cortas.
     """
-    tipo = getattr(device, 'device_type', None) if device else None
-    if not tipo:
+    if not device:
         return qs
-    return qs.exclude(oculto_para__contains=',%s,' % tipo)
+    tipo = getattr(device, 'device_type', None)
+    if tipo:
+        qs = qs.exclude(oculto_para__contains=',%s,' % tipo)
+    return canales_de_la_tarifa(qs, device.user.tariff)
+
+
+def canales_de_la_tarifa(qs, tarifa):
+    """
+    Quita los canales que el cliente no tiene contratados.
+
+    Un canal sin paquete es de todos. Un canal metido en algun paquete solo lo
+    ve la tarifa que lleve uno de esos paquetes: asi el canal de adultos va en
+    el paquete "Adultos" y la tarifa "Completa sin adultos" no lo lleva.
+
+    Va aqui, con el filtro por aparato, para que valga igual en la lista, al
+    pedir el canal por su numero y en el archivo. Antes solo estaba en la
+    lista. Se excluye por subconsulta y no con un join para no duplicar filas.
+    """
+    if not tarifa:
+        return qs
+    suyos = tarifa.channel_packages.values_list('id', flat=True)
+    ajenos = Channel.objects.filter(packages__isnull=False).exclude(packages__id__in=suyos)
+    return qs.exclude(id__in=ajenos.values('id'))
 
 
 def handle_get_ordered_list(request):
@@ -942,14 +963,6 @@ def handle_get_ordered_list(request):
 
     if genre_id and genre_id != '*':
         channels = channels.filter(category_id=genre_id)
-
-    # Filter by user's packages if authenticated
-    if device and device.user.tariff:
-        package_ids = device.user.tariff.channel_packages.values_list('id', flat=True)
-        from django.db.models import Q
-        channels = channels.filter(
-            Q(packages__id__in=package_ids) | Q(packages__isnull=True)
-        ).distinct()
 
     total = channels.count()
     channels = channels[page * per_page:(page + 1) * per_page]
