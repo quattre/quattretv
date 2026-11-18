@@ -114,11 +114,9 @@
                             <button class="p-2 text-green-500 hover:bg-green-50 rounded-lg transition" onclick="renewUser({{ user.id }})" title="Renovar">
                                 <i class="bi bi-arrow-clockwise"></i>
                             </button>
-{% if request.user.is_superuser %}
                             <button class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" onclick="deleteUser({{ user.id }})" title="Eliminar">
                                 <i class="bi bi-trash"></i>
                             </button>
-{% endif %}
                         </div>
                     </td>
                 </tr>

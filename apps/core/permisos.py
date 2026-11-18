@@ -3,10 +3,11 @@ Quien puede hacer que en el panel.
 
 Hay dos clases de usuario del panel:
   - administrador (is_superuser): todo.
-  - tecnico (is_staff sin is_superuser): clientes y decos. Puede crear y editar
-    clientes y decos, cambiar la tarifa, recargar o reiniciar un deco y mandarle
-    firmware. No borra, ni entra en canales, tarifas, CDN, servidores, EPG o
-    ajustes, ni crea otros tecnicos.
+  - tecnico (is_staff sin is_superuser): clientes y decos, enteros. Crea,
+    edita y borra clientes y decos, cambia la tarifa, recarga o reinicia un
+    deco o todos, y manda firmware (pedido por Sergio el 18/11/2026: al
+    principio no borraban). No entra en canales, tarifas, CDN, servidores,
+    EPG o ajustes, ni crea otros tecnicos.
 
 Se hace con una lista de paginas permitidas y no marcando las prohibidas: una
 pagina nueva del panel queda cerrada para los tecnicos hasta que alguien la
@@ -18,9 +19,9 @@ from django.shortcuts import redirect
 
 TECNICO = {
     'dashboard', 'maquina',
-    'users', 'user_create', 'user_edit', 'user_devices', 'user_renew',
+    'users', 'user_create', 'user_edit', 'user_devices', 'user_renew', 'user_delete',
     'devices', 'device_create', 'device_edit', 'device_refresh_token',
-    'device_evento', 'device_firmware',
+    'device_evento', 'device_firmware', 'device_delete', 'devices_recargar_todos',
     'streams', 'logs',
 }
 

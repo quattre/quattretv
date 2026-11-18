@@ -59,11 +59,9 @@
                         <a href="{% url 'portal:device_edit' device.id %}" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition">
                             <i class="bi bi-pencil"></i>
                         </a>
-{% if request.user.is_superuser %}
                         <button class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" onclick="deleteDevice({{ device.id }})">
                             <i class="bi bi-trash"></i>
                         </button>
-{% endif %}
                     </div>
                 </td>
             </tr>

@@ -114,11 +114,9 @@
                 <a href="{% url 'portal:user_devices' edit_user.id %}" class="block w-full px-4 py-2 text-center text-blue-500 border border-blue-500 rounded-lg hover:bg-blue-50 transition">
                     <i class="bi bi-phone mr-1"></i> Ver dispositivos
                 </a>
-{% if request.user.is_superuser %}
                 <button class="w-full px-4 py-2 text-red-500 border border-red-500 rounded-lg hover:bg-red-50 transition" onclick="if(confirm('Eliminar usuario?')) location.href='{% url 'portal:user_delete' edit_user.id %}'">
                     <i class="bi bi-trash mr-1"></i> Eliminar usuario
                 </button>
-{% endif %}
             </div>
         </div>
     </div>
