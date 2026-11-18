@@ -500,6 +500,9 @@ def handle_login(request):
             is_active=True,
             name=f'{(tipo or "Equipo").upper()} - {user.username}',
             device_type=tipo if tipo in ('lg', 'samsung', 'mag', 'android', 'ios', 'web') else 'lg',
+            # Un deco MAG que entra con usuario y contraseña: video por http,
+            # como los demas decos (ver device_create en el panel).
+            usa_http_legacy=(tipo == 'mag'),
         )
 
     reset_attempts(request)

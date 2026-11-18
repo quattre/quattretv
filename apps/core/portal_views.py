@@ -460,6 +460,12 @@ def device_create(request):
             user_id=user_id,
             device_type=device_type,
             name=name,
+            # Los decos MAG piden el video por el puerto de siempre (http):
+            # con https los canales les salen en negro (el reproductor da
+            # error al instante). Los importados de Ministra ya lo llevaban;
+            # los dados de alta a mano en el panel no, y el primero que se
+            # creo asi se quedo sin imagen (18/11/2026).
+            usa_http_legacy=(device_type == 'mag'),
         )
 
         messages.success(request, f'Dispositivo {mac_address} creado')
