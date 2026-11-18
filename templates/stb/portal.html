@@ -267,6 +267,8 @@
             d.push('dpr=' + (window.devicePixelRatio || 1));
             d.push('api=' + (useHTML5 ? 'html5' : (player ? 'playerManager' : (stbAPI ? 'gSTB' : 'ninguna'))));
             d.push('gSTB=' + (typeof gSTB !== 'undefined'));
+            d.push('sd=' + (sd ? sd.x.toFixed(3) + 'x' + sd.y.toFixed(3) : 'no'));
+            try { if (typeof gSTB !== 'undefined') d.push('vmode=' + gSTB.RDir('vmode')); } catch (e2) {}
             d.push('pigviewport=' + !!(stbAPI && stbAPI.SetPIGViewport));
             d.push('settopwin=' + !!(stbAPI && stbAPI.SetTopWin));
             // Modelo y firmware delante: el registro corta a 400 caracteres.
@@ -1035,6 +1037,10 @@
 
     function plano() {
         if (stbAPI && /2160/.test(modoSalida())) return { ancho: 3840, alto: 2160 };
+        // Con salida de tele antigua el plano de video es el de esa salida,
+        // igual que en 4K es el de 4K. (Sin poder verlo desde aqui: es lo que
+        // hay que comprobar en un deco de pruebas.)
+        if (stbAPI && sd) return /NTSC|480/i.test(modoSalida()) ? { ancho: 720, alto: 480 } : { ancho: 720, alto: 576 };
         return { ancho: 1920, alto: 1080 };
     }
 
@@ -1209,6 +1215,167 @@
     //   2. El tamaño del lienzo tiene que ser el que la consulta de medios haya
     //      elegido de verdad. Si se escala 1920 cuando el CSS ha aplicado el de
     //      720p, se encoge dos veces y el panel sale a la mitad.
+    // ---------- Diseño para teles antiguas (menus a 720x576) ----------
+    //
+    // El portal esta dibujado a dos tamaños, 1920x1080 y 1280x720. Un deco
+    // conectado a una tele antigua (salida PAL o 576p) pinta sus menus a
+    // 720x576, y ahi la pagina de 1280 no cabe: salia cortada por la derecha y
+    // por abajo. Con Ministra esos decos funcionaban porque su portal traia un
+    // diseño para ese tamaño; el nuestro no (18/11/2026).
+    //
+    // No se escribe un tercer diseño a mano: se saca del de 1280x720. La
+    // pantalla de 720x576 se enseña estirada a lo ancho (sus puntos no son
+    // cuadrados), asi que encoger cada medida horizontal a 720/1280 y cada
+    // vertical a 576/720 deja en la tele las mismas proporciones que en una
+    // moderna. Se hace reescribiendo el CSS y no con transform ni zoom: el
+    // transform rompe el plano de video del deco y el zoom lo deja lento.
+    //
+    // Se lee el propio <style> de la pagina, asi que cualquier cambio del
+    // diseño normal llega aqui solo, sin tener que acordarse.
+    var sd = null;                 // {x, y}: cuanto se encoge cada eje; null = diseño normal
+    var SD_VERT = {'height':1,'min-height':1,'max-height':1,'top':1,'bottom':1,'margin-top':1,'margin-bottom':1,
+                   'padding-top':1,'padding-bottom':1,'line-height':1,'font-size':1,'row-gap':1};
+    var SD_HORI = {'width':1,'min-width':1,'max-width':1,'left':1,'right':1,'margin-left':1,'margin-right':1,
+                   'padding-left':1,'padding-right':1,'letter-spacing':1,'text-indent':1,'column-gap':1,
+                   '-webkit-column-gap':1};
+    var SD_CAJA = {'padding':1,'margin':1};
+    var SD_XY = {'background-size':1,'-webkit-background-size':1,'background-position':1,'gap':2};
+    var SD_RADIO = {'border-radius':1,'-webkit-border-radius':1,'border-top-left-radius':1,'border-top-right-radius':1,
+                    'border-bottom-left-radius':1,'border-bottom-right-radius':1};
+
+    function sdNumero(v, k, minimo) {
+        var n = parseFloat(v);
+        if (!n) return '0';
+        var r = Math.round(n * k);
+        if (r === 0) r = n > 0 ? 1 : -1;
+        if (minimo && r > 0 && r < minimo) r = minimo;
+        return r + 'px';
+    }
+
+    // Un valor suelto: lo que lleve px se encoge, lo demas (auto, %, 0) se deja.
+    function sdValor(v, k, minimo) {
+        return v.replace(/(-?\d*\.?\d+)px/g, function(todo, n) { return sdNumero(n, k, minimo); });
+    }
+
+    function sdDeclaracion(prop, valor, e) {
+        var imp = '';
+        var m = /\s*!important\s*$/.exec(valor);
+        if (m) { imp = ' !important'; valor = valor.slice(0, m.index); }
+        valor = valor.replace(/^\s+|\s+$/g, '');
+        if (valor.indexOf('px') < 0) return prop + ':' + valor + imp;
+        var partes, k, nuevo;
+        if (SD_VERT[prop]) nuevo = sdValor(valor, e.y, prop === 'font-size' ? 10 : 0);
+        else if (SD_HORI[prop]) nuevo = sdValor(valor, e.x);
+        else if (SD_RADIO[prop]) nuevo = sdValor(valor, Math.sqrt(e.x * e.y));
+        else if (SD_CAJA[prop]) {
+            // arriba derecha abajo izquierda; con menos valores, el orden de CSS.
+            partes = valor.split(/\s+/);
+            if (partes.length === 1) partes = [partes[0], partes[0]];
+            for (k = 0; k < partes.length; k++) partes[k] = sdValor(partes[k], k % 2 ? e.x : e.y);
+            nuevo = partes.join(' ');
+        } else if (SD_XY[prop]) {
+            partes = valor.split(/\s+/);
+            if (partes.length === 1) partes = [partes[0], partes[0]];
+            if (partes.length !== 2) return null;
+            // gap va al reves: primero entre filas (vertical), luego entre columnas.
+            nuevo = SD_XY[prop] === 2 ? sdValor(partes[0], e.y) + ' ' + sdValor(partes[1], e.x)
+                                      : sdValor(partes[0], e.x) + ' ' + sdValor(partes[1], e.y);
+        } else return null;          // bordes, sombras...: se quedan como estan
+        return prop + ':' + nuevo + imp;
+    }
+
+    // Corta por un separador sin entrar en parentesis (url(data:...;base64,...)).
+    function sdPartir(texto, sep) {
+        var trozos = [], hondo = 0, desde = 0, i, c;
+        for (i = 0; i < texto.length; i++) {
+            c = texto.charAt(i);
+            if (c === '(') hondo++;
+            else if (c === ')') hondo--;
+            else if (c === sep && !hondo) { trozos.push(texto.slice(desde, i)); desde = i + 1; }
+        }
+        trozos.push(texto.slice(desde));
+        return trozos;
+    }
+
+    // Las reglas de una hoja: [{sel, cuerpo, compacta}]. Solo hay un nivel de
+    // anidamiento, el del @media de 1280; lo demas con arroba se salta.
+    function sdReglas(css) {
+        css = css.replace(/\/\*[\s\S]*?\*\//g, '');
+        var reglas = [], i = 0, n = css.length, abre, cierra, sel, hondo, j;
+        function bloque(desde, compacta, hasta) {
+            var p = desde;
+            while (p < hasta) {
+                abre = css.indexOf('{', p);
+                if (abre < 0 || abre >= hasta) break;
+                sel = css.slice(p, abre).replace(/^\s+|\s+$/g, '');
+                hondo = 1;
+                for (j = abre + 1; j < n && hondo; j++) {
+                    if (css.charAt(j) === '{') hondo++;
+                    else if (css.charAt(j) === '}') hondo--;
+                }
+                cierra = j - 1;
+                if (sel.charAt(0) === '@') {
+                    if (/^@media[^{]*max-width:\s*1919px/.test(sel)) {
+                        var fin = cierra;
+                        bloque(abre + 1, true, fin);
+                        cierra = fin;
+                    }
+                } else if (sel) reglas.push({sel: sel, cuerpo: css.slice(abre + 1, cierra), compacta: compacta});
+                p = cierra + 1;
+            }
+        }
+        bloque(0, false, n);
+        return reglas;
+    }
+
+    function sdHoja(css, e) {
+        var reglas = sdReglas(css), salida = [], r, d, k, dos, prop, valor, linea, lineas;
+        for (r = 0; r < reglas.length; r++) {
+            d = sdPartir(reglas[r].cuerpo, ';');
+            lineas = [];
+            for (k = 0; k < d.length; k++) {
+                dos = d[k].indexOf(':');
+                if (dos < 0) continue;
+                prop = d[k].slice(0, dos).replace(/^\s+|\s+$/g, '').toLowerCase();
+                valor = d[k].slice(dos + 1);
+                // Del diseño de 1920 solo interesan las medidas que el de 1280
+                // no cambia; del de 1280, todo, para que siga mandando el.
+                if (!reglas[r].compacta && valor.indexOf('px') < 0) continue;
+                linea = sdDeclaracion(prop, valor, e);
+                if (linea === null) { if (reglas[r].compacta) linea = prop + ':' + valor.replace(/^\s+|\s+$/g, ''); else continue; }
+                lineas.push(linea);
+            }
+            if (lineas.length) salida.push(reglas[r].sel + '{' + lineas.join(';') + '}');
+        }
+        return salida.join('\n');
+    }
+
+    // Lo que la cuenta no acierta: la letra encoge menos que el ancho (si no,
+    // no se leeria), asi que una caja de ancho fijo con un rotulo dentro se
+    // queda corta. Aqui van esas cajas, una a una, segun se vayan viendo.
+    var SD_RETOQUES = '#preview-cap .e.despues .lbl{width:68px}#preview-cap .e.despues .hh{width:44px}';
+
+    function disenoPequeno() {
+        try {
+            var forzado = /[?&]sd=1/.test(location.search || '');
+            if (typeof gSTB === 'undefined' && !forzado) return;
+            var w = window.innerWidth, h = window.innerHeight;
+            if (!w || !h || w > 800) return;
+            var hojas = document.getElementsByTagName('style'), css = '', i;
+            for (i = 0; i < hojas.length; i++) {
+                var t = hojas[i].textContent || hojas[i].innerHTML || '';
+                if (t.indexOf('max-width: 1919px') >= 0) css = t;
+            }
+            if (!css) return;
+            var e = {x: w / 1280, y: h / 720};
+            var nueva = document.createElement('style');
+            nueva.id = 'sd';
+            nueva.appendChild(document.createTextNode(sdHoja(css, e) + '\n' + SD_RETOQUES));
+            document.getElementsByTagName('head')[0].appendChild(nueva);
+            sd = e;
+        } catch (err) { sd = null; }
+    }
+
     var lienzo = null;
     function ajustarLienzo() {
         if (esTelevisor()) return;
@@ -2890,7 +3057,11 @@
 
     function renderRejilla() {
         var E = (document.documentElement.clientWidth || 1920) / 1920;
+        // En el diseño de tele antigua lo vertical encoge distinto que lo
+        // horizontal (ver disenoPequeno): cada medida va con la escala de su eje.
+        var EV = sd ? (document.documentElement.clientHeight || 1080) / 1080 : E;
         function px(v) { return Math.round(v * E) + 'px'; }
+        function py(v) { return Math.round(v * EV) + 'px'; }
         // Que el canal elegido se vea: la ventana de filas lo sigue.
         if (rj.fila < rj.primera) rj.primera = rj.fila;
         if (rj.fila >= rj.primera + RJ_FILAS) rj.primera = rj.fila - RJ_FILAS + 1;
@@ -2906,13 +3077,13 @@
         var hx = Math.round(1920 * HUECO_REJILLA.x), hy = Math.round(1080 * HUECO_REJILLA.y);
         var hw = Math.round(1920 * HUECO_REJILLA.ancho), hh = Math.round(1080 * HUECO_REJILLA.alto);
         var h = '<div id="rejilla">';
-        h += '<i class="rj-f" style="left:0;top:0;width:' + px(hx) + ';height:' + px(1080) + '"></i>';
-        h += '<i class="rj-f" style="left:' + px(hx) + ';top:0;width:' + px(1920 - hx) + ';height:' + px(hy) + '"></i>';
-        h += '<i class="rj-f" style="left:' + px(hx + hw) + ';top:' + px(hy) + ';width:' + px(1920 - hx - hw) + ';height:' + px(hh) + '"></i>';
-        h += '<i class="rj-f" style="left:' + px(hx) + ';top:' + px(hy + hh) + ';width:' + px(1920 - hx) + ';height:' + px(1080 - hy - hh) + '"></i>';
+        h += '<i class="rj-f" style="left:0;top:0;width:' + px(hx) + ';height:' + py(1080) + '"></i>';
+        h += '<i class="rj-f" style="left:' + px(hx) + ';top:0;width:' + px(1920 - hx) + ';height:' + py(hy) + '"></i>';
+        h += '<i class="rj-f" style="left:' + px(hx + hw) + ';top:' + py(hy) + ';width:' + px(1920 - hx - hw) + ';height:' + py(hh) + '"></i>';
+        h += '<i class="rj-f" style="left:' + px(hx) + ';top:' + py(hy + hh) + ';width:' + px(1920 - hx) + ';height:' + py(1080 - hy - hh) + '"></i>';
 
         // Arriba a la izquierda, el programa elegido.
-        h += '<div class="rj-info" style="left:' + px(190) + ';top:' + px(56) + ';width:' + px(hx - 350) + ';height:' + px(hh) + '">';
+        h += '<div class="rj-info" style="left:' + px(190) + ';top:' + py(56) + ';width:' + px(hx - 350) + ';height:' + py(hh) + '">';
         if (ch) h += '<div class="rj-canal">' + numero(ch) + ' · ' + esc(ch.name) + '</div>';
         if (p) {
             h += '<div class="rj-titulo">' + esc(p.name);
@@ -2939,13 +3110,13 @@
 
         // La regla de las horas, con el dia a la izquierda.
         // Elegido (▲ desde el primer canal), ◀▶ pasa dias enteros.
-        h += '<div class="rj-dia' + (rj.foco === 'dia' ? ' sel' : '') + '" style="left:' + px(190) + ';top:' + px(Y0 - 50) +
+        h += '<div class="rj-dia' + (rj.foco === 'dia' ? ' sel' : '') + '" style="left:' + px(190) + ';top:' + py(Y0 - 50) +
              ';width:' + px(X0 - 200) + '">' +
              (rj.foco === 'dia' ? '<span class="fl" data-tecla="37">◀</span>' : '') +
              esc(nombreDiaT(Math.max(rj.inicio, p ? p.start_timestamp : rj.inicio))) +
              (rj.foco === 'dia' ? '<span class="fl" data-tecla="39">▶</span>' : '') + '</div>';
         for (var m = rj.inicio; m < fin; m += RJ_PASO) {
-            h += '<div class="rj-hora" style="left:' + px(X0 + (m - rj.inicio) * pxs) + ';top:' + px(Y0 - 50) + '">' + horaDe(m) + '</div>';
+            h += '<div class="rj-hora" style="left:' + px(X0 + (m - rj.inicio) * pxs) + ';top:' + py(Y0 - 50) + '">' + horaDe(m) + '</div>';
         }
 
         // Las filas.
@@ -2953,8 +3124,8 @@
             var i = rj.primera + f, c = channels[i];
             if (!c) break;
             var y = Y0 + f * ALTO;
-            h += '<div class="rj-ch' + (i === rj.fila ? ' sel' : '') + '" style="left:' + px(190) + ';top:' + px(y) +
-                 ';width:' + px(X0 - 200) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
+            h += '<div class="rj-ch' + (i === rj.fila ? ' sel' : '') + '" style="left:' + px(190) + ';top:' + py(y) +
+                 ';width:' + px(X0 - 200) + ';height:' + py(ALTO - 6) + ';line-height:' + py(ALTO - 6) + '">' +
                  '<b>' + numero(c) + '</b>' + esc(c.name) + '</div>';
             var l = progsDe(c), alguno = false;
             for (var j = 0; j < l.length; j++) {
@@ -2966,26 +3137,26 @@
                 if (q.stop_timestamp <= ahora) cls += ' past';
                 else if (q.start_timestamp <= ahora) cls += ' now';   // borde verde
                 if (i === rj.fila && p && q.id === p.id) cls += rj.foco === 'dia' ? ' marcado' : ' sel';
-                h += '<div class="' + cls + '" style="left:' + px(X0 + (a - rj.inicio) * pxs) + ';top:' + px(y) +
-                     ';width:' + px(Math.max(4, (b - a) * pxs - 6)) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
+                h += '<div class="' + cls + '" style="left:' + px(X0 + (a - rj.inicio) * pxs) + ';top:' + py(y) +
+                     ';width:' + px(Math.max(4, (b - a) * pxs - 6)) + ';height:' + py(ALTO - 6) + ';line-height:' + py(ALTO - 6) + '">' +
                      (q.rec ? '<i class="rj-rec"></i>' : '') + (q.start_timestamp < rj.inicio ? '‹ ' : '') + esc(q.name) + avance + '</div>';
             }
             if (!alguno) {
-                h += '<div class="rj-p vacio' + (i === rj.fila && !p ? ' sel' : '') + '" style="left:' + px(X0) + ';top:' + px(y) +
-                     ';width:' + px(X1 - X0 - 6) + ';height:' + px(ALTO - 6) + ';line-height:' + px(ALTO - 6) + '">' +
+                h += '<div class="rj-p vacio' + (i === rj.fila && !p ? ' sel' : '') + '" style="left:' + px(X0) + ';top:' + py(y) +
+                     ';width:' + px(X1 - X0 - 6) + ';height:' + py(ALTO - 6) + ';line-height:' + py(ALTO - 6) + '">' +
                      (rj.rangos[c.id] ? 'Sin informacion' : 'Cargando...') + '</div>';
             }
         }
 
         // La linea de ahora.
         if (ahora > rj.inicio && ahora < fin) {
-            h += '<i class="rj-ahora" style="left:' + px(X0 + (ahora - rj.inicio) * pxs - 1) + ';top:' + px(Y0 - 12) +
-                 ';height:' + px(RJ_FILAS * ALTO + 6) + '"></i>';
+            h += '<i class="rj-ahora" style="left:' + px(X0 + (ahora - rj.inicio) * pxs - 1) + ';top:' + py(Y0 - 12) +
+                 ';height:' + py(RJ_FILAS * ALTO + 6) + '"></i>';
         }
 
         // El menu de OK, encima de todo.
         if (rj.menu) {
-            h += '<div class="rj-menu" style="left:' + px(560) + ';top:' + px(330) + ';width:' + px(800) + '">';
+            h += '<div class="rj-menu" style="left:' + px(560) + ';top:' + py(330) + ';width:' + px(800) + '">';
             h += '<div class="rj-menu-t">' + esc(p ? p.name : (ch ? ch.name : '')) + '</div>';
             for (var o = 0; o < rj.menu.ops.length; o++) {
                 h += '<div class="rj-op' + (o === rj.menu.idx ? ' sel' : '') + '" data-rjop="' + o + '">' + esc(rj.menu.ops[o].t) + '</div>';
@@ -6609,6 +6780,7 @@
     document.onmousewheel = manejarRueda;      // teles con Chromium antiguo
     window.onresize = fitScreen;
     window.onload = function() {
+        disenoPequeno();
         ajustarLienzo();
         init();
     };
