@@ -1041,6 +1041,13 @@
         // igual que en 4K es el de 4K. (Sin poder verlo desde aqui: es lo que
         // hay que comprobar en un deco de pruebas.)
         if (stbAPI && sd) return /NTSC|480/i.test(modoSalida()) ? { ancho: 720, alto: 480 } : { ancho: 720, alto: 576 };
+        // Con la salida en 720p el plano mide 1280x720. Con las cuentas de
+        // 1080 la miniatura salia corrida a la derecha y hacia abajo, y
+        // recortada por el hueco: medido en una foto de un MAG256 en la
+        // oficina (18/11/2026), el video empezaba al 58,5 % del ancho, que es
+        // justo 749/1280. Solo "720p": hay modelos que dicen "576i" en vmode
+        // con la tele en alta definicion, y a esos no se les toca.
+        if (stbAPI && /720p/i.test(modoSalida())) return { ancho: 1280, alto: 720 };
         return { ancho: 1920, alto: 1080 };
     }
 
