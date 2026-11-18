@@ -1042,8 +1042,55 @@
                (HUECO.alto * 100).toFixed(1) + '%';
     }
 
+    // Que hay DE VERDAD en pantalla con la lista abierta. El 18/11 un MAG520
+    // enseño la lista cortada justo debajo de la primera fila: de ahi para
+    // abajo, todo el ancho en azul liso, sin filas, sin barra lateral y sin el
+    // hueco del video; iba y venia al mover el cursor. En el registro no habia
+    // nada raro, y desde aqui no se ve la pantalla. Esto dice que elemento hay
+    // en tres puntos (barra, mitad de la lista, hueco del video) y donde caen
+    // las filas: si es otro elemento el que tapa, sale su nombre; si todo esta
+    // en su sitio, es el navegador del deco el que no pinta. Se manda solo
+    // cuando cambia lo que se ve, y pocas veces por carga.
+    var vistaLista = {reloj: null, ultima: '', n: 0};
+    function vigilarLista() {
+        if (!stbAPI || vistaLista.n >= 12) return;
+        clearTimeout(vistaLista.reloj);
+        vistaLista.reloj = setTimeout(function() {
+            try {
+                if (view !== "list" || isFullscreen) return;
+                var W = window.innerWidth, H = window.innerHeight;
+                var que = function(x, y) {
+                    var e = document.elementFromPoint(Math.round(W * x), Math.round(H * y));
+                    if (!e) return '-';
+                    var t = e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') +
+                            (e.className && e.className.split ? '.' + e.className.split(' ').join('.') : '');
+                    var pa = e.parentNode;
+                    if (pa && pa.tagName) t = pa.tagName.toLowerCase() + (pa.id ? '#' + pa.id : '') +
+                            (pa.className && pa.className.split ? '.' + pa.className.split(' ')[0] : '') + '>' + t;
+                    return t;
+                };
+                var r = function(e) {
+                    if (!e) return '-';
+                    var b = e.getBoundingClientRect();
+                    return Math.round(b.left) + ',' + Math.round(b.top) + ' ' + Math.round(b.width) + 'x' + Math.round(b.height);
+                };
+                var caja = document.querySelector("#content .list");
+                var filas = caja ? caja.children : [];
+                var firma = 'filas=' + filas.length + ' f2=' + r(filas[1]) + ' fin=' + r(filas[filas.length - 1]) +
+                    ' barra=' + que(0.03, 0.55) + ' lista=' + que(0.22, 0.55) + ' hueco=' + que(0.7, 0.4) +
+                    ' pie=' + que(0.7, 0.85) + ' sube=' + (document.body.scrollTop || document.documentElement.scrollTop || 0) +
+                    ' fondo=' + (document.body.style.background || 'css');
+                if (firma === vistaLista.ultima) return;
+                vistaLista.ultima = firma;
+                vistaLista.n++;
+                api('type=stb&action=log&diag=' + encodeURIComponent('pantalla lista ' + firma), function() {});
+            } catch (err) {}
+        }, 1500);
+    }
+
     function setViewportPreview() {
         try { pintarRail(); } catch (err) {}
+        vigilarLista();
         HUECO = (view === "rejilla") ? HUECO_REJILLA : HUECO_LISTA;
         var r = huecoDeco();
         pintarRadio(channels[currentChannel]);
