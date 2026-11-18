@@ -280,6 +280,46 @@ def desfases(programas):
     return resultado
 
 
+ACIERTO = timedelta(minutes=6)
+MINIMO_NOTA = 4
+
+
+def notas(por_canal, ahora):
+    """
+    {canal: nota de 0 a 1} de lo que trae una fuente: de los cambios de
+    programa vistos en la EIT en el ultimo dia, cuantos estan en la fuente a
+    su hora y con su titulo. None si no hay con que medir (canal sin EIT, o
+    fichero que empieza ahora).
+
+    Sirve para elegir fuente canal a canal (ver tasks.elegir_fuente): el
+    18/11/2026 epgshare01 traia bloques de relleno ("Teledeporte" de 18 a 22)
+    y horas viejas, cargaba la ultima y pisaba a las buenas.
+    """
+    from apps.epg.completar import parecido
+    from apps.epg.models import ObservacionEit
+
+    vistos = {}
+    for o in ObservacionEit.objects.filter(channel_id__in=list(por_canal),
+                                           inicio__gte=ahora - timedelta(hours=24),
+                                           inicio__lte=ahora):
+        vistos.setdefault(o.channel_id, []).append(o)
+    resultado = {}
+    for canal, progs in por_canal.items():
+        primero = min(p.start_time for p in progs)
+        suyos = [o for o in vistos.get(canal, []) if o.inicio >= primero]
+        if len(suyos) < MINIMO_NOTA:
+            resultado[canal] = None
+            continue
+        bien = 0
+        for o in suyos:
+            nombre = _raiz(o.nombre)
+            if any(abs(p.start_time - o.inicio) <= ACIERTO and parecido(_raiz(p.title), nombre)
+                   for p in progs):
+                bien += 1
+        resultado[canal] = bien / len(suyos)
+    return resultado
+
+
 def tramo_real(programa):
     """(inicio, fin) de verdad de un programa, o los de la guia si no se saben."""
     inicio, fin = programa.start_time, programa.end_time

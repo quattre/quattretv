@@ -84,6 +84,8 @@ def update_epg_source(source_id):
         if programs_to_create:
             programs_to_create = corregir_horas(source, programs_to_create)
         if programs_to_create:
+            programs_to_create = elegir_fuente(source, programs_to_create)
+        if programs_to_create:
             _replace_programs(programs_to_create)
             logger.info(f"Created {len(programs_to_create)} programs")
             # Los programas son nuevos: la hora real vista en la EIT se les
@@ -138,6 +140,77 @@ def corregir_horas(source, programas):
                        ", ".join(f"{m:+d} min en {len(c)} canales" for m, c in resumen.items()) +
                        (f"; {len(fuera)} canales no se toman de esta fuente" if fuera else ""))
     return programas
+
+
+NOTAS = 'epg:nota:%s'
+NOTA_VALE = 26 * 3600       # una fuente que no carga en un dia ya no manda
+NOTA_MARGEN = 0.1
+POR_DELANTE = 3 * 3600      # guia que le tiene que quedar a la que manda
+
+
+def elegir_fuente(source, programas, guardar=True):
+    """
+    Varias fuentes traen el mismo canal con el mismo identificador y la ultima
+    en cargar pisaba a las demas, fuese buena o mala. Ahora cada fuente lleva
+    nota en cada canal (eit.notas: cuanto cuadra con lo que se emite) y no
+    escribe un canal en el que otra fuente tiene mejor nota y guia por delante.
+
+    Los canales sin EIT se guian por la nota media de la fuente. Si la buena
+    deja de publicar, se le acaba la guia por delante y vuelve a valer otra.
+    """
+    from django.core.cache import cache
+    from . import eit
+    from .models import EpgSource
+
+    ahora = timezone.now()
+    por_canal = {}
+    for p in programas:
+        por_canal.setdefault(p.channel_id, []).append(p)
+    try:
+        notas = eit.notas(por_canal, ahora)
+    except Exception as e:
+        logger.error(f"EPG {source.name}: no se pudo poner nota: {e}")
+        return programas
+
+    # Recien pasada la medianoche un fichero puede no traer nada de lo ya
+    # emitido: vale la nota de la carga anterior.
+    previa = cache.get(NOTAS % source.id) or {}
+    for canal, nota in notas.items():
+        if nota is None and canal in previa.get('canales', {}):
+            notas[canal] = previa['canales'][canal][0]
+    con = [n for n in notas.values() if n is not None]
+    media = sum(con) / len(con) if con else previa.get('media')
+    if guardar:
+        cache.set(NOTAS % source.id, {
+            'cuando': ahora.timestamp(),
+            'media': media,
+            'canales': {c: (notas[c], max(p.end_time for p in ps).timestamp())
+                        for c, ps in por_canal.items()},
+        }, 3 * 86400)
+
+    otras = []
+    for o in EpgSource.objects.filter(is_active=True).exclude(id=source.id):
+        suya = cache.get(NOTAS % o.id)
+        if suya and suya['cuando'] > ahora.timestamp() - NOTA_VALE:
+            otras.append(suya)
+
+    fuera = set()
+    for canal in por_canal:
+        mia = notas[canal] if notas[canal] is not None else media
+        if mia is None:
+            continue
+        for o in otras:
+            suya = o['canales'].get(canal)
+            if not suya or suya[1] < ahora.timestamp() + POR_DELANTE:
+                continue
+            nota = suya[0] if suya[0] is not None else o['media']
+            if nota is not None and nota > mia + NOTA_MARGEN:
+                fuera.add(canal)
+                break
+    if fuera:
+        logger.warning(f"EPG {source.name}: {len(fuera)} de {len(por_canal)} canales "
+                       f"se dejan a otra fuente que cuadra mejor con la EIT")
+    return [p for p in programas if p.channel_id not in fuera]
 
 
 def descomprimir(contenido):
@@ -211,7 +284,10 @@ def _replace_programs(programs):
         franja = Program.objects.filter(
             channel_id=channel_id,
             start_time__gte=start,
-            start_time__lte=end,
+            # Menor y no menor o igual: el programa que empieza justo donde
+            # acaba esta fuente no lo trae ella, y borrarlo dejaba un hueco
+            # (Cuatro, 18/11/2026: de 21:10 a 23:00 sin nada).
+            start_time__lt=end,
         )
         for viejo in franja.values('channel_id', 'start_time', 'title', *COMPLEMENTOS):
             anteriores[(viejo['channel_id'], viejo['start_time'])] = viejo
