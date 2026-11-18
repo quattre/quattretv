@@ -95,6 +95,13 @@
             // version original aunque la primera pista es la española (con su
             // etiqueta "spa"). Ministra se lo decia al arrancar; ahora tambien.
             try { if (gSTB.SetAudioLangs) gSTB.SetAudioLangs('spa', 'eng'); } catch(err) {}
+            // La salida de sonido en estereo normal (PCM), que es lo que
+            // entiende cualquier tele. Ministra se lo decia a todos los decos
+            // al arrancar (audio_out = 1 en sus 958 cuentas) y nosotros no:
+            // el deco se quedaba con lo que traiga de fabrica, y hay teles
+            // antiguas que con eso no suenan (dos MAG256 en teles de 720p sin
+            // voz el 18/11/2026, que con Ministra se oian).
+            try { if (gSTB.SetupSPdif) gSTB.SetupSPdif(1); } catch(err) {}
         } else if (typeof stb !== "undefined") {
             stbAPI = stb;
             try { volume = stbAPI.GetVolume ? stbAPI.GetVolume() : 50; } catch(err) {}
