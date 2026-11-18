@@ -5884,6 +5884,11 @@
             // Device.aspecto). Solo en los decos y solo si hay una guardada.
             try {
                 var forma = js ? parseInt(js.aspect, 10) : NaN;
+                // Sin nada guardado lo decide el portal, que el cliente no
+                // tiene por que tocar esto: con la salida en 576p o 480p (una
+                // tele plana puesta en modo antiguo) la imagen solo llena la
+                // pantalla "expandida"; en todo lo demas, "ajustada".
+                if (isNaN(forma) && stbAPI && /(576|480)p/i.test(modoSalida())) forma = 0;
                 if (stbAPI && stbAPI.SetAspect && !isNaN(forma) && [0, 16, 32, 48, 64, 80].indexOf(forma) >= 0) {
                     stbAPI.SetAspect(forma);
                     if (forma !== 16) api('type=stb&action=log&diag=' + encodeURIComponent('forma de imagen ' + forma), function() {});
