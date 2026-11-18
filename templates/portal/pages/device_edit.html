@@ -39,6 +39,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                            {% if request.user.is_superuser %}
                             <select name="device_type" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="mag" {% if device.device_type == 'mag' %}selected{% endif %}>MAG STB</option>
                                 <option value="android" {% if device.device_type == 'android' %}selected{% endif %}>Android</option>
@@ -48,6 +49,10 @@
                                 <option value="smart_tv" {% if device.device_type == 'smart_tv' %}selected{% endif %}>Smart TV</option>
                                 <option value="web" {% if device.device_type == 'web' %}selected{% endif %}>Web</option>
                             </select>
+                            <p class="text-xs text-gray-500 mt-1">Lo apunta el propio aparato. Cámbialo solo si está mal: de él dependen el firmware y los canales.</p>
+                            {% else %}
+                            <div class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600">{{ device.get_device_type_display }}</div>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="mt-4">

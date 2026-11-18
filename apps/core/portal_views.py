@@ -470,7 +470,13 @@ def device_edit(request, device_id):
 
     if request.method == 'POST':
         device.name = request.POST.get('name', '')
-        device.device_type = request.POST.get('device_type', 'mag')
+        # El tipo es lo que el aparato ES (deco, tele LG, movil): lo apunta el
+        # propio aparato al darse de alta y de el cuelgan el firmware, las
+        # ordenes y los canales que se le ocultan. Cambiarlo por error deja un
+        # deco sin su parte de deco, asi que solo lo corrige un administrador.
+        tipo = request.POST.get('device_type')
+        if tipo and request.user.is_superuser:
+            device.device_type = tipo
         device.user_id = request.POST.get('user')
         device.is_active = 'is_active' in request.POST
         device.save()
