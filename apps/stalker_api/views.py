@@ -2363,7 +2363,6 @@ def handle_watchdog(request, action):
         # (init=1) se lo salta ese portal, y gastar ahi la orden lo dejaba
         # colgado en la pantalla de "cortado". Se repite cada 2 minutos por si
         # una recarga vuelve a caer en el viejo.
-        from django.core.cache import cache
         if request.GET.get('init') == '1':
             # Arranque nuevo del portal de alli (el deco se ha reiniciado): que
             # el latido que viene detras reciba la recarga ya, sin esperar los
