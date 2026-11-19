@@ -113,3 +113,18 @@ def create_playback_link(storage, media_file, media_id):
 def stop_archive(storage, ch_id):
     """Stop the rolling archive of a channel on this storage."""
     return _request(storage, 'DELETE', 'tv_archive_recorder', [ch_id])
+
+
+def start_archive(storage, ch_id, cmd, parts_number):
+    """
+    Start the rolling archive of a channel now, without waiting for the
+    recorder's next poll of tv_archive/<name> (every 5 minutes). If the poll
+    comes first nothing breaks: the recorder skips a channel whose process is
+    alive.
+    """
+    return _request(storage, 'POST', 'tv_archive_recorder', data={
+        'task[id]': ch_id,
+        'task[ch_id]': ch_id,
+        'task[cmd]': cmd,
+        'task[parts_number]': int(parts_number),
+    })
