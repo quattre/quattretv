@@ -2389,6 +2389,26 @@ def handle_watchdog(request, action):
             }})
         return stalker_response({'data': {'msgs': 0}})
 
+    if not device and request.GET.get('cargado', '').isdigit():
+        # Nuestro portal cargado pero sin identificar: ha perdido la cookie
+        # "mac". Le paso a un MAG256 que arranco con el reloj en 1970: la
+        # entrada puso la cookie con un año de vida, el deco se puso en hora
+        # dos segundos despues y la cookie ya estaba caducada. Se quedo una
+        # hora con el portal a la vista y sin canales (19/11/2026). Recargando
+        # vuelve a pasar por la entrada, que la pone otra vez. Con tope, por
+        # si no se le queda: dos veces en diez minutos por direccion y carga.
+        clave = 'sincookie:%s:%s' % (client_ip_diag(request), request.GET['cargado'])
+        cache.add(clave, 0, 600)
+        try:
+            veces = cache.incr(clave)
+        except ValueError:
+            veces = 1
+        if veces <= 2:
+            logger_equipos.warning('Portal sin identificar desde %s (cargado=%s): recargar',
+                                   client_ip_diag(request), request.GET['cargado'])
+            respuesta['event'] = 'recargar'
+        return stalker_response(respuesta)
+
     if device:
         ch_id = request.GET.get('ch_id', '')
         if ch_id.isdigit() and str(device.last_channel_id or '') != ch_id:

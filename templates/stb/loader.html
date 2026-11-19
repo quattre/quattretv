@@ -12,7 +12,10 @@
 
     function setMacAndReload(mac) {
         mac = mac.replace(/%3A/g, ':').replace(/-/g, ':').toUpperCase().trim();
-        document.cookie = 'mac=' + mac + '; path=/; max-age=31536000';
+        // Con fecha fija y no "un año desde ahora": un deco recien enchufado
+        // tiene el reloj en 1970 hasta que se pone en hora, y la cookie
+        // caducaba en 1971, es decir, dos segundos despues (19/11/2026).
+        document.cookie = 'mac=' + mac + '; path=/; expires=Thu, 31 Dec 2037 23:59:59 GMT';
         rastro('cookie puesta; ahora hay: ' + (document.cookie || '-').substring(0, 60) + ' voy a ' + location.pathname);
         // Se va a la direccion limpia, sin lo que llevara detras.
         //
