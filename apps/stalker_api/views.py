@@ -2365,6 +2365,20 @@ def handle_watchdog(request, action):
         # una recarga vuelve a caer en el viejo.
         from django.core.cache import cache
         if request.GET.get('init') == '1':
+            # Arranque nuevo del portal de alli (el deco se ha reiniciado): que
+            # el latido que viene detras reciba la recarga ya, sin esperar los
+            # 2 minutos. Un deco que se reiniciaba cada poco se pasaba hasta
+            # minuto y medio de cada arranque en la pantalla de "cortado" de
+            # Ministra (19/11/2026). Con tope, por si una recarga cae otra vez
+            # en el viejo: a partir de 8 en 10 minutos vuelve la espera.
+            clave_n = f'evento:ministra:n:{device.id}'
+            cache.add(clave_n, 0, 600)
+            try:
+                seguidas = cache.incr(clave_n)
+            except ValueError:
+                seguidas = 1
+            if seguidas <= 8:
+                cache.delete(f'evento:ministra:{device.id}')
             return stalker_response({'data': {'msgs': 0}})
         if cache.add(f'evento:ministra:{device.id}', 1, 120):
             logger_equipos.warning('Deco %s con el portal de Ministra: recargar', device.mac_address)
