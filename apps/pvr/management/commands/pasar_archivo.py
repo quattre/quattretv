@@ -40,7 +40,7 @@ MINUTO_LIMITE = 4
 def grabando_en(storage, carpetas):
     """Carpetas de `carpetas` en las que hay ahora un proceso grabando; None si
     no se pudo mirar."""
-    orden = 'ps -eo args | grep -oE "records/archive/[0-9]+/" | sort -u'
+    orden = 'ps -eo args | grep "^ffmpeg " | grep -oE "records/archive/[0-9]+/" | sort -u'
     try:
         p = subprocess.run(
             [ssh_bin(), '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new',
