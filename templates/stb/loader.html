@@ -65,6 +65,19 @@
             if (!mac && typeof(gSTB) !== 'undefined' && gSTB.GetDeviceMAC) {
                 mac = gSTB.GetDeviceMAC();
             }
+            // En los MAG la orden se llama GetDeviceMacAddress (GetDeviceMAC no
+            // existe): sin esto un MAG que arrancaba aqui se quedaba en el
+            // formulario. No se habia visto porque la primera pagina la daba
+            // siempre Ministra, que ponia ella la cookie.
+            if (!mac && typeof(gSTB) !== 'undefined') {
+                try { if (gSTB.GetDeviceMacAddress) mac = gSTB.GetDeviceMacAddress(); } catch (e1) {}
+                try { if (!mac && gSTB.RDir) mac = gSTB.RDir('MACAddress'); } catch (e2) {}
+            }
+            if (!mac && typeof(stb) !== 'undefined') {
+                try { if (stb.GetDeviceMacAddress) mac = stb.GetDeviceMacAddress(); } catch (e3) {}
+                try { if (!mac && stb.RDir) mac = stb.RDir('MACAddress'); } catch (e4) {}
+            }
+            mac = (mac || '').replace(/\s/g, '');
         } catch(e) {}
 
         rastro('mac leida=' + (mac || 'ninguna'));
