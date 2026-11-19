@@ -57,10 +57,12 @@ server {
     location /static/   { alias /var/www/quattretv/staticfiles/; expires 7d; }
     location /media/    { alias /var/www/quattretv/media/;       expires 7d; }
 
-    # Como el Apache de Ministra: /quattretv es /stalker_portal.
-    location ~ ^/quattretv(/.*)?$ { return 301 /stalker_portal$1; }
+    # Como el Apache de Ministra para la direccion que llevan los decos; el
+    # resto de /quattretv/ (la API del portal) es de la aplicacion.
+    location ~ ^/quattretv/c(/.*)?$ { return 301 /stalker_portal/c$1; }
 
-    location / {
+    # Solo lo que usan los decos: el panel y el admin no salen por http.
+    location ~ ^/(stalker_portal|quattretv|storage_api)/ {
         proxy_pass http://quattretv;
         proxy_set_header Host iptv2.quattre.com;
         proxy_set_header X-Real-IP $remote_addr;
@@ -69,6 +71,7 @@ server {
         proxy_redirect off;
         proxy_read_timeout 120s;
     }
+    location / { return 404; }
 }
 EOF
 )

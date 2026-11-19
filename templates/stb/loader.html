@@ -13,6 +13,7 @@
     function setMacAndReload(mac) {
         mac = mac.replace(/%3A/g, ':').replace(/-/g, ':').toUpperCase().trim();
         document.cookie = 'mac=' + mac + '; path=/; max-age=31536000';
+        rastro('cookie puesta; ahora hay: ' + (document.cookie || '-').substring(0, 60) + ' voy a ' + location.pathname);
         // Se va a la direccion limpia, sin lo que llevara detras.
         //
         // Antes se recargaba la misma, y si llevaba '?logout=1' -- que es como
@@ -29,7 +30,21 @@
     var HAY_QUE_REGISTRAR = {% if registrar %}true{% else %}false{% endif %};
     var MAC_DETECTADA = '{{ mac_detectada }}';
 
+    // Lo que va pasando al entrar, al registro del servidor: un deco que se
+    // queda en esta pantalla no habla con nadie mas y no habia forma de saber
+    // donde se paraba sin ir a mirarlo (MAG256, 19/11/2026).
+    function rastro(t) {
+        try {
+            var x = new XMLHttpRequest();
+            x.open('GET', '?type=stb&action=log&diag=' + encodeURIComponent('[entrada] ' + t), true);
+            x.send();
+        } catch (e) {}
+    }
+    window.onerror = function(m, f, l) { rastro('error ' + m + ' linea ' + l); };
+
     function initApp() {
+        rastro('initApp registrar=' + HAY_QUE_REGISTRAR + ' cookie=' + (document.cookie || '-').substring(0, 60) +
+               ' gSTB=' + (typeof gSTB) + ' stb=' + (typeof stb) + ' ua=' + (navigator.userAgent || '').substring(0, 90));
         if (HAY_QUE_REGISTRAR) {
             showLogin();
             if (MAC_DETECTADA) {
@@ -52,6 +67,7 @@
             }
         } catch(e) {}
 
+        rastro('mac leida=' + (mac || 'ninguna'));
         if (mac) {
             setMacAndReload(mac);
         } else {
