@@ -75,6 +75,8 @@ EOF
 echo "+ $SITIO"; echo "$CONF"
 [ "$MODO" = probar ] && { echo "(simulacro: no se ha cambiado nada)"; exit 0; }
 mkdir -p "$FIRMWARE" "$GUIA"
+# De quattre: el firmware y la guia se copian y se renuevan sin sudo.
+chown quattre:quattre "$FIRMWARE" "$GUIA"
 echo "$CONF" > "$SITIO"
 ln -sf "$SITIO" "$ENLACE"
 if nginx -t; then systemctl reload nginx; echo "nginx recargado."; else rm -f "$ENLACE"; echo "ERROR: nginx no lo acepta; quitado."; exit 1; fi
