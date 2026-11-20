@@ -33,6 +33,13 @@ FRESCO = timedelta(minutes=10)    # un cambio de verdad, no un dato viejo
 # TCM no va aqui: el CDN emite TCM +1 y su EIT es la buena.
 SIN_EIT = {'warner'}
 
+# Canales que emiten lo mismo que otro y no traen EIT propia: se les apunta la
+# del gemelo. "Dark" (darksinx en el CDN) es la misma emision que "Dark con X"
+# (dark) salvo la franja de adultos de madrugada; comprobado el 20/11/2026 con
+# dos fotogramas del directo: misma pelicula y mismo PTS, a 4 s. Como siempre
+# se empareja por titulo, la franja distinta no se le pega.
+GEMELOS = {'dark': ('darksinx',)}
+
 
 def _fecha(texto):
     return datetime.strptime(texto, '%Y-%m-%d %H:%M:%S').replace(tzinfo=dt_timezone.utc)
@@ -89,8 +96,10 @@ def aplicar(cambios):
         # de programa: À Punt y ETB 2 mandan horas de hace horas.
         if not canal or abs(visto - inicio) > FRESCO:
             continue
-        vistos.append(ObservacionEit(channel_id=canal, inicio=inicio, visto=visto,
-                                     nombre=(c.get('nombre') or '')[:300]))
+        for destino in [canal] + [canales.get(g) for g in GEMELOS.get(nombre_cdn, ())]:
+            if destino:
+                vistos.append(ObservacionEit(channel_id=destino, inicio=inicio, visto=visto,
+                                             nombre=(c.get('nombre') or '')[:300]))
     if vistos:
         ObservacionEit.objects.bulk_create(vistos, ignore_conflicts=True)
     tocados = _apuntar(vistos)
@@ -124,10 +133,52 @@ def _raiz(titulo):
     return re.split(r'\s+-\s+', t)[0].strip(' .:-')
 
 
-def _apuntar(vistos):
+# Emparejar por hora cuando el titulo no se parece en nada: la guia traduce
+# ("Comandante General" / "General Commander") o pone el titulo original
+# ("T.I.M." / "Robot domestico"). Solo programas largos (peliculas), solo si
+# en ese rato no hay otro programa largo de la guia, y solo si lo que anuncia
+# la EIT dura tambien como una pelicula (hasta el siguiente cambio).
+HORA_CERCA = timedelta(minutes=12)
+LARGO = timedelta(minutes=60)
+
+
+def _mismo(a, b):
+    """Como completar.parecido, y ademas si uno lleva al otro dentro: la EIT
+    antepone la franja ("CINE SUPERNOVA: VAYA RESACA", "EL WESTERN DE LA 2
+    MINNESOTA CLAY", "SESION DOBLE: ...") y la guia trae solo la pelicula."""
     from apps.epg.completar import parecido
+    if parecido(a, b):
+        return True
+    corto, largo = sorted((a, b), key=len)
+    return len(corto) >= 8 and corto in largo
+
+
+def _por_hora(canal, inicio):
+    """El programa largo de la guia que cae junto a este cambio de la EIT, si
+    es el unico y lo de la EIT tambien es largo. None si no esta claro."""
+    from apps.epg.models import ObservacionEit, Program
+
+    siguiente = ObservacionEit.objects.filter(
+        channel_id=canal, inicio__gt=inicio).order_by('inicio').values_list('inicio', flat=True).first()
+    if not siguiente or siguiente - inicio < LARGO:
+        return None
+    cerca = [p for p in Program.objects.filter(
+        channel_id=canal, start_time__gte=inicio - HORA_CERCA, start_time__lte=inicio + HORA_CERCA)
+        if p.end_time - p.start_time >= LARGO]
+    if len(cerca) != 1:
+        return None
+    p = cerca[0]
+    # Que duren parecido: si no, la EIT esta en otra cosa.
+    dura_guia, dura_eit = p.end_time - p.start_time, siguiente - inicio
+    if not 0.6 <= dura_eit / dura_guia <= 1.6:
+        return None
+    return p
+
+
+def _apuntar(vistos):
     from apps.epg.models import Program
 
+    parecido = _mismo
     tocados = 0
     ultimo = {}   # canal -> (hora de guia, hora real) del ultimo apuntado
     for o in sorted(vistos, key=lambda x: x.inicio):
@@ -139,7 +190,10 @@ def _apuntar(vistos):
             channel_id=canal, start_time__gte=inicio - VENTANA, start_time__lte=inicio + VENTANA)
             if parecido(_raiz(p.title), nombre)]
         if not candidatos:
-            continue
+            p = _por_hora(canal, inicio)
+            if p is None:
+                continue
+            candidatos = [p]
         p = min(candidatos, key=lambda x: abs((x.start_time - inicio).total_seconds()))
         if len(candidatos) > 1:
             # Dos capitulos seguidos de lo mismo: es el siguiente al ultimo que
@@ -158,17 +212,21 @@ def _apuntar(vistos):
             elif abs(p.start_time - inicio) > VENTANA_REPETIDO:
                 continue
         ultimo[canal] = (p.start_time, inicio)
+        # Con update y no con save: las fuentes se cargan a la vez, y si otra
+        # carga borraba este programa mientras tanto, save() saltaba con
+        # "did not affect any rows" y la tarea se cortaba ahi, dejando sin
+        # hora real todo lo que venia detras hasta la siguiente carga (25
+        # veces en tres dias, 20/11/2026). Si ya no esta, la otra carga le
+        # pondra la suya.
         if p.inicio_real != inicio:
             p.inicio_real = inicio
-            p.save(update_fields=['inicio_real'])
-            tocados += 1
+            tocados += Program.objects.filter(pk=p.pk).update(inicio_real=inicio)
         # El de antes acabo justo entonces.
         anterior = Program.objects.filter(channel_id=canal, start_time__lt=p.start_time) \
             .order_by('-start_time').first()
         if anterior and anterior.fin_real != inicio and \
                 abs(anterior.end_time - inicio) <= VENTANA * 2:
-            anterior.fin_real = inicio
-            anterior.save(update_fields=['fin_real'])
+            Program.objects.filter(pk=anterior.pk).update(fin_real=inicio)
     return tocados
 
 
