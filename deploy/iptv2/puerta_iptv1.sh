@@ -61,6 +61,12 @@ server {
     # resto de /quattretv/ (la API del portal) es de la aplicacion.
     location ~ ^/quattretv/c(/.*)?$ { return 301 /stalker_portal/c$1; }
 
+    # Quien escribe el nombre a secas en un navegador (o tiene guardado el
+    # panel viejo de Ministra) va al panel nuevo, que solo se sirve por https
+    # en iptv2. Los decos nunca piden estas dos direcciones.
+    location = / { return 302 https://iptv2.quattre.com/; }
+    location ^~ /stalker_portal/server/adm { return 302 https://iptv2.quattre.com/; }
+
     # Solo lo que usan los decos: el panel y el admin no salen por http.
     location ~ ^/(stalker_portal|quattretv|storage_api)/ {
         proxy_pass http://quattretv;
