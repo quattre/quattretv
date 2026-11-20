@@ -18,6 +18,7 @@ import re
 from datetime import datetime, timedelta, timezone as dt_timezone
 
 from django.core.cache import cache
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -149,8 +150,28 @@ def _mismo(a, b):
     from apps.epg.completar import parecido
     if parecido(a, b):
         return True
-    corto, largo = sorted((a, b), key=len)
+    # Sin signos: la guia pone "¡Vaya resaca!" y la EIT "VAYA RESACA".
+    a, b = (re.sub(r'[^a-z0-9 ]+', ' ', x).split() for x in (a, b))
+    corto, largo = sorted((' '.join(a), ' '.join(b)), key=len)
     return len(corto) >= 8 and corto in largo
+
+
+def _continuacion(p):
+    """El segundo trozo de p, si la guia lo ha partido en el cambio de dia.
+
+    Las fuentes cortan el dia a las 06:00 y lo que esta en emision sale dos
+    veces: "En sus zapatos" 05:48-06:00 y 06:00-08:03 (Hollywood, 20/11/2026).
+    El segundo trozo, que es por el que se entra, empezaba la pelicula a los
+    siete minutos. Solo si es lo mismo: mismo titulo y mismo capitulo."""
+    from apps.epg.models import Program
+    if timezone.localtime(p.end_time).strftime('%H:%M:%S') != '06:00:00':
+        return None
+    q = Program.objects.filter(channel_id=p.channel_id, start_time=p.end_time).first()
+    if (q and q.title == p.title and q.end_time - p.start_time <= timedelta(hours=5)
+            and (q.episode_title or '') == (p.episode_title or '')
+            and q.season == p.season and q.episode == p.episode):
+        return q
+    return None
 
 
 def _por_hora(canal, inicio):
@@ -221,6 +242,9 @@ def _apuntar(vistos):
         if p.inicio_real != inicio:
             p.inicio_real = inicio
             tocados += Program.objects.filter(pk=p.pk).update(inicio_real=inicio)
+        resto = _continuacion(p)
+        if resto is not None and resto.inicio_real != inicio:
+            Program.objects.filter(pk=resto.pk).update(inicio_real=inicio)
         # El de antes acabo justo entonces.
         anterior = Program.objects.filter(channel_id=canal, start_time__lt=p.start_time) \
             .order_by('-start_time').first()

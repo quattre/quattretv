@@ -56,31 +56,47 @@ def mjd(m, h, mi, s):
     return datetime.datetime(1900 + y + k, mo - 1 - k * 12, d, bcd(h), bcd(mi), bcd(s))
 
 canales = {}
-for f in sorted(glob.glob('/home/quattre/canales/*')):
-    try:
-        m = re.search(r'SRC=udp://@?([\d.]+):(\d+)', open(f).read())
-    except Exception:
-        continue
-    if not m or (m.group(1), int(m.group(2))) in [(c['ip'], c['port']) for c in canales.values()]:
-        continue
-    ip, port = m.group(1), int(m.group(2))
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    try:
-        s.bind((ip, port))
-        s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP,
-                     struct.pack('4sl', socket.inet_aton(ip), socket.INADDR_ANY))
-    except OSError as e:
-        print('no', f, e, flush=True); s.close(); continue
-    s.setblocking(False)
-    canales[s.fileno()] = {'s': s, 'nombre': os.path.basename(f), 'ip': ip, 'port': port, 'buf': b'', 'visto': {}, 'sids': None}
+
+def abrir():
+    """Se une a los multicast de los canales que aun no escucha. Se llama al
+    arrancar y cada diez minutos: un canal nuevo en el CDN (a3series, 07/11/2026)
+    no se oia hasta reiniciar esto a mano."""
+    nuevos = 0
+    for f in sorted(glob.glob('/home/quattre/canales/*')):
+        if '.antes' in os.path.basename(f) or os.path.basename(f).endswith('~'):
+            continue
+        try:
+            m = re.search(r'SRC=udp://@?([\d.]+):(\d+)', open(f).read())
+        except Exception:
+            continue
+        if not m or (m.group(1), int(m.group(2))) in [(c['ip'], c['port']) for c in canales.values()]:
+            continue
+        ip, port = m.group(1), int(m.group(2))
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind((ip, port))
+            s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP,
+                         struct.pack('4sl', socket.inet_aton(ip), socket.INADDR_ANY))
+        except OSError as e:
+            print('no', f, e, flush=True); s.close(); continue
+        s.setblocking(False)
+        canales[s.fileno()] = {'s': s, 'nombre': os.path.basename(f), 'ip': ip, 'port': port,
+                               'buf': b'', 'visto': {}, 'sids': None, 'pat': 0}
+        nuevos += 1
+    return nuevos
+
+abrir()
 print(len(canales), 'canales', flush=True)
 
 def ahora():
     return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
 def pat(c, p):
-    if c['sids'] is not None or not (p[1] & 0x40) or (p[3] >> 4) & 3 != 1:
+    # Se vuelve a mirar cada minuto: el 05/11/2026 se renumeraron los servicios
+    # de Clan (40001 -> 539) y Be Mad (102 -> 187) y, como solo se leia al
+    # arrancar, su EIT se estuvo tirando dos semanas.
+    if time.time() - c['pat'] < 60 or not (p[1] & 0x40) or (p[3] >> 4) & 3 != 1:
         return
     sec = p[5 + p[4]:]
     if sec[:1] != b'\x00':
@@ -92,7 +108,10 @@ def pat(c, p):
         if n:
             sids.append(n)
     if sids:
+        c['pat'] = time.time()
+    if sids and set(sids) != c['sids']:
         c['sids'] = set(sids)
+        c['visto'] = {}
         CANALES.write('\t'.join([ahora(), c['nombre'], c['ip'], str(c['port']),
                                   ','.join(map(str, sids))]) + '\n')
 
@@ -155,7 +174,13 @@ def paquete(c, p):
 
 fin = time.time() + float(sys.argv[1] if len(sys.argv) > 1 else 86400)
 fds = list(canales)
+repaso = time.time() + 600
 while time.time() < fin:
+    if time.time() > repaso:
+        repaso = time.time() + 600
+        if abrir():
+            fds = list(canales)
+            print(len(canales), 'canales', flush=True)
     listos, _, _ = select.select(fds, [], [], 1)
     for fd in listos:
         c = canales[fd]
