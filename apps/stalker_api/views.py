@@ -2208,10 +2208,21 @@ def handle_pvr_delete(request):
             return stalker_response({'error': 'Grabación no encontrada'})
 
     if recording.storage and recording.storage.controlado_por_ministra:
-        # Mientras Ministra siga mandando, la grabacion es suya: si se borrara
-        # aqui, la copia de esta noche la volveria a traer.
-        return stalker_response({
-            'error': 'Esta grabacion se borra desde la plataforma antigua'})
+        # Grabacion traida de Ministra. Antes se mandaba al cliente a borrarla
+        # "desde la plataforma antigua", pero desde el 19/11/2026 ningun deco
+        # entra alli y no tenia donde hacerlo. Se quita de su lista y nada mas:
+        # a ese grabador no se le dan ordenes, asi que el fichero se queda en
+        # el disco. Queda apuntado para poder devolverla o limpiar despues.
+        # (No se vuelve a traer sola: importar_ministra ya no se lanza con
+        # grabaciones.)
+        logger_equipos.warning(
+            'Grabacion de Ministra quitada por el cliente: id=%s ministra=%s cuenta=%s '
+            'grabador=%s fichero=%s inicio=%s titulo=%s',
+            recording.id, recording.ministra_id, device.user.username,
+            recording.storage.name, recording.filename,
+            recording.start_time.isoformat() if recording.start_time else '', recording.title)
+        recording.delete()
+        return stalker_response({'result': True})
 
     if recording.status == RecordingStatus.RECORDING and recording.storage:
         try:
