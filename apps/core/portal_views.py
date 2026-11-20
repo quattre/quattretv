@@ -73,10 +73,23 @@ def dashboard(request):
         last_seen__gte=online_threshold
     ).select_related('user').order_by('-last_seen')[:5]
 
-    # Top channels
-    top_channels = Channel.objects.filter(
-        is_active=True
-    ).select_related('category').order_by('number')[:10]
+    # Canales mas vistos: en cual tiene puesto cada aparato conectado ahora
+    # mismo. Antes eran los diez primeros por numero, con una barra de
+    # "popularidad" que no existia y salia siempre gris.
+    from django.db.models import Count
+    viendo = list(Device.objects.filter(last_seen__gte=online_threshold)
+                  .exclude(last_channel=None).values('last_channel')
+                  .annotate(n=Count('id')).order_by('-n')[:10])
+    canales = Channel.objects.select_related('category').in_bulk(
+        [v['last_channel'] for v in viendo])
+    tope = viendo[0]['n'] if viendo else 0
+    top_channels = []
+    for v in viendo:
+        canal = canales.get(v['last_channel'])
+        if canal:
+            canal.viendo = v['n']
+            canal.viendo_pct = max(3, round(100 * v['n'] / tope))
+            top_channels.append(canal)
 
     # La grafica: muestras de cada 5 minutos que apuntan los latidos de los decos.
     historia = historia_maquina()
