@@ -63,9 +63,9 @@ server {
 
     # Quien escribe el nombre a secas en un navegador (o tiene guardado el
     # panel viejo de Ministra) va al panel nuevo, que solo se sirve por https
-    # en iptv2. Los decos nunca piden estas dos direcciones.
-    location = / { return 302 https://iptv2.quattre.com/; }
-    location ^~ /stalker_portal/server/adm { return 302 https://iptv2.quattre.com/; }
+    # (certificado_iptv1.sh le pone el certificado a este nombre). Los decos nunca piden estas dos direcciones.
+    location = / { return 302 https://iptv1.quattre.com/; }
+    location ^~ /stalker_portal/server/adm { return 302 https://iptv1.quattre.com/; }
 
     # Solo lo que usan los decos: el panel y el admin no salen por http.
     location ~ ^/(stalker_portal|quattretv|storage_api)/ {

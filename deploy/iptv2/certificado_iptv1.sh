@@ -1,11 +1,11 @@
 #!/bin/bash
-# https://iptv1.quattre.com en un navegador -> el panel nuevo (iptv2).
+# https://iptv1.quattre.com en un navegador -> el panel nuevo, con ese nombre.
 #
 # Hace dos cosas, y se puede lanzar las veces que haga falta:
 #   1. Vuelve a escribir la puerta de los decos (puerta_iptv1.sh), que lleva
 #      el nombre a secas por http al panel nuevo.
 #   2. Pide a Let's Encrypt un certificado para iptv1.quattre.com y pone un
-#      sitio https que solo redirige a https://iptv2.quattre.com. Los
+#      sitio https que sirve el panel igual que https://iptv2.quattre.com. Los
 #      certificados de iptv2 no se tocan. Se renueva solo con el certbot que
 #      ya hay (certbot.timer).
 #
@@ -41,8 +41,9 @@ else
 fi
 
 cat > "$SITIO" <<CONF
-# https://iptv1.quattre.com (deploy/iptv2/certificado_iptv1.sh): solo redirige
-# al panel, que vive en iptv2. Los decos no usan https.
+# https://iptv1.quattre.com (deploy/iptv2/certificado_iptv1.sh): el panel, igual
+# que en https://iptv2.quattre.com, con su propio certificado. Los decos no
+# usan https.
 server {
     listen 443 ssl;
     server_name $NOMBRE;
@@ -50,7 +51,26 @@ server {
     ssl_certificate_key $VIVO/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-    return 302 https://iptv2.quattre.com\$request_uri;
+
+    access_log /var/log/nginx/iptv2.access.log;
+    error_log  /var/log/nginx/iptv2.error.log;
+
+    client_max_body_size 20m;
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/html;
+
+    location /static/ { alias /var/www/quattretv/staticfiles/; expires 7d; }
+    location /media/  { alias /var/www/quattretv/media/;       expires 7d; }
+
+    location / {
+        proxy_pass http://quattretv;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_redirect off;
+        proxy_read_timeout 120s;
+    }
 }
 CONF
 ln -sf "$SITIO" "$ENLACE"
@@ -62,6 +82,6 @@ else
 fi
 sleep 1
 curl -s -o /dev/null -w "http  $NOMBRE -> %{http_code} %{redirect_url}\n" --resolve $NOMBRE:80:127.0.0.1 http://$NOMBRE/
-curl -s -o /dev/null -w "https $NOMBRE -> %{http_code} %{redirect_url}\n" --resolve $NOMBRE:443:127.0.0.1 https://$NOMBRE/
+curl -s -o /dev/null -w "https $NOMBRE (panel) -> %{http_code}\n" --resolve $NOMBRE:443:127.0.0.1 https://$NOMBRE/admin/login/
 curl -s -o /dev/null -w "https iptv2 (panel) -> %{http_code}\n" --resolve iptv2.quattre.com:443:127.0.0.1 https://iptv2.quattre.com/admin/login/
 curl -s -o /dev/null -w "portal de los decos -> %{http_code}\n" -H "Host: $NOMBRE" http://127.0.0.1/stalker_portal/c/index.html
