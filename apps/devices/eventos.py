@@ -79,10 +79,11 @@ def pedir_firmware(device, url, instalar=False):
     return True
 
 
-# Las imagenes de firmware que hay publicadas, por modelo: estan en el
-# servidor viejo (/var/www/firmware de 185.25.27.50, servido por su web) y son
-# las firmadas para Quattre. Medido el 11/11/2026. El MAG420 no tiene.
-FIRMWARE_BASE = 'http://185.25.27.50/firmware/'
+# Las imagenes de firmware que hay publicadas, por modelo: son las firmadas
+# para Quattre. Medido el 11/11/2026. El MAG420 no tiene. Estaban en el
+# servidor viejo (185.25.27.50); desde el 20/11/2026 las sirve iptv2 en
+# /var/www/firmware, con el mismo nombre que llevan los decos en update_url.
+FIRMWARE_BASE = 'http://iptv1.quattre.com/firmware/'
 FIRMWARES = {
     'MAG256': ('256/imageupdate', 218, '31/12/2022'),
     'MAG322': ('322/imageupdate', 201, '31/07/2019'),
