@@ -1048,10 +1048,13 @@
         // vmode es el modo en que esta de verdad ("3840x2160p60"); el ajuste
         // tvsystem puede decir solo "Auto".
         salidaVideo = '';
-        try { salidaVideo = String(stbAPI.RDir('vmode') || ''); } catch (err) {}
-        try {
+        // Manda vmode: el ajuste puede decir "PAL" y la salida ser 720p (un
+        // MAG256 con PAL y menus a 1280 saca 720p, oficina 23/11/2026). El
+        // ajuste solo se mira si el deco no dice su modo.
+        try { salidaVideo = String(stbAPI.RDir('vmode') || '').replace(/\s+/g, ''); } catch (err) {}
+        if (!salidaVideo) try {
             var r = JSON.parse(stbAPI.GetEnv('{"varList":["tvsystem"]}'));
-            salidaVideo += ' ' + String(r.result.tvsystem || '');
+            salidaVideo = String(r.result.tvsystem || '');
         } catch (err) {}
         return salidaVideo;
     }
