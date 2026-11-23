@@ -584,6 +584,15 @@ def handle_get_localization(request):
     })
 
 
+def como_deco(device):
+    """
+    Aparatos que reciben el portal entero, como un MAG: el propio deco y la app
+    de Android TV. El archivo, el videoclub de 7 dias y las grabaciones siguen
+    siendo solo del deco: son MPEG-TS y la app de Android solo abre HLS.
+    """
+    return bool(device) and device.device_type in ('mag', 'android')
+
+
 def handle_get_modules(request):
     """
     Que apartados tiene disponibles este aparato.
@@ -617,14 +626,16 @@ def handle_get_modules(request):
             and hay_archivo_en_marcha()):
         modulos.append('semana')
 
-    # La barra lateral del portal (como Netflix), de momento solo en los decos:
-    # las apps de las tiendas siguen con su menu hasta pasar la revision.
-    if device and device.device_type == 'mag':
+    # La barra lateral del portal (como Netflix), en los decos y en la app de
+    # Android TV, que se ve igual que un deco (Sergio, 23/11/2026). LG y
+    # Samsung siguen con su menu hasta pasar la revision.
+    if como_deco(device):
         modulos.append('lateral')
 
-    # Ayuda, solo si hay algo que enseñar en ella.
+    # Ayuda, solo si hay algo que enseñar en ella. En Android los videos de
+    # ayuda los pone el navegador (<video>, mp4), que si sabe.
     from apps.devices.models import Aviso
-    if (device and device.device_type == 'mag'
+    if (como_deco(device)
             and _avisos_vigentes(Aviso.objects.filter(en_ayuda=True)).exists()):
         modulos.append('ayuda')
 
@@ -2620,7 +2631,7 @@ def handle_ayuda(request, action):
         return error
     # De momento solo los decos: las apps de las tiendas, como estaban, que
     # una pantalla que sale sola al arrancar puede no pasar su revision.
-    if device.device_type != 'mag' and action in ('lista', 'inicio'):
+    if not como_deco(device) and action in ('lista', 'inicio'):
         return stalker_response({'data': []})
 
     if action == 'lista':
