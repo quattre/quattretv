@@ -168,6 +168,9 @@ def users_list(request):
         'active_page': 'users',
         'stats': get_base_stats(),
         'users': users,
+        'pagina': users,
+        'paginas': _paginas(users),
+        'consulta': _consulta_sin_pagina(request),
         'tariffs': Tariff.objects.filter(is_active=True),
     }
 
@@ -445,8 +448,16 @@ def devices_list(request):
         devices = devices.filter(last_seen__gte=online_threshold)
     elif status == 'offline':
         devices = devices.exclude(last_seen__gte=online_threshold)
+    elif status == 'activo':
+        devices = devices.filter(is_active=True)
+    elif status == 'inactivo':
+        devices = devices.filter(is_active=False)
 
-    devices = list(devices.order_by('-last_seen'))
+    # Por paginas: con los ~950 aparatos y los ~1000 clientes del desplegable
+    # en una sola pagina, esta pesaba 4 MB y tardaba casi 2 s en el servidor
+    # (lento desde la oficina, 23/11/2026).
+    pagina = Paginator(devices.order_by('-last_seen'), 50).get_page(request.GET.get('page'))
+    devices = list(pagina.object_list)
     # La version de firmware de cada deco y si es la ultima de su modelo.
     from apps.devices import eventos
     firmwares = eventos.firmware_de_lista(devices)
@@ -457,10 +468,56 @@ def devices_list(request):
         'active_page': 'devices',
         'stats': {**get_base_stats(), **stats},
         'devices': devices,
-        'all_users': User.objects.all(),
+        'pagina': pagina,
+        'paginas': _paginas(pagina),
+        'consulta': _consulta_sin_pagina(request),
     }
 
     return render(request, 'portal/pages/devices.html', context)
+
+
+def _consulta_sin_pagina(request):
+    """Los filtros de la lista, para que pasar de pagina no los pierda."""
+    q = request.GET.copy()
+    q.pop('page', None)
+    return q.urlencode()
+
+
+def _paginas(pagina):
+    return pagina.paginator.get_elided_page_range(pagina.number, on_each_side=2, on_ends=1)
+
+
+@staff_member_required
+def buscar_usuarios(request):
+    """
+    Clientes que coinciden con lo escrito, para elegir el dueño de un aparato.
+    Antes era un desplegable con los ~1000 clientes, sin poder buscar.
+    """
+    q = request.GET.get('q', '').strip()
+    usuarios = User.objects.filter(is_staff=False, is_superuser=False)
+    if q:
+        usuarios = usuarios.filter(Q(username__icontains=q) | Q(first_name__icontains=q))
+    usuarios = list(usuarios.order_by('username')[:60])
+    b = q.lower()
+    # Primero el que es exactamente eso, luego los que empiezan asi.
+    usuarios.sort(key=lambda u: (u.username.lower() != b, not u.username.lower().startswith(b), u.username.lower()))
+    return JsonResponse({'usuarios': [
+        {'id': u.id, 'username': u.username, 'nombre': u.first_name} for u in usuarios[:20]
+    ]})
+
+
+@staff_member_required
+def device_activo(request, device_id):
+    """
+    El interruptor de la lista. Un aparato desactivado deja de entrar: el
+    portal le pide usuario y contraseña como si fuera nuevo.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error'}, status=405)
+    device = get_object_or_404(Device, id=device_id)
+    device.is_active = not device.is_active
+    device.save()
+    return JsonResponse({'status': 'ok', 'is_active': device.is_active})
 
 
 @staff_member_required
@@ -474,6 +531,9 @@ def device_create(request):
 
         if Device.objects.filter(mac_address=mac_address).exists():
             messages.error(request, 'Este MAC ya está registrado')
+            return redirect('portal:devices')
+        if not user_id or not User.objects.filter(id=user_id).exists():
+            messages.error(request, 'Elige el cliente de la lista')
             return redirect('portal:devices')
 
         Device.objects.create(
@@ -508,7 +568,7 @@ def device_edit(request, device_id):
         tipo = request.POST.get('device_type')
         if tipo and request.user.is_superuser:
             device.device_type = tipo
-        device.user_id = request.POST.get('user')
+        device.user_id = request.POST.get('user') or device.user_id
         device.is_active = 'is_active' in request.POST
         device.save()
         messages.success(request, 'Dispositivo actualizado')
@@ -518,7 +578,6 @@ def device_edit(request, device_id):
         'active_page': 'devices',
         'stats': get_base_stats(),
         'device': device,
-        'all_users': User.objects.all(),
     }
     from apps.devices import eventos
     context['firmware'] = eventos.firmware_para(device)

@@ -1,0 +1,56 @@
+{# Elegir el cliente de un aparato escribiendo su usuario o su nombre. #}
+{# Opcional: 'actual' (el cliente que ya tiene). Manda el id en el campo 'user'. #}
+<script>
+window.buscaUsuario = window.buscaUsuario || function (id, nombre) {
+    return {
+        id: id, q: nombre, resultados: [], sel: 0, abierto: false, cargando: false, reloj: null,
+        buscar() {
+            clearTimeout(this.reloj);
+            this.reloj = setTimeout(() => {
+                this.cargando = true;
+                fetch('{% url "portal:buscar_usuarios" %}?q=' + encodeURIComponent(this.q || ''),
+                      {headers: {'X-Requested-With': 'XMLHttpRequest'}, credentials: 'same-origin'})
+                    .then(r => r.json())
+                    .then(d => { this.resultados = d.usuarios || []; this.sel = 0; this.abierto = true; })
+                    .catch(() => { this.resultados = []; })
+                    .finally(() => { this.cargando = false; });
+            }, 200);
+        },
+        escribir() { this.id = null; this.buscar(); },
+        mover(n) {
+            if (!this.resultados.length) return;
+            this.sel = (this.sel + n + this.resultados.length) % this.resultados.length;
+        },
+        elegir(u) {
+            if (!u) return;
+            this.id = u.id;
+            this.q = u.username + (u.nombre ? ' · ' + u.nombre : '');
+            this.abierto = false;
+        },
+    };
+};
+</script>
+<div class="relative"
+     x-data="buscaUsuario({% if actual %}{{ actual.id }}{% else %}null{% endif %}, '{% if actual %}{{ actual.username|escapejs }}{% if actual.first_name %} · {{ actual.first_name|escapejs }}{% endif %}{% endif %}')"
+     @click.outside="abierto = false">
+    <input type="hidden" name="user" :value="id">
+    <input type="text" x-ref="texto" x-model="q" autocomplete="off" required
+           x-effect="$refs.texto.setCustomValidity(id ? '' : 'Elige un cliente de la lista')"
+           @input="escribir()" @focus="buscar()"
+           @keydown.arrow-down.prevent="mover(1)" @keydown.arrow-up.prevent="mover(-1)"
+           @keydown.enter="if (abierto && resultados.length) { $event.preventDefault(); elegir(resultados[sel]); }"
+           @keydown.escape.stop="abierto = false"
+           placeholder="Escribe el usuario o el nombre..."
+           class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <ul x-show="abierto && resultados.length" x-cloak
+        class="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto mt-1">
+        <template x-for="(u, i) in resultados" :key="u.id">
+            <li @mousedown.prevent="elegir(u)" @mouseenter="sel = i"
+                :class="i === sel ? 'bg-blue-50' : ''" class="px-4 py-2 cursor-pointer">
+                <span class="font-medium text-gray-800" x-text="u.username"></span>
+                <span class="text-gray-400 text-sm" x-text="u.nombre"></span>
+            </li>
+        </template>
+    </ul>
+    <p x-show="abierto && q && !cargando && !resultados.length" x-cloak class="text-xs text-gray-400 mt-1">Ningún cliente coincide</p>
+</div>

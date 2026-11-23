@@ -33,6 +33,8 @@ urlpatterns = [
     path('devices/<int:device_id>/firmware/', views.device_firmware, name='device_firmware'),
     path('devices/recargar-todos/', views.devices_recargar_todos, name='devices_recargar_todos'),
     path('devices/<int:device_id>/delete/', views.device_delete, name='device_delete'),
+    path('devices/<int:device_id>/activo/', views.device_activo, name='device_activo'),
+    path('users/buscar/', views.buscar_usuarios, name='buscar_usuarios'),
 
     # Channels
     path('channels/', views.channels_list, name='channels'),

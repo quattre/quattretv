@@ -1,0 +1,24 @@
+{# Paginas de una lista. Necesita 'pagina' (un Page), 'paginas' (los numeros, con huecos) y 'consulta' (los filtros sin la pagina). #}
+{% if pagina.has_other_pages %}
+<div class="px-6 py-4 border-t border-gray-100">
+    <nav class="flex justify-center">
+        <ul class="flex flex-wrap items-center gap-1">
+            {% if pagina.has_previous %}
+                <li><a class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition" href="?{% if consulta %}{{ consulta }}&{% endif %}page={{ pagina.previous_page_number }}">Anterior</a></li>
+            {% endif %}
+            {% for num in paginas %}
+                <li>
+                {% if num == pagina.paginator.ELLIPSIS %}
+                    <span class="px-2 py-2 text-sm text-gray-400">…</span>
+                {% else %}
+                    <a class="px-4 py-2 text-sm rounded-lg transition {% if pagina.number == num %}bg-blue-500 text-white{% else %}text-gray-600 hover:bg-gray-100{% endif %}" href="?{% if consulta %}{{ consulta }}&{% endif %}page={{ num }}">{{ num }}</a>
+                {% endif %}
+                </li>
+            {% endfor %}
+            {% if pagina.has_next %}
+                <li><a class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition" href="?{% if consulta %}{{ consulta }}&{% endif %}page={{ pagina.next_page_number }}">Siguiente</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}

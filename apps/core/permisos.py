@@ -22,6 +22,7 @@ TECNICO = {
     'users', 'user_create', 'user_edit', 'user_devices', 'user_renew', 'user_delete',
     'devices', 'device_create', 'device_edit', 'device_refresh_token',
     'device_evento', 'device_firmware', 'device_delete', 'devices_recargar_todos',
+    'device_activo', 'buscar_usuarios',
     'streams', 'logs',
 }
 
