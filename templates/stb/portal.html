@@ -1391,12 +1391,22 @@
     // queda corta. Aqui van esas cajas, una a una, segun se vayan viendo.
     var SD_RETOQUES = '#preview-cap .e.despues .lbl{width:68px}#preview-cap .e.despues .hh{width:44px}';
 
+    // La app de Android TV dibuja a 1920x1080 y le tocaba el diseño de 1920,
+    // distinto del de los decos (que dibujan a 1280). Para que se vea igual que
+    // un MAG se le pone el de 1280 agrandado con la misma cuenta que encoge el
+    // de las teles antiguas (23/11/2026, a peticion de Sergio).
+    function comoDeco() {
+        return typeof QuattreAndroid !== 'undefined' || esAndroidTV();
+    }
+
     function disenoPequeno() {
         try {
             var forzado = /[?&]sd=1/.test(location.search || '');
-            if (typeof gSTB === 'undefined' && !forzado) return;
+            var android = comoDeco();
+            if (typeof gSTB === 'undefined' && !forzado && !android) return;
             var w = window.innerWidth, h = window.innerHeight;
-            if (!w || !h || w > 800) return;
+            if (!w || !h) return;
+            if (android ? w < 1500 : w > 800) return;
             var hojas = document.getElementsByTagName('style'), css = '', i;
             for (i = 0; i < hojas.length; i++) {
                 var t = hojas[i].textContent || hojas[i].innerHTML || '';
@@ -1406,7 +1416,8 @@
             var e = {x: w / 1280, y: h / 720};
             var nueva = document.createElement('style');
             nueva.id = 'sd';
-            nueva.appendChild(document.createTextNode(sdHoja(css, e) + '\n' + SD_RETOQUES));
+            // Los retoques son para cuando encoge; al agrandar sobran.
+            nueva.appendChild(document.createTextNode(sdHoja(css, e) + (e.x < 1 ? '\n' + SD_RETOQUES : '')));
             document.getElementsByTagName('head')[0].appendChild(nueva);
             sd = e;
         } catch (err) { sd = null; }
