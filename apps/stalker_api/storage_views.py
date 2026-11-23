@@ -143,35 +143,38 @@ def build_hls_catchup_url(channel, start, duration, device=None):
 
 # ---------- Archivo en HLS ----------
 
-# El grabador deja un segmento por trozo con el instante en el nombre
-# (strftime de ffmpeg), asi que el indice se deduce del propio listado del
-# directorio y no hace falta ningun fichero de indice que mantener.
+# storage1 guarda los trozos del HLS del directo tal cual (deploy/storage/
+# recoger_hls.py), uno por fichero con la hora UTC de su inicio en el nombre,
+# asi que el indice sale del propio listado y no hay fichero de indice que
+# mantener. El listado lo da lista.php, solo del rato que se pide: una semana
+# entera son ~60.000 trozos por canal.
 SEGMENT_NAME_FORMAT = '%Y%m%d-%H%M%S'
 SEGMENT_SUFFIX = '.ts'
-NOMINAL_SEGMENT_SECONDS = 6
+NOMINAL_SEGMENT_SECONDS = 10
 INDEX_CACHE_SECONDS = 30
 
 
 def parse_segment_name(name):
-    """'20260728-100006.ts' -> datetime aware, o None si no encaja."""
+    """'20261123-164722.ts' (UTC) -> datetime aware, o None si no encaja."""
     if not name.endswith(SEGMENT_SUFFIX):
         return None
     try:
         naive = datetime.strptime(name[:-len(SEGMENT_SUFFIX)], SEGMENT_NAME_FORMAT)
     except ValueError:
         return None
-    return timezone.make_aware(naive)
+    return naive.replace(tzinfo=dt_timezone.utc)
 
 
-def fetch_segment_index(storage, channel):
+def fetch_segment_index(storage, channel, start, end):
     """
-    List the archive segments of a channel.
-
-    nginx serves the directory with `autoindex on; autoindex_format json;`, so
-    this is a plain listing — no PHP and nothing to keep in sync. Cached
-    briefly because every catchup request would otherwise hit the storage.
+    Los trozos del archivo de un canal entre start y end (con un trozo de
+    margen a cada lado), de lista.php del storage. Se guarda en cache un rato
+    porque cada peticion del catchup iria si no al storage.
     """
-    cache_key = f'archive_index:{storage.id}:{channel.id}'
+    desde = (start - timedelta(seconds=2 * NOMINAL_SEGMENT_SECONDS)).astimezone(dt_timezone.utc)
+    hasta = (end + timedelta(seconds=NOMINAL_SEGMENT_SECONDS)).astimezone(dt_timezone.utc)
+    desde, hasta = desde.strftime(SEGMENT_NAME_FORMAT), hasta.strftime(SEGMENT_NAME_FORMAT)
+    cache_key = f'archive_index:{storage.id}:{channel.id}:{desde}:{hasta}'
     try:
         cached = cache.get(cache_key)
     except Exception:
@@ -181,9 +184,9 @@ def fetch_segment_index(storage, channel):
     if cached is not None:
         return cached
 
-    url = storage.build_url(f'{storage.archive_path}/{channel.id}/', public=True)
+    url = storage.build_url(f'{storage.archive_path}/lista.php')
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, params={'c': channel.id, 'desde': desde, 'hasta': hasta}, timeout=10)
         response.raise_for_status()
         entries = response.json()
     except (requests.RequestException, ValueError) as exc:
@@ -259,7 +262,7 @@ def catchup_playlist(request, channel_id, start_ts, duration):
     end = start + timedelta(seconds=int(duration))
 
     playlist = build_playlist(
-        storage, channel, fetch_segment_index(storage, channel), start, end
+        storage, channel, fetch_segment_index(storage, channel, start, end), start, end
     )
     if not playlist:
         return HttpResponse('Archive not available for that time', status=404)

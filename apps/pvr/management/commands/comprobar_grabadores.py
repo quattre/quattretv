@@ -6,6 +6,8 @@ que el listado del archivo no se ve. Solo lee: no manda grabar nada.
 """
 import requests
 from django.core.management.base import BaseCommand
+from datetime import timedelta
+
 from django.utils import timezone
 
 from apps.channels.models import Channel
@@ -80,12 +82,14 @@ class Command(BaseCommand):
             return
 
         for canal in canales[:10]:
-            segmentos = fetch_segment_index(servidor, canal)
+            # La ultima hora: basta para ver si graba (la semana son ~60.000).
+            ahora = timezone.now()
+            segmentos = fetch_segment_index(servidor, canal, ahora - timedelta(hours=1), ahora)
             if not segmentos:
                 self.stdout.write(self.style.ERROR(
-                    f'  - Canal {canal.number} {canal.name}: sin segmentos. '
-                    'Revisa el autoindex json de nginx y que el ffmpeg del '
-                    'canal este grabando.'
+                    f'  - Canal {canal.number} {canal.name}: sin segmentos en la '
+                    'ultima hora. Revisa lista.php y quattretv-archive@ del canal '
+                    'en storage1 (deploy/storage/archivo_hls.sh).'
                 ))
                 continue
 
