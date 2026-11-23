@@ -1036,47 +1036,33 @@
     // Salvo con la salida en 4K: ahi el plano es de 3840x2160 y, con las cuentas
     // de 1080, la miniatura salia a la mitad y corrida hacia la lista, y por el
     // hueco solo asomaba una franja (00:1A:79:80:37:B6, un MAG420, 02/11/2026).
-    // No se guarda para siempre: con la salida en Auto el deco elige el modo
-    // segun lo que diga la tele, y con la tele apagada o al volver (HDMI) puede
-    // cambiarlo. Ministra lo vuelve a leer cada vez que coloca la miniatura;
-    // aqui igual, con un margen de 2 s para no preguntar varias veces seguidas.
-    var salidaVideo = null, salidaLeida = 0;
+    var salidaVideo = null;
     function modoSalida() {
-        var ahora = new Date().getTime();
-        if (salidaVideo !== null && ahora - salidaLeida < 2000) return salidaVideo;
-        salidaLeida = ahora;
+        if (salidaVideo !== null) return salidaVideo;
         // vmode es el modo en que esta de verdad ("3840x2160p60"); el ajuste
         // tvsystem puede decir solo "Auto".
         salidaVideo = '';
-        // Manda vmode: el ajuste puede decir "PAL" y la salida ser 720p (un
-        // MAG256 con PAL y menus a 1280 saca 720p, oficina 23/11/2026). El
-        // ajuste solo se mira si el deco no dice su modo.
-        try { salidaVideo = String(stbAPI.RDir('vmode') || '').replace(/\s+/g, ''); } catch (err) {}
-        if (!salidaVideo) try {
+        try { salidaVideo = String(stbAPI.RDir('vmode') || ''); } catch (err) {}
+        try {
             var r = JSON.parse(stbAPI.GetEnv('{"varList":["tvsystem"]}'));
-            salidaVideo = String(r.result.tvsystem || '');
+            salidaVideo += ' ' + String(r.result.tvsystem || '');
         } catch (err) {}
         return salidaVideo;
     }
 
     function plano() {
-        // El plano de video mide lo que la salida (vmode), sea cual sea el
-        // tamaño de los menus. Es la misma regla que usaba Ministra en su
-        // lista de canales (tv.js, preview_pos_map: 576, 720, 1080, 480, 3840).
-        var m = stbAPI ? modoSalida() : '';
-        if (/2160|3840/.test(m)) return { ancho: 3840, alto: 2160 };
-        // Con la salida en 576i el portal ponia el video con las cuentas de
-        // 1080 y en el hueco solo asomaba un trozo pequeño arriba a la
-        // izquierda (00:1A:79:76:92:B5, MAG520 en Auto que se quedo
-        // horas en 576i con una tele 4K, 20/11/2026).
-        if (/^\s*480|NTSC/i.test(m)) return { ancho: 720, alto: 480 };
-        if (/^\s*576|PAL/i.test(m) || (stbAPI && sd)) return { ancho: 720, alto: 576 };
+        if (stbAPI && /2160/.test(modoSalida())) return { ancho: 3840, alto: 2160 };
+        // Con salida de tele antigua el plano de video es el de esa salida,
+        // igual que en 4K es el de 4K. (Sin poder verlo desde aqui: es lo que
+        // hay que comprobar en un deco de pruebas.)
+        if (stbAPI && sd) return /NTSC|480/i.test(modoSalida()) ? { ancho: 720, alto: 480 } : { ancho: 720, alto: 576 };
         // Con la salida en 720p el plano mide 1280x720. Con las cuentas de
         // 1080 la miniatura salia corrida a la derecha y hacia abajo, y
         // recortada por el hueco: medido en una foto de un MAG256 en la
         // oficina (18/11/2026), el video empezaba al 58,5 % del ancho, que es
-        // justo 749/1280.
-        if (/720p/i.test(m)) return { ancho: 1280, alto: 720 };
+        // justo 749/1280. Solo "720p": hay modelos que dicen "576i" en vmode
+        // con la tele en alta definicion, y a esos no se les toca.
+        if (stbAPI && /720p/i.test(modoSalida())) return { ancho: 1280, alto: 720 };
         return { ancho: 1920, alto: 1080 };
     }
 
@@ -6816,14 +6802,6 @@
         // puede volver con la imagen en negro, y asi seguia hasta cambiar de
         // canal. Al volver la tele se pide otra vez el mismo canal; el mismo
         // recuperarDirecto se ocupa de no hacerlo en reposo ni en bucle.
-        if (ev === '32' || ev === '33') {
-            salidaVideo = null;
-            // La tele ha podido cambiar el modo de salida: la miniatura se
-            // vuelve a colocar con el plano nuevo.
-            if (ev === '32') setTimeout(function() {
-                try { if (!isFullscreen && (view === 'list' || view === 'rejilla')) setViewportPreview(); } catch (err) {}
-            }, 3000);
-        }
         if (ev === '32' && canalStb && !diferido && !(videoAyuda && videoAyuda.deco)) recuperarDirecto();
         if (String(evento) === '1' && videoAyuda && videoAyuda.deco) volverDeVideoAyudaDeco();
         else if (String(evento) === '1' && diferido && diferido.tipo === 'directo') volverAlDirecto();
