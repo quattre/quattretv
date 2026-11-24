@@ -57,7 +57,10 @@ def indexar(d, nombre):
     # Segundos desde el principio de la grabacion, no hora del reloj.
     trozos = [[round(t[0] - cero, 3)] + t[1:] for t in trozos]
     if not os.path.isdir(destino_dir):
+        # La crea quien llegue antes, el cron (quattre) o grabacion.php
+        # (Apache): los dos tienen que poder escribir en ella.
         os.makedirs(destino_dir)
+        os.chmod(destino_dir, 0o777)
     tmp = destino + '.%d.tmp' % os.getpid()
     with open(tmp, 'w') as g:
         json.dump({'s': st.st_size, 'trozos': trozos}, g, separators=(',', ':'))
