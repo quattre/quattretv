@@ -49,6 +49,9 @@
                 <i class="bi bi-phone mr-3 text-lg w-6 text-center"></i> Dispositivos
                 <span class="ml-auto bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">{{ stats.devices_online|default:0 }}</span>
             </a>
+            <a href="{% url 'portal:cortes' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'cortes' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
+                <i class="bi bi-wifi-off mr-3 text-lg w-6 text-center"></i> Cortes de conexión
+            </a>
             {% if user.is_superuser %}
             <a href="{% url 'portal:tariffs' %}" class="flex items-center px-5 py-3 text-white/80 hover:bg-white/10 hover:text-white border-l-4 {% if active_page == 'tariffs' %}bg-white/10 text-white border-highlight{% else %}border-transparent{% endif %} transition-all">
                 <i class="bi bi-credit-card mr-3 text-lg w-6 text-center"></i> Tarifas

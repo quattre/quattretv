@@ -1,66 +1,82 @@
 """
-Cortes de conexion de cada aparato, para verlos en el panel.
+Cortes de conexion de cada aparato: un registro de todos, para el panel.
 
 Lo pidio soporte el 24/11/2026: a un cliente le salia varias veces "Se ha
 perdido la conexion" y no sabiamos por que. Mirando el registro de nginx se
 vio que eran caidas de su linea, de noche, y que ningun otro deco las tenia;
-pero eso no lo puede mirar soporte cada vez.
+pero eso no lo puede mirar soporte cada vez. Ahora cada corte se guarda
+(CorteConexion) y se ve en Cortes de conexion, en la ficha del aparato y en el
+dashboard.
 
-Lo cuenta el propio portal: cuando vuelve la red avisa de cuanto ha estado
-sin ella (type=stb&action=log&diag=corte <segundos>). Si el cliente apaga o
-reinicia el deco en mitad del corte, lo avisa al arrancar otra vez
-("corte <segundos> reinicio"). Un corte con muchos reintentos es un solo
-aviso. Se guarda una semana en la cache.
+Vienen de dos sitios:
+  - el propio portal: cuando vuelve la red avisa de cuanto ha estado sin ella
+    (type=stb&action=log&diag=corte <segundos>); si lo reinician en mitad del
+    corte, lo avisa al arrancar ("corte <segundos> reinicio"). Exacto.
+  - el registro de nginx (importar_registro, cada 15 min por cron): las
+    peticiones que el aparato dejo de esperar (499) hasta que vuelve a
+    contestar. Sirve para los cortes de antes y para los aparatos que aun no
+    llevan el portal que avisa. Si el aparato tambien lo avisa, se queda el
+    suyo.
+Un corte con muchos reintentos es uno solo.
 
-Para no dar falsos positivos, la etiqueta roja del listado no cuenta:
-  - los cortes cortos (menos de MINIMO s): una peticion lenta suelta que a la
-    siguiente ya va, no una linea que se cae;
-  - los cortes generales: si en los mismos minutos se cortan GENERAL aparatos
-    o mas, el problema es nuestro (servidor o red), no de cada cliente.
-Esos se siguen viendo en la ficha, en gris y marcados.
+Para no dar falsos positivos no cuentan (se ven, en gris):
+  - los cortos, de menos de MINIMO s: una peticion lenta suelta que a la
+    siguiente ya va, o el portal recargandose;
+  - los generales: si en los mismos minutos se cortan GENERAL aparatos o mas,
+    el problema es nuestro (servidor o red), no de cada cliente.
 """
-import time
-from datetime import datetime, timezone as tz
+import gzip
+import logging
+import re
+from datetime import datetime, timedelta
 
-from django.core.cache import cache
+from django.db.models import Count, Q, Sum
+from django.utils import timezone
 
-GUARDA = 7 * 24 * 3600
-MAXIMO = 100                          # por aparato
-MINIMO = 30                           # s: por debajo no cuenta para la etiqueta
-GENERAL = 20                          # aparatos cortados en los mismos minutos
-VENTANA = 2                           # minutos a cada lado para decir "los mismos"
-CLAVE_RECIENTES = 'cortes:recientes'  # {id del aparato: hora del ultimo corte}
+from .models import CorteConexion, Device
+
+log = logging.getLogger(__name__)
+
+MINIMO = 30                          # s: por debajo no cuenta
+GENERAL = 20                         # aparatos cortados en los mismos minutos
+VENTANA = timedelta(minutes=2)       # "los mismos minutos": tanto a cada lado
+JUNTOS = timedelta(minutes=3)        # el mismo corte contado por las dos vias
+ESPERA_PORTAL = 12                   # s que espera el portal antes de rendirse
+APAGADO = 30 * 60                    # sin pedir nada tanto tiempo: estaba apagado
+REBOTE = 120                         # s: un corte que vuelve enseguida es el mismo
 
 
-def _clave(device_id):
-    return 'cortes:aparato:%d' % device_id
+def contables(qs):
+    return qs.filter(duracion__gte=MINIMO, general=False)
 
 
-def _clave_minuto(minuto):
-    return 'cortes:minuto:%d' % minuto
+def _marcar_general(inicio):
+    qs = CorteConexion.objects.filter(inicio__range=(inicio - VENTANA, inicio + VENTANA))
+    if qs.values_list('device_id', 'ip').distinct().count() >= GENERAL:
+        qs.filter(general=False).update(general=True)
+
+
+def _mismo(device, ip, inicio):
+    q = Q(device=device) if device else Q()
+    if ip:
+        q = q | Q(ip=ip) if device else Q(ip=ip)
+    if not q:
+        return CorteConexion.objects.none()
+    return CorteConexion.objects.filter(q, inicio__range=(inicio - JUNTOS, inicio + JUNTOS))
 
 
 def apuntar(device, segundos, ip='', reinicio=False):
-    ahora = time.time()
-    segundos = max(0, min(int(segundos), GUARDA))
-    inicio = ahora - segundos
+    """Lo que cuenta el portal al volver la red."""
+    segundos = max(0, min(int(segundos), 7 * 24 * 3600))
+    inicio = timezone.now() - timedelta(seconds=segundos)
     try:
-        lista = cache.get(_clave(device.id)) or []
-        lista.append({'inicio': inicio, 'dur': segundos, 'ip': ip or '',
-                      'reinicio': bool(reinicio)})
-        lista = [c for c in lista if c['inicio'] > ahora - GUARDA][-MAXIMO:]
-        cache.set(_clave(device.id), lista, GUARDA)
-        # Cuantos aparatos empiezan un corte en cada minuto. incr es atomico
-        # en Redis: en un corte general llegan cientos a la vez.
-        clave = _clave_minuto(int(inicio // 60))
-        cache.add(clave, 0, GUARDA)
-        cache.incr(clave)
-        recientes = cache.get(CLAVE_RECIENTES) or {}
-        recientes[device.id] = ahora
-        recientes = {k: v for k, v in recientes.items() if v > ahora - GUARDA}
-        cache.set(CLAVE_RECIENTES, recientes, GUARDA)
+        # El mismo corte ya sacado del registro de nginx: vale mas este.
+        _mismo(device, ip, inicio).filter(origen='registro').delete()
+        CorteConexion.objects.create(device=device, inicio=inicio, duracion=segundos,
+                                     ip=ip or None, origen='aparato', reinicio=bool(reinicio))
+        _marcar_general(inicio)
     except Exception:
-        pass
+        log.exception('no se ha podido apuntar el corte de %s', device)
 
 
 def duracion(segundos):
@@ -71,123 +87,157 @@ def duracion(segundos):
     return '%d h %02d min' % (segundos // 3600, segundos % 3600 // 60)
 
 
-def _generales(cortes):
-    """Los minutos (de inicio) en los que se cortaron GENERAL aparatos o mas."""
-    minutos = set()
-    for c in cortes:
-        m = int(c['inicio'] // 60)
-        minutos.update(range(m - VENTANA, m + VENTANA + 1))
-    if not minutos:
-        return set()
-    try:
-        cuentas = cache.get_many([_clave_minuto(m) for m in minutos])
-    except Exception:
-        return set()
-    por_minuto = {m: cuentas.get(_clave_minuto(m)) or 0 for m in minutos}
-    generales = set()
-    for c in cortes:
-        m = int(c['inicio'] // 60)
-        if sum(por_minuto.get(x, 0) for x in range(m - VENTANA, m + VENTANA + 1)) >= GENERAL:
-            generales.add(m)
-    return generales
+def fila(c, ahora=None):
+    ahora = ahora or timezone.now()
+    return {
+        'id': c.id, 'cuando': c.inicio, 'dur': duracion(c.duracion), 'ip': c.ip or '',
+        'reinicio': c.reinicio, 'general': c.general, 'corto': c.duracion < MINIMO,
+        'cuenta': c.duracion >= MINIMO and not c.general,
+        'hoy': c.inicio > ahora - timedelta(hours=24),
+        'origen': c.origen, 'device': c.device,
+    }
 
 
-def _cuenta(c, generales):
-    return c['dur'] >= MINIMO and int(c['inicio'] // 60) not in generales
+def de(device, cuantos=100):
+    """Los cortes de un aparato (los ultimos), y cuantos cuentan en 24 h y 7 dias."""
+    ahora = timezone.now()
+    qs = CorteConexion.objects.filter(device=device)
+    return {
+        'lista': [fila(c, ahora) for c in qs[:cuantos]],
+        'en_24h': contables(qs.filter(inicio__gte=ahora - timedelta(hours=24))).count(),
+        'en_7d': contables(qs.filter(inicio__gte=ahora - timedelta(days=7))).count(),
+        'total': qs.count(),
+        'minimo': MINIMO,
+    }
 
 
-def de(device):
-    """Los cortes de un aparato, del mas nuevo al mas viejo, y cuantos en 24 h."""
-    try:
-        lista = cache.get(_clave(device.id)) or []
-    except Exception:
-        lista = []
-    generales = _generales(lista)
-    ahora = time.time()
-    salida = []
-    for c in sorted(lista, key=lambda c: c['inicio'], reverse=True):
-        general = int(c['inicio'] // 60) in generales
-        salida.append({
-            'cuando': datetime.fromtimestamp(c['inicio'], tz.utc),
-            'dur': duracion(c['dur']),
-            'ip': c.get('ip', ''),
-            'reinicio': c.get('reinicio', False),
-            'hoy': c['inicio'] > ahora - 24 * 3600,
-            'corto': c['dur'] < MINIMO,
-            'general': general,
-            'cuenta': _cuenta(c, generales),
-        })
-    return {'lista': salida,
-            'en_24h': sum(1 for c in salida if c['hoy'] and c['cuenta']),
-            'en_7d': sum(1 for c in salida if c['cuenta']),
-            'minimo': MINIMO}
-
-
-def de_ids(ids):
-    """{id: cortes que cuentan en las ultimas 24 h}, de un golpe."""
-    try:
-        listas = cache.get_many([_clave(i) for i in ids])
-    except Exception:
-        return {}
-    desde = time.time() - 24 * 3600
-    hoy = {i: [c for c in listas.get(_clave(i)) or [] if c['inicio'] > desde and c['dur'] >= MINIMO]
-           for i in ids}
-    generales = _generales([c for l in hoy.values() for c in l])
-    salida = {}
-    for i, l in hoy.items():
-        n = sum(1 for c in l if _cuenta(c, generales))
-        if n:
-            salida[i] = n
-    return salida
+def cuantos_24h(ids=None):
+    """{id del aparato: cortes que cuentan en las ultimas 24 h}."""
+    qs = contables(CorteConexion.objects.filter(
+        inicio__gte=timezone.now() - timedelta(hours=24), device__isnull=False))
+    if ids is not None:
+        qs = qs.filter(device_id__in=ids)
+    return dict(qs.values_list('device_id').annotate(n=Count('id')).values_list('device_id', 'n'))
 
 
 def de_lista(devices):
-    return de_ids([d.id for d in devices])
-
-
-def cuantos_24h():
-    """{id: cortes que cuentan} de todos los aparatos con alguno en 24 h."""
-    try:
-        recientes = cache.get(CLAVE_RECIENTES) or {}
-    except Exception:
-        return {}
-    desde = time.time() - 24 * 3600
-    return de_ids([k for k, v in recientes.items() if v > desde])
+    return cuantos_24h([d.id for d in devices])
 
 
 def con_cortes(horas=24):
-    """Los id de los aparatos con algun corte que cuenta en las ultimas 24 h."""
     return list(cuantos_24h())
 
 
-def generales_24h():
-    """
-    Los cortes generales (nuestros) de las ultimas 24 h: [{cuando, aparatos}],
-    uno por cada racha de minutos seguidos en que se cortaron muchos a la vez.
-    """
-    ahora = int(time.time() // 60)
-    minutos = list(range(ahora - 24 * 60 - VENTANA, ahora + 1))
-    try:
-        cuentas = cache.get_many([_clave_minuto(m) for m in minutos])
-    except Exception:
-        return []
-    n = {m: cuentas.get(_clave_minuto(m)) or 0 for m in minutos}
+def generales(desde):
+    """Los cortes generales (nuestros): [{cuando, aparatos}], uno por racha."""
     rachas, actual = [], None
-    for m in minutos[VENTANA:]:
-        cerca = sum(n.get(x, 0) for x in range(m - VENTANA, m + VENTANA + 1))
-        if cerca >= GENERAL and n[m]:
-            if actual and m - actual['fin'] <= 2 * VENTANA + 1:
-                actual['fin'] = m
-                actual['aparatos'] += n[m]
-            else:
-                actual = {'inicio': m, 'fin': m, 'aparatos': n[m]}
-                rachas.append(actual)
-    return [{'cuando': datetime.fromtimestamp(r['inicio'] * 60, tz.utc), 'aparatos': r['aparatos']}
-            for r in reversed(rachas)]
+    for c in CorteConexion.objects.filter(general=True, inicio__gte=desde).order_by('inicio'):
+        if actual and c.inicio - actual['fin'] <= 2 * VENTANA:
+            actual['fin'] = c.inicio
+            actual['quien'].add((c.device_id, c.ip))
+        else:
+            actual = {'cuando': c.inicio, 'fin': c.inicio, 'quien': {(c.device_id, c.ip)}}
+            rachas.append(actual)
+    return [{'cuando': r['cuando'], 'aparatos': len(r['quien'])} for r in reversed(rachas)]
 
 
 def resumen():
-    """Para el dashboard."""
-    cuantos = cuantos_24h()
-    return {'aparatos': len(cuantos), 'cortes': sum(cuantos.values()),
-            'generales': generales_24h(), 'minimo': MINIMO}
+    """Para el dashboard: las ultimas 24 h."""
+    desde = timezone.now() - timedelta(hours=24)
+    qs = contables(CorteConexion.objects.filter(inicio__gte=desde))
+    return {'aparatos': qs.values_list('device_id', 'ip').distinct().count(),
+            'cortes': qs.count(), 'generales': generales(desde), 'minimo': MINIMO}
+
+
+def los_que_mas(qs, cuantos=15):
+    """Los aparatos con mas cortes que cuentan en esa seleccion."""
+    return list(contables(qs).values('device_id', 'device__mac_address', 'device__name',
+                                     'device__user__username', 'ip')
+                .annotate(n=Count('id'), total=Sum('duracion')).order_by('-n', '-total')[:cuantos])
+
+
+# ---------- Del registro de nginx ----------
+
+LINEA = re.compile(r'^(\S+) \S+ \S+ \[([^\]]+)\] "\S+ (\S+)[^"]*" (\d{3}) ')
+
+
+def _es_api(ruta):
+    return '?type=' in ruta and ('/stalker_portal/' in ruta or '/quattretv/stb/' in ruta)
+
+
+def cortes_del_registro(lineas):
+    """
+    [(ip, inicio, segundos)] de las lineas de un access.log de nginx, en orden.
+
+    Un corte empieza en la primera peticion al portal que el aparato dejo de
+    esperar (499, se rinde a los 12 s) y acaba en la primera que le vuelve a
+    contestar. Si despues de rendirse no pide nada en mucho rato, es que lo
+    apagaron: el corte acaba ahi.
+    """
+    abiertos, cerrados, salida = {}, {}, []
+
+    def cerrar(ip):
+        c = cerrados.pop(ip)
+        salida.append((ip, c['inicio'], max(0, int((c['fin'] - c['inicio']).total_seconds()))))
+
+    for linea in lineas:
+        ip = linea[:linea.find(' ')]
+        if ip not in abiertos and ' 499 ' not in linea:
+            continue
+        m = LINEA.match(linea)
+        if not m:
+            continue
+        _, cuando, ruta, estado = m.groups()
+        try:
+            t = datetime.strptime(cuando, '%d/%b/%Y:%H:%M:%S %z')
+        except ValueError:
+            continue
+        if estado == '499':
+            if not _es_api(ruta):
+                continue
+            if ip in abiertos:
+                abiertos[ip]['ultimo'] = t
+            elif ip in cerrados and (t - cerrados[ip]['fin']).total_seconds() <= REBOTE:
+                abiertos[ip] = cerrados.pop(ip)       # el mismo corte, que sigue
+                abiertos[ip]['ultimo'] = t
+            else:
+                if ip in cerrados:
+                    cerrar(ip)
+                abiertos[ip] = {'inicio': t - timedelta(seconds=ESPERA_PORTAL), 'ultimo': t}
+        elif ip in abiertos:
+            c = abiertos.pop(ip)
+            apagado = (t - c['ultimo']).total_seconds() > APAGADO
+            c['fin'] = c['ultimo'] if apagado else t
+            cerrados[ip] = c
+    for ip in list(cerrados):
+        cerrar(ip)
+    return sorted(salida, key=lambda c: c[1])   # los que siguen abiertos, a la proxima
+
+
+def _abrir(ruta):
+    if ruta.endswith('.gz'):
+        return gzip.open(ruta, 'rt', errors='replace')
+    return open(ruta, errors='replace')
+
+
+def importar_registro(rutas):
+    """Guarda los cortes de esos access.log que no esten ya. Devuelve cuantos."""
+    por_ip = {}
+    for ip, d in Device.objects.exclude(last_ip=None).values_list('last_ip', 'id'):
+        por_ip.setdefault(ip, []).append(d)
+    nuevos = 0
+    for ruta in rutas:
+        with _abrir(ruta) as f:
+            cortes = cortes_del_registro(f)
+        for ip, inicio, segundos in cortes:
+            ids = por_ip.get(ip, [])
+            # Con varios aparatos detras de la misma IP no se sabe cual fue:
+            # se guarda la IP sola, mejor que culpar al que no es.
+            device = Device(id=ids[0]) if len(ids) == 1 else None
+            if _mismo(device, ip, inicio).exists():
+                continue
+            CorteConexion.objects.create(device=device, inicio=inicio, duracion=segundos,
+                                         ip=ip, origen='registro')
+            _marcar_general(inicio)
+            nuevos += 1
+    return nuevos

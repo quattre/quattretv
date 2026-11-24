@@ -86,6 +86,7 @@ urlpatterns = [
 
     # Logs
     path('logs/', views.logs_list, name='logs'),
+    path('cortes/', views.cortes_list, name='cortes'),
 
     # Settings
     path('settings/', views.settings_view, name='settings'),

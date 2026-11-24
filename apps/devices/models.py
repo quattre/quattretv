@@ -216,3 +216,36 @@ class AvisoVisto(models.Model):
 
     class Meta:
         unique_together = ('aviso', 'device')
+
+
+class CorteConexion(models.Model):
+    """
+    Cada vez que a un aparato se le corta la conexion con el portal (le sale
+    "Se ha perdido la conexion"). Se guarda para siempre, para que soporte
+    vea a quien le pasa, cuando y cuanto (apps/devices/cortes.py).
+    """
+    ORIGENES = [
+        # Lo cuenta el propio portal al volver la red: hora y duracion exactas.
+        ('aparato', 'Lo avisa el aparato'),
+        # Sacado del registro de nginx (peticiones que el aparato dejo de
+        # esperar): para los cortes de antes y los aparatos que aun no avisan.
+        ('registro', 'Registro del servidor'),
+    ]
+    device = models.ForeignKey(Device, null=True, blank=True, on_delete=models.SET_NULL,
+                               related_name='cortes')
+    inicio = models.DateTimeField(db_index=True)
+    duracion = models.PositiveIntegerField(help_text='segundos')
+    ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
+    origen = models.CharField(max_length=10, choices=ORIGENES, default='aparato')
+    # Se apagó o reinició el aparato antes de volver la red.
+    reinicio = models.BooleanField(default=False)
+    # Muchos aparatos a la vez: fue nuestro (servidor o red), no del cliente.
+    general = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        ordering = ['-inicio']
+        verbose_name = 'corte de conexion'
+        verbose_name_plural = 'cortes de conexion'
+
+    def __str__(self):
+        return '%s %s %ss' % (self.device_id or self.ip, self.inicio, self.duracion)

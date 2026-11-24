@@ -483,7 +483,7 @@ def devices_list(request):
     cortes_24h = cortes.de_lista(devices)
     for d in devices:
         d.fw = firmwares.get(d.id)
-        d.cortes = cortes_24h.get(d.id, 0)
+        d.cortes_24h = cortes_24h.get(d.id, 0)
 
     context = {
         'active_page': 'devices',
@@ -1633,6 +1633,54 @@ def logs_list(request):
     }
 
     return render(request, 'portal/pages/logs.html', context)
+
+
+PERIODOS_CORTES = [('24h', 'Últimas 24 h', 1), ('7d', 'Últimos 7 días', 7),
+                   ('30d', 'Últimos 30 días', 30), ('todo', 'Todo', None)]
+
+
+@staff_member_required
+def cortes_list(request):
+    """
+    El registro de cortes de conexion de todos los aparatos (lo pidio soporte,
+    24/11/2026): quien, cuando, cuanto y desde que IP, y los que mas tienen.
+    """
+    from apps.devices import cortes
+    from apps.devices.models import CorteConexion
+
+    periodo = request.GET.get('periodo', '7d')
+    dias = dict((p, d) for p, _, d in PERIODOS_CORTES).get(periodo, 7)
+    qs = CorteConexion.objects.select_related('device', 'device__user')
+    if dias:
+        qs = qs.filter(inicio__gte=timezone.now() - timedelta(days=dias))
+    q = request.GET.get('q', '').strip()
+    if q:
+        qs = qs.filter(Q(device__mac_address__icontains=q) | Q(ip__icontains=q) |
+                       Q(device__user__username__icontains=q) | Q(device__name__icontains=q))
+    solo = request.GET.get('solo') == '1'
+    if solo:
+        qs = cortes.contables(qs)
+
+    pagina = Paginator(qs, 100).get_page(request.GET.get('page'))
+    ahora = timezone.now()
+    context = {
+        'active_page': 'cortes',
+        'stats': get_base_stats(),
+        'filas': [cortes.fila(c, ahora) for c in pagina.object_list],
+        'pagina': pagina,
+        'paginas': _paginas(pagina),
+        'consulta': _consulta_sin_pagina(request),
+        'periodos': PERIODOS_CORTES,
+        'periodo': periodo,
+        'q': q,
+        'solo': solo,
+        'los_que_mas': cortes.los_que_mas(qs),
+        'total': qs.count(),
+        'cuentan': cortes.contables(qs).count(),
+        'generales': cortes.generales(timezone.now() - timedelta(days=dias or 3650)),
+        'minimo': cortes.MINIMO,
+    }
+    return render(request, 'portal/pages/cortes.html', context)
 
 
 # Settings

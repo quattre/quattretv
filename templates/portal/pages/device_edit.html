@@ -117,6 +117,7 @@
                     {% if cortes.lista %}
                     <p class="text-sm">
                         <span class="px-2 py-1 rounded {% if cortes.en_24h %}bg-red-100 text-red-800{% else %}bg-gray-100 text-gray-700{% endif %} font-semibold">{{ cortes.en_24h }} en 24 h · {{ cortes.en_7d }} en 7 días</span>
+                        <a href="{% url 'portal:cortes' %}?periodo=todo&q={{ device.mac_address|urlencode }}" class="ml-1 text-xs text-blue-600 hover:underline">todos ({{ cortes.total }})</a>
                     </p>
                     <div class="border border-gray-200 rounded-lg overflow-hidden max-h-72 overflow-y-auto">
                         <table class="w-full text-xs">
@@ -140,7 +141,7 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-sm text-gray-600">Ninguno en los últimos 7 días.</p>
+                    <p class="text-sm text-gray-600">Ninguno.</p>
                     {% endif %}
                     <p class="text-xs text-gray-500">Cada vez que al aparato le sale «Se ha perdido la conexión» (un corte con muchos reintentos cuenta una vez). Lo cuenta él mismo al volver la red. En gris los que no cuentan: los de menos de {{ cortes.minimo }} s y los <b>generales</b> (muchos aparatos a la vez: fue nuestro, no del cliente). Los que cuentan apuntan a la línea o el wifi del cliente.</p>
                 </div>

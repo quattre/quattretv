@@ -190,7 +190,7 @@
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 text-gray-600">{{ device.last_ip|default:"-" }}
-                        {% if device.cortes %}<a href="{% url 'portal:device_edit' device.id %}#cortes" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 whitespace-nowrap" title="Cortes de conexión en las últimas 24 h">⚠ {{ device.cortes }} corte{{ device.cortes|pluralize }}</a>{% endif %}
+                        {% if device.cortes_24h %}<a href="{% url 'portal:device_edit' device.id %}#cortes" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 whitespace-nowrap" title="Cortes de conexión en las últimas 24 h">⚠ {{ device.cortes_24h }} corte{{ device.cortes_24h|pluralize }}</a>{% endif %}
                     </td>
                     <td class="px-6 py-4 text-gray-600">
                         {% if device.last_seen %}

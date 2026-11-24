@@ -1,0 +1,114 @@
+{% extends 'portal/layouts/base.html' %}
+
+{% block title %}Cortes de conexión - QuattreTV Portal{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900"><i class="bi bi-wifi-off"></i> Cortes de conexión</h1>
+    <p class="text-gray-500">Cada vez que a un aparato le sale «Se ha perdido la conexión»: cuándo, cuánto duró y desde qué IP. Pulsa el aparato para ver su ficha.</p>
+</div>
+
+<form method="get" class="bg-white rounded-xl shadow-sm p-4 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+    <div class="md:col-span-3">
+        <select name="periodo" onchange="this.form.submit()" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            {% for p, nombre, d in periodos %}<option value="{{ p }}" {% if p == periodo %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="md:col-span-5">
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar MAC, IP, usuario, nombre..."
+               class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <label class="md:col-span-3 text-sm text-gray-700 flex items-center gap-2">
+        <input type="checkbox" name="solo" value="1" {% if solo %}checked{% endif %} onchange="this.form.submit()">
+        Solo los que cuentan (sin cortos ni generales)
+    </label>
+    <button class="md:col-span-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"><i class="bi bi-search"></i></button>
+</form>
+
+{% if generales %}
+<div class="bg-blue-50 text-blue-800 rounded-xl p-4 mb-6 text-sm">
+    <p class="font-semibold"><i class="bi bi-exclamation-triangle"></i> Cortes generales (fue nuestro: muchos aparatos a la vez)</p>
+    <ul class="mt-1">{% for g in generales|slice:":10" %}<li>{{ g.cuando|date:"d/m/Y H:i" }} · {{ g.aparatos }} aparatos</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 font-medium text-gray-700">Los que más cortes tienen</div>
+            {% if los_que_mas %}
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-500 text-xs">
+                    <tr><th class="px-4 py-2 text-left font-medium">Aparato</th><th class="px-4 py-2 text-right font-medium">Cortes</th><th class="px-4 py-2 text-right font-medium">En total</th></tr>
+                </thead>
+                <tbody>
+                    {% for a in los_que_mas %}
+                    <tr class="border-t border-gray-100">
+                        <td class="px-4 py-2">
+                            {% if a.device_id %}
+                            <a href="{% url 'portal:device_edit' a.device_id %}#cortes" class="text-blue-600 hover:underline font-mono text-xs">{{ a.device__mac_address }}</a>
+                            <div class="text-xs text-gray-500">{{ a.device__user__username }}</div>
+                            {% else %}
+                            <a href="{% url 'portal:devices' %}?search={{ a.ip }}" class="text-blue-600 hover:underline text-xs">IP {{ a.ip }}</a>
+                            <div class="text-xs text-gray-500">varios aparatos o ninguno con esta IP</div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2 text-right font-semibold text-red-600">{{ a.n }}</td>
+                        <td class="px-4 py-2 text-right text-gray-600 whitespace-nowrap">{{ a.total|floatformat:0 }} s</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="p-6 text-sm text-green-700">Ninguno en este periodo.</p>
+            {% endif %}
+        </div>
+        <p class="text-xs text-gray-500 mt-3 px-1">No cuentan (salen en gris): los de menos de {{ minimo }} s, que suelen ser una petición lenta suelta o el portal recargándose, y los <b>generales</b>, cuando se cortan muchos aparatos a la vez y fue nuestro. Los que cuentan apuntan a la línea o el wifi del cliente.</p>
+        <p class="text-xs text-gray-500 mt-2 px-1"><b>Aparato</b>: lo avisa el propio aparato al volver la red (hora exacta). <b>Registro</b>: sacado del registro del servidor (peticiones que el aparato dejó de esperar); ahí la duración es aproximada y el aparato se deduce por su IP.</p>
+    </div>
+
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h5 class="font-semibold text-gray-800">{{ total }} corte{{ total|pluralize }} · {{ cuentan }} {% if cuentan == 1 %}cuenta{% else %}cuentan{% endif %}{% if pagina.has_other_pages %} <span class="text-gray-400 font-normal text-sm">· del {{ pagina.start_index }} al {{ pagina.end_index }}</span>{% endif %}</h5>
+            </div>
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-500 text-xs">
+                    <tr>
+                        <th class="px-4 py-2 text-left font-medium">Empezó</th>
+                        <th class="px-4 py-2 text-left font-medium">Duró</th>
+                        <th class="px-4 py-2 text-left font-medium">Aparato</th>
+                        <th class="px-4 py-2 text-left font-medium">Cliente</th>
+                        <th class="px-4 py-2 text-left font-medium">IP</th>
+                        <th class="px-4 py-2 text-left font-medium">Origen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in filas %}
+                    <tr class="border-t border-gray-100{% if not c.cuenta %} text-gray-400{% endif %}">
+                        <td class="px-4 py-2 whitespace-nowrap">{{ c.cuando|date:"d/m/Y H:i:s" }}</td>
+                        <td class="px-4 py-2 whitespace-nowrap">{{ c.dur }}
+                            {% if c.general %}<span class="text-blue-700">· general</span>{% elif c.corto %}<span>· corto</span>{% endif %}
+                            {% if c.reinicio %}<span class="text-amber-700" title="El aparato se apagó o reinició antes de volver la conexión">· reiniciado</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-2">
+                            {% if c.device %}<a href="{% url 'portal:device_edit' c.device.id %}#cortes" class="text-blue-600 hover:underline font-mono text-xs">{{ c.device.mac_address }}</a>
+                            <span class="text-xs text-gray-500">{{ c.device.model }}</span>
+                            {% else %}<a href="{% url 'portal:devices' %}?search={{ c.ip }}" class="text-blue-600 hover:underline text-xs">ver aparatos de esta IP</a>{% endif %}
+                        </td>
+                        <td class="px-4 py-2 text-xs">{{ c.device.user.username|default:"" }}</td>
+                        <td class="px-4 py-2 text-xs text-gray-500">{{ c.ip }}</td>
+                        <td class="px-4 py-2 text-xs">{% if c.origen == 'aparato' %}Aparato{% else %}Registro{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="px-6 py-8 text-center text-green-700">Ningún corte en este periodo.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+        {% include 'portal/includes/_paginas.html' %}
+    </div>
+</div>
+{% endblock %}
