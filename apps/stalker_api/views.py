@@ -2002,11 +2002,42 @@ def puede_reproducir_grabaciones(device):
     # La app de Android TV abre el fichero MPEG-TS de una grabacion desde la
     # 1.1.0. Con la de antes no se ofrecen: la app no tiene por que
     # actualizarse para todo lo demas (Sergio, 24/11/2026).
-    if device.device_type == 'android' and abre_ficheros(device):
+    # Y con la de antes tambien, en HLS (grabacion_hls), si record1 lo sirve.
+    if device.device_type == 'android' and (abre_ficheros(device) or grabaciones_hls()):
         return True
     return StorageServer.objects.filter(
         is_active=True, records_hls=True, controlado_por_ministra=False
     ).exists()
+
+
+def grabaciones_hls():
+    """Si record1 sirve las grabaciones en HLS (deploy/record/grabaciones_hls.sh)."""
+    return bool(settings.QUATTRETV.get('GRABACIONES_HLS_SECRETO'))
+
+
+def grabacion_hls(recording, desde=0):
+    """
+    La lista .m3u8 de una grabacion, de grabacion.php en record1, firmada para
+    unas horas. `desde` (segundos) la empieza mas adelante: asi avanza un
+    aparato que no sabe saltar dentro del video.
+    """
+    import hashlib
+    import hmac
+    import time
+    from urllib.parse import quote
+
+    base = (recording.storage.playback_url or '').rstrip('/')
+    if '/' not in base or not recording.filename:
+        return None
+    raiz, carpeta = base.rsplit('/', 1)          # .../quattretv_grab, nuevas|ministra
+    fichero = recording.filename.rsplit('/', 1)[-1]
+    caduca = int(time.time()) + 12 * 3600
+    firma = hmac.new(settings.QUATTRETV['GRABACIONES_HLS_SECRETO'].encode(),
+                     f'{carpeta}/{fichero}/{caduca}'.encode(), hashlib.sha256).hexdigest()[:32]
+    url = f'{raiz}/hls/grabacion.php?d={quote(carpeta)}&f={quote(fichero)}&e={caduca}&s={firma}'
+    if desde > 0:
+        url += f'&desde={int(desde)}'
+    return url
 
 
 def abre_ficheros(device):
@@ -2354,6 +2385,15 @@ def handle_pvr_link(request):
 
     if recording.status != RecordingStatus.COMPLETED:
         return stalker_response({'error': 'La grabación aún no está lista'})
+
+    # Lo que no es un deco y no abre ficheros (la app de Android de antes) la
+    # recibe en HLS, con el mismo video.
+    if (device.device_type != 'mag' and not abre_ficheros(device) and grabaciones_hls()
+            and recording.storage and recording.filename):
+        desde = request.GET.get('desde', '')
+        url = grabacion_hls(recording, int(desde) if desde.isdigit() else 0)
+        if url:
+            return stalker_response({'cmd': url})
 
     url = recording.stream_url
     if recording.storage and recording.filename and (

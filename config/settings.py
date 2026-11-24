@@ -284,6 +284,9 @@ QUATTRETV = {
     # piezas horarias, deploy/storage/indexar_archivo.py) en vez de por get.php:
     # ids de aparato y/o tipos separados por comas, o 'todos'. Vacio = nadie.
     'ARCHIVO_HLS': os.getenv('ARCHIVO_HLS', ''),
+    # Firma de las grabaciones en HLS de record1 (deploy/record/grabaciones_hls.sh
+    # deja el mismo en su secreto.php). Vacio = no se sirven en HLS.
+    'GRABACIONES_HLS_SECRETO': os.getenv('GRABACIONES_HLS_SECRETO', ''),
     'TIMESHIFT_ENABLED': os.getenv('TIMESHIFT_ENABLED', 'True').lower() in ('true', '1', 'yes'),
     'TIMESHIFT_HOURS': int(os.getenv('TIMESHIFT_HOURS', '24')),
     'DEFAULT_TIMEZONE': 'Europe/Madrid',

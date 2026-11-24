@@ -2711,6 +2711,21 @@
                 else if (player) { player.position = destino - d.inicio; hecho = true; }
                 else if (htmlPlayer) { htmlPlayer.currentTime = destino - d.inicio; hecho = true; }
             } catch (err) {}
+            if (!hecho && androidPlayer && d.recId) {
+                // La app de Android de antes no salta dentro del video: se pide
+                // la grabacion otra vez empezando en ese punto.
+                api("type=pvr&action=create_link&cmd=" + d.recId + "&desde=" + Math.max(0, destino - d.inicio), function(js) {
+                    if (diferido !== d) return;
+                    if (js && js.cmd) {
+                        playChannel({cmd: js.cmd});
+                        d.base = destino; d.arrancado = new Date().getTime(); d.pausaDesde = 0;
+                        mostrarOsd(null);
+                    } else {
+                        toast((js && js.error) ? js.error : 'No se pudo avanzar');
+                    }
+                });
+                return;
+            }
             if (!hecho) { toast('Este aparato no puede avanzar'); return; }
             if (d.pausaDesde) {
                 try { if (stbAPI) stbAPI.Continue(); else if (mandoAndroid()) mandoAndroid().seguir(); } catch (err) {}
@@ -2743,7 +2758,7 @@
         // La app de Android de antes no sabe pausar: se para el video y al
         // seguir se pide de nuevo desde el momento en que se paro, como un
         // salto. Asi no hace falta actualizar la app.
-        if (!stbAPI && androidPlayer && !mandoAndroid() && d.tipo !== 'grabacion') {
+        if (!stbAPI && androidPlayer && !mandoAndroid() && (d.tipo !== 'grabacion' || d.recId)) {
             if (d.pausaDesde) {
                 salto = {dir: 1, n: 0, desde: momentoDiferido(), destino: momentoDiferido()};
                 aplicarSalto();
@@ -2853,6 +2868,7 @@
             try {
                 if (stbAPI && stbAPI.GetPosTime) { pos = stbAPI.GetPosTime(); largo = stbAPI.GetMediaLen(); }
                 else if (mandoAndroid()) { pos = mandoAndroid().posicion(); largo = mandoAndroid().duracion(); }
+                else if (androidPlayer) { pos = Math.floor(momentoDiferido() - mio.inicio); largo = mio.fin - mio.inicio; }
                 else if (player) { pos = player.position; largo = player.duration; }
                 else if (htmlPlayer) { pos = htmlPlayer.currentTime; largo = htmlPlayer.duration; }
             } catch (err) {}
@@ -5626,7 +5642,7 @@
                 reproducirPantallaCompleta(js.cmd, 'Grabacion', r.name, {
                     etiqueta: 'GRABACION', canal: r.ch_name, titulo: r.name,
                     descr: r.descr, cuando: cuandoFue(r.start_ts, r.end_ts),
-                    tipo: 'grabacion', inicio: desde, base: desde,
+                    tipo: 'grabacion', inicio: desde, base: desde, recId: r.id,
                     fin: desde + (r.length || Math.max(60, r.end_ts - desde))
                 });
             } else {

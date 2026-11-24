@@ -345,13 +345,15 @@ public class MainActivity extends Activity {
         int flags = exigirIdr ? 0 : DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES;
         DefaultHttpDataSource.Factory red = new DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true);
         MediaSource fuente;
-        if (url.contains(".m3u8")) {
-            // Directo, archivo y videoclub de 7 dias: listas HLS.
+        String ruta = Uri.parse(url).getPath();
+        ruta = ruta == null ? "" : ruta.toLowerCase();
+        if (!(ruta.endsWith(".mpg") || ruta.endsWith(".ts") || ruta.endsWith(".mp4"))) {
+            // Directo, archivo, videoclub de 7 dias y grabaciones en HLS: listas.
             fuente = new HlsMediaSource.Factory(red)
                     .setExtractorFactory(new DefaultHlsExtractorFactory(flags, true))
                     .createMediaSource(MediaItem.fromUri(url));
         } else {
-            // Grabaciones: un fichero MPEG-TS entero, como el que abre el deco.
+            // Un fichero entero (una grabacion en MPEG-TS, como la abre el deco).
             fuente = new ProgressiveMediaSource.Factory(red,
                     new DefaultExtractorsFactory().setTsExtractorFlags(flags))
                     .createMediaSource(MediaItem.fromUri(url));
