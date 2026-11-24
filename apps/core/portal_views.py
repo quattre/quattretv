@@ -107,9 +107,13 @@ def dashboard(request):
     modelos_deco = list(Device.objects.filter(device_type='mag').values('model')
                         .annotate(count=Count('id')).order_by('-count'))
 
+    # Los aparatos a los que se les ha cortado la conexion (apps/devices/cortes.py).
+    from apps.devices import cortes
+
     context = {
         'active_page': 'dashboard',
         'stats': stats,
+        'cortes': cortes.resumen(),
         'maquina_tarjetas': [('cpu', 'CPU'), ('carga', 'Carga'), ('mem', 'Memoria'),
                              ('disco', 'Disco'), ('red', 'Red')],
         'recent_users': recent_users,
@@ -456,14 +460,21 @@ def devices_list(request):
         devices = devices.filter(is_active=True)
     elif status == 'inactivo':
         devices = devices.filter(is_active=False)
-    elif status == 'cortes':
+    orden = '-last_seen'
+    if status == 'cortes':
+        # Los que mas fallan, primero.
+        from django.db.models import Case, IntegerField, Value, When
         from apps.devices import cortes
-        devices = devices.filter(id__in=cortes.con_cortes(24))
+        cuantos = cortes.cuantos_24h()
+        devices = devices.filter(id__in=list(cuantos)).annotate(n_cortes=Case(
+            *[When(id=i, then=Value(n)) for i, n in cuantos.items()],
+            default=Value(0), output_field=IntegerField()))
+        orden = '-n_cortes' if cuantos else orden
 
     # Por paginas: con los ~950 aparatos y los ~1000 clientes del desplegable
     # en una sola pagina, esta pesaba 4 MB y tardaba casi 2 s en el servidor
     # (lento desde la oficina, 23/11/2026).
-    pagina = Paginator(devices.order_by('-last_seen'), 50).get_page(request.GET.get('page'))
+    pagina = Paginator(devices.order_by(orden, '-last_seen'), 50).get_page(request.GET.get('page'))
     devices = list(pagina.object_list)
     # La version de firmware de cada deco y si es la ultima de su modelo.
     from apps.devices import eventos

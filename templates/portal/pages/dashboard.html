@@ -9,7 +9,7 @@
 </div>
 
 <!-- Stats Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
     <div class="bg-white rounded-xl p-6 shadow-sm hover:-translate-y-1 transition-transform">
         <div class="flex justify-between">
             <div>
@@ -61,6 +61,30 @@
         </div>
         <small class="text-gray-500">En este momento</small>
     </div>
+
+    <!-- Cortes de conexion de las ultimas 24 h (apps/devices/cortes.py) -->
+    <a href="{% url 'portal:devices' %}?status=cortes"
+       class="block bg-white rounded-xl p-6 shadow-sm hover:-translate-y-1 transition-transform{% if cortes.aparatos %} ring-2 ring-red-200{% endif %}"
+       title="Aparatos a los que les ha salido «Se ha perdido la conexión» (30 s o más) en las últimas 24 h. Pulsa para ver quiénes y cuántas veces.">
+        <div class="flex justify-between">
+            <div>
+                <h3 class="text-3xl font-bold{% if cortes.aparatos %} text-red-600{% endif %}">{{ cortes.aparatos }}</h3>
+                <p class="text-gray-500">Con cortes (24 h)</p>
+            </div>
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br {% if cortes.aparatos %}from-red-500 to-orange-400{% else %}from-gray-300 to-gray-400{% endif %} flex items-center justify-center text-white text-2xl">
+                <i class="bi bi-wifi-off"></i>
+            </div>
+        </div>
+        {% if cortes.aparatos %}
+            <small class="text-red-600">{{ cortes.cortes }} corte{{ cortes.cortes|pluralize }} en total · ver quiénes</small>
+        {% else %}
+            <small class="text-green-600">Ningún cliente con cortes</small>
+        {% endif %}
+        {% for g in cortes.generales|slice:":2" %}
+            <small class="block text-blue-700 mt-1" title="Muchos aparatos a la vez: fue nuestro (servidor o red). No cuenta para los clientes.">
+                <i class="bi bi-exclamation-triangle"></i> Corte general {{ g.cuando|date:"d/m H:i" }} ({{ g.aparatos }} aparatos)</small>
+        {% endfor %}
+    </a>
 </div>
 
 <!-- La maquina: se refresca sola cada 5 segundos -->

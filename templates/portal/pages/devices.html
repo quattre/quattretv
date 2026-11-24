@@ -107,7 +107,7 @@
                 <option value="offline" {% if request.GET.status == 'offline' %}selected{% endif %}>Offline</option>
                 <option value="activo" {% if request.GET.status == 'activo' %}selected{% endif %}>Activos</option>
                 <option value="inactivo" {% if request.GET.status == 'inactivo' %}selected{% endif %}>Desactivados</option>
-                <option value="cortes" {% if request.GET.status == 'cortes' %}selected{% endif %}>Con cortes de conexión (24 h)</option>
+                <option value="cortes" {% if request.GET.status == 'cortes' %}selected{% endif %}>Con cortes de conexión (24 h, los que más primero)</option>
             </select>
         </div>
         <div class="md:col-span-2">

@@ -145,11 +145,49 @@ def de_lista(devices):
     return de_ids([d.id for d in devices])
 
 
-def con_cortes(horas=24):
-    """Los id de los aparatos con algun corte que cuenta en las ultimas 24 h."""
+def cuantos_24h():
+    """{id: cortes que cuentan} de todos los aparatos con alguno en 24 h."""
     try:
         recientes = cache.get(CLAVE_RECIENTES) or {}
     except Exception:
+        return {}
+    desde = time.time() - 24 * 3600
+    return de_ids([k for k, v in recientes.items() if v > desde])
+
+
+def con_cortes(horas=24):
+    """Los id de los aparatos con algun corte que cuenta en las ultimas 24 h."""
+    return list(cuantos_24h())
+
+
+def generales_24h():
+    """
+    Los cortes generales (nuestros) de las ultimas 24 h: [{cuando, aparatos}],
+    uno por cada racha de minutos seguidos en que se cortaron muchos a la vez.
+    """
+    ahora = int(time.time() // 60)
+    minutos = list(range(ahora - 24 * 60 - VENTANA, ahora + 1))
+    try:
+        cuentas = cache.get_many([_clave_minuto(m) for m in minutos])
+    except Exception:
         return []
-    desde = time.time() - horas * 3600
-    return list(de_ids([k for k, v in recientes.items() if v > desde]))
+    n = {m: cuentas.get(_clave_minuto(m)) or 0 for m in minutos}
+    rachas, actual = [], None
+    for m in minutos[VENTANA:]:
+        cerca = sum(n.get(x, 0) for x in range(m - VENTANA, m + VENTANA + 1))
+        if cerca >= GENERAL and n[m]:
+            if actual and m - actual['fin'] <= 2 * VENTANA + 1:
+                actual['fin'] = m
+                actual['aparatos'] += n[m]
+            else:
+                actual = {'inicio': m, 'fin': m, 'aparatos': n[m]}
+                rachas.append(actual)
+    return [{'cuando': datetime.fromtimestamp(r['inicio'] * 60, tz.utc), 'aparatos': r['aparatos']}
+            for r in reversed(rachas)]
+
+
+def resumen():
+    """Para el dashboard."""
+    cuantos = cuantos_24h()
+    return {'aparatos': len(cuantos), 'cortes': sum(cuantos.values()),
+            'generales': generales_24h(), 'minimo': MINIMO}
