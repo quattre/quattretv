@@ -436,7 +436,11 @@ def devices_list(request):
             Q(mac_address__icontains=search) |
             Q(user__username__icontains=search) |
             Q(user__first_name__icontains=search) |
-            Q(name__icontains=search)
+            Q(name__icontains=search) |
+            # La IP desde la que se conecta (lo pidio soporte, 24/11/2026) y
+            # el numero de serie de la etiqueta del deco.
+            Q(last_ip__icontains=search.strip()) |
+            Q(serial_number__icontains=search)
         )
 
     device_type = request.GET.get('type')
