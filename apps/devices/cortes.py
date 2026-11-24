@@ -158,6 +158,10 @@ def los_que_mas(qs, cuantos=15):
 
 # ---------- Del registro de nginx ----------
 
+# Nuestras maquinas (la plataforma vieja reenvia peticiones de muchos decos, y
+# la oficina): sus 499 no son de un cliente.
+NUESTRAS = ('185.25.27.',)
+
 LINEA = re.compile(r'^(\S+) \S+ \S+ \[([^\]]+)\] "\S+ (\S+)[^"]*" (\d{3}) ')
 
 
@@ -230,6 +234,8 @@ def importar_registro(rutas):
         with _abrir(ruta) as f:
             cortes = cortes_del_registro(f)
         for ip, inicio, segundos in cortes:
+            if ip.startswith(NUESTRAS):
+                continue
             ids = por_ip.get(ip, [])
             # Con varios aparatos detras de la misma IP no se sabe cual fue:
             # se guarda la IP sola, mejor que culpar al que no es.
