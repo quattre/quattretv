@@ -21,6 +21,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -29,6 +30,9 @@ import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.ProgressiveMediaSource;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.AspectRatioFrameLayout;
@@ -105,12 +109,26 @@ public class MainActivity extends Activity {
             if (player != null && urlActual != null && player.isPlaying() && hayContadorFotogramas
                     && ultimoFotograma > 0 && System.currentTimeMillis() - ultimoFotograma > 5000) {
                 Log.w(TAG, "video: 5 s sin fotogramas, reenganche " + (exigiendoIdr ? "permisivo" : "exigiendo IDR"));
-                cargar(urlActual, !exigiendoIdr);
+                cargar(urlActual, !exigiendoIdr, posicionParaSeguir());
             }
             raiz.postDelayed(this, 2000);
         }
     };
     private float volumen = 1f;
+    // Donde va el video, para el portal (pausa, avance, fin de una grabacion).
+    // El puente llega en otro hilo y ExoPlayer solo se toca desde este: se
+    // copia aqui cuatro veces por segundo y el puente lee la copia.
+    private volatile double posicionS = 0, duracionS = 0;
+    private final Runnable reloj = new Runnable() {
+        @Override public void run() {
+            if (player != null) {
+                posicionS = player.getCurrentPosition() / 1000.0;
+                long d = player.getDuration();
+                duracionS = d == C.TIME_UNSET ? 0 : d / 1000.0;
+            }
+            raiz.postDelayed(this, 250);
+        }
+    };
     private final float[] hueco = {0f, 0f, 1f, 1f};   // x, y, ancho, alto en fracciones
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -237,6 +255,22 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void volumen(int v) {
             runOnUiThread(() -> { volumen = Math.max(0, Math.min(100, v)) / 100f; if (player != null) player.setVolume(volumen); });
         }
+        // Lo mismo que el portal hace en el deco con Pause, Continue,
+        // GetPosTime, SetPosTime y GetMediaLen (segundos).
+        @JavascriptInterface public void pausa() { runOnUiThread(() -> { if (player != null) player.pause(); }); }
+        @JavascriptInterface public void seguir() { runOnUiThread(() -> { if (player != null) player.play(); }); }
+        @JavascriptInterface public void ir(double segundos) {
+            posicionS = Math.max(0, segundos);
+            runOnUiThread(() -> { if (player != null) player.seekTo((long) (Math.max(0, segundos) * 1000)); });
+        }
+        @JavascriptInterface public double posicion() { return posicionS; }
+        @JavascriptInterface public double duracion() { return duracionS; }
+    }
+
+    /** Al recargar lo mismo: un directo vuelve al borde; un programa, por donde iba. */
+    private long posicionParaSeguir() {
+        if (player == null || player.isCurrentMediaItemLive()) return C.TIME_UNSET;
+        return player.getCurrentPosition();
     }
 
     private void crearPlayer() {
@@ -275,7 +309,7 @@ public class MainActivity extends Activity {
                 if (urlActual == null) return;
                 raiz.postDelayed(() -> {
                     if (player == null || urlActual == null) return;
-                    player.seekToDefaultPosition();
+                    if (player.isCurrentMediaItemLive()) player.seekToDefaultPosition();
                     player.prepare();
                 }, 3000);
             }
@@ -290,6 +324,7 @@ public class MainActivity extends Activity {
             ultimoFotograma = System.currentTimeMillis();
         });
         raiz.postDelayed(vigilante, 2000);
+        raiz.post(reloj);
     }
 
     /**
@@ -300,7 +335,7 @@ public class MainActivity extends Activity {
      * Dark -- y se quedan mudos de imagen hasta el siguiente IDR. Para esos, el
      * vigilante vuelve a cargar exigiendo IDR, que es lo que hace Chromium.
      */
-    private void cargar(String url, boolean exigirIdr) {
+    private void cargar(String url, boolean exigirIdr, long desdeMs) {
         exigiendoIdr = exigirIdr;
         ultimoFotograma = System.currentTimeMillis();
         hayContadorFotogramas = false;
@@ -308,9 +343,21 @@ public class MainActivity extends Activity {
         player.stop();
         player.clearMediaItems();
         int flags = exigirIdr ? 0 : DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES;
-        player.setMediaSource(new HlsMediaSource.Factory(new DefaultHttpDataSource.Factory())
-                .setExtractorFactory(new DefaultHlsExtractorFactory(flags, true))
-                .createMediaSource(MediaItem.fromUri(url)));
+        DefaultHttpDataSource.Factory red = new DefaultHttpDataSource.Factory().setAllowCrossProtocolRedirects(true);
+        MediaSource fuente;
+        if (url.contains(".m3u8")) {
+            // Directo, archivo y videoclub de 7 dias: listas HLS.
+            fuente = new HlsMediaSource.Factory(red)
+                    .setExtractorFactory(new DefaultHlsExtractorFactory(flags, true))
+                    .createMediaSource(MediaItem.fromUri(url));
+        } else {
+            // Grabaciones: un fichero MPEG-TS entero, como el que abre el deco.
+            fuente = new ProgressiveMediaSource.Factory(red,
+                    new DefaultExtractorsFactory().setTsExtractorFlags(flags))
+                    .createMediaSource(MediaItem.fromUri(url));
+        }
+        player.setMediaSource(fuente);
+        if (desdeMs != C.TIME_UNSET) player.seekTo(desdeMs);
         player.setPlayWhenReady(true);
         player.prepare();
     }
@@ -323,7 +370,7 @@ public class MainActivity extends Activity {
         // carga el nuevo parece que la imagen se ha congelado), y se para y
         // se vacia antes de cargar (cambiando de canal sobre la marcha, al
         // cuarto se quedaba "cargando" para siempre). Todo en cargar().
-        cargar(url, false);
+        cargar(url, false, C.TIME_UNSET);
         colocarVista();
     }
 
@@ -394,6 +441,9 @@ public class MainActivity extends Activity {
             case KeyEvent.KEYCODE_MEDIA_PLAY:
             case KeyEvent.KEYCODE_MEDIA_PAUSE:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE: return 415;
+            // Rebobinar y avanzar, como los de LG (el portal ya los entiende).
+            case KeyEvent.KEYCODE_MEDIA_REWIND:       return 412;
+            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD: return 417;
             default: return 0;
         }
     }

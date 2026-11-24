@@ -587,8 +587,8 @@ def handle_get_localization(request):
 def como_deco(device):
     """
     Aparatos que reciben el portal entero, como un MAG: el propio deco y la app
-    de Android TV. El archivo, el videoclub de 7 dias y las grabaciones siguen
-    siendo solo del deco: son MPEG-TS y la app de Android solo abre HLS.
+    de Android TV. En Android el archivo y el videoclub de 7 dias van en HLS
+    (ARCHIVO_HLS, el .env) y las grabaciones como en el deco.
     """
     return bool(device) and device.device_type in ('mag', 'android')
 
@@ -1994,7 +1994,9 @@ def puede_reproducir_grabaciones(device):
     """
     from apps.pvr.models import StorageServer
 
-    if device.device_type == 'mag':
+    # La app de Android TV (ExoPlayer) abre el MPEG-TS igual que el deco
+    # desde la 1.1.0, que es la que tienen las cajas (Sergio, 24/11/2026).
+    if device.device_type in ('mag', 'android'):
         return True
     return StorageServer.objects.filter(
         is_active=True, records_hls=True, controlado_por_ministra=False

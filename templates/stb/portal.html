@@ -2600,13 +2600,20 @@
     }
     var salto = null;   // {dir, n, destino, timer}
 
+    // El ExoPlayer de la app de Android, si sabe pausar y avanzar (desde la
+    // 1.1.0; la de antes solo reproducia). Hace lo del deco: Pause, Continue,
+    // GetPosTime, SetPosTime y GetMediaLen.
+    function mandoAndroid() {
+        return (androidPlayer && typeof androidPlayer.pausa !== 'undefined') ? androidPlayer : null;
+    }
+
     // Instante del programa (segundos UTC) que se esta viendo ahora.
     function momentoDiferido() {
         var d = diferido;
         if (!d || !d.inicio) return 0;
-        if (d.tipo === 'grabacion' && stbAPI && stbAPI.GetPosTime) {
+        if (d.tipo === 'grabacion' && ((stbAPI && stbAPI.GetPosTime) || mandoAndroid())) {
             try {
-                var pos = stbAPI.GetPosTime();
+                var pos = stbAPI ? stbAPI.GetPosTime() : mandoAndroid().posicion();
                 if (pos > 0) return d.inicio + pos;
             } catch (err) {}
         }
@@ -2700,11 +2707,14 @@
             var hecho = false;
             try {
                 if (stbAPI && stbAPI.SetPosTime) { stbAPI.SetPosTime(destino - d.inicio); hecho = true; }
+                else if (mandoAndroid()) { mandoAndroid().ir(destino - d.inicio); hecho = true; }
                 else if (player) { player.position = destino - d.inicio; hecho = true; }
                 else if (htmlPlayer) { htmlPlayer.currentTime = destino - d.inicio; hecho = true; }
             } catch (err) {}
             if (!hecho) { toast('Este aparato no puede avanzar'); return; }
-            if (d.pausaDesde) { try { stbAPI.Continue(); } catch (err) {} }
+            if (d.pausaDesde) {
+                try { if (stbAPI) stbAPI.Continue(); else if (mandoAndroid()) mandoAndroid().seguir(); } catch (err) {}
+            }
             d.base = destino; d.arrancado = new Date().getTime(); d.pausaDesde = 0;
             mostrarOsd(null);
             return;
@@ -2729,14 +2739,15 @@
 
     function pausarDiferido() {
         var d = diferido;
-        if (!d || !stbAPI) return;
+        var mando = stbAPI || mandoAndroid();
+        if (!d || !mando) return;
         try {
             if (d.pausaDesde) {
-                stbAPI.Continue();
+                if (stbAPI) stbAPI.Continue(); else mando.seguir();
                 d.arrancado += new Date().getTime() - d.pausaDesde;
                 d.pausaDesde = 0;
             } else {
-                stbAPI.Pause();
+                if (stbAPI) stbAPI.Pause(); else mando.pausa();
                 d.pausaDesde = new Date().getTime();
             }
         } catch (err) {}
@@ -2826,6 +2837,7 @@
             var pos = -1, largo = 0;
             try {
                 if (stbAPI && stbAPI.GetPosTime) { pos = stbAPI.GetPosTime(); largo = stbAPI.GetMediaLen(); }
+                else if (mandoAndroid()) { pos = mandoAndroid().posicion(); largo = mandoAndroid().duracion(); }
                 else if (player) { pos = player.position; largo = player.duration; }
                 else if (htmlPlayer) { pos = htmlPlayer.currentTime; largo = htmlPlayer.duration; }
             } catch (err) {}
