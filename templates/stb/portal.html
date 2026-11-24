@@ -1483,7 +1483,9 @@
     // pantalla principal, cierra la app (es lo que se espera en Android; en LG
     // y Samsung eso lo hace el boton de inicio). Si no, nos pasa el atras.
     function enRaiz() {
-        return view === "list" && !isFullscreen;
+        // Con el video de ayuda, un aviso o una pregunta encima, Atras los
+        // cierra: no es la pantalla principal (se salia de la app de Android).
+        return view === "list" && !isFullscreen && !videoAyuda && !avisoAbierto && !pregunta && !mensajeAbierto;
     }
 
     function sabeHlsSolo() {
@@ -8039,7 +8041,7 @@
     </style>
 </head>
 <body>
-    <video id="html5video" autoplay playsinline style="position:fixed;top:11.1%;left:39%;width:56.2%;height:56.2%;z-index:2;border-radius:14px;display:none;"></video>
+    <video id="html5video" autoplay playsinline poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="position:fixed;top:11.1%;left:39%;width:56.2%;height:56.2%;z-index:2;border-radius:14px;display:none;"></video>
     <div id="preview"></div>
     <!-- Lo que se ve en un canal de radio, que no trae imagen. Se coloca justo
          encima del hueco del video, asi que sirve igual en la ventana pequeña
@@ -8066,7 +8068,7 @@
     <div id="mensaje"></div>
     <div id="rail"></div>
     <div id="aviso"></div>
-    <div id="ayuda-video"><video id="ayuda-v" playsinline></video>
+    <div id="ayuda-video"><video id="ayuda-v" playsinline poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></video>
         <div class="av-vpie"><b id="ayuda-v-titulo"></b> &nbsp; <span data-tecla="13">OK</span> Pausa &nbsp;
         <span>◀▶</span> 10 s &nbsp; <span data-tecla="27">Atras</span> Salir</div></div>
     <audio id="mar" loop preload="none" src="{% static 'stb/mar.mp3' %}"></audio>

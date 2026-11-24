@@ -57,6 +57,20 @@ def archivo_hls_para(device):
     return 'todos' in fichas or str(device.id) in fichas or device.device_type in fichas
 
 
+def por_https(device):
+    """
+    Si los trozos del archivo y de las grabaciones le van a este aparato por
+    https, a traves de iptv2 (deploy/nginx/archivo_https.sh), en vez de directos
+    de storage1/record1 por http. La app de Android solo admite https; el deco
+    sigue por http directo, que su reproductor viejo no abre https.
+    """
+    return bool(settings.QUATTRETV.get('HLS_POR_IPTV2')) and bool(device) and device.device_type != 'mag'
+
+
+def base_https(ruta):
+    return f"{settings.QUATTRETV.get('PUBLIC_URL', '').rstrip('/')}/{ruta}"
+
+
 def id_en_archivo(channel, momento=None):
     """
     Con que numero esta guardado el canal en el archivo de storage1.
@@ -224,7 +238,7 @@ def fetch_segment_index(storage, channel, start, end):
     return segments
 
 
-def build_playlist(storage, channel, segments, start, end):
+def build_playlist(storage, channel, segments, start, end, https=False):
     """Emit a finite (VOD) playlist covering [start, end]."""
     window = []
     for index, (seg_start, name) in enumerate(segments):
@@ -239,7 +253,8 @@ def build_playlist(storage, channel, segments, start, end):
     if not window:
         return None
 
-    base = storage.build_url(f'{storage.archive_path}/{channel.id}/', public=True)
+    base = (base_https(f'archivo_hls/{channel.id}/') if https
+            else storage.build_url(f'{storage.archive_path}/{channel.id}/', public=True))
     target = max(int(round(d)) for _, d, _ in window)
 
     lines = [
@@ -290,7 +305,7 @@ def fetch_rangos(storage, carpeta, start, end):
     return piezas
 
 
-def playlist_de_rangos(storage, carpeta, piezas, start, end):
+def playlist_de_rangos(storage, carpeta, piezas, start, end, https=False):
     """
     Lista .m3u8 de [start, end] con los trozos de las piezas. Si el rato llega
     hasta ahora no se cierra (EVENT): el aparato la vuelve a pedir y va
@@ -299,7 +314,8 @@ def playlist_de_rangos(storage, carpeta, piezas, start, end):
     from .piezas import _dif
 
     a, z = start.timestamp(), end.timestamp()
-    base = storage.build_url(f'{storage.archive_path}/trozo.php', public=True)
+    base = (base_https('archivo_hls/trozo.php') if https
+            else storage.build_url(f'{storage.archive_path}/trozo.php', public=True))
     cuerpo = []
     maximo = 1.0
     fin_pts = None
@@ -337,9 +353,11 @@ def catchup_playlist(request, channel_id, start_ts, duration):
     """Serve the generated catchup playlist for a time window."""
     token = request.GET.get('token', '')
     try:
-        signing.loads(token, salt=ARCHIVE_TOKEN_SALT, max_age=ARCHIVE_TOKEN_TTL)
+        datos = signing.loads(token, salt=ARCHIVE_TOKEN_SALT, max_age=ARCHIVE_TOKEN_TTL)
     except signing.BadSignature:
         return HttpResponse('Not valid token', status=403)
+    from apps.devices.models import Device
+    https = por_https(Device.objects.filter(id=datos.get('d') or 0).only('device_type').first())
 
     channel = Channel.objects.filter(id=channel_id, is_active=True).first()
     if not channel:
@@ -353,7 +371,7 @@ def catchup_playlist(request, channel_id, start_ts, duration):
         if not storage:
             return HttpResponse('No archive storage', status=503)
         playlist = build_playlist(
-            storage, channel, fetch_segment_index(storage, channel, start, end), start, end
+            storage, channel, fetch_segment_index(storage, channel, start, end), start, end, https
         )
     else:
         storage = almacen_archivo(channel, start)
@@ -361,7 +379,7 @@ def catchup_playlist(request, channel_id, start_ts, duration):
             return HttpResponse('No archive storage', status=503)
         carpeta = id_en_archivo(channel, start)
         playlist = playlist_de_rangos(
-            storage, carpeta, fetch_rangos(storage, carpeta, start, end), start, end)
+            storage, carpeta, fetch_rangos(storage, carpeta, start, end), start, end, https)
     if not playlist:
         return HttpResponse('Archive not available for that time', status=404)
 

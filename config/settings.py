@@ -284,6 +284,9 @@ QUATTRETV = {
     # piezas horarias, deploy/storage/indexar_archivo.py) en vez de por get.php:
     # ids de aparato y/o tipos separados por comas, o 'todos'. Vacio = nadie.
     'ARCHIVO_HLS': os.getenv('ARCHIVO_HLS', ''),
+    # Los trozos del archivo y de las grabaciones en HLS, por https a traves de
+    # iptv2 (deploy/nginx/archivo_https.sh) a todo lo que no es deco.
+    'HLS_POR_IPTV2': os.getenv('HLS_POR_IPTV2', '').lower() in ('true', '1', 'yes'),
     # Firma de las grabaciones en HLS de record1 (deploy/record/grabaciones_hls.sh
     # deja el mismo en su secreto.php). Vacio = no se sirven en HLS.
     'GRABACIONES_HLS_SECRETO': os.getenv('GRABACIONES_HLS_SECRETO', ''),

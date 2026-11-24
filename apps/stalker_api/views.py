@@ -2015,7 +2015,7 @@ def grabaciones_hls():
     return bool(settings.QUATTRETV.get('GRABACIONES_HLS_SECRETO'))
 
 
-def grabacion_hls(recording, desde=0):
+def grabacion_hls(recording, desde=0, device=None):
     """
     La lista .m3u8 de una grabacion, de grabacion.php en record1, firmada para
     unas horas. `desde` (segundos) la empieza mas adelante: asi avanza un
@@ -2034,7 +2034,11 @@ def grabacion_hls(recording, desde=0):
     caduca = int(time.time()) + 12 * 3600
     firma = hmac.new(settings.QUATTRETV['GRABACIONES_HLS_SECRETO'].encode(),
                      f'{carpeta}/{fichero}/{caduca}'.encode(), hashlib.sha256).hexdigest()[:32]
-    url = f'{raiz}/hls/grabacion.php?d={quote(carpeta)}&f={quote(fichero)}&e={caduca}&s={firma}'
+    from .storage_views import base_https, por_https
+    # Por https a traves de iptv2 a quien solo admite https (la app de Android);
+    # los trozos van relativos a la lista, asi que siguen el mismo camino.
+    pagina = base_https('grabaciones_hls/grabacion.php') if por_https(device) else f'{raiz}/hls/grabacion.php'
+    url = f'{pagina}?d={quote(carpeta)}&f={quote(fichero)}&e={caduca}&s={firma}'
     if desde > 0:
         url += f'&desde={int(desde)}'
     return url
@@ -2391,7 +2395,7 @@ def handle_pvr_link(request):
     if (device.device_type != 'mag' and not abre_ficheros(device) and grabaciones_hls()
             and recording.storage and recording.filename):
         desde = request.GET.get('desde', '')
-        url = grabacion_hls(recording, int(desde) if desde.isdigit() else 0)
+        url = grabacion_hls(recording, int(desde) if desde.isdigit() else 0, device)
         if url:
             return stalker_response({'cmd': url})
 
