@@ -49,11 +49,18 @@ def archivo_hls_para(device):
     Si este aparato recibe el archivo de siempre en HLS (rangos.php y
     trozo.php de storage1) en vez de por get.php. Se decide en el .env,
     ARCHIVO_HLS: ids de aparato y/o tipos ('android', 'lg', 'mag'...) separados
-    por comas, o 'todos'. Vacio = nadie, como antes.
+    por comas, o 'todos'; con '-' delante, un id o un usuario que se excluye.
+    Vacio = nadie, como antes.
     """
     if not device:
         return False
     fichas = {x.strip() for x in settings.QUATTRETV.get('ARCHIVO_HLS', '').split(',') if x.strip()}
+    # '-algo' lo quita: un id de aparato o un usuario ('-googlereview', la
+    # cuenta con la que revisa Google Play, que ve la app sin estas secciones).
+    quitar = {x[1:] for x in fichas if x.startswith('-')}
+    usuario = getattr(getattr(device, 'user', None), 'username', '')
+    if str(device.id) in quitar or (usuario and usuario in quitar):
+        return False
     return 'todos' in fichas or str(device.id) in fichas or device.device_type in fichas
 
 
