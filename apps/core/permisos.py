@@ -24,6 +24,8 @@ TECNICO = {
     'device_evento', 'device_firmware', 'device_delete', 'devices_recargar_todos',
     'device_activo', 'buscar_usuarios',
     'streams', 'logs',
+    # El registro de cortes de conexion: es para soporte (24/11/2026).
+    'cortes',
 }
 
 
