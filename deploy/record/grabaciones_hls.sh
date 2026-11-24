@@ -15,6 +15,10 @@
 set -euo pipefail
 
 AQUI="$(cd "$(dirname "$0")" && pwd)"
+# Las funciones del indice son las del archivo de storage1: una sola copia en
+# el repositorio (deploy/storage); copiado suelto al lado de este script, tambien.
+IX="$AQUI/indexar_archivo.py"
+[ -f "$IX" ] || IX="$AQUI/../storage/indexar_archivo.py"
 USUARIO=quattre
 BASE=/mnt/record1/quattretv/grab_hls                    # en el disco grande
 WEB=/var/www/stalker_portal/quattretv_grab/hls          # por donde lo sirve Apache
@@ -32,10 +36,11 @@ fi
 
 mountpoint -q /mnt/record1 || { echo "ERROR: /mnt/record1 no esta montado"; exit 1; }
 [ -d "$(dirname "$WEB")" ] || { echo "ERROR: no existe $(dirname "$WEB")"; exit 1; }
-for f in indexar_archivo.py indexar_grabaciones.py comun.php grabacion.php trozo.php; do
+[ -f "$IX" ] || { echo "ERROR: falta indexar_archivo.py"; exit 1; }
+for f in indexar_grabaciones.py comun.php grabacion.php trozo.php; do
     [ -f "$AQUI/$f" ] || { echo "ERROR: falta $AQUI/$f"; exit 1; }
 done
-python3 -m py_compile "$AQUI/indexar_archivo.py" "$AQUI/indexar_grabaciones.py"
+python3 -m py_compile "$IX" "$AQUI/indexar_grabaciones.py"
 for f in comun.php grabacion.php trozo.php; do php -l "$AQUI/$f" >/dev/null; done
 
 # 1. Carpetas. El indice lo escribe el cron (quattre) y, si una grabacion aun
@@ -45,7 +50,7 @@ install -d -o "$USUARIO" -g "$USUARIO" -m 777 "$BASE/indice"
 ln -sfn "$BASE" "$WEB"
 
 # 2. Programas y paginas.
-install -o "$USUARIO" -g "$USUARIO" -m 755 "$AQUI/indexar_archivo.py" "$AQUI/indexar_grabaciones.py" "$PROGRAMA/"
+install -o "$USUARIO" -g "$USUARIO" -m 755 "$IX" "$AQUI/indexar_grabaciones.py" "$PROGRAMA/"
 install -o "$USUARIO" -g "$USUARIO" -m 644 "$AQUI/comun.php" "$AQUI/grabacion.php" "$AQUI/trozo.php" "$BASE/"
 # El secreto de las firmas: se crea una vez y no sale de aqui ni del .env de
 # iptv2 (GRABACIONES_HLS_SECRETO). Pedido directamente no enseña nada.
