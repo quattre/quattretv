@@ -44,6 +44,20 @@ def archive_storage():
     ).order_by('controlado_por_ministra').first()
 
 
+def excluido_de_extras(device):
+    """
+    Si este aparato esta excluido en ARCHIVO_HLS con '-' (su id o su usuario):
+    la cuenta del revisor de Google Play ve la app sin videoclub, archivo,
+    grabaciones ni ayuda, como la version que se manda a revisar.
+    """
+    if not device:
+        return False
+    fichas = {x.strip() for x in settings.QUATTRETV.get('ARCHIVO_HLS', '').split(',') if x.strip()}
+    quitar = {x[1:] for x in fichas if x.startswith('-')}
+    usuario = getattr(getattr(device, 'user', None), 'username', '')
+    return str(device.id) in quitar or bool(usuario and usuario in quitar)
+
+
 def archivo_hls_para(device):
     """
     Si este aparato recibe el archivo de siempre en HLS (rangos.php y
@@ -55,11 +69,8 @@ def archivo_hls_para(device):
     if not device:
         return False
     fichas = {x.strip() for x in settings.QUATTRETV.get('ARCHIVO_HLS', '').split(',') if x.strip()}
-    # '-algo' lo quita: un id de aparato o un usuario ('-googlereview', la
-    # cuenta con la que revisa Google Play, que ve la app sin estas secciones).
-    quitar = {x[1:] for x in fichas if x.startswith('-')}
-    usuario = getattr(getattr(device, 'user', None), 'username', '')
-    if str(device.id) in quitar or (usuario and usuario in quitar):
+    # '-algo' lo quita: un id de aparato o un usuario (excluido_de_extras).
+    if excluido_de_extras(device):
         return False
     return 'todos' in fichas or str(device.id) in fichas or device.device_type in fichas
 

@@ -625,7 +625,7 @@ def handle_get_modules(request):
     # "Ultimos 7 dias": el archivo presentado como catalogo. Solo donde el
     # archivo se puede ver (el deco, y la app de Android si ya recibe el archivo
     # en HLS) y la tarifa lo incluye.
-    from .storage_views import archivo_hls_para
+    from .storage_views import archivo_hls_para, excluido_de_extras
     if (device and (device.device_type == 'mag' or (como_deco(device) and archivo_hls_para(device)))
             and (not tarifa or tarifa.has_catchup)
             and hay_archivo_en_marcha()):
@@ -640,7 +640,7 @@ def handle_get_modules(request):
     # Ayuda, solo si hay algo que enseñar en ella. En Android los videos de
     # ayuda los pone el navegador (<video>, mp4), que si sabe.
     from apps.devices.models import Aviso
-    if (como_deco(device)
+    if (como_deco(device) and not excluido_de_extras(device)
             and _avisos_vigentes(Aviso.objects.filter(en_ayuda=True)).exists()):
         modulos.append('ayuda')
 
@@ -2709,7 +2709,9 @@ def handle_ayuda(request, action):
         return error
     # De momento solo los decos: las apps de las tiendas, como estaban, que
     # una pantalla que sale sola al arrancar puede no pasar su revision.
-    if not como_deco(device) and action in ('lista', 'inicio'):
+    # Ni la cuenta del revisor de Google Play (ARCHIVO_HLS con '-').
+    from .storage_views import excluido_de_extras
+    if (not como_deco(device) or excluido_de_extras(device)) and action in ('lista', 'inicio'):
         return stalker_response({'data': []})
 
     if action == 'lista':
