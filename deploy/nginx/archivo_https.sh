@@ -22,7 +22,7 @@ SELLO=$(date +%Y%m%d-%H%M%S)
 # aparatos) e iptv2 (el de pruebas).
 SITIOS="/etc/nginx/sites-available/iptv1-https /etc/nginx/sites-available/iptv2"
 for F in $SITIOS; do cp -a "$F" "$F.antes-archivo-https-$SELLO"; done
-python3 - $SITIOS <<'PY'
+python3 - $SITIOS <<'PY' || { for F in $SITIOS; do cp -a "$F.antes-archivo-https-$SELLO" "$F"; done; echo "no se ha cambiado nada"; exit 1; }
 import sys
 nuevo = '''    # Archivo y grabaciones en HLS por https para la app de Android y las
     # teles (deploy/nginx/archivo_https.sh): se piden a storage1 y record1.
