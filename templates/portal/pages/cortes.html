@@ -5,7 +5,7 @@
 {% block content %}
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-gray-900"><i class="bi bi-wifi-off"></i> Cortes de conexión</h1>
-    <p class="text-gray-500">Cada vez que a un aparato le sale «Se ha perdido la conexión»: cuándo, cuánto duró y desde qué IP. Pulsa el aparato para ver su ficha.</p>
+    <p class="text-gray-500">Los aparatos que han perdido la conexión: cuándo empezó el problema, cuándo terminó y cuántas veces se desconectaron. Pulsa el aparato para ver su ficha.</p>
 </div>
 
 <form method="get" class="bg-white rounded-xl shadow-sm p-4 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
@@ -14,47 +14,98 @@
             {% for p, nombre, d in periodos %}<option value="{{ p }}" {% if p == periodo %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
         </select>
     </div>
-    <div class="md:col-span-5">
+    <div class="md:col-span-8">
         <input type="text" name="q" value="{{ q }}" placeholder="Buscar MAC, IP, usuario, nombre..."
                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <label class="md:col-span-3 text-sm text-gray-700 flex items-center gap-2">
-        <input type="checkbox" name="todos" value="1" {% if todos %}checked{% endif %} onchange="this.form.submit()">
-        Ver también los generales ({{ n_otros }})
-    </label>
     <button class="md:col-span-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"><i class="bi bi-search"></i></button>
 </form>
 
 {% if generales %}
 <div class="bg-blue-50 text-blue-800 rounded-xl p-4 mb-6 text-sm">
-    <p class="font-semibold"><i class="bi bi-exclamation-triangle"></i> Cortes generales (fue nuestro: muchos aparatos a la vez)</p>
+    <p class="font-semibold"><i class="bi bi-exclamation-triangle"></i> Cortes generales (fue nuestro: muchos aparatos a la vez, no cuentan para los clientes)</p>
     <ul class="mt-1">{% for g in generales|slice:":10" %}<li>{{ g.cuando|date:"d/m/Y H:i" }} · {{ g.aparatos }} aparatos</li>{% endfor %}</ul>
 </div>
 {% endif %}
 
+<div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h5 class="font-semibold text-gray-800">
+            {% if n_incidencias %}{{ n_aparatos }} aparato{{ n_aparatos|pluralize }} con problemas · {{ n_incidencias }} incidencia{{ n_incidencias|pluralize }} · {{ n_veces }} desconexion{{ n_veces|pluralize:"es" }}
+            {% else %}Ningún corte en este periodo{% endif %}
+            {% if pagina.has_other_pages %}<span class="text-gray-400 font-normal text-sm">· de la {{ pagina.start_index }} a la {{ pagina.end_index }}</span>{% endif %}
+        </h5>
+    </div>
+    {% if incidencias %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-gray-500 text-xs">
+            <tr>
+                <th class="px-4 py-2 text-left font-medium">Aparato</th>
+                <th class="px-4 py-2 text-left font-medium">Cliente</th>
+                <th class="px-4 py-2 text-left font-medium">Empezó</th>
+                <th class="px-4 py-2 text-left font-medium">Terminó</th>
+                <th class="px-4 py-2 text-right font-medium">Veces</th>
+                <th class="px-4 py-2 text-right font-medium">Sin conexión</th>
+                <th class="px-4 py-2 text-right font-medium">El más largo</th>
+                <th class="px-4 py-2"></th>
+            </tr>
+        </thead>
+        {% for g in incidencias %}
+        <tbody class="border-t border-gray-100">
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2">
+                    {% if g.device %}<a href="{% url 'portal:device_edit' g.device.id %}#cortes" class="text-blue-600 hover:underline font-mono text-xs">{{ g.device.mac_address }}</a>
+                    <div class="text-xs text-gray-500">{{ g.device.model }} · {{ g.ip }}</div>
+                    {% else %}<a href="{% url 'portal:devices' %}?search={{ g.ip }}" class="text-blue-600 hover:underline text-xs">IP {{ g.ip }}</a>
+                    <div class="text-xs text-gray-500">varios aparatos o ninguno con esta IP</div>{% endif %}
+                </td>
+                <td class="px-4 py-2 text-xs">{{ g.device.user.username|default:"" }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ g.inicio|date:"d/m/Y H:i" }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{% if g.mismo_dia %}{{ g.fin|date:"H:i" }}{% else %}{{ g.fin|date:"d/m H:i" }}{% endif %}</td>
+                <td class="px-4 py-2 text-right font-semibold text-red-600">{{ g.veces }}</td>
+                <td class="px-4 py-2 text-right whitespace-nowrap">{{ g.sin_conexion }}</td>
+                <td class="px-4 py-2 text-right whitespace-nowrap text-gray-600">{{ g.mayor_txt }}</td>
+                <td class="px-4 py-2 text-right">
+                    <button type="button" class="text-xs text-blue-600 hover:underline whitespace-nowrap"
+                            onclick="var d=this.closest('tbody').querySelector('.detalle'); d.classList.toggle('hidden'); this.textContent = d.classList.contains('hidden') ? 'ver cada corte' : 'ocultar';">ver cada corte</button>
+                </td>
+            </tr>
+            <tr class="detalle hidden bg-gray-50">
+                <td colspan="8" class="px-6 py-2">
+                    <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-600">
+                        {% for c in g.cortes %}<span class="whitespace-nowrap">{{ c.cuando|date:"d/m H:i:s" }} · {{ c.dur }}{% if c.reinicio %} · <span class="text-amber-700">reiniciado</span>{% endif %}</span>{% endfor %}
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+        {% endfor %}
+    </table>
+    </div>
+    {% endif %}
+    {% include 'portal/includes/_paginas.html' %}
+</div>
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-1">
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 font-medium text-gray-700">Los que más cortes tienen</div>
-            {% if los_que_mas %}
+            <div class="px-6 py-4 border-b border-gray-200 font-medium text-gray-700">Los que más se desconectan</div>
+            {% if ranking %}
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 text-gray-500 text-xs">
-                    <tr><th class="px-4 py-2 text-left font-medium">Aparato</th><th class="px-4 py-2 text-right font-medium">Cortes</th><th class="px-4 py-2 text-right font-medium">En total</th></tr>
+                    <tr><th class="px-4 py-2 text-left font-medium">Aparato</th><th class="px-4 py-2 text-right font-medium">Veces</th><th class="px-4 py-2 text-right font-medium">Sin conexión</th></tr>
                 </thead>
                 <tbody>
-                    {% for a in los_que_mas %}
+                    {% for r in ranking %}
                     <tr class="border-t border-gray-100">
                         <td class="px-4 py-2">
-                            {% if a.device_id %}
-                            <a href="{% url 'portal:device_edit' a.device_id %}#cortes" class="text-blue-600 hover:underline font-mono text-xs">{{ a.device__mac_address }}</a>
-                            <div class="text-xs text-gray-500">{{ a.device__user__username }}</div>
-                            {% else %}
-                            <a href="{% url 'portal:devices' %}?search={{ a.ip }}" class="text-blue-600 hover:underline text-xs">IP {{ a.ip }}</a>
-                            <div class="text-xs text-gray-500">varios aparatos o ninguno con esta IP</div>
-                            {% endif %}
+                            {% if r.device %}<a href="{% url 'portal:device_edit' r.device.id %}#cortes" class="text-blue-600 hover:underline font-mono text-xs">{{ r.device.mac_address }}</a>
+                            <div class="text-xs text-gray-500">{{ r.device.user.username }} · {{ r.incidencias }} incidencia{{ r.incidencias|pluralize }}</div>
+                            {% else %}<a href="{% url 'portal:devices' %}?search={{ r.ip }}" class="text-blue-600 hover:underline text-xs">IP {{ r.ip }}</a>
+                            <div class="text-xs text-gray-500">{{ r.incidencias }} incidencia{{ r.incidencias|pluralize }}</div>{% endif %}
                         </td>
-                        <td class="px-4 py-2 text-right font-semibold text-red-600">{{ a.n }}</td>
-                        <td class="px-4 py-2 text-right text-gray-600 whitespace-nowrap">{{ a.total_txt }}</td>
+                        <td class="px-4 py-2 text-right font-semibold text-red-600">{{ r.veces }}</td>
+                        <td class="px-4 py-2 text-right text-gray-600 whitespace-nowrap">{{ r.sin_conexion }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -63,59 +114,13 @@
             <p class="p-6 text-sm text-green-700">Ninguno en este periodo.</p>
             {% endif %}
         </div>
-        <div class="text-xs text-gray-600 mt-3 px-1 space-y-1">
-            <p class="font-semibold text-gray-700">Cuándo es un corte</p>
-            <p>Cuando el aparato se queda <b>{{ minimo }} s o más</b> sin poder hablar con el servidor: desde la primera petición que se queda sin respuesta (el portal espera 12 s y saca «Se ha perdido la conexión») hasta la primera que vuelve a tenerla. Un corte con muchos reintentos es uno solo.</p>
-            <p><b>No es un corte</b> (ni se guarda): lo que dura menos de {{ minimo }} s, que casi siempre es una sola petición que tardó y a la siguiente ya fue bien; ni que apaguen el aparato.</p>
-            <p><b>Corte general</b>: si se cortan {{ general }} aparatos o más en los mismos minutos, fue nuestro (servidor o red). Se apunta aparte y no se le cuenta a ningún cliente.</p>
-        </div>
-        <p class="text-xs text-gray-500 mt-2 px-1"><b>Aparato</b>: lo avisa el propio aparato al volver la red (hora exacta). <b>Registro</b>: sacado del registro del servidor (peticiones que el aparato dejó de esperar); ahí la duración es aproximada y el aparato se deduce por su IP.</p>
     </div>
-
-    <div class="lg:col-span-2">
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h5 class="font-semibold text-gray-800">{{ n_reales }} corte{{ n_reales|pluralize }}
-                    {% if n_otros %}<span class="text-gray-400 font-normal text-sm">· {% if todos %}más {{ n_otros }} generales, en gris{% else %}sin contar {{ n_otros }} generales{% endif %}</span>{% endif %}
-                    {% if pagina.has_other_pages %} <span class="text-gray-400 font-normal text-sm">· del {{ pagina.start_index }} al {{ pagina.end_index }}</span>{% endif %}</h5>
-            </div>
-            <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-500 text-xs">
-                    <tr>
-                        <th class="px-4 py-2 text-left font-medium">Empezó</th>
-                        <th class="px-4 py-2 text-left font-medium">Duró</th>
-                        <th class="px-4 py-2 text-left font-medium">Aparato</th>
-                        <th class="px-4 py-2 text-left font-medium">Cliente</th>
-                        <th class="px-4 py-2 text-left font-medium">IP</th>
-                        <th class="px-4 py-2 text-left font-medium">Origen</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in filas %}
-                    <tr class="border-t border-gray-100{% if not c.cuenta %} text-gray-400{% endif %}">
-                        <td class="px-4 py-2 whitespace-nowrap">{{ c.cuando|date:"d/m/Y H:i:s" }}</td>
-                        <td class="px-4 py-2 whitespace-nowrap">{{ c.dur }}
-                            {% if c.general %}<span class="text-blue-700">· general</span>{% elif c.corto %}<span>· corto</span>{% endif %}
-                            {% if c.reinicio %}<span class="text-amber-700" title="El aparato se apagó o reinició antes de volver la conexión">· reiniciado</span>{% endif %}
-                        </td>
-                        <td class="px-4 py-2">
-                            {% if c.device %}<a href="{% url 'portal:device_edit' c.device.id %}#cortes" class="text-blue-600 hover:underline font-mono text-xs">{{ c.device.mac_address }}</a>
-                            <span class="text-xs text-gray-500">{{ c.device.model }}</span>
-                            {% else %}<a href="{% url 'portal:devices' %}?search={{ c.ip }}" class="text-blue-600 hover:underline text-xs">ver aparatos de esta IP</a>{% endif %}
-                        </td>
-                        <td class="px-4 py-2 text-xs">{{ c.device.user.username|default:"" }}</td>
-                        <td class="px-4 py-2 text-xs text-gray-500">{{ c.ip }}</td>
-                        <td class="px-4 py-2 text-xs">{% if c.origen == 'aparato' %}Aparato{% else %}Registro{% endif %}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="6" class="px-6 py-8 text-center text-green-700">Ningún corte en este periodo.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            </div>
-        </div>
-        {% include 'portal/includes/_paginas.html' %}
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-6 text-sm text-gray-600 space-y-2">
+        <p class="font-semibold text-gray-800">Cómo se cuenta</p>
+        <p><b>Desconexión</b>: el aparato se queda <b>{{ minimo }} s o más</b> sin poder hablar con el servidor, desde la primera petición que se queda sin respuesta (el portal espera 12 s y saca «Se ha perdido la conexión») hasta la primera que vuelve a tenerla. Con muchos reintentos sigue siendo una sola. Lo de menos de {{ minimo }} s no cuenta ni se guarda, ni que apaguen el aparato.</p>
+        <p><b>Incidencia</b>: las desconexiones del mismo aparato con menos de {{ grupo }} min entre una y otra son el mismo problema (por ejemplo, una noche en que la línea se cae cada pocos minutos). <b>Sin conexión</b> es la suma de lo que duraron; entre una y otra sí tuvo conexión.</p>
+        <p><b>Corte general</b>: si se cortan {{ general }} aparatos o más en los mismos minutos, fue nuestro (servidor o red). Se apunta aparte y no se le cuenta a ningún cliente.</p>
+        <p class="text-xs text-gray-500">Los datos salen del propio aparato al volver la red (hora exacta) o del registro del servidor cada 15 min (± 12 s, y el aparato se deduce por su IP).</p>
     </div>
 </div>
 {% endblock %}

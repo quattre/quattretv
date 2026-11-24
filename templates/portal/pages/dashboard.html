@@ -76,7 +76,7 @@
             </div>
         </div>
         {% if cortes.aparatos %}
-            <small class="text-red-600">aparato{{ cortes.aparatos|pluralize }} en 24 h · {{ cortes.cortes }} corte{{ cortes.cortes|pluralize }} · ver registro</small>
+            <small class="text-red-600">aparato{{ cortes.aparatos|pluralize }} en 24 h · {{ cortes.cortes }} desconexion{{ cortes.cortes|pluralize:"es" }} · ver registro</small>
         {% else %}
             <small class="text-green-600">Ninguno en 24 h · ver registro</small>
         {% endif %}

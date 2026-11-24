@@ -114,36 +114,41 @@
                 </form>
                 <div id="cortes" class="mt-6 pt-4 border-t border-gray-200 space-y-2">
                     <p class="text-sm font-semibold text-gray-800"><i class="bi bi-wifi-off"></i> Cortes de conexión</p>
-                    {% if cortes.lista %}
+                    {% if cortes.incidencias %}
                     <p class="text-sm">
-                        <span class="px-2 py-1 rounded {% if cortes.en_24h %}bg-red-100 text-red-800{% else %}bg-gray-100 text-gray-700{% endif %} font-semibold">{{ cortes.en_24h }} en 24 h · {{ cortes.en_7d }} en 7 días</span>
-                        <span class="text-xs text-gray-500">· {{ cortes.total }} desde siempre</span>
+                        <span class="px-2 py-1 rounded {% if cortes.en_24h %}bg-red-100 text-red-800{% else %}bg-gray-100 text-gray-700{% endif %} font-semibold">{{ cortes.en_24h }} desconexion{{ cortes.en_24h|pluralize:"es" }} en 24 h · {{ cortes.en_7d }} en 7 días</span>
                     </p>
-                    <div class="border border-gray-200 rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+                    <div class="border border-gray-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto">
                         <table class="w-full text-xs">
                             <thead class="bg-gray-50 text-gray-500">
                                 <tr>
                                     <th class="px-2 py-1.5 text-left font-medium">Empezó</th>
-                                    <th class="px-2 py-1.5 text-left font-medium">Duró</th>
-                                    <th class="px-2 py-1.5 text-left font-medium">IP</th>
+                                    <th class="px-2 py-1.5 text-left font-medium">Terminó</th>
+                                    <th class="px-2 py-1.5 text-right font-medium">Veces</th>
+                                    <th class="px-2 py-1.5 text-right font-medium">Sin conexión</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for c in cortes.lista %}
-                                <tr class="border-t border-gray-100{% if not c.cuenta %} text-gray-400{% elif c.hoy %} bg-red-50{% endif %}">
-                                    <td class="px-2 py-1.5 whitespace-nowrap">{{ c.cuando|date:"d/m H:i:s" }}</td>
-                                    <td class="px-2 py-1.5 whitespace-nowrap">{{ c.dur }}{% if c.reinicio %} <span class="text-amber-700" title="El aparato se apagó o reinició antes de volver la conexión">· reiniciado</span>{% endif %}
-                                        {% if c.general %}<span class="text-blue-700" title="A la vez se cortaron muchos aparatos: fue nuestro (servidor o red), no del cliente">· general</span>{% elif c.corto %}<span title="Menos de {{ cortes.minimo }} s: no cuenta">· corto</span>{% endif %}</td>
-                                    <td class="px-2 py-1.5 text-gray-500">{{ c.ip }}</td>
+                            {% for g in cortes.incidencias %}
+                            <tbody class="border-t border-gray-100">
+                                <tr class="cursor-pointer hover:bg-gray-50" onclick="this.nextElementSibling.classList.toggle('hidden')" title="Pulsa para ver cada desconexión">
+                                    <td class="px-2 py-1.5 whitespace-nowrap">{{ g.inicio|date:"d/m H:i" }}</td>
+                                    <td class="px-2 py-1.5 whitespace-nowrap">{% if g.mismo_dia %}{{ g.fin|date:"H:i" }}{% else %}{{ g.fin|date:"d/m H:i" }}{% endif %}</td>
+                                    <td class="px-2 py-1.5 text-right font-semibold text-red-600">{{ g.veces }}</td>
+                                    <td class="px-2 py-1.5 text-right whitespace-nowrap">{{ g.sin_conexion }}</td>
                                 </tr>
-                                {% endfor %}
+                                <tr class="hidden bg-gray-50">
+                                    <td colspan="4" class="px-2 py-1.5 text-gray-600">
+                                        {% for c in g.cortes %}<span class="inline-block mr-3 whitespace-nowrap">{{ c.cuando|date:"H:i:s" }} · {{ c.dur }}{% if c.reinicio %} · reiniciado{% endif %}</span>{% endfor %}
+                                    </td>
+                                </tr>
                             </tbody>
+                            {% endfor %}
                         </table>
                     </div>
                     {% else %}
                     <p class="text-sm text-gray-600">Ninguno.</p>
                     {% endif %}
-                    <p class="text-xs text-gray-500">Un corte es cuando el aparato se queda {{ cortes.minimo }} s o más sin poder hablar con el servidor (le sale «Se ha perdido la conexión»). Lo de menos no cuenta, ni los cortes generales (muchos aparatos a la vez: fue nuestro). <a href="{% url 'portal:cortes' %}?periodo=todo&q={{ device.mac_address|urlencode }}" class="text-blue-600 hover:underline">Ver en el registro</a></p>
+                    <p class="text-xs text-gray-500">Una desconexión es cuando el aparato se queda {{ cortes.minimo }} s o más sin poder hablar con el servidor (le sale «Se ha perdido la conexión»). Las que están a menos de una hora una de otra van juntas en la misma fila; púlsala para ver cada una. No cuentan las de menos de {{ cortes.minimo }} s ni los cortes generales (muchos aparatos a la vez: fue nuestro). <a href="{% url 'portal:cortes' %}?periodo=todo&q={{ device.mac_address|urlencode }}" class="text-blue-600 hover:underline">Ver en el registro</a></p>
                 </div>
                 {% if device.device_type == 'mag' %}
                 <form id="firmware" method="post" action="{% url 'portal:device_firmware' device.id %}" class="mt-6 pt-4 border-t border-gray-200 space-y-2">

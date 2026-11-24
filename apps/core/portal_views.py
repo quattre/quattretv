@@ -1657,35 +1657,28 @@ def cortes_list(request):
     if q:
         qs = qs.filter(Q(device__mac_address__icontains=q) | Q(ip__icontains=q) |
                        Q(device__user__username__icontains=q) | Q(device__name__icontains=q))
-    # Por defecto sin los generales (los cortos ya ni se guardan): mezclados
-    # con los demas liaban ("40 cortes, 17 cuentan", 24/11/2026).
-    todos = request.GET.get('todos') == '1'
-    reales = cortes.contables(qs)
-    n_reales = reales.count()
-    n_otros = qs.count() - n_reales
-    los_que_mas = cortes.los_que_mas(qs)
-    if not todos:
-        qs = reales
-
-    pagina = Paginator(qs, 100).get_page(request.GET.get('page'))
-    ahora = timezone.now()
+    # Agrupados en incidencias (inicio, fin, cuantas veces): una fila por
+    # corte se leia mal. Los generales van aparte, en el recuadro azul.
+    incid = cortes.incidencias(qs)
+    pagina = Paginator(incid, 50).get_page(request.GET.get('page'))
     context = {
         'active_page': 'cortes',
         'stats': get_base_stats(),
-        'filas': [cortes.fila(c, ahora) for c in pagina.object_list],
+        'incidencias': pagina.object_list,
         'pagina': pagina,
         'paginas': _paginas(pagina),
         'consulta': _consulta_sin_pagina(request),
         'periodos': PERIODOS_CORTES,
         'periodo': periodo,
         'q': q,
-        'todos': todos,
-        'los_que_mas': los_que_mas,
-        'n_reales': n_reales,
-        'n_otros': n_otros,
+        'ranking': cortes.ranking(incid),
+        'n_incidencias': len(incid),
+        'n_veces': sum(g['veces'] for g in incid),
+        'n_aparatos': len({g['device'].id if g['device'] else g['ip'] for g in incid}),
         'generales': cortes.generales(timezone.now() - timedelta(days=dias or 3650)),
         'minimo': cortes.MINIMO,
         'general': cortes.GENERAL,
+        'grupo': int(cortes.GRUPO.total_seconds() // 60),
     }
     return render(request, 'portal/pages/cortes.html', context)
 

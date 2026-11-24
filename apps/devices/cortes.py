@@ -114,6 +114,7 @@ def de(device, cuantos=100):
     return {
         # Solo los de verdad; los cortos y generales, en la pagina de cortes.
         'lista': [fila(c, ahora) for c in reales[:cuantos]],
+        'incidencias': incidencias(qs)[:30],
         'en_24h': reales.filter(inicio__gte=ahora - timedelta(hours=24)).count(),
         'en_7d': reales.filter(inicio__gte=ahora - timedelta(days=7)).count(),
         'total': n_reales,
@@ -158,6 +159,60 @@ def resumen():
     qs = contables(CorteConexion.objects.filter(inicio__gte=desde))
     return {'aparatos': qs.values_list('device_id', 'ip').distinct().count(),
             'cortes': qs.count(), 'generales': generales(desde), 'minimo': MINIMO}
+
+
+GRUPO = timedelta(minutes=60)        # cortes mas juntos que esto: la misma incidencia
+
+
+def incidencias(qs):
+    """
+    Los cortes que cuentan, agrupados por aparato en incidencias: los que estan
+    a menos de GRUPO uno del otro son el mismo problema (una noche en que la
+    linea se cae cada pocos minutos). Cada una con inicio, fin, cuantas veces
+    se desconecto y cuanto tiempo estuvo sin conexion; las mas nuevas primero.
+
+    Una fila por corte se leia mal: 42 filas para tres noches (soporte, 24/11).
+    """
+    abiertas, salida = {}, []
+    for c in contables(qs).select_related('device', 'device__user').order_by('inicio'):
+        clave = c.device_id or c.ip
+        fin = c.inicio + timedelta(seconds=c.duracion)
+        g = abiertas.get(clave)
+        if g and c.inicio - g['fin'] <= GRUPO:
+            g['fin'] = max(g['fin'], fin)
+            g['veces'] += 1
+            g['segundos'] += c.duracion
+            g['mayor'] = max(g['mayor'], c.duracion)
+        else:
+            g = {'device': c.device, 'ip': c.ip or '', 'inicio': c.inicio, 'fin': fin,
+                 'veces': 1, 'segundos': c.duracion, 'mayor': c.duracion, 'cortes': []}
+            abiertas[clave] = g
+            salida.append(g)
+        g['cortes'].append(fila(c))
+        if c.origen == 'aparato':
+            g['del_aparato'] = True
+    for g in salida:
+        g['sin_conexion'] = duracion(g['segundos'])
+        g['mayor_txt'] = duracion(g['mayor'])
+        g['mismo_dia'] = timezone.localtime(g['inicio']).date() == timezone.localtime(g['fin']).date()
+    salida.sort(key=lambda g: g['inicio'], reverse=True)
+    return salida
+
+
+def ranking(incid, cuantos=15):
+    """Los aparatos con mas desconexiones, a partir de sus incidencias."""
+    por = {}
+    for g in incid:
+        clave = g['device'].id if g['device'] else g['ip']
+        r = por.setdefault(clave, {'device': g['device'], 'ip': g['ip'], 'incidencias': 0,
+                                   'veces': 0, 'segundos': 0})
+        r['incidencias'] += 1
+        r['veces'] += g['veces']
+        r['segundos'] += g['segundos']
+    filas = sorted(por.values(), key=lambda r: (-r['veces'], -r['segundos']))[:cuantos]
+    for r in filas:
+        r['sin_conexion'] = duracion(r['segundos'])
+    return filas
 
 
 def los_que_mas(qs, cuantos=15):
