@@ -44,6 +44,19 @@ def archive_storage():
     ).order_by('controlado_por_ministra').first()
 
 
+def archivo_hls_para(device):
+    """
+    Si este aparato recibe el archivo de siempre en HLS (rangos.php y
+    trozo.php de storage1) en vez de por get.php. Se decide en el .env,
+    ARCHIVO_HLS: ids de aparato y/o tipos ('android', 'lg', 'mag'...) separados
+    por comas, o 'todos'. Vacio = nadie, como antes.
+    """
+    if not device:
+        return False
+    fichas = {x.strip() for x in settings.QUATTRETV.get('ARCHIVO_HLS', '').split(',') if x.strip()}
+    return 'todos' in fichas or str(device.id) in fichas or device.device_type in fichas
+
+
 def id_en_archivo(channel, momento=None):
     """
     Con que numero esta guardado el canal en el archivo de storage1.
@@ -97,6 +110,9 @@ def build_catchup_url(channel, start, duration, device=None):
         start = start + timedelta(minutes=channel.desfase_archivo)
 
     if channel.archive_hls_since and start >= channel.archive_hls_since:
+        return build_hls_catchup_url(channel, start, duration, device)
+    # El mismo archivo de siempre, en HLS por trozos de sus piezas horarias.
+    if archivo_hls_para(device):
         return build_hls_catchup_url(channel, start, duration, device)
 
     return build_ts_catchup_url(storage, channel, start, duration, device)
@@ -242,6 +258,81 @@ def build_playlist(storage, channel, segments, start, end):
     return '\n'.join(lines) + '\n'
 
 
+# ---------- El archivo de siempre en HLS, por trozos ----------
+
+# indexar_archivo.py (deploy/storage) apunta en storage1 donde empieza cada
+# rato de ~10 s dentro de las piezas horarias de dumpstream; rangos.php da ese
+# indice y trozo.php entrega cada rato tal cual. Nada se convierte ni se copia.
+
+def fetch_rangos(storage, carpeta, start, end):
+    """Las piezas con sus trozos entre start y end, de rangos.php (en orden)."""
+    desde, hasta = int(start.timestamp()) - 15, int(end.timestamp()) + 15
+    reciente = end > timezone.now() - timedelta(minutes=5)
+    cache_key = f'archivo_rangos:{storage.id}:{carpeta}:{desde}:{hasta}'
+    try:
+        cached = cache.get(cache_key)
+    except Exception:
+        cached = None
+    if cached is not None:
+        return cached
+    url = storage.build_url(f'{storage.archive_path}/rangos.php')
+    try:
+        response = requests.get(url, params={'c': carpeta, 'desde': desde, 'hasta': hasta}, timeout=10)
+        response.raise_for_status()
+        piezas = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.error('No se pudo leer el indice del archivo %s: %s', carpeta, exc)
+        return []
+    try:
+        cache.set(cache_key, piezas, 10 if reciente else 300)
+    except Exception:
+        pass
+    return piezas
+
+
+def playlist_de_rangos(storage, carpeta, piezas, start, end):
+    """
+    Lista .m3u8 de [start, end] con los trozos de las piezas. Si el rato llega
+    hasta ahora no se cierra (EVENT): el aparato la vuelve a pedir y va
+    encontrando lo que se graba.
+    """
+    from .piezas import _dif
+
+    a, z = start.timestamp(), end.timestamp()
+    base = storage.build_url(f'{storage.archive_path}/trozo.php', public=True)
+    cuerpo = []
+    maximo = 1.0
+    fin_pts = None
+    for pieza in piezas:
+        fichero = pieza.get('f', '')
+        for inicio, pos, longitud, dur, pts in pieza.get('t', []):
+            if inicio + dur <= a or inicio >= z:
+                continue
+            # La señal se corto (el grabador se reinicio): el reproductor tiene
+            # que saber que el reloj del video salta.
+            if fin_pts is not None and abs(_dif(fin_pts, pts)) > 1:
+                cuerpo.append('#EXT-X-DISCONTINUITY')
+            fin_pts = pts + dur
+            maximo = max(maximo, dur)
+            cuerpo.append('#EXT-X-PROGRAM-DATE-TIME:' + datetime.fromtimestamp(
+                inicio, tz=dt_timezone.utc).isoformat(timespec='milliseconds'))
+            cuerpo.append(f'#EXTINF:{dur:.3f},')
+            cuerpo.append(f'{base}?c={carpeta}&f={fichero}&o={pos}&l={longitud}')
+    if not cuerpo:
+        return None
+    abierta = end > timezone.now() - timedelta(minutes=1)
+    lineas = [
+        '#EXTM3U',
+        '#EXT-X-VERSION:3',
+        f'#EXT-X-TARGETDURATION:{int(maximo + 0.999)}',
+        '#EXT-X-MEDIA-SEQUENCE:0',
+        '#EXT-X-PLAYLIST-TYPE:' + ('EVENT' if abierta else 'VOD'),
+    ] + cuerpo
+    if not abierta:
+        lineas.append('#EXT-X-ENDLIST')
+    return '\n'.join(lineas) + '\n'
+
+
 def catchup_playlist(request, channel_id, start_ts, duration):
     """Serve the generated catchup playlist for a time window."""
     token = request.GET.get('token', '')
@@ -254,16 +345,23 @@ def catchup_playlist(request, channel_id, start_ts, duration):
     if not channel:
         return HttpResponse('Channel not found', status=404)
 
-    storage = archive_storage()
-    if not storage:
-        return HttpResponse('No archive storage', status=503)
-
     start = datetime.fromtimestamp(int(start_ts), tz=dt_timezone.utc)
     end = start + timedelta(seconds=int(duration))
 
-    playlist = build_playlist(
-        storage, channel, fetch_segment_index(storage, channel, start, end), start, end
-    )
+    if channel.archive_hls_since and start >= channel.archive_hls_since:
+        storage = archive_storage()
+        if not storage:
+            return HttpResponse('No archive storage', status=503)
+        playlist = build_playlist(
+            storage, channel, fetch_segment_index(storage, channel, start, end), start, end
+        )
+    else:
+        storage = almacen_archivo(channel, start)
+        if not storage:
+            return HttpResponse('No archive storage', status=503)
+        carpeta = id_en_archivo(channel, start)
+        playlist = playlist_de_rangos(
+            storage, carpeta, fetch_rangos(storage, carpeta, start, end), start, end)
     if not playlist:
         return HttpResponse('Archive not available for that time', status=404)
 

@@ -280,6 +280,10 @@ QUATTRETV = {
     # los CDN y borrar url_para_dispositivo().
     'STREAMS_SOLO_HTTPS': os.getenv('STREAMS_SOLO_HTTPS', 'False').lower() in ('true', '1', 'yes'),
     'STREAMING_SERVER_URL': os.getenv('STREAMING_SERVER_URL', 'http://localhost:8080'),
+    # Que aparatos reciben el archivo de siempre en HLS (por trozos de las
+    # piezas horarias, deploy/storage/indexar_archivo.py) en vez de por get.php:
+    # ids de aparato y/o tipos separados por comas, o 'todos'. Vacio = nadie.
+    'ARCHIVO_HLS': os.getenv('ARCHIVO_HLS', ''),
     'TIMESHIFT_ENABLED': os.getenv('TIMESHIFT_ENABLED', 'True').lower() in ('true', '1', 'yes'),
     'TIMESHIFT_HOURS': int(os.getenv('TIMESHIFT_HOURS', '24')),
     'DEFAULT_TIMEZONE': 'Europe/Madrid',

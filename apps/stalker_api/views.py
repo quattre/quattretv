@@ -620,8 +620,10 @@ def handle_get_modules(request):
         modulos.append('records')
 
     # "Ultimos 7 dias": el archivo presentado como catalogo. Solo donde el
-    # archivo se puede ver (de momento, el deco) y la tarifa lo incluye.
-    if (device and device.device_type == 'mag'
+    # archivo se puede ver (el deco, y la app de Android si ya recibe el archivo
+    # en HLS) y la tarifa lo incluye.
+    from .storage_views import archivo_hls_para
+    if (device and (device.device_type == 'mag' or (como_deco(device) and archivo_hls_para(device)))
             and (not tarifa or tarifa.has_catchup)
             and hay_archivo_en_marcha()):
         modulos.append('semana')
@@ -861,7 +863,8 @@ def puede_ver_archivo(device, channel):
     El archivo de Ministra es MPEG-TS crudo y solo lo abre el deco. Una tele
     solo lo ve en los canales que ya se archivan en HLS.
     """
-    if device and device.device_type == 'mag':
+    from .storage_views import archivo_hls_para
+    if device and (device.device_type == 'mag' or archivo_hls_para(device)):
         return True
     return bool(channel.archive_hls_since)
 
@@ -870,7 +873,7 @@ def archivo_del_canal(channel, device, ventanas):
     """
     (tiene archivo, horas que se pueden ver) para este canal y este aparato.
     """
-    from .storage_views import clave_archivo
+    from .storage_views import archivo_hls_para, clave_archivo
 
     # El archivo en HLS lo graba otro proceso desde el multicast del CDN; el de
     # Ministra necesita su direccion.
@@ -897,7 +900,7 @@ def archivo_del_canal(channel, device, ventanas):
     if channel.archive_hls_since:
         hls = max(channel.archive_hls_since,
                   ahora - timezone.timedelta(hours=channel.timeshift_hours or 168))
-        if device and device.device_type == 'mag':
+        if device and (device.device_type == 'mag' or archivo_hls_para(device)):
             inicios.append(hls)
         else:
             inicios = [hls]
