@@ -383,6 +383,14 @@ def handle_log(request):
             if ver:
                 from apps.devices import eventos
                 eventos.apuntar_version(device, ver.group(1))
+        # Un corte de conexion que acaba de pasar, para la ficha del panel.
+        if device and datos.startswith('corte '):
+            import re as _re
+            seg = _re.match(r'corte (\d+)', datos)
+            if seg:
+                from apps.devices import cortes
+                cortes.apuntar(device, int(seg.group(1)), client_ip_diag(request),
+                               reinicio=' reinicio' in datos)
         # Lo que va contando al probar un firmware, para la ficha del panel.
         if device and datos.startswith('firmware '):
             from apps.devices import eventos

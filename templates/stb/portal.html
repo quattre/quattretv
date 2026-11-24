@@ -145,6 +145,8 @@
         }
 
         loadData();
+        // Un corte que no llego a contarse porque apagaron el aparato.
+        setTimeout(corteAnterior, 20000);
     }
 
     // ---------- Conexion ----------
@@ -167,9 +169,32 @@
         document.getElementById('sinred-detalle').innerHTML = esc(texto);
     }
 
+    // Cada corte se cuenta al servidor al volver la red, para verlo en la
+    // ficha del aparato en el panel (soporte no sabia si era la linea del
+    // cliente o el servidor, 24/11/2026). La hora de inicio se guarda tambien
+    // en el aparato: si lo reinician en mitad del corte, se cuenta al arrancar.
+    var corteDesde = 0;
+
+    function contarCorte(ms, reinicio) {
+        try { localStorage.removeItem('quattreCorte'); } catch (err) {}
+        if (!(ms > 0)) return;
+        api('type=stb&action=log&diag=' + encodeURIComponent(
+            'corte ' + Math.round(ms / 1000) + (reinicio ? ' reinicio' : '')), function() {}, true);
+    }
+
+    function corteAnterior() {
+        var desde = 0;
+        try { desde = parseInt(localStorage.getItem('quattreCorte'), 10) || 0; } catch (err) {}
+        // Solo si es de hoy: un reloj mal puesto no puede dar un corte de un mes.
+        if (desde && hayRed && Date.now() - desde < 86400000) contarCorte(Date.now() - desde, true);
+        else if (desde && hayRed) contarCorte(0);
+    }
+
     function seCayoLaRed() {
         if (!hayRed) return;      // ya estabamos avisando
         hayRed = false;
+        corteDesde = Date.now();
+        try { localStorage.setItem('quattreCorte', String(corteDesde)); } catch (err) {}
         graficosDelante();
         document.getElementById('sinred').style.display = 'block';
         vueltaRed = 0;
@@ -200,6 +225,7 @@
         hayRed = true;
         clearTimeout(relojRed);
         document.getElementById('sinred').style.display = 'none';
+        contarCorte(Date.now() - corteDesde, false);
 
         // Recuperarse de verdad, no solo quitar el cartel: se vuelve a pedir la
         // lista (los canales pueden haber cambiado) y se arranca otra vez lo

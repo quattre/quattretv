@@ -107,6 +107,7 @@
                 <option value="offline" {% if request.GET.status == 'offline' %}selected{% endif %}>Offline</option>
                 <option value="activo" {% if request.GET.status == 'activo' %}selected{% endif %}>Activos</option>
                 <option value="inactivo" {% if request.GET.status == 'inactivo' %}selected{% endif %}>Desactivados</option>
+                <option value="cortes" {% if request.GET.status == 'cortes' %}selected{% endif %}>Con cortes de conexión (24 h)</option>
             </select>
         </div>
         <div class="md:col-span-2">
@@ -188,7 +189,9 @@
                             {% else %}<span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-400" title="El deco aún no ha dicho su versión">?</span>{% endif %}
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-gray-600">{{ device.last_ip|default:"-" }}</td>
+                    <td class="px-6 py-4 text-gray-600">{{ device.last_ip|default:"-" }}
+                        {% if device.cortes %}<a href="{% url 'portal:device_edit' device.id %}#cortes" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 whitespace-nowrap" title="Cortes de conexión en las últimas 24 h">⚠ {{ device.cortes }} corte{{ device.cortes|pluralize }}</a>{% endif %}
+                    </td>
                     <td class="px-6 py-4 text-gray-600">
                         {% if device.last_seen %}
                             {{ device.last_seen|timesince }} atras

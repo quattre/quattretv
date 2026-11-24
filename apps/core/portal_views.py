@@ -456,6 +456,9 @@ def devices_list(request):
         devices = devices.filter(is_active=True)
     elif status == 'inactivo':
         devices = devices.filter(is_active=False)
+    elif status == 'cortes':
+        from apps.devices import cortes
+        devices = devices.filter(id__in=cortes.con_cortes(24))
 
     # Por paginas: con los ~950 aparatos y los ~1000 clientes del desplegable
     # en una sola pagina, esta pesaba 4 MB y tardaba casi 2 s en el servidor
@@ -465,8 +468,11 @@ def devices_list(request):
     # La version de firmware de cada deco y si es la ultima de su modelo.
     from apps.devices import eventos
     firmwares = eventos.firmware_de_lista(devices)
+    from apps.devices import cortes
+    cortes_24h = cortes.de_lista(devices)
     for d in devices:
         d.fw = firmwares.get(d.id)
+        d.cortes = cortes_24h.get(d.id, 0)
 
     context = {
         'active_page': 'devices',
@@ -591,6 +597,8 @@ def device_edit(request, device_id):
     equipo = eventos.equipo_de(device)
     context['fw_equipo'] = equipo
     context['fw_lleva'] = eventos.que_lleva(equipo.get('desc')) if equipo else ''
+    from apps.devices import cortes
+    context['cortes'] = cortes.de(device)
 
     return render(request, 'portal/pages/device_edit.html', context)
 

@@ -112,6 +112,37 @@
                     </button>
                     {% endif %}
                 </form>
+                <div id="cortes" class="mt-6 pt-4 border-t border-gray-200 space-y-2">
+                    <p class="text-sm font-semibold text-gray-800"><i class="bi bi-wifi-off"></i> Cortes de conexión</p>
+                    {% if cortes.lista %}
+                    <p class="text-sm">
+                        <span class="px-2 py-1 rounded {% if cortes.en_24h %}bg-red-100 text-red-800{% else %}bg-gray-100 text-gray-700{% endif %} font-semibold">{{ cortes.en_24h }} en 24 h · {{ cortes.en_7d }} en 7 días</span>
+                    </p>
+                    <div class="border border-gray-200 rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+                        <table class="w-full text-xs">
+                            <thead class="bg-gray-50 text-gray-500">
+                                <tr>
+                                    <th class="px-2 py-1.5 text-left font-medium">Empezó</th>
+                                    <th class="px-2 py-1.5 text-left font-medium">Duró</th>
+                                    <th class="px-2 py-1.5 text-left font-medium">IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in cortes.lista %}
+                                <tr class="border-t border-gray-100{% if c.hoy %} bg-red-50{% endif %}">
+                                    <td class="px-2 py-1.5 whitespace-nowrap">{{ c.cuando|date:"d/m H:i:s" }}</td>
+                                    <td class="px-2 py-1.5 whitespace-nowrap">{{ c.dur }}{% if c.reinicio %} <span class="text-amber-700" title="El aparato se apagó o reinició antes de volver la conexión">· reiniciado</span>{% endif %}</td>
+                                    <td class="px-2 py-1.5 text-gray-500">{{ c.ip }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-gray-600">Ninguno en los últimos 7 días.</p>
+                    {% endif %}
+                    <p class="text-xs text-gray-500">Cada vez que al aparato le sale «Se ha perdido la conexión». Lo cuenta él mismo al volver la red. Si a la vez no hay cortes en otros aparatos, el problema es la línea o el wifi del cliente, no el servidor.</p>
+                </div>
                 {% if device.device_type == 'mag' %}
                 <form id="firmware" method="post" action="{% url 'portal:device_firmware' device.id %}" class="mt-6 pt-4 border-t border-gray-200 space-y-2">
                     {% csrf_token %}
