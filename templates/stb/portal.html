@@ -2739,8 +2739,23 @@
 
     function pausarDiferido() {
         var d = diferido;
+        if (!d) return;
+        // La app de Android de antes no sabe pausar: se para el video y al
+        // seguir se pide de nuevo desde el momento en que se paro, como un
+        // salto. Asi no hace falta actualizar la app.
+        if (!stbAPI && androidPlayer && !mandoAndroid() && d.tipo !== 'grabacion') {
+            if (d.pausaDesde) {
+                salto = {dir: 1, n: 0, desde: momentoDiferido(), destino: momentoDiferido()};
+                aplicarSalto();
+            } else {
+                try { androidPlayer.parar(); } catch (err) {}
+                d.pausaDesde = new Date().getTime();
+                mostrarOsd(null);
+            }
+            return;
+        }
         var mando = stbAPI || mandoAndroid();
-        if (!d || !mando) return;
+        if (!mando) return;
         try {
             if (d.pausaDesde) {
                 if (stbAPI) stbAPI.Continue(); else mando.seguir();

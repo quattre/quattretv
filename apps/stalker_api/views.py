@@ -231,7 +231,10 @@ def get_device_from_request(request):
     try:
         result = auth.authenticate(request)
         if result:
-            return result[1]  # Return device
+            device = result[1]
+            # Para saber que version de la app de Android pide (abre_ficheros).
+            device.agente = request.META.get('HTTP_USER_AGENT', '')
+            return device
     except Exception:
         pass
     return None
@@ -1994,13 +1997,23 @@ def puede_reproducir_grabaciones(device):
     """
     from apps.pvr.models import StorageServer
 
-    # La app de Android TV (ExoPlayer) abre el MPEG-TS igual que el deco
-    # desde la 1.1.0, que es la que tienen las cajas (Sergio, 24/11/2026).
-    if device.device_type in ('mag', 'android'):
+    if device.device_type == 'mag':
+        return True
+    # La app de Android TV abre el fichero MPEG-TS de una grabacion desde la
+    # 1.1.0. Con la de antes no se ofrecen: la app no tiene por que
+    # actualizarse para todo lo demas (Sergio, 24/11/2026).
+    if device.device_type == 'android' and abre_ficheros(device):
         return True
     return StorageServer.objects.filter(
         is_active=True, records_hls=True, controlado_por_ministra=False
     ).exists()
+
+
+def abre_ficheros(device):
+    """Si la app de Android de este aparato reproduce ficheros (1.1.0 o mas)."""
+    import re
+    m = re.search(r'QuattreTV-AndroidTV/(\d+)\.(\d+)', getattr(device, 'agente', '') or '')
+    return bool(m) and (int(m.group(1)), int(m.group(2))) >= (1, 1)
 
 
 def _pvr_device(request, exige_grabador=False):
