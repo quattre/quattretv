@@ -2004,7 +2004,12 @@ def puede_reproducir_grabaciones(device):
     # 1.1.0. Con la de antes no se ofrecen: la app no tiene por que
     # actualizarse para todo lo demas (Sergio, 24/11/2026).
     # Y con la de antes tambien, en HLS (grabacion_hls), si record1 lo sirve.
-    if device.device_type == 'android' and (abre_ficheros(device) or grabaciones_hls()):
+    # Como el videoclub y el archivo, solo a los aparatos de ARCHIVO_HLS (.env):
+    # la app de la tienda lo trae todo, pero se enciende desde aqui cuando se
+    # quiera (Sergio, 24/11/2026: primero solo arreglos, luego se activa).
+    from .storage_views import archivo_hls_para
+    if (device.device_type == 'android' and archivo_hls_para(device)
+            and (abre_ficheros(device) or grabaciones_hls())):
         return True
     return StorageServer.objects.filter(
         is_active=True, records_hls=True, controlado_por_ministra=False
