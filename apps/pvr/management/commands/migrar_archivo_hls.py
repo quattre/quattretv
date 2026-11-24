@@ -11,7 +11,10 @@ from django.utils import timezone
 
 from apps.channels.models import Channel
 from apps.pvr import storage_client
-from apps.stalker_api.storage_views import archive_storage
+from datetime import datetime
+
+from apps.stalker_api.storage_views import (
+    almacen_archivo, archive_storage, fetch_segment_index, id_en_archivo)
 
 
 class Command(BaseCommand):
@@ -28,6 +31,10 @@ class Command(BaseCommand):
                             help='Volver al archivo en MPEG-TS')
         parser.add_argument('--margen', type=int, default=60,
                             help='Segundos de solape para no dejar hueco (por defecto 60)')
+        parser.add_argument('--desde', default='',
+                            help="Servir en HLS desde esta hora (hora de Madrid, "
+                                 "'2026-11-23 18:00'): lo que el grabador nuevo ya tiene "
+                                 "grabado. Sin esto, desde ahora")
         parser.add_argument('--simular', action='store_true',
                             help='Enseñar lo que haria sin tocar nada')
 
@@ -49,16 +56,35 @@ class Command(BaseCommand):
             if options['revertir']:
                 self._revertir(channel, options['simular'])
             else:
-                self._migrar(channel, storage, options['margen'], options['simular'])
+                self._migrar(channel, storage, options['margen'], options['simular'],
+                             self._hora(options['desde']))
 
-    def _migrar(self, channel, storage, margen, simular):
+    def _hora(self, texto):
+        if not texto:
+            return None
+        try:
+            hora = datetime.strptime(texto, '%Y-%m-%d %H:%M')
+        except ValueError:
+            raise CommandError("--desde va como '2026-11-23 18:00' (hora de Madrid)")
+        return timezone.make_aware(hora)
+
+    def _migrar(self, channel, storage, margen, simular, desde=None):
         if channel.archive_hls_since:
             self.stdout.write(f'  {channel.number} {channel.name}: ya estaba migrado')
             return
 
-        # El solape hacia atras evita que quede un hueco de unos segundos entre
-        # lo ultimo que escribio el grabador viejo y lo primero del nuevo.
-        desde = timezone.now() - timezone.timedelta(seconds=margen)
+        if desde is None:
+            # El solape hacia atras evita que quede un hueco de unos segundos entre
+            # lo ultimo que escribio el grabador viejo y lo primero del nuevo.
+            desde = timezone.now() - timezone.timedelta(seconds=margen)
+        # Que el grabador nuevo de verdad tenga trozos desde ahi: si no, el
+        # catchup de ese rato contestaria una lista vacia.
+        if storage:
+            trozos = fetch_segment_index(storage, channel, desde, desde + timezone.timedelta(minutes=1))
+            if not trozos:
+                raise CommandError(
+                    f'{channel.number} {channel.name}: el archivo HLS no tiene trozos de {desde}. '
+                    '¿Esta en marcha quattretv-archive@%s en storage1?' % channel.id)
 
         if simular:
             self.stdout.write(
@@ -73,7 +99,7 @@ class Command(BaseCommand):
         # Ya no aparecera en la lista de tareas, pero el proceso que hay en
         # marcha hay que pararlo explicitamente.
         try:
-            storage_client.stop_archive(storage, channel.id)
+            storage_client.stop_archive(almacen_archivo(channel) or storage, id_en_archivo(channel))
             parado = 'grabador antiguo parado'
         except storage_client.StorageError as exc:
             parado = f'AVISO: no se pudo parar el grabador antiguo ({exc})'

@@ -891,6 +891,16 @@ def archivo_del_canal(channel, device, ventanas):
         desde = ventanas[channel.archivo_anterior]['desde']
         if desde < channel.archivo_anterior_hasta:
             inicios.append(desde)
+    # Lo grabado en HLS (desde archive_hls_since) se ve en todo; lo de antes,
+    # en MPEG-TS, solo en el deco. Y cuando el TS caduque, la ventana del canal
+    # sale de aqui y no de la del grabador antiguo, que ya no graba.
+    if channel.archive_hls_since:
+        hls = max(channel.archive_hls_since,
+                  ahora - timezone.timedelta(hours=channel.timeshift_hours or 168))
+        if device and device.device_type == 'mag':
+            inicios.append(hls)
+        else:
+            inicios = [hls]
     if not inicios:
         return False, 0
     desde = min(inicios)
