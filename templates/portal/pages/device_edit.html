@@ -132,7 +132,7 @@
                             <tbody class="border-t border-gray-100">
                                 <tr class="cursor-pointer hover:bg-gray-50" onclick="this.nextElementSibling.classList.toggle('hidden')" title="Pulsa para ver cada desconexión">
                                     <td class="px-2 py-1.5 whitespace-nowrap">{{ g.inicio|date:"d/m H:i" }}</td>
-                                    <td class="px-2 py-1.5 whitespace-nowrap">{% if g.mismo_dia %}{{ g.fin|date:"H:i" }}{% else %}{{ g.fin|date:"d/m H:i" }}{% endif %}</td>
+                                    <td class="px-2 py-1.5 whitespace-nowrap">{{ g.fin|date:"d/m H:i" }}</td>
                                     <td class="px-2 py-1.5 text-right font-semibold text-red-600">{{ g.veces }}</td>
                                     <td class="px-2 py-1.5 text-right whitespace-nowrap">{{ g.sin_conexion }}</td>
                                 </tr>

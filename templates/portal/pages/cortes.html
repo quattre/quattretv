@@ -62,7 +62,7 @@
                 </td>
                 <td class="px-4 py-2 text-xs">{{ g.device.user.username|default:"" }}</td>
                 <td class="px-4 py-2 whitespace-nowrap">{{ g.inicio|date:"d/m/Y H:i" }}</td>
-                <td class="px-4 py-2 whitespace-nowrap">{% if g.mismo_dia %}{{ g.fin|date:"H:i" }}{% else %}{{ g.fin|date:"d/m H:i" }}{% endif %}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ g.fin|date:"d/m/Y H:i" }}</td>
                 <td class="px-4 py-2 text-right font-semibold text-red-600">{{ g.veces }}</td>
                 <td class="px-4 py-2 text-right whitespace-nowrap">{{ g.sin_conexion }}</td>
                 <td class="px-4 py-2 text-right whitespace-nowrap text-gray-600">{{ g.mayor_txt }}</td>
