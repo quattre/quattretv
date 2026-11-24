@@ -19,8 +19,8 @@
                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
     <label class="md:col-span-3 text-sm text-gray-700 flex items-center gap-2">
-        <input type="checkbox" name="solo" value="1" {% if solo %}checked{% endif %} onchange="this.form.submit()">
-        Solo los que cuentan (sin cortos ni generales)
+        <input type="checkbox" name="todos" value="1" {% if todos %}checked{% endif %} onchange="this.form.submit()">
+        Ver también los generales ({{ n_otros }})
     </label>
     <button class="md:col-span-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"><i class="bi bi-search"></i></button>
 </form>
@@ -63,14 +63,21 @@
             <p class="p-6 text-sm text-green-700">Ninguno en este periodo.</p>
             {% endif %}
         </div>
-        <p class="text-xs text-gray-500 mt-3 px-1">No cuentan (salen en gris): los de menos de {{ minimo }} s, que suelen ser una petición lenta suelta o el portal recargándose, y los <b>generales</b>, cuando se cortan muchos aparatos a la vez y fue nuestro. Los que cuentan apuntan a la línea o el wifi del cliente.</p>
+        <div class="text-xs text-gray-600 mt-3 px-1 space-y-1">
+            <p class="font-semibold text-gray-700">Cuándo es un corte</p>
+            <p>Cuando el aparato se queda <b>{{ minimo }} s o más</b> sin poder hablar con el servidor: desde la primera petición que se queda sin respuesta (el portal espera 12 s y saca «Se ha perdido la conexión») hasta la primera que vuelve a tenerla. Un corte con muchos reintentos es uno solo.</p>
+            <p><b>No es un corte</b> (ni se guarda): lo que dura menos de {{ minimo }} s, que casi siempre es una sola petición que tardó y a la siguiente ya fue bien; ni que apaguen el aparato.</p>
+            <p><b>Corte general</b>: si se cortan {{ general }} aparatos o más en los mismos minutos, fue nuestro (servidor o red). Se apunta aparte y no se le cuenta a ningún cliente.</p>
+        </div>
         <p class="text-xs text-gray-500 mt-2 px-1"><b>Aparato</b>: lo avisa el propio aparato al volver la red (hora exacta). <b>Registro</b>: sacado del registro del servidor (peticiones que el aparato dejó de esperar); ahí la duración es aproximada y el aparato se deduce por su IP.</p>
     </div>
 
     <div class="lg:col-span-2">
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200">
-                <h5 class="font-semibold text-gray-800">{{ total }} corte{{ total|pluralize }} · {{ cuentan }} {% if cuentan == 1 %}cuenta{% else %}cuentan{% endif %}{% if pagina.has_other_pages %} <span class="text-gray-400 font-normal text-sm">· del {{ pagina.start_index }} al {{ pagina.end_index }}</span>{% endif %}</h5>
+                <h5 class="font-semibold text-gray-800">{{ n_reales }} corte{{ n_reales|pluralize }}
+                    {% if n_otros %}<span class="text-gray-400 font-normal text-sm">· {% if todos %}más {{ n_otros }} generales, en gris{% else %}sin contar {{ n_otros }} generales{% endif %}</span>{% endif %}
+                    {% if pagina.has_other_pages %} <span class="text-gray-400 font-normal text-sm">· del {{ pagina.start_index }} al {{ pagina.end_index }}</span>{% endif %}</h5>
             </div>
             <div class="overflow-x-auto">
             <table class="w-full text-sm">

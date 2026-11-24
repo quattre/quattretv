@@ -19,11 +19,16 @@ Vienen de dos sitios:
     suyo.
 Un corte con muchos reintentos es uno solo.
 
-Para no dar falsos positivos no cuentan (se ven, en gris):
-  - los cortos, de menos de MINIMO s: una peticion lenta suelta que a la
-    siguiente ya va, o el portal recargandose;
-  - los generales: si en los mismos minutos se cortan GENERAL aparatos o mas,
-    el problema es nuestro (servidor o red), no de cada cliente.
+Que es un corte: el aparato se queda sin poder hablar con el servidor
+MINIMO s o mas, desde la primera peticion que se queda sin respuesta (el
+portal espera 12 s y saca el aviso) hasta la primera que vuelve a tenerla.
+Lo de menos de MINIMO s no es un corte y ni se guarda (casi siempre es una
+sola peticion que tardo y a la siguiente ya fue bien, o el deco apagandose);
+"sobran", dijo soporte el 24/11/2026.
+
+Los generales se guardan pero aparte: si en los mismos minutos se cortan
+GENERAL aparatos o mas, el problema es nuestro (servidor o red), no de cada
+cliente, y no se le cuentan a nadie.
 """
 import gzip
 import logging
@@ -68,6 +73,8 @@ def _mismo(device, ip, inicio):
 def apuntar(device, segundos, ip='', reinicio=False):
     """Lo que cuenta el portal al volver la red."""
     segundos = max(0, min(int(segundos), 7 * 24 * 3600))
+    if segundos < MINIMO:
+        return              # no es un corte: ver arriba
     inicio = timezone.now() - timedelta(seconds=segundos)
     try:
         # El mismo corte ya sacado del registro de nginx: vale mas este.
@@ -102,11 +109,15 @@ def de(device, cuantos=100):
     """Los cortes de un aparato (los ultimos), y cuantos cuentan en 24 h y 7 dias."""
     ahora = timezone.now()
     qs = CorteConexion.objects.filter(device=device)
+    reales = contables(qs)
+    n_reales = reales.count()
     return {
-        'lista': [fila(c, ahora) for c in qs[:cuantos]],
-        'en_24h': contables(qs.filter(inicio__gte=ahora - timedelta(hours=24))).count(),
-        'en_7d': contables(qs.filter(inicio__gte=ahora - timedelta(days=7))).count(),
-        'total': qs.count(),
+        # Solo los de verdad; los cortos y generales, en la pagina de cortes.
+        'lista': [fila(c, ahora) for c in reales[:cuantos]],
+        'en_24h': reales.filter(inicio__gte=ahora - timedelta(hours=24)).count(),
+        'en_7d': reales.filter(inicio__gte=ahora - timedelta(days=7)).count(),
+        'total': n_reales,
+        'otros': qs.count() - n_reales,
         'minimo': MINIMO,
     }
 
@@ -234,7 +245,7 @@ def importar_registro(rutas):
         with _abrir(ruta) as f:
             cortes = cortes_del_registro(f)
         for ip, inicio, segundos in cortes:
-            if ip.startswith(NUESTRAS):
+            if ip.startswith(NUESTRAS) or segundos < MINIMO:
                 continue
             ids = por_ip.get(ip, [])
             # Con varios aparatos detras de la misma IP no se sabe cual fue:

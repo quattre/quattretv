@@ -1657,9 +1657,15 @@ def cortes_list(request):
     if q:
         qs = qs.filter(Q(device__mac_address__icontains=q) | Q(ip__icontains=q) |
                        Q(device__user__username__icontains=q) | Q(device__name__icontains=q))
-    solo = request.GET.get('solo') == '1'
-    if solo:
-        qs = cortes.contables(qs)
+    # Por defecto sin los generales (los cortos ya ni se guardan): mezclados
+    # con los demas liaban ("40 cortes, 17 cuentan", 24/11/2026).
+    todos = request.GET.get('todos') == '1'
+    reales = cortes.contables(qs)
+    n_reales = reales.count()
+    n_otros = qs.count() - n_reales
+    los_que_mas = cortes.los_que_mas(qs)
+    if not todos:
+        qs = reales
 
     pagina = Paginator(qs, 100).get_page(request.GET.get('page'))
     ahora = timezone.now()
@@ -1673,12 +1679,13 @@ def cortes_list(request):
         'periodos': PERIODOS_CORTES,
         'periodo': periodo,
         'q': q,
-        'solo': solo,
-        'los_que_mas': cortes.los_que_mas(qs),
-        'total': qs.count(),
-        'cuentan': cortes.contables(qs).count(),
+        'todos': todos,
+        'los_que_mas': los_que_mas,
+        'n_reales': n_reales,
+        'n_otros': n_otros,
         'generales': cortes.generales(timezone.now() - timedelta(days=dias or 3650)),
         'minimo': cortes.MINIMO,
+        'general': cortes.GENERAL,
     }
     return render(request, 'portal/pages/cortes.html', context)
 
