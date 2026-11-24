@@ -162,9 +162,12 @@ def resumen():
 
 def los_que_mas(qs, cuantos=15):
     """Los aparatos con mas cortes que cuentan en esa seleccion."""
-    return list(contables(qs).values('device_id', 'device__mac_address', 'device__name',
-                                     'device__user__username', 'ip')
-                .annotate(n=Count('id'), total=Sum('duracion')).order_by('-n', '-total')[:cuantos])
+    filas = list(contables(qs).values('device_id', 'device__mac_address', 'device__name',
+                                      'device__user__username', 'ip')
+                 .annotate(n=Count('id'), total=Sum('duracion')).order_by('-n', '-total')[:cuantos])
+    for f in filas:
+        f['total_txt'] = duracion(f['total'] or 0)
+    return filas
 
 
 # ---------- Del registro de nginx ----------
