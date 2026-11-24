@@ -68,7 +68,9 @@ def por_https(device):
 
 
 def base_https(ruta):
-    return f"{settings.QUATTRETV.get('PUBLIC_URL', '').rstrip('/')}/{ruta}"
+    """Por donde salen por https: HLS_URL (iptv1, el nombre definitivo) o PUBLIC_URL."""
+    q = settings.QUATTRETV
+    return f"{(q.get('HLS_URL') or q.get('PUBLIC_URL', '')).rstrip('/')}/{ruta}"
 
 
 def id_en_archivo(channel, momento=None):

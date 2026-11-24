@@ -287,6 +287,8 @@ QUATTRETV = {
     # Los trozos del archivo y de las grabaciones en HLS, por https a traves de
     # iptv2 (deploy/nginx/archivo_https.sh) a todo lo que no es deco.
     'HLS_POR_IPTV2': os.getenv('HLS_POR_IPTV2', '').lower() in ('true', '1', 'yes'),
+    # Con que nombre salen esos trozos por https (vacio = PUBLIC_URL).
+    'HLS_URL': os.getenv('HLS_URL', ''),
     # Firma de las grabaciones en HLS de record1 (deploy/record/grabaciones_hls.sh
     # deja el mismo en su secreto.php). Vacio = no se sirven en HLS.
     'GRABACIONES_HLS_SECRETO': os.getenv('GRABACIONES_HLS_SECRETO', ''),
