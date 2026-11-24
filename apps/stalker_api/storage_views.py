@@ -307,6 +307,22 @@ def fetch_rangos(storage, carpeta, start, end):
     return piezas
 
 
+def rangos_listos(channel, start, duration):
+    """
+    Si el indice de storage1 ya tiene el principio de este rato. Mientras se
+    indexa lo atrasado (o en el ultimo minuto del directo) puede no estar:
+    mejor decirlo que dar una lista vacia y dejar la pantalla en negro.
+    """
+    storage = almacen_archivo(channel, start)
+    if not storage:
+        return False
+    if channel.desfase_archivo:      # como en build_catchup_url
+        start = start + timedelta(minutes=channel.desfase_archivo)
+    carpeta = id_en_archivo(channel, start)
+    fin = start + timedelta(seconds=min(int(duration), 600))
+    return any(pieza.get('t') for pieza in fetch_rangos(storage, carpeta, start, fin))
+
+
 def playlist_de_rangos(storage, carpeta, piezas, start, end, https=False):
     """
     Lista .m3u8 de [start, end] con los trozos de las piezas. Si el rato llega
@@ -319,7 +335,7 @@ def playlist_de_rangos(storage, carpeta, piezas, start, end, https=False):
     base = (base_https('archivo_hls/trozo.php') if https
             else storage.build_url(f'{storage.archive_path}/trozo.php', public=True))
     cuerpo = []
-    maximo = 1.0
+    maximo = float(NOMINAL_SEGMENT_SECONDS)
     fin_pts = None
     for pieza in piezas:
         fichero = pieza.get('f', '')
@@ -336,9 +352,9 @@ def playlist_de_rangos(storage, carpeta, piezas, start, end, https=False):
                 inicio, tz=dt_timezone.utc).isoformat(timespec='milliseconds'))
             cuerpo.append(f'#EXTINF:{dur:.3f},')
             cuerpo.append(f'{base}?c={carpeta}&f={fichero}&o={pos}&l={longitud}')
-    if not cuerpo:
-        return None
     abierta = end > timezone.now() - timedelta(minutes=1)
+    if not cuerpo and not abierta:
+        return None
     lineas = [
         '#EXTM3U',
         '#EXT-X-VERSION:3',

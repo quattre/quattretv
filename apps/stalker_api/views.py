@@ -1865,6 +1865,14 @@ def handle_archive_link(request):
     if not url:
         return stalker_response({'error': 'No hay servidor de archivo configurado'})
 
+    # En HLS por trozos, lo que aun no esta indexado se queda en negro: se avisa.
+    # Lo de los ultimos minutos no se mira: la lista espera a que llegue.
+    from .storage_views import archivo_hls_para, rangos_listos
+    if (archivo_hls_para(device) and not (channel.archive_hls_since and start >= channel.archive_hls_since)
+            and start < timezone.now() - timezone.timedelta(minutes=10)
+            and not rangos_listos(channel, start, duration)):
+        return stalker_response({'error': 'Este programa todavía se está preparando. Prueba dentro de un rato.'})
+
     respuesta = {'cmd': url, 'desde': int(start.timestamp())}
     # El videoclub cuenta el tiempo desde el principio de la peli y no da la
     # hora de emision: le hace falta saber cuando empezo y acabo de verdad,
