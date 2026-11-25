@@ -669,13 +669,18 @@ def handle_get_modules(request):
         medir = []
     if device and (device.mac_address in medir or device.model in medir):
         modulos.append('medir_lista')
-    # La lista de canales que solo mueve la marca al pulsar (lo demas al
-    # dejar de pulsar): a prueba en los decos de esta lista.
+    # La lista de canales que solo mueve la marca al pulsar, con el video
+    # parado mientras se mueve, y arranca el canal al dejar de pulsar. Probado
+    # en un MAG322 de la oficina el 25/11/2026 (de 1-6 s por pulsacion a 0,2 s)
+    # y puesto en todos los MAG ese dia (Sergio: "si es mas rapido cargara mas
+    # rapido"). Las apps de las teles no: estan en revision. La cache
+    # 'lista_rapida' añade MAC o modelos para probar.
     try:
         rapida = cache.get('lista_rapida') or []
     except Exception:
         rapida = []
-    if device and (device.mac_address in rapida or device.model in rapida):
+    if device and (device.device_type == 'mag' or device.mac_address in rapida
+                   or device.model in rapida):
         modulos.append('lista_rapida')
     try:
         lisa = cache.get('lista_lisa') or []
