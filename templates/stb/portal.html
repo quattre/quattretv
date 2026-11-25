@@ -1872,7 +1872,12 @@
         prefijoStb = '';
         if (ch.id && /MAG(420|322)/.test(modeloStb) && !/^\w+ /.test(ch.cmd))
             prefijoStb = PREFIJOS_PRUEBA[vueltaPrefijo++ % PREFIJOS_PRUEBA.length];
+        var antesPlay = new Date().getTime();
         try { if (intento) stbAPI.Stop(); stbAPI.Play(prefijoStb + ch.cmd); } catch(err) {}
+        // Cuanto se queda parado el navegador en la propia orden (medir_carga).
+        var enPlay = new Date().getTime() - antesPlay;
+        if (enPlay > 200 && conModulo('medir_carga'))
+            api('type=stb&action=log&diag=' + encodeURIComponent('carga play ' + enPlay + 'ms ' + (ch.name || ch.id)), function() {});
         if (!ch.id) return;                // lo emitido no se repite: perderia el sitio
         setTimeout(function() {
             if (yo !== testigoStb) return;
@@ -2013,8 +2018,12 @@
         try { if (androidPlayer) androidPlayer.parar(); } catch(err) {}
         clearTimeout(colaStb);
         testigoStb++;
+        var antesStop = new Date().getTime();
         try { if (stbAPI && stbAPI.Stop) stbAPI.Stop(); } catch(err) {}
         try { if (player && player.stop) player.stop(); } catch(err) {}
+        var enStop = new Date().getTime() - antesStop;
+        if (enStop > 200 && conModulo('medir_carga'))
+            api('type=stb&action=log&diag=' + encodeURIComponent('carga stop ' + enStop + 'ms'), function() {});
         playingChannelIdx = -1;
     }
 
