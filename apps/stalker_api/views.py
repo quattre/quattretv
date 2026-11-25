@@ -841,7 +841,7 @@ def handle_get_modules(request):
     # para no depender de la cache.
     if device and device.device_type == 'mag':
         for m in ('rail_firma', 'previa_2s', 'zapping_rapido', 'osd_mini',
-                  'menu_primero', 'sin_fundido', 'osd_ligera'):
+                  'menu_primero', 'sin_fundido', 'osd_ligera', 'semana_rapida'):
             if m not in modulos:
                 modulos.append(m)
         if device.model in ('MAG322', 'MAG324') and 'tarjetas_img' not in modulos:
