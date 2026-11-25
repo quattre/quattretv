@@ -2189,6 +2189,40 @@
         return hay;
     }
 
+    // Tras refrescar la programacion: solo las filas que se ven y han cambiado
+    // (lo normal, una o ninguna), y el texto de debajo de la imagen si es el
+    // del canal elegido. Repintar la lista entera cada minuto bloqueaba el
+    // MAG322 un segundo. false si no se puede (y entonces se pinta entera).
+    function repintarFilasCambiadas() {
+        var caja = document.querySelector("#content .list");
+        var v = ventanas["canales"];
+        if (!caja || !v || v.total !== channels.length || !caja.firstChild) return false;
+        if (caja.firstChild.getAttribute('data-i') !== String(v.start)) return false;
+        var filas = caja.children, tmp = document.createElement('div'), cambios = [];
+        for (var i = 0; i < filas.length; i++) {
+            var n = parseInt(filas[i].getAttribute('data-i'), 10);
+            if (isNaN(n) || !channels[n] || filasPintadas[n] === undefined) return false;
+            var antes = filasPintadas[n], ahora = filaCanal(n);
+            if (ahora === antes) continue;
+            // La barra de avance cambia cada minuto en casi todas: si es solo
+            // eso, se le cambia el ancho y no se rehace la fila.
+            var sinBarra = /width:\d+(\.\d+)?%/g;
+            if (ahora.replace(sinBarra, '') === antes.replace(sinBarra, '')) {
+                var barra = filas[i].querySelector('.bar i');
+                var ancho = (ahora.match(/class="bar"[^>]*><i style="width:([\d.]+)%/) || [])[1];
+                if (barra && ancho !== undefined) { barra.style.width = ancho + '%'; continue; }
+            }
+            cambios.push(i);
+        }
+        for (var j = 0; j < cambios.length; j++) {
+            var fila = filas[cambios[j]], m = parseInt(fila.getAttribute('data-i'), 10);
+            tmp.innerHTML = filasPintadas[m];
+            caja.replaceChild(tmp.firstChild, fila);
+            if (m === currentChannel) updatePreviewCap(channels[m]);
+        }
+        return true;
+    }
+
     var relojResto = null;
     function restoTrasMover() {
         clearTimeout(relojResto);
@@ -3744,7 +3778,9 @@
             }
             // Solo se repinta la lista, que es donde se ve; la barra del canal
             // lo coge la proxima vez que salga.
-            if (view === "list" && !isFullscreen && !rail.abierto) showChannels();
+            if (view === "list" && !isFullscreen && !rail.abierto) {
+                if (!conModulo('lista_rapida') || !repintarFilasCambiadas()) showChannels();
+            }
         }, true);
     }
 
@@ -5022,6 +5058,8 @@
     }
 
     // Una fila de la lista de canales (showChannels y moverMarca).
+    // Lo ultimo pintado de cada fila, para repintar solo las que cambian.
+    var filasPintadas = {};
     function filaCanal(i) {
         var h = '';
         var c = channels[i];
@@ -5065,6 +5103,7 @@
         h += '</div>';
         h += '<div class="bar"' + sinEpg + '><i style="width:' + (c.epg_progress || 0) + '%"></i></div>';
         h += '</div></div>';
+        filasPintadas[i] = h;
         return h;
     }
 
