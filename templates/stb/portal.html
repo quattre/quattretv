@@ -2066,15 +2066,15 @@
     // tarda el navegador en quedar libre otra vez (pintado y lo que venga
     // detras, como arrancar el canal). Cada 15 pulsaciones, al registro.
     var medidasLista = [];
-    function medirLista(t0) {
+    function medirLista(t0, t1) {
         var hay = false;
         for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === 'medir_lista') hay = true;
         if (!hay) return;
-        var pinta = new Date().getTime() - t0;
+        var t2 = new Date().getTime();
         setTimeout(function() {
-            medidasLista.push(pinta + '/' + (new Date().getTime() - t0));
+            medidasLista.push((t1 - t0) + '/' + (t2 - t1) + '/' + (new Date().getTime() - t0));
             if (medidasLista.length >= 15) {
-                api('type=stb&action=log&diag=' + encodeURIComponent('lista mover pinta/libre ms ' +
+                api('type=stb&action=log&diag=' + encodeURIComponent('lista mover pinta/canal/libre ms ' +
                     medidasLista.join(' ')), function() {});
                 medidasLista = [];
             }
@@ -6708,14 +6708,16 @@
                 var t0 = new Date().getTime();
                 currentChannel--;
                 showChannels();
-                medirLista(t0);
+                var t1 = new Date().getTime();
                 previewAlMover();
+                medirLista(t0, t1);
             } else if (k === 40 && currentChannel < channels.length - 1) {
                 var t0 = new Date().getTime();
                 currentChannel++;
                 showChannels();
-                medirLista(t0);
+                var t1 = new Date().getTime();
                 previewAlMover();
+                medirLista(t0, t1);
             } else if (k === 13 && channels.length > 0) {
                 goFullscreen();
             } else if (k === 39 && channels.length > 0) {
