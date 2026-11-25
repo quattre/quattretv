@@ -652,6 +652,17 @@ def handle_get_modules(request):
             and _avisos_vigentes(Aviso.objects.filter(en_ayuda=True)).exists()):
         modulos.append('ayuda')
 
+    # La vista previa de la lista arranca al dejar de pulsar, no en cada fila:
+    # para los decos lentos (el MAG322 tarda 1,5-2 s en arrancar un canal y la
+    # lista se arrastraba). Se prueba primero en unos pocos: la cache
+    # 'previa_espera' es una lista de MAC o de modelos ('MAG322').
+    try:
+        lentos = cache.get('previa_espera') or []
+    except Exception:
+        lentos = []
+    if device and (device.mac_address in lentos or device.model in lentos):
+        modulos.append('previa_espera')
+
     return stalker_response({
         'result': {
             'all_modules': modulos,

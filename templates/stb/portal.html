@@ -2044,6 +2044,23 @@
         }
     }
 
+    // Al bajar o subir por la lista, cada fila arrancaba el canal en la vista
+    // previa. En el MAG322 arrancar un canal cuesta 1,5-2 s de reproductor y
+    // la lista se arrastraba detras de el (25/11/2026). Con 'previa_espera'
+    // (lo decide el servidor en get_modules) el canal arranca cuando se deja
+    // de pulsar; mientras, sigue el que habia.
+    var esperaPreview = null;
+    function previewAlMover() {
+        var espera = 0;
+        for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === 'previa_espera') espera = 700;
+        if (esperaPreview) { clearTimeout(esperaPreview); esperaPreview = null; }
+        if (!espera) { startPreview(); return; }
+        esperaPreview = setTimeout(function() {
+            esperaPreview = null;
+            if (view === "list" && !isFullscreen) startPreview();
+        }, espera);
+    }
+
     function iniciales(nombre) {
         var limpio = (nombre || '').replace(/[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ ]/g, '').trim();
         var partes = limpio.split(/\s+/);
@@ -6670,11 +6687,11 @@
             } else if (k === 38 && currentChannel > 0) {
                 currentChannel--;
                 showChannels();
-                startPreview();
+                previewAlMover();
             } else if (k === 40 && currentChannel < channels.length - 1) {
                 currentChannel++;
                 showChannels();
-                startPreview();
+                previewAlMover();
             } else if (k === 13 && channels.length > 0) {
                 goFullscreen();
             } else if (k === 39 && channels.length > 0) {
