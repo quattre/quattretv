@@ -3168,10 +3168,8 @@
             if (js && js.result && js.result.all_modules) {
                 MODULOS = js.result.all_modules;
             }
-            // Lista rapida: sin el fundido de las filas al cambiar de color, que
-            // en un deco lento es trabajo de mas en cada pulsacion.
-            if (conModulo('lista_rapida') && !/(^|\s)sin-anim(\s|$)/.test(document.body.className))
-                document.body.className += ' sin-anim';
+            // (El fundido de las filas se quito a prueba con lista_rapida y no
+            // se notaba: vuelve, para que se vea igual en todos, 25/11/2026.)
             if (conModulo('medir_carga')) medirCarga();
             // A prueba en un deco: sin efectos ni letra web, por si es el pintado.
             if (conModulo('modo_ligero') && !/(^|\s)deco-ligero(\s|$)/.test(document.body.className))
