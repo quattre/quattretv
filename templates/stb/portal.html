@@ -4092,10 +4092,22 @@
     // piden antes: las primeras de cada fila nada mas tener el catalogo, y al
     // moverse por una fila, las siguientes. Se guardan los Image para que el
     // navegador no las suelte; el resto lo hace su cache.
-    var precargadas = {}, numPrecargadas = 0;
+    var precargadas = {}, numPrecargadas = 0, ordenPrecarga = [];
 
+    // Con 'precarga_corta' (get_modules) solo se guardan las ultimas 40 y las
+    // viejas se sueltan: 400 caratulas de 640x360 son unos 400 MB ya
+    // abiertas, y el MAG322 tiene 512 MB; sin memoria tiraba las imagenes y
+    // solo se veia la caratula elegida (25/11/2026).
     function precargar(url) {
-        if (!url || precargadas[url] || numPrecargadas > 400) return;
+        if (!url || precargadas[url]) return;
+        if (conModulo('precarga_corta')) {
+            precargadas[url] = new Image();
+            precargadas[url].src = url;
+            ordenPrecarga.push(url);
+            while (ordenPrecarga.length > 40) delete precargadas[ordenPrecarga.shift()];
+            return;
+        }
+        if (numPrecargadas > 400) return;
         var img = new Image();
         img.src = url;
         precargadas[url] = img;

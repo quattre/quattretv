@@ -732,6 +732,12 @@ def handle_get_modules(request):
         tarde = []
     if device and (device.mac_address in tarde or 'todos' in tarde):
         modulos.append('grabar_tarde')
+    try:
+        corta = cache.get('precarga_corta') or []
+    except Exception:
+        corta = []
+    if device and (device.mac_address in corta or device.model in corta):
+        modulos.append('precarga_corta')
 
     return stalker_response({
         'result': {
