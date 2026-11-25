@@ -810,6 +810,12 @@ def handle_get_modules(request):
         sfund = []
     if device and (device.mac_address in sfund or 'todos' in sfund):
         modulos.append('sin_fundido')
+    try:
+        zap = cache.get('zapping_rapido') or []
+    except Exception:
+        zap = []
+    if device and (device.mac_address in zap or 'todos' in zap):
+        modulos.append('zapping_rapido')
 
     return stalker_response({
         'result': {

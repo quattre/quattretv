@@ -4622,7 +4622,7 @@
     // el MAG322 hasta 1,7 s cada una (25/11/2026). Con 'semana_rapida'
     // (get_modules) solo se rehace la fila, juntando las pulsaciones que
     // lleguen seguidas, y la ficha y el fondo cuando se deja de pulsar.
-    var semanaPendiente = false, relojSemana = null;
+    var semanaPendiente = false, relojSemana = null, relojZapping = null;
     function moverEnFila() {
         if (!conModulo('semana_rapida')) { renderSemana(); return; }
         clearTimeout(relojSemana);
@@ -7042,9 +7042,24 @@
                 var n = channels.length;
                 currentChannel = (currentChannel + (k === 38 ? 1 : -1) + n) % n;
                 var ch = channels[currentChannel];
-                playChannel(ch);
-                playingChannelIdx = currentChannel;
-                mostrarOsd(ch);
+                if (conModulo('zapping_rapido') && decoLento()) {
+                    // En el 322 arrancar el canal congela el deco 2-3 s y la
+                    // barra salia tarde y la siguiente pulsacion esperaba
+                    // (25/11/2026): primero la barra, y el canal al parar.
+                    mostrarOsd(ch);
+                    clearTimeout(relojZapping);
+                    var destino = currentChannel;
+                    relojZapping = setTimeout(function() {
+                        relojZapping = null;
+                        if (!isFullscreen || currentChannel !== destino) return;
+                        playChannel(channels[destino]);
+                        playingChannelIdx = destino;
+                    }, 600);
+                } else {
+                    playChannel(ch);
+                    playingChannelIdx = currentChannel;
+                    mostrarOsd(ch);
+                }
             } else if (k === 39 || k === 73 || k === 89) {
                 // Primera pulsacion: la barra del canal. Si ya esta puesta,
                 // otra vez entra en la ficha del programa. Es el mismo gesto
