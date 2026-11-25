@@ -822,6 +822,12 @@ def handle_get_modules(request):
         mprim = []
     if device and (device.mac_address in mprim or 'todos' in mprim):
         modulos.append('menu_primero')
+    try:
+        osdl = cache.get('osd_ligera') or []
+    except Exception:
+        osdl = []
+    if device and (device.mac_address in osdl or 'todos' in osdl):
+        modulos.append('osd_ligera')
 
     return stalker_response({
         'result': {

@@ -3251,6 +3251,10 @@
             // saltos y se veia primero la marca verde y luego el fondo gris.
             if (conModulo('sin_fundido') && decoLento() && !/(^|\s)sin-anim(\s|$)/.test(document.body.className))
                 document.body.className += ' sin-anim';
+            // La barra del canal a pantalla completa sin sombra ni degradado en
+            // los lentos: con ellos el 322 tardaba 1,6-2,8 s en pintarla encima
+            // del video (25/11/2026).
+            if (conModulo('osd_ligera') && decoLento()) document.body.className += ' osd-ligera';
             // A prueba en un deco: sin efectos ni letra web, por si es el pintado.
             if (conModulo('modo_ligero') && !/(^|\s)deco-ligero(\s|$)/.test(document.body.className))
                 document.body.className += ' deco-ligero';
@@ -7905,6 +7909,7 @@
         /* Centrado y no pegado al fondo: con flex-end todo lo que no fuera el
            bloque de texto se iba abajo — la caratula tenia 42 px de aire arriba
            y 24 abajo, el reloj 110 y 24 — y la barra se veia caida. */
+        .osd-ligera #osd { box-shadow: none !important; -webkit-box-shadow: none !important; background: #2c3236 !important; }
         .osd-fila { display: -webkit-box; -webkit-box-align: center;
                     display: flex; align-items: center; gap: 26px; }
         .osd-fila > * { margin-right: 26px; }
