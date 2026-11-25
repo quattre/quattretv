@@ -3171,6 +3171,7 @@
             // (El fundido de las filas se quito a prueba con lista_rapida y no
             // se notaba: vuelve, para que se vea igual en todos, 25/11/2026.)
             if (conModulo('medir_carga')) medirCarga();
+            if (conModulo('tarjetas_transform')) document.body.className += ' tarjetas-transform';
             // A prueba en un deco: sin efectos ni letra web, por si es el pintado.
             if (conModulo('modo_ligero') && !/(^|\s)deco-ligero(\s|$)/.test(document.body.className))
                 document.body.className += ' deco-ligero';
@@ -8178,6 +8179,11 @@
             -webkit-transform: scale(1.07); transform: scale(1.07);
         }
         .sem-tarjeta { background-position: center top; }
+        /* A prueba (25/11/2026): el MAG322 solo pintaba la caratula de la
+           tarjeta elegida, la que lleva transform; con uno que no se nota,
+           todas se pintan por el mismo camino. */
+        .tarjetas-transform .sem-tarjeta { -webkit-transform: scale(0.999); transform: scale(0.999); }
+        .tarjetas-transform .sem-tarjeta.sel { -webkit-transform: scale(1.07); transform: scale(1.07); }
         .sem-pie {
             position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 14px 10px;
             white-space: normal;

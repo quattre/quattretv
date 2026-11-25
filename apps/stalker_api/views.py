@@ -744,6 +744,12 @@ def handle_get_modules(request):
         dsem = []
     if device and device.mac_address in dsem:
         modulos.append('diag_semana')
+    try:
+        ttr = cache.get('tarjetas_transform') or []
+    except Exception:
+        ttr = []
+    if device and (device.mac_address in ttr or device.model in ttr):
+        modulos.append('tarjetas_transform')
 
     return stalker_response({
         'result': {
