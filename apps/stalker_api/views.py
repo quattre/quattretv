@@ -713,6 +713,12 @@ def handle_get_modules(request):
     if device and device.mac_address in previa3:
         modulos.append('previa_3s')
     try:
+        previa2 = cache.get('previa_2s') or []
+    except Exception:
+        previa2 = []
+    if device and (device.mac_address in previa2 or 'todos' in previa2):
+        modulos.append('previa_2s')
+    try:
         ligero = cache.get('modo_ligero') or []
     except Exception:
         ligero = []

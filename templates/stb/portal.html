@@ -2305,7 +2305,7 @@
             if (view !== "list" || isFullscreen) return;
             updatePreviewCap(channels[currentChannel]);
             startPreview();
-        }, decoLento() ? (conModulo('previa_3s') ? 3000 : 900) : 300);
+        }, decoLento() ? (conModulo('previa_3s') ? 3000 : conModulo('previa_2s') ? 2000 : 900) : 300);
     }
 
     // Los MAG de procesador lento: el 322 (y el 324), el 254/256 y el 420.
