@@ -35,8 +35,10 @@ body.transparente, html.transparente { background: transparent; }
 .item.sel .bar i { background: #bff102; }
 .letra, .letra * { font-family: Poppins, Arial, sans-serif; }
 .letra .item.sel .name { font-weight: 600; }
-.efectos .item { border-bottom-color: rgba(217,217,217,.55); -webkit-transition: background .12s; transition: background .12s; }
-.efectos .panel { box-shadow: 0 18px 60px rgba(0,0,0,.85); border-radius: 14px; }
+.efectos .item, .borde .item { border-bottom-color: rgba(217,217,217,.55); }
+.efectos .item, .fundido .item { -webkit-transition: background .12s; transition: background .12s; }
+.efectos .panel, .sombra .panel { box-shadow: 0 18px 60px rgba(0,0,0,.85); }
+.efectos .panel, .esquinas .panel { border-radius: 14px; }
 #rail { display: none; position: fixed; z-index: 35; top: 0; left: 0; bottom: 0; width: 387px; padding-top: 127px;
         background: -webkit-linear-gradient(left, rgba(13,14,16,.99) 0%, rgba(13,14,16,.97) 76%, rgba(13,14,16,0) 100%); }
 .lateral #rail { display: block; }
@@ -54,7 +56,15 @@ body.transparente, html.transparente { background: transparent; }
 <div id="rail"></div>
 <script>
 (function() {
-    var VARIANTES = [
+    // Segunda ronda (?ronda=2): los efectos uno a uno, sobre fijo+caja+letra.
+    var VARIANTES = /ronda=2/.test(location.search) ? [
+        ['base', 'fijo caja letra'],
+        ['borde', 'fijo caja letra borde'],
+        ['fundido', 'fijo caja letra fundido'],
+        ['sombra', 'fijo caja letra sombra'],
+        ['esquinas', 'fijo caja letra esquinas'],
+        ['todos', 'fijo caja letra efectos']
+    ] : [
         ['simple', ''],
         ['fijo', 'fijo'],
         ['caja', 'fijo caja'],
@@ -122,7 +132,7 @@ body.transparente, html.transparente { background: transparent; }
             }, ESPACIO);
         }, 1500);
     }
-    log('pintado empieza ' + window.innerWidth + 'x' + window.innerHeight, function() { variante(0); });
+    log('pintado empieza ' + location.search + ' ' + window.innerWidth + 'x' + window.innerHeight, function() { variante(0); });
 })();
 </script>
 </body>
