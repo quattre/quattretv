@@ -700,6 +700,12 @@ def handle_get_modules(request):
         carga = []
     if device and device.mac_address in carga:
         modulos.append('medir_carga')
+    try:
+        ffrt = cache.get('probar_ffrt') or []
+    except Exception:
+        ffrt = []
+    if device and device.mac_address in ffrt:
+        modulos.append('probar_ffrt')
 
     return stalker_response({
         'result': {

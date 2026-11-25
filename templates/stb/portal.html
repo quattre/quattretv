@@ -2112,7 +2112,8 @@
                 var lista = [];
                 for (var v in vistas) lista.push(v);
                 api('type=stb&action=log&diag=' + encodeURIComponent('carga ocupado=' +
-                    Math.round(tarde * 100 / (ahora - desde)) + '% peor=' + peor + 'ms en=' + lista.join(',')), function() {});
+                    Math.round(tarde * 100 / (ahora - desde)) + '% peor=' + peor + 'ms en=' + lista.join(',') +
+                    ' [' + (prefijoStb || 'nada').trim() + ']'), function() {});
                 desde = ahora; tarde = 0; peor = 0; vistas = {};
             }
             setTimeout(tic, PASO);
@@ -3165,6 +3166,9 @@
             if (conModulo('lista_rapida') && !/(^|\s)sin-anim(\s|$)/.test(document.body.className))
                 document.body.className += ' sin-anim';
             if (conModulo('medir_carga')) medirCarga();
+            // A prueba en un deco: los otros reproductores del MAG (25/11/2026;
+            // '', 'ffmpeg ' y 'auto ' ya se vieron iguales en el 322).
+            if (conModulo('probar_ffrt')) PREFIJOS_PRUEBA = ['', 'ffrt ', 'ffrt2 ', 'ffrt3 '];
             // A prueba: el panel sin la imagen de fondo, por si es su repintado.
             if (conModulo('lista_lisa') && !/(^|\s)fondo-liso(\s|$)/.test(document.body.className))
                 document.body.className += ' fondo-liso';
