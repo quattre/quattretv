@@ -816,6 +816,12 @@ def handle_get_modules(request):
         zap = []
     if device and (device.mac_address in zap or 'todos' in zap):
         modulos.append('zapping_rapido')
+    try:
+        mprim = cache.get('menu_primero') or []
+    except Exception:
+        mprim = []
+    if device and (device.mac_address in mprim or 'todos' in mprim):
+        modulos.append('menu_primero')
 
     return stalker_response({
         'result': {

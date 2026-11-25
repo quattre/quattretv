@@ -6446,13 +6446,29 @@
         // El orden importa, igual que en goFullscreen: primero se dice donde
         // estamos y despues se recoloca.
         isFullscreen = false;
-        setViewportPreview();
+        // En los lentos, primero el menu y despues achicar el video: en el 322
+        // cambiar el tamaño del video congela el deco hasta 5 s y el menu se
+        // quedaba sin salir (25/11/2026). Con 'menu_primero' (get_modules).
+        var primero = conModulo('menu_primero') && decoLento();
+        if (!primero) setViewportPreview();
         document.getElementById("content").style.display = "block";
         document.getElementById("preview").style.display = "flex";
         document.getElementById("preview-cap").style.display = "block";
         clearTimeout(osdTimeout);
         document.getElementById("osd").style.display = "none";
         showChannels();
+        if (primero) {
+            clearTimeout(relojZapping); relojZapping = null;
+            setTimeout(function() {
+                if (isFullscreen) return;
+                setViewportPreview();
+                // Si se cambio de canal a pantalla completa y aun no habia
+                // arrancado, que arranque el elegido al rato.
+                if (playingChannelIdx === -1) startPreview();
+                else if (playingChannelIdx !== currentChannel) restoTrasMover();
+            }, 150);
+            return;
+        }
         // Si veniamos del archivo o de una grabacion, el canal ya no suena.
         if (playingChannelIdx === -1) startPreview();
     }
