@@ -1704,34 +1704,6 @@ def handle_epg_week(request):
 
 def handle_tv_archive(request, action):
     """Handle TV archive/timeshift actions."""
-    respuesta = _handle_tv_archive(request, action)
-    return imagenes_por_http(request, respuesta)
-
-
-def imagenes_por_http(request, respuesta):
-    """
-    Las caratulas del videoclub y las fotos del reparto van con PUBLIC_URL
-    (https://iptv2...). El deco carga el portal por http en iptv1, y para cada
-    imagen abria ademas una conexion https: al MAG322 le cuesta mucho y tardaba
-    en sacar las caratulas (25/11/2026). A los decos que entran por http se
-    les dan por http y en el mismo nombre por el que han entrado, que nginx
-    sirve igual (/media/).
-    """
-    if request.is_secure() or not getattr(respuesta, 'content', None):
-        return respuesta
-    device = get_device_from_request(request)
-    publica = settings.QUATTRETV.get('PUBLIC_URL', '').rstrip('/')
-    if not device or device.device_type != 'mag' or not publica.startswith('https://'):
-        return respuesta
-    antes = (publica + '/media/').encode()
-    if antes not in respuesta.content:
-        return respuesta
-    ahora = ('http://%s/media/' % request.get_host()).encode()
-    respuesta.content = respuesta.content.replace(antes, ahora)
-    return respuesta
-
-
-def _handle_tv_archive(request, action):
     if action == 'create_link':
         return handle_archive_link(request)
     if action == 'get_catalog':
