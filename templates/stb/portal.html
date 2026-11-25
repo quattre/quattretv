@@ -2071,10 +2071,14 @@
         for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === 'medir_lista') hay = true;
         if (!hay) return;
         var t2 = new Date().getTime();
+        // Recolocar la pagina (estilos y medidas) a la fuerza, para saber cuanto
+        // es eso y cuanto el pintado de despues.
+        var alto = document.body.offsetHeight;
+        var t3 = new Date().getTime();
         setTimeout(function() {
-            medidasLista.push((t1 - t0) + '/' + (t2 - t1) + '/' + (new Date().getTime() - t0));
+            medidasLista.push((t1 - t0) + '/' + (t2 - t1) + '/' + (t3 - t2) + '/' + (new Date().getTime() - t0));
             if (medidasLista.length >= 15) {
-                api('type=stb&action=log&diag=' + encodeURIComponent('lista mover pinta/canal/libre ms ' +
+                api('type=stb&action=log&diag=' + encodeURIComponent('lista mover pinta/canal/recoloca/libre ms ' +
                     medidasLista.join(' ')), function() {});
                 medidasLista = [];
             }
@@ -3052,6 +3056,9 @@
             // en un deco lento es trabajo de mas en cada pulsacion.
             if (conModulo('lista_rapida') && !/(^|\s)sin-anim(\s|$)/.test(document.body.className))
                 document.body.className += ' sin-anim';
+            // A prueba: el panel sin la imagen de fondo, por si es su repintado.
+            if (conModulo('lista_lisa') && !/(^|\s)fondo-liso(\s|$)/.test(document.body.className))
+                document.body.className += ' fondo-liso';
             MENU = [];
             for (var i = 0; i < MENU_COMPLETO.length; i++) {
                 var op = MENU_COMPLETO[i];
@@ -7161,6 +7168,7 @@
         /* La elegida, como en las maquetas: texto en blanco y la linea de
            abajo en verde. */
         .sin-anim .item, .sin-anim [data-tecla] { transition: none !important; }
+        .fondo-liso .panel { background-image: none !important; }
         .item.sel {
             background: #474e53;
             border-bottom-color: #bff102;

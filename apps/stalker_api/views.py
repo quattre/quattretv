@@ -677,6 +677,12 @@ def handle_get_modules(request):
         rapida = []
     if device and (device.mac_address in rapida or device.model in rapida):
         modulos.append('lista_rapida')
+    try:
+        lisa = cache.get('lista_lisa') or []
+    except Exception:
+        lisa = []
+    if device and (device.mac_address in lisa or device.model in lisa):
+        modulos.append('lista_lisa')
 
     return stalker_response({
         'result': {
