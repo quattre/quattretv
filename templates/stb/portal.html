@@ -3247,6 +3247,10 @@
             }
             if (conModulo('tarjetas_transform')) document.body.className += ' tarjetas-transform';
             if (conModulo('semana_ligera')) document.body.className += ' semana-ligera';
+            // Sin el fundido de las filas en los decos lentos: el 322 lo hace a
+            // saltos y se veia primero la marca verde y luego el fondo gris.
+            if (conModulo('sin_fundido') && decoLento() && !/(^|\s)sin-anim(\s|$)/.test(document.body.className))
+                document.body.className += ' sin-anim';
             // A prueba en un deco: sin efectos ni letra web, por si es el pintado.
             if (conModulo('modo_ligero') && !/(^|\s)deco-ligero(\s|$)/.test(document.body.className))
                 document.body.className += ' deco-ligero';

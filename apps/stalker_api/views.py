@@ -804,6 +804,12 @@ def handle_get_modules(request):
         sparar = []
     if device and (device.mac_address in sparar or 'todos' in sparar):
         modulos.append('sin_parar')
+    try:
+        sfund = cache.get('sin_fundido') or []
+    except Exception:
+        sfund = []
+    if device and (device.mac_address in sfund or 'todos' in sfund):
+        modulos.append('sin_fundido')
 
     return stalker_response({
         'result': {
