@@ -712,6 +712,12 @@ def handle_get_modules(request):
         previa3 = []
     if device and device.mac_address in previa3:
         modulos.append('previa_3s')
+    try:
+        ligero = cache.get('modo_ligero') or []
+    except Exception:
+        ligero = []
+    if device and device.mac_address in ligero:
+        modulos.append('modo_ligero')
 
     return stalker_response({
         'result': {

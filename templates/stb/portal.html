@@ -3171,6 +3171,9 @@
             if (conModulo('lista_rapida') && !/(^|\s)sin-anim(\s|$)/.test(document.body.className))
                 document.body.className += ' sin-anim';
             if (conModulo('medir_carga')) medirCarga();
+            // A prueba en un deco: sin efectos ni letra web, por si es el pintado.
+            if (conModulo('modo_ligero') && !/(^|\s)deco-ligero(\s|$)/.test(document.body.className))
+                document.body.className += ' deco-ligero';
             // A prueba en un deco: los otros reproductores del MAG (25/11/2026;
             // '', 'ffmpeg ' y 'auto ' ya se vieron iguales en el 322).
             if (conModulo('probar_ffrt')) PREFIJOS_PRUEBA = ['', 'ffrt ', 'ffrt2 ', 'ffrt3 '];
@@ -7317,6 +7320,15 @@
            abajo en verde. */
         .sin-anim .item, .sin-anim [data-tecla] { transition: none !important; }
         .fondo-liso .panel { background-image: none !important; }
+        /* Modo ligero (a prueba, 25/11/2026): lo que mas cuesta pintar a un
+           navegador sin aceleracion, fuera. */
+        .deco-ligero, .deco-ligero * {
+            box-shadow: none !important; text-shadow: none !important;
+            -webkit-box-shadow: none !important; border-radius: 0 !important;
+            transition: none !important; animation: none !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+        }
+        .deco-ligero .panel, .deco-ligero #rail { background-image: none !important; }
         .item.sel {
             background: #474e53;
             border-bottom-color: #bff102;
