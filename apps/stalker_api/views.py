@@ -683,6 +683,12 @@ def handle_get_modules(request):
         lisa = []
     if device and (device.mac_address in lisa or device.model in lisa):
         modulos.append('lista_lisa')
+    try:
+        sin_previa = cache.get('sin_preview') or []
+    except Exception:
+        sin_previa = []
+    if device and device.mac_address in sin_previa:
+        modulos.append('sin_preview')
 
     return stalker_response({
         'result': {

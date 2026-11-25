@@ -2020,6 +2020,9 @@
 
     function startPreview() {
         if (channels.length === 0 || isFullscreen || esperandoAvisos) return;
+        // Solo para probar en un deco (get_modules): la lista sin video detras,
+        // para saber cuanto pesa el video en lo que tarda en pintar.
+        if (conModulo('sin_preview')) { pararVideo(); return; }
         var ch = channels[currentChannel];
         if (ch && ch.locked) {
             // Un canal bloqueado no se previsualiza. Y hay que parar lo que
