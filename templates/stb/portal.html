@@ -2071,14 +2071,10 @@
         for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === 'medir_lista') hay = true;
         if (!hay) return;
         var t2 = new Date().getTime();
-        // Recolocar la pagina (estilos y medidas) a la fuerza, para saber cuanto
-        // es eso y cuanto el pintado de despues.
-        var alto = document.body.offsetHeight;
-        var t3 = new Date().getTime();
         setTimeout(function() {
-            medidasLista.push((t1 - t0) + '/' + (t2 - t1) + '/' + (t3 - t2) + '/' + (new Date().getTime() - t0));
+            medidasLista.push((t1 - t0) + '/' + (t2 - t1) + '/' + (new Date().getTime() - t0));
             if (medidasLista.length >= 15) {
-                api('type=stb&action=log&diag=' + encodeURIComponent('lista mover pinta/canal/recoloca/libre ms ' +
+                api('type=stb&action=log&diag=' + encodeURIComponent('lista mover espera/pinta/libre ms ' +
                     medidasLista.join(' ')), function() {});
                 medidasLista = [];
             }
@@ -2101,15 +2097,31 @@
         var t0 = new Date().getTime();
         var antes = currentChannel;
         currentChannel += paso;
-        var rapido = conModulo('lista_rapida') && moverMarca(antes, currentChannel);
-        if (!rapido) showChannels();
-        var t1 = new Date().getTime();
-        if (rapido) restoTrasMover();
-        else previewAlMover();
-        medirLista(t0, t1);
+        if (!conModulo('lista_rapida')) {
+            showChannels();
+            var t1 = new Date().getTime();
+            previewAlMover();
+            medirLista(t0, t1);
+            return;
+        }
+        // Las pulsaciones que llegan mientras el deco aun esta pintando la
+        // anterior se esperaban en cola y la marca seguia andando sola cuando
+        // ya habias soltado (el 322 pinta unas 10 por segundo). Ahora cada
+        // una solo cuenta; se pinta una vez, cuando la cola se ha vaciado, y
+        // directamente en la fila final.
+        restoTrasMover();
+        if (pintarPendiente) return;
+        pintarPendiente = true;
+        setTimeout(function() {
+            pintarPendiente = false;
+            var t1 = new Date().getTime();
+            if (!moverMarca(currentChannel)) showChannels();
+            medirLista(t0, t1);
+        }, 0);
     }
+    var pintarPendiente = false;
 
-    function moverMarca(antes, ahora) {
+    function moverMarca(ahora) {
         if (view !== "list" || focoSemana || isFullscreen) return false;
         var caja = document.querySelector("#content .list");
         var v = ventanas["canales"];
@@ -2127,10 +2139,10 @@
             else { caja.removeChild(caja.lastChild); caja.insertBefore(nueva, caja.firstChild); v.start--; }
         }
         if (ahora < v.start || ahora > v.start + visible - 1) return false;
-        var a = caja.querySelector('[data-i="' + antes + '"]');
+        var a = caja.querySelector('.item.sel');
         var b = caja.querySelector('[data-i="' + ahora + '"]');
-        if (!a || !b) return false;
-        a.className = 'item';
+        if (!b) return false;
+        if (a && a !== b) a.className = 'item';
         b.className = 'item sel';
         return true;
     }
