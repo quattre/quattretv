@@ -3048,6 +3048,10 @@
             if (js && js.result && js.result.all_modules) {
                 MODULOS = js.result.all_modules;
             }
+            // Lista rapida: sin el fundido de las filas al cambiar de color, que
+            // en un deco lento es trabajo de mas en cada pulsacion.
+            if (conModulo('lista_rapida') && !/(^|\s)sin-anim(\s|$)/.test(document.body.className))
+                document.body.className += ' sin-anim';
             MENU = [];
             for (var i = 0; i < MENU_COMPLETO.length; i++) {
                 var op = MENU_COMPLETO[i];
@@ -7156,6 +7160,7 @@
            mete una linea de color en cada pantalla. */
         /* La elegida, como en las maquetas: texto en blanco y la linea de
            abajo en verde. */
+        .sin-anim .item, .sin-anim [data-tecla] { transition: none !important; }
         .item.sel {
             background: #474e53;
             border-bottom-color: #bff102;
