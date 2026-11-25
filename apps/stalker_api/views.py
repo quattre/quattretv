@@ -738,6 +738,12 @@ def handle_get_modules(request):
         corta = []
     if device and (device.mac_address in corta or device.model in corta):
         modulos.append('precarga_corta')
+    try:
+        dsem = cache.get('diag_semana') or []
+    except Exception:
+        dsem = []
+    if device and device.mac_address in dsem:
+        modulos.append('diag_semana')
 
     return stalker_response({
         'result': {

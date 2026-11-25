@@ -4402,6 +4402,32 @@
         }
         document.getElementById("semana").innerHTML = h;
         if (semana.episodios && !semanaEpsCaben && medirEpisodios()) renderSemana();
+        if (conModulo('diag_semana')) diagSemana();
+    }
+
+    // Solo para un deco de pruebas: si las caratulas que se ven ya han
+    // llegado y si su tarjeta las lleva puestas (en el 322 solo salia la
+    // elegida, 25/11/2026).
+    var relojDiagSemana = null;
+    function diagSemana() {
+        clearTimeout(relojDiagSemana);
+        relojDiagSemana = setTimeout(function() {
+            try {
+                var t = document.querySelectorAll('#semana .sem-tarjeta'), out = [];
+                for (var i = 0; i < Math.min(t.length, 8); i++) {
+                    var bg = t[i].style.backgroundImage || '', u = (bg.match(/url\(["']?([^"')]+)/) || [])[1] || '';
+                    var pre = u && precargadas[u], b = t[i].getBoundingClientRect();
+                    var cs = window.getComputedStyle(t[i]);
+                    out.push((t[i].className.indexOf('sel') >= 0 ? '*' : '') + i + ':' + (u ? 'url' : 'sin') +
+                             (pre ? (pre.complete ? ',ok' + pre.naturalWidth : ',cargando') : ',nopre') +
+                             ',' + Math.round(b.left) + 'x' + Math.round(b.top) + ',vis=' + cs.visibility +
+                             ',op=' + cs.opacity + ',bgc=' + (cs.backgroundImage ? cs.backgroundImage.substring(0, 12) : '-'));
+                }
+                api('type=stb&action=log&diag=' + encodeURIComponent('semana ' + out.join(' ')), function() {});
+            } catch (err) {
+                api('type=stb&action=log&diag=' + encodeURIComponent('semana error ' + err), function() {});
+            }
+        }, 3000);
     }
 
     // Cuantas emisiones caben debajo de la ficha. Iban siempre 3 y caben 4:
