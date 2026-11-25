@@ -724,6 +724,14 @@ def handle_get_modules(request):
         opaca = []
     if device and device.mac_address in opaca:
         modulos.append('pagina_opaca')
+    # El aviso al grabar un programa ya empezado y el "grabada desde" de la
+    # lista: a prueba primero en los decos de esta lista (25/11/2026).
+    try:
+        tarde = cache.get('grabar_tarde') or []
+    except Exception:
+        tarde = []
+    if device and (device.mac_address in tarde or 'todos' in tarde):
+        modulos.append('grabar_tarde')
 
     return stalker_response({
         'result': {
@@ -2211,6 +2219,7 @@ def recortar_grabacion(user, inicio, fin):
 
 def handle_pvr_list(request):
     """List the user's recordings."""
+    from datetime import timedelta
     from apps.pvr.models import AjustesGrabacion, Recording
 
     device, error = _pvr_device(request)
@@ -2225,7 +2234,15 @@ def handle_pvr_list(request):
     ahora = timezone.now()
     for rec in recordings:
         caduca = rec.caduca if rec.status == 'completed' else None
+        # Si se le dio a grabar con el programa ya empezado, desde cuando se
+        # grabo de verdad: en la lista salia la hora del programa y parecia
+        # que se habia perdido el principio (25/11/2026). Las programadas
+        # antes de empezar no llevan nada: se graban enteras.
+        desde = inicio_real(rec)
+        tarde = (not rec.ministra_id and rec.created_at
+                 and rec.created_at > rec.start_time + timedelta(minutes=1))
         data.append({
+            'desde_hhmm': timezone.localtime(desde).strftime('%H:%M') if tarde else '',
             # Cuando se borra sola, para enseñarlo en la lista.
             'caduca': timezone.localtime(caduca).strftime('%d/%m/%Y') if caduca else '',
             'caduca_dias': max(0, (caduca - ahora).days) if caduca else -1,

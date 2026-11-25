@@ -5703,14 +5703,24 @@
                 return;
             }
         }
+        // Ya empezado: se graba desde ahora, no desde el principio. Se avisa
+        // antes y despues; si tiene archivo, lo de antes esta en Ultimos 7 dias.
+        var empezado = conModulo('grabar_tarde') && p.start_timestamp &&
+                       p.start_timestamp * 1000 < new Date().getTime() - 60000;
+        var conArchivo = false;
+        for (var a = 0; a < allChannels.length; a++)
+            if (String(allChannels[a].id) === String(p.ch_id) && allChannels[a].archive) conArchivo = true;
         if (!confirmado) {
-            preguntar('¿Grabar este programa?', horarioDe(p), 'Grabar', function() { recordProgram(p, true); });
+            preguntar('¿Grabar este programa?', horarioDe(p) +
+                      (empezado ? ' (ya ha empezado: se graba desde ahora)' : ''),
+                      'Grabar', function() { recordProgram(p, true); });
             return;
         }
         api("type=pvr&action=create_task&program_id=" + p.id, function(js) {
             if (js && js.result) {
                 p.rec = 1;
-                toast('Grabacion programada: ' + p.name);
+                if (empezado) toast('Se graba desde ahora' + (conArchivo && haySemana() ? '. Lo de antes, en Ultimos 7 dias' : ''));
+                else toast('Grabacion programada: ' + p.name);
                 marcarGrabando(p);
                 refrescarTrasGrabar();
             } else {
@@ -5892,6 +5902,10 @@
                 h += '<div class="info">' + nombreConEtiquetas(r.name,
                      ' <span class="st ' + esc(r.status) + '">' + esc(statusLabel(r.status)) + '</span>');
                 var detalle = r.ch_name + ' · ' + r.start_time;
+                // Se le dio a grabar con el programa ya empezado: que se vea
+                // desde cuando esta grabado (lo de antes no esta).
+                if (r.desde_hhmm && conModulo('grabar_tarde')) detalle = r.ch_name + ' · ' + r.start_time.substring(0, 10) +
+                                             ' · grabada desde las ' + r.desde_hhmm;
                 if (r.status === 'recording' && r.rec_from) {
                     detalle = r.ch_name + ' · lleva ' + duracionDesde(r.rec_from) +
                               ' · termina a las ' + (r.end_hhmm || '');
