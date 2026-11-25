@@ -2170,13 +2170,13 @@
             if (view !== "list" || isFullscreen) return;
             updatePreviewCap(channels[currentChannel]);
             startPreview();
-        }, decoLento() ? 900 : 300);
+        }, decoLento() ? 1200 : 300);
     }
 
     // Los MAG de procesador lento: el 322 (y el 324), el 254/256 y el 420.
     // Con 400 ms el 322 arrancaba el canal entre pulsacion y pulsacion y se
-    // atascaba, y con 600 tambien ("parece que va lento otra vez"); 900 es lo
-    // que va bien (Sergio, 25/11/2026).
+    // atascaba, y con 600 tambien ("parece que va lento otra vez"); con 900
+    // "va mejor, igual aumentar un poco mas": 1200 (Sergio, 25/11/2026).
     function decoLento() {
         return /MAG(25[46]|32[24]|420)/.test(modeloStb);
     }
