@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Prueba de pintado</title>
+<!--
+  Prueba automatica para el MAG322 (25/11/2026): cuanto le cuesta al navegador
+  del deco mover la marca de una lista, anadiendo una a una las cosas del
+  diseno del portal. La abre el portal en los decos con 'prueba_pintado'
+  (get_modules), manda los resultados al registro ("pintado ...") y vuelve sola
+  al portal. No hace falta tocar nada.
+-->
+<style>
+@font-face { font-family: Poppins; font-weight: 400; src: url(fuentes/poppins-regular.woff) format('woff'); }
+@font-face { font-family: Poppins; font-weight: 500; src: url(fuentes/poppins-medium.woff) format('woff'); }
+@font-face { font-family: Poppins; font-weight: 600; src: url(fuentes/poppins-semibold.woff) format('woff'); }
+html, body { margin: 0; padding: 0; background: #2c3236; color: #fff; font-family: Arial, sans-serif; width: 1280px; height: 720px; overflow: hidden; }
+body.transparente, html.transparente { background: transparent; }
+#estado { position: absolute; right: 40px; top: 30px; font-size: 22px; color: #bff102; }
+.panel { width: 470px; height: 720px; padding: 30px 26px 30px 43px; background: #2c3236; }
+.fijo .panel { position: fixed; top: 0; left: 0; }
+.caja .panel { display: -webkit-box; -webkit-box-orient: vertical; }
+.caja .list { -webkit-box-flex: 1; overflow: hidden; }
+.cabecera { height: 60px; font-size: 26px; }
+.item { padding: 9px 13px 8px; margin: 0; background: #383e42; border-bottom: 2px solid #8a8d8f; height: 56px; }
+.caja .item { display: -webkit-box; -webkit-box-align: center; }
+.item.sel { background: #474e53; border-bottom-color: #bff102; }
+.num { width: 50px; font-size: 25px; color: #b9bec1; display: inline-block; }
+.item.sel .num { color: #bff102; }
+.info { display: inline-block; width: 360px; overflow: hidden; }
+.name { font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.epg { font-size: 14px; color: #98a3a6; white-space: nowrap; overflow: hidden; }
+.bar { height: 3px; background: #555; margin-top: 4px; }
+.bar i { display: block; height: 100%; background: #888; }
+.item.sel .bar i { background: #bff102; }
+.letra, .letra * { font-family: Poppins, Arial, sans-serif; }
+.letra .item.sel .name { font-weight: 600; }
+.efectos .item, .borde .item { border-bottom-color: rgba(217,217,217,.55); }
+.efectos .item, .fundido .item { -webkit-transition: background .12s; transition: background .12s; }
+.efectos .panel, .sombra .panel { box-shadow: 0 18px 60px rgba(0,0,0,.85); }
+.efectos .panel, .esquinas .panel { border-radius: 14px; }
+#rail { display: none; position: fixed; z-index: 35; top: 0; left: 0; bottom: 0; width: 387px; padding-top: 127px;
+        background: -webkit-linear-gradient(left, rgba(13,14,16,.99) 0%, rgba(13,14,16,.97) 76%, rgba(13,14,16,0) 100%); }
+.lateral #rail { display: block; }
+.rail-op { height: 53px; line-height: 53px; padding-left: 45px; font-size: 19px; color: #8f9a9d; }
+.rail-op.sel { color: #fff; }
+.rail-op svg { width: 27px; height: 27px; vertical-align: middle; margin-right: 19px; }
+</style>
+</head>
+<body>
+<div id="estado">Prueba de pintado: no toques nada, vuelve sola</div>
+<div class="panel">
+  <div class="cabecera">QuattreTV</div>
+  <div class="list" id="lista"></div>
+</div>
+<div id="rail"></div>
+<script>
+(function() {
+    // Segunda ronda (?ronda=2): los efectos uno a uno, sobre fijo+caja+letra.
+    var VARIANTES = /ronda=2/.test(location.search) ? [
+        ['base', 'fijo caja letra'],
+        ['borde', 'fijo caja letra borde'],
+        ['fundido', 'fijo caja letra fundido'],
+        ['sombra', 'fijo caja letra sombra'],
+        ['esquinas', 'fijo caja letra esquinas'],
+        ['todos', 'fijo caja letra efectos']
+    ] : [
+        ['simple', ''],
+        ['fijo', 'fijo'],
+        ['caja', 'fijo caja'],
+        ['letra', 'fijo caja letra'],
+        ['efectos', 'fijo caja letra efectos'],
+        ['transparente', 'fijo caja letra efectos transparente'],
+        ['lateral', 'fijo caja letra efectos transparente lateral']
+    ];
+    var PASOS = 12, ESPACIO = 600, TIC = 50;
+    var lista = document.getElementById('lista'), rail = document.getElementById('rail');
+    var nombres = ['La 1', 'La 2', 'Antena 3', 'Cuatro', 'Telecinco', 'La Sexta', 'Clan'];
+    var h = '';
+    for (var i = 0; i < 7; i++) {
+        h += '<div class="item' + (i ? '' : ' sel') + '"><span class="num">' + (i + 1) + '</span><div class="info">' +
+             '<div class="name">' + nombres[i] + '</div><div class="epg">Programa de prueba hasta las 18:00</div>' +
+             '<div class="bar"><i style="width:' + (20 + i * 10) + '%"></i></div></div></div>';
+    }
+    lista.innerHTML = h;
+    var svg = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="7" width="24" height="16" rx="2"/><path d="M11 27h10"/></svg>';
+    var r = '';
+    for (var j = 0; j < 8; j++) r += '<div class="rail-op' + (j ? '' : ' sel') + '">' + svg + 'Opcion ' + (j + 1) + '</div>';
+    rail.innerHTML = r;
+
+    function log(t, cb) {
+        var x = new XMLHttpRequest();
+        x.onreadystatechange = function() { if (x.readyState === 4 && cb) cb(); };
+        x.open('GET', '/stalker_portal/c/index.html?type=stb&action=log&diag=' + encodeURIComponent(t) + '&_t=' + new Date().getTime(), true);
+        x.send();
+    }
+
+    function variante(n) {
+        if (n >= VARIANTES.length) {
+            document.getElementById('estado').innerHTML = 'Hecho, volviendo al portal';
+            log('pintado fin', function() { location.href = '/stalker_portal/c/index.html'; });
+            setTimeout(function() { location.href = '/stalker_portal/c/index.html'; }, 4000);
+            return;
+        }
+        var v = VARIANTES[n];
+        document.body.className = v[1];
+        document.documentElement.className = v[1].indexOf('transparente') >= 0 ? 'transparente' : '';
+        document.getElementById('estado').innerHTML = 'Prueba ' + (n + 1) + '/' + VARIANTES.length + ': ' + v[0];
+        var paso = 0, idx = 0, tarde = 0, peor = 0, antes = 0, desde = 0, tic = null, filas = lista.children, ops = rail.children;
+        var enLateral = v[1].indexOf('lateral') >= 0;
+        // Un segundo para que se asiente (fuentes, primer pintado) antes de medir.
+        setTimeout(function() {
+            antes = desde = new Date().getTime();
+            tic = setInterval(function() {
+                var ahora = new Date().getTime(), r = Math.max(0, ahora - antes - TIC);
+                tarde += r; if (r > peor) peor = r; antes = ahora;
+            }, TIC);
+            var mover = setInterval(function() {
+                var cosas = enLateral ? ops : filas, total = cosas.length;
+                cosas[idx].className = enLateral ? 'rail-op' : 'item';
+                idx = (idx + 1) % total;
+                cosas[idx].className = enLateral ? 'rail-op sel' : 'item sel';
+                if (++paso >= PASOS) {
+                    clearInterval(mover);
+                    setTimeout(function() {
+                        clearInterval(tic);
+                        var ms = new Date().getTime() - desde;
+                        log('pintado ' + v[0] + ' ocupado=' + Math.round(tarde * 100 / ms) + '% por_cambio=' +
+                            Math.round(tarde / PASOS) + 'ms peor=' + peor + 'ms', function() { variante(n + 1); });
+                    }, ESPACIO);
+                }
+            }, ESPACIO);
+        }, 1500);
+    }
+    log('pintado empieza ' + location.search + ' ' + window.innerWidth + 'x' + window.innerHeight, function() { variante(0); });
+})();
+</script>
+</body>
+</html>

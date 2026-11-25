@@ -3175,10 +3175,11 @@
             // vez cada media hora como mucho, y vuelve sola al portal.
             if (conModulo('prueba_pintado')) {
                 var hecha = 0;
-                try { hecha = parseInt(localStorage.getItem('quattrePruebaPintado2') || '0', 10); } catch (err) {}
+                // (Nombre nuevo para cada ronda: el deco guarda los estaticos una semana.)
+                try { hecha = parseInt(localStorage.getItem('quattrePruebaPintado3') || '0', 10); } catch (err) {}
                 if (new Date().getTime() - hecha > 1800000) {
-                    try { localStorage.setItem('quattrePruebaPintado2', String(new Date().getTime())); } catch (err) {}
-                    setTimeout(function() { location.href = '{% static "stb/prueba_pintado.html" %}?ronda=2'; }, 3000);
+                    try { localStorage.setItem('quattrePruebaPintado3', String(new Date().getTime())); } catch (err) {}
+                    setTimeout(function() { location.href = '{% static "stb/prueba_pintado2.html" %}?ronda=2'; }, 3000);
                 }
             }
             if (conModulo('tarjetas_transform')) document.body.className += ' tarjetas-transform';
