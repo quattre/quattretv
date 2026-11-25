@@ -3774,9 +3774,26 @@
         pintarRail();
     }
 
+    // Como la lista de canales (lista_rapida): solo se mueve la marca, sin
+    // volver a construir la barra entera en cada pulsacion.
+    function moverRail(paso) {
+        rail.idx += paso;
+        var caja = document.getElementById("rail");
+        var ops = caja ? caja.querySelectorAll('.rail-op') : [];
+        if (!conModulo('lista_rapida') || !caja || caja.style.display !== "block" || ops.length !== MENU.length) {
+            pintarRail();
+            return;
+        }
+        for (var i = 0; i < ops.length; i++) {
+            var cls = ops[i].className.replace(/(^|\s)sel(?=\s|$)/g, '');
+            if (i === rail.idx) cls += ' sel';
+            if (ops[i].className !== cls) ops[i].className = cls;
+        }
+    }
+
     function teclaRail(k) {
-        if (k === 38 && rail.idx > 0) { rail.idx--; pintarRail(); }
-        else if (k === 40 && rail.idx < MENU.length - 1) { rail.idx++; pintarRail(); }
+        if (k === 38 && rail.idx > 0) moverRail(-1);
+        else if (k === 40 && rail.idx < MENU.length - 1) moverRail(1);
         else if (k === 13) elegirRail();
         else if (k === 39 || k === 8 || k === 27 || k === TECLA_ATRAS) cerrarRail();
     }
