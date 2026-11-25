@@ -1872,6 +1872,7 @@
         prefijoStb = '';
         if (ch.id && /MAG(420|322)/.test(modeloStb) && !/^\w+ /.test(ch.cmd))
             prefijoStb = PREFIJOS_PRUEBA[vueltaPrefijo++ % PREFIJOS_PRUEBA.length];
+        cuentaCarga.canales++;
         var antesPlay = new Date().getTime();
         try { if (intento) stbAPI.Stop(); stbAPI.Play(prefijoStb + ch.cmd); } catch(err) {}
         // Cuanto se queda parado el navegador en la propia orden (medir_carga).
@@ -2097,7 +2098,7 @@
     // (get_modules): un reloj de 100 ms mira cuanto llega tarde. Cada 10 s, al
     // registro: % del tiempo ocupado, el peor bloqueo, la pantalla y si hay
     // video. Para saber que hace ir lento al MAG322 (25/11/2026).
-    var midiendoCarga = false;
+    var midiendoCarga = false, cuentaCarga = {teclas: 0, canales: 0};
     function medirCarga() {
         if (midiendoCarga) return;
         midiendoCarga = true;
@@ -2106,15 +2107,16 @@
             var ahora = new Date().getTime(), r = Math.max(0, ahora - antes - PASO);
             tarde += r;
             if (r > peor) peor = r;
-            vistas[view + (playingChannelIdx !== -1 || diferido ? '+video' : '')] = 1;
+            vistas[view + (rail.abierto ? '+menu' : '') + (playingChannelIdx !== -1 || diferido ? '+video' : '')] = 1;
             antes = ahora;
             if (ahora - desde >= 10000) {
                 var lista = [];
                 for (var v in vistas) lista.push(v);
                 api('type=stb&action=log&diag=' + encodeURIComponent('carga ocupado=' +
                     Math.round(tarde * 100 / (ahora - desde)) + '% peor=' + peor + 'ms en=' + lista.join(',') +
+                    ' teclas=' + cuentaCarga.teclas + ' canales=' + cuentaCarga.canales +
                     ' [' + (prefijoStb || 'nada').trim() + ']'), function() {});
-                desde = ahora; tarde = 0; peor = 0; vistas = {};
+                desde = ahora; tarde = 0; peor = 0; vistas = {}; cuentaCarga = {teclas: 0, canales: 0};
             }
             setTimeout(tic, PASO);
         };
@@ -6663,6 +6665,7 @@
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
         var k = normalizarTecla(e.keyCode);
         horaTecla = new Date().getTime();
+        cuentaCarga.teclas++;
         // Parar (Alt+S en los MAG, 413 en LG y Samsung): sale de lo que se
         // esta viendo, como Atras. En los MAG es la misma tecla que la S, y la
         // S abria las grabaciones: parar una peli del videoclub te llevaba alli.
