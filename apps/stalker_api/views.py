@@ -706,6 +706,12 @@ def handle_get_modules(request):
         ffrt = []
     if device and device.mac_address in ffrt:
         modulos.append('probar_ffrt')
+    try:
+        previa3 = cache.get('previa_3s') or []
+    except Exception:
+        previa3 = []
+    if device and device.mac_address in previa3:
+        modulos.append('previa_3s')
 
     return stalker_response({
         'result': {
