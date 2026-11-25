@@ -2094,8 +2094,8 @@
     // el canal: en el MAG322 el navegador se quedaba 1-6 s pintando y las
     // pulsaciones se amontonaban (medido el 25/11/2026). Con 'lista_rapida'
     // (get_modules), si la fila nueva ya esta en pantalla solo se mueve la
-    // marca; lo demas (texto, imagen, canal) cuando se deja de pulsar. Con
-    // 400 ms arrancaba el canal entre pulsacion y pulsacion y volvia a atascarse.
+    // marca; lo demas (texto, imagen, canal) cuando se deja de pulsar (ver
+    // decoLento para la espera).
     function moverCanalLista(paso) {
         var t0 = new Date().getTime();
         var antes = currentChannel;
@@ -2115,7 +2115,9 @@
         // Con el video sonando detras el 322 pinta la lista mucho mas despacio
         // (sin video, 0,2 s por pulsacion y sin amontonarse; 25/11/2026): se
         // para al empezar a moverse y arranca el elegido al dejar de pulsar.
-        if (playingChannelIdx !== -1 && !diferido) pararVideo();
+        // Solo en los lentos: los MAG520/524/540 pintan bien con video y ahi la
+        // vista previa sigue al cursor como siempre.
+        if (decoLento() && playingChannelIdx !== -1 && !diferido) pararVideo();
         restoTrasMover();
         if (pintarPendiente) return;
         pintarPendiente = true;
@@ -2168,7 +2170,14 @@
             if (view !== "list" || isFullscreen) return;
             updatePreviewCap(channels[currentChannel]);
             startPreview();
-        }, 900);
+        }, decoLento() ? 600 : 300);
+    }
+
+    // Los MAG de procesador lento: el 322 (y el 324), el 254/256 y el 420.
+    // Con 400 ms el 322 arrancaba el canal entre pulsacion y pulsacion y se
+    // atascaba; 900 iba bien pero se hacia larga (Sergio, 25/11/2026).
+    function decoLento() {
+        return /MAG(25[46]|32[24]|420)/.test(modeloStb);
     }
 
     function iniciales(nombre) {
