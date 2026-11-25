@@ -762,6 +762,12 @@ def handle_get_modules(request):
         boton = []
     if device and (device.mac_address in boton or 'todos' in boton):
         modulos.append('boton_videoclub')
+    try:
+        ppint = cache.get('prueba_pintado') or []
+    except Exception:
+        ppint = []
+    if device and device.mac_address in ppint:
+        modulos.append('prueba_pintado')
 
     return stalker_response({
         'result': {

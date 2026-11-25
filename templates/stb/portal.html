@@ -3171,6 +3171,16 @@
             // (El fundido de las filas se quito a prueba con lista_rapida y no
             // se notaba: vuelve, para que se vea igual en todos, 25/11/2026.)
             if (conModulo('medir_carga')) medirCarga();
+            // Prueba automatica de pintado (static/stb/prueba_pintado.html): una
+            // vez cada media hora como mucho, y vuelve sola al portal.
+            if (conModulo('prueba_pintado')) {
+                var hecha = 0;
+                try { hecha = parseInt(localStorage.getItem('quattrePruebaPintado') || '0', 10); } catch (err) {}
+                if (new Date().getTime() - hecha > 1800000) {
+                    try { localStorage.setItem('quattrePruebaPintado', String(new Date().getTime())); } catch (err) {}
+                    setTimeout(function() { location.href = '{% static "stb/prueba_pintado.html" %}'; }, 3000);
+                }
+            }
             if (conModulo('tarjetas_transform')) document.body.className += ' tarjetas-transform';
             // A prueba en un deco: sin efectos ni letra web, por si es el pintado.
             if (conModulo('modo_ligero') && !/(^|\s)deco-ligero(\s|$)/.test(document.body.className))
