@@ -669,6 +669,14 @@ def handle_get_modules(request):
         medir = []
     if device and (device.mac_address in medir or device.model in medir):
         modulos.append('medir_lista')
+    # La lista de canales que solo mueve la marca al pulsar (lo demas al
+    # dejar de pulsar): a prueba en los decos de esta lista.
+    try:
+        rapida = cache.get('lista_rapida') or []
+    except Exception:
+        rapida = []
+    if device and (device.mac_address in rapida or device.model in rapida):
+        modulos.append('lista_rapida')
 
     return stalker_response({
         'result': {

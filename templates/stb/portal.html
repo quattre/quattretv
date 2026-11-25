@@ -2081,6 +2081,56 @@
         }, 0);
     }
 
+    function conModulo(nombre) {
+        for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === nombre) return true;
+        return false;
+    }
+
+    // Arriba y abajo en la lista de canales. Antes cada pulsacion volvia a
+    // construir el panel entero, el texto de debajo de la imagen y arrancaba
+    // el canal: en el MAG322 el navegador se quedaba 1-6 s pintando y las
+    // pulsaciones se amontonaban (medido el 25/11/2026). Con 'lista_rapida'
+    // (get_modules), si la fila nueva ya esta en pantalla solo se mueve la
+    // marca; lo demas (texto, imagen, canal) cuando se deja de pulsar.
+    function moverCanalLista(paso) {
+        var t0 = new Date().getTime();
+        var antes = currentChannel;
+        currentChannel += paso;
+        var rapido = conModulo('lista_rapida') && moverMarca(antes, currentChannel);
+        if (!rapido) showChannels();
+        var t1 = new Date().getTime();
+        if (rapido) restoTrasMover();
+        else previewAlMover();
+        medirLista(t0, t1);
+    }
+
+    function moverMarca(antes, ahora) {
+        if (view !== "list" || focoSemana || isFullscreen) return false;
+        var caja = document.querySelector("#content .list");
+        var v = ventanas["canales"];
+        if (!caja || !v || v.total !== channels.length || !caja.firstChild) return false;
+        var visible = filasDe("canales", 11);
+        if (ahora < v.start || ahora > v.start + visible - 1) return false;
+        if (caja.firstChild.getAttribute('data-i') !== String(v.start)) return false;
+        var a = caja.querySelector('[data-i="' + antes + '"]');
+        var b = caja.querySelector('[data-i="' + ahora + '"]');
+        if (!a || !b) return false;
+        a.className = 'item';
+        b.className = 'item sel';
+        return true;
+    }
+
+    var relojResto = null;
+    function restoTrasMover() {
+        clearTimeout(relojResto);
+        relojResto = setTimeout(function() {
+            relojResto = null;
+            if (view !== "list" || isFullscreen) return;
+            updatePreviewCap(channels[currentChannel]);
+            startPreview();
+        }, 400);
+    }
+
     function iniciales(nombre) {
         var limpio = (nombre || '').replace(/[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ ]/g, '').trim();
         var partes = limpio.split(/\s+/);
@@ -6705,19 +6755,9 @@
                 focoSemana = true;
                 showChannels();
             } else if (k === 38 && currentChannel > 0) {
-                var t0 = new Date().getTime();
-                currentChannel--;
-                showChannels();
-                var t1 = new Date().getTime();
-                previewAlMover();
-                medirLista(t0, t1);
+                moverCanalLista(-1);
             } else if (k === 40 && currentChannel < channels.length - 1) {
-                var t0 = new Date().getTime();
-                currentChannel++;
-                showChannels();
-                var t1 = new Date().getTime();
-                previewAlMover();
-                medirLista(t0, t1);
+                moverCanalLista(1);
             } else if (k === 13 && channels.length > 0) {
                 goFullscreen();
             } else if (k === 39 && channels.length > 0) {
