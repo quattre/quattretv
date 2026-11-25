@@ -774,6 +774,12 @@ def handle_get_modules(request):
         autop = []
     if device and device.mac_address in autop:
         modulos.append('auto_prueba')
+    try:
+        rfirma = cache.get('rail_firma') or []
+    except Exception:
+        rfirma = []
+    if device and (device.mac_address in rfirma or device.model in rfirma or 'todos' in rfirma):
+        modulos.append('rail_firma')
 
     return stalker_response({
         'result': {

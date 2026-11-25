@@ -3259,6 +3259,7 @@
             if (conModulo('lista_lisa') && !/(^|\s)fondo-liso(\s|$)/.test(document.body.className))
                 document.body.className += ' fondo-liso';
             MENU = [];
+            railPintado = '';      // la barra se vuelve a pintar con el menu nuevo
             for (var i = 0; i < MENU_COMPLETO.length; i++) {
                 var op = MENU_COMPLETO[i];
                 for (var j = 0; j < MODULOS.length; j++) {
@@ -3910,17 +3911,32 @@
         r.innerHTML = t;
     }
 
+    // Lo que pinta la barra; si no ha cambiado, no se vuelve a pintar.
+    var railPintado = '';
+    function firmaRail() {
+        return [usarRail(), isFullscreen, view === "pin", seccionActual(), rail.abierto, rail.idx,
+                MENU.length, haySemana()].join('|');
+    }
+
     function pintarRail() {
         pintarReloj();
         var caja = document.getElementById("rail");
         if (!caja) return;
+        // Se llama despues de cada tecla (document.onkeydown) y la rehacia
+        // entera, con sus iconos, aunque no hubiera cambiado nada; y volvia a
+        // escribir la clase del body, que obliga a recalcular toda la pagina.
+        // En el MAG322 era la mitad de lo que tardaba cada pulsacion
+        // (25/11/2026). Con 'rail_firma' (get_modules) solo si cambia algo.
+        var firma = conModulo('rail_firma') ? firmaRail() : '';
+        if (firma && firma === railPintado) return;
+        railPintado = firma;
         var cuerpo = document.body.className.replace(/\s*con-rail/g, '');
         if (!usarRail() || isFullscreen || view === "pin") {
             caja.style.display = "none";
-            document.body.className = cuerpo;
+            if (document.body.className !== cuerpo) document.body.className = cuerpo;
             return;
         }
-        document.body.className = cuerpo + ' con-rail';
+        if (document.body.className !== cuerpo + ' con-rail') document.body.className = cuerpo + ' con-rail';
         var actual = seccionActual(), h = '';
         for (var i = 0; i < MENU.length; i++) {
             var op = MENU[i];
@@ -3968,6 +3984,7 @@
             if (i === rail.idx) cls += ' sel';
             if (ops[i].className !== cls) ops[i].className = cls;
         }
+        if (conModulo('rail_firma')) railPintado = firmaRail();
     }
 
     function teclaRail(k) {
