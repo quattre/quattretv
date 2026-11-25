@@ -7062,7 +7062,15 @@
                     // En el 322 arrancar el canal congela el deco 2-3 s y la
                     // barra salia tarde y la siguiente pulsacion esperaba
                     // (25/11/2026): primero la barra, y el canal al parar.
+                    var tOsd = new Date().getTime();
                     mostrarOsd(ch);
+                    if (conModulo('medir_carga')) {
+                        var enOsd = new Date().getTime() - tOsd;
+                        setTimeout(function() {
+                            api('type=stb&action=log&diag=' + encodeURIComponent('carga osd ' + enOsd + 'ms pintada ' +
+                                (new Date().getTime() - tOsd) + 'ms'), function() {});
+                        }, 0);
+                    }
                     clearTimeout(relojZapping);
                     var destino = currentChannel;
                     relojZapping = setTimeout(function() {
