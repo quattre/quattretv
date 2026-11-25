@@ -750,6 +750,12 @@ def handle_get_modules(request):
         ttr = []
     if device and (device.mac_address in ttr or device.model in ttr):
         modulos.append('tarjetas_transform')
+    try:
+        timg = cache.get('tarjetas_img') or []
+    except Exception:
+        timg = []
+    if device and (device.mac_address in timg or device.model in timg):
+        modulos.append('tarjetas_img')
 
     return stalker_response({
         'result': {
