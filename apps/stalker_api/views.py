@@ -662,6 +662,13 @@ def handle_get_modules(request):
         lentos = []
     if device and (device.mac_address in lentos or device.model in lentos):
         modulos.append('previa_espera')
+    # Medir cuanto tarda la lista en moverse (al registro), en los de esta lista.
+    try:
+        medir = cache.get('medir_lista') or []
+    except Exception:
+        medir = []
+    if device and (device.mac_address in medir or device.model in medir):
+        modulos.append('medir_lista')
 
     return stalker_response({
         'result': {

@@ -2061,6 +2061,26 @@
         }, espera);
     }
 
+    // Cuanto tarda la lista en moverse una fila, solo en los decos marcados con
+    // 'medir_lista' (get_modules): pintar la lista (showChannels) y lo que
+    // tarda el navegador en quedar libre otra vez (pintado y lo que venga
+    // detras, como arrancar el canal). Cada 15 pulsaciones, al registro.
+    var medidasLista = [];
+    function medirLista(t0) {
+        var hay = false;
+        for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === 'medir_lista') hay = true;
+        if (!hay) return;
+        var pinta = new Date().getTime() - t0;
+        setTimeout(function() {
+            medidasLista.push(pinta + '/' + (new Date().getTime() - t0));
+            if (medidasLista.length >= 15) {
+                api('type=stb&action=log&diag=' + encodeURIComponent('lista mover pinta/libre ms ' +
+                    medidasLista.join(' ')), function() {});
+                medidasLista = [];
+            }
+        }, 0);
+    }
+
     function iniciales(nombre) {
         var limpio = (nombre || '').replace(/[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ ]/g, '').trim();
         var partes = limpio.split(/\s+/);
@@ -6685,12 +6705,16 @@
                 focoSemana = true;
                 showChannels();
             } else if (k === 38 && currentChannel > 0) {
+                var t0 = new Date().getTime();
                 currentChannel--;
                 showChannels();
+                medirLista(t0);
                 previewAlMover();
             } else if (k === 40 && currentChannel < channels.length - 1) {
+                var t0 = new Date().getTime();
                 currentChannel++;
                 showChannels();
+                medirLista(t0);
                 previewAlMover();
             } else if (k === 13 && channels.length > 0) {
                 goFullscreen();
