@@ -7105,7 +7105,10 @@
                         if (!isFullscreen || currentChannel !== destino) return;
                         playChannel(channels[destino]);
                         playingChannelIdx = destino;
-                        if (conModulo('osd_mini')) { ocultarOsdMini(); mostrarOsd(channels[destino]); }
+                        // La barra entera no: esconderla en el siguiente cambio
+                        // costaba lo mismo que pintarla (1,5-2 s en el 322). Se
+                        // queda el recuadro; la barra, con ▶ como siempre.
+                        if (conModulo('osd_mini')) mostrarOsdMini(channels[destino]);
                     }, 1200);   // la barra tarda 0,5 s en pintarse en el 322: con 600 llegaban a la vez
                 } else {
                     playChannel(ch);
