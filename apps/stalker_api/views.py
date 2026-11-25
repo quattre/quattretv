@@ -792,6 +792,12 @@ def handle_get_modules(request):
         srap = []
     if device and (device.mac_address in srap or device.model in srap or 'todos' in srap):
         modulos.append('semana_rapida')
+    try:
+        slig = cache.get('semana_ligera') or []
+    except Exception:
+        slig = []
+    if device and device.mac_address in slig:
+        modulos.append('semana_ligera')
 
     return stalker_response({
         'result': {
