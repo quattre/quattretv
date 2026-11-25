@@ -828,6 +828,12 @@ def handle_get_modules(request):
         osdl = []
     if device and (device.mac_address in osdl or 'todos' in osdl):
         modulos.append('osd_ligera')
+    try:
+        omini = cache.get('osd_mini') or []
+    except Exception:
+        omini = []
+    if device and (device.mac_address in omini or 'todos' in omini):
+        modulos.append('osd_mini')
 
     return stalker_response({
         'result': {
