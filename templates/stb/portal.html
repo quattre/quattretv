@@ -2146,12 +2146,18 @@
             else { caja.removeChild(caja.lastChild); caja.insertBefore(nueva, caja.firstChild); v.start--; }
         }
         if (ahora < v.start || ahora > v.start + visible - 1) return false;
-        var a = caja.querySelector('.item.sel');
-        var b = caja.querySelector('[data-i="' + ahora + '"]');
-        if (!b) return false;
-        if (a && a !== b) a.className = 'item';
-        b.className = 'item sel';
-        return true;
+        // Todas las filas, no solo la que estaba marcada: al correr hacia
+        // arriba la fila nueva entra ya marcada por delante de la anterior, y
+        // quitando solo la primera que se encontraba se quedaban dos o mas
+        // marcadas a la vez.
+        var hay = false, filas = caja.children;
+        for (var i = 0; i < filas.length; i++) {
+            var es = filas[i].getAttribute('data-i') === String(ahora);
+            var cls = es ? 'item sel' : 'item';
+            if (filas[i].className !== cls) filas[i].className = cls;
+            if (es) hay = true;
+        }
+        return hay;
     }
 
     var relojResto = null;
