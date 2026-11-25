@@ -3742,6 +3742,14 @@
     // tiendas siguen con su menu hasta que pasen la revision.
     var rail = {abierto: false, idx: 0};
 
+    // El boton amarillo "Videoclub 7 dias" arriba de la lista. Con la barra
+    // lateral se quito (ya esta en el menu), pero mucha gente no lo
+    // encuentra ahi: con 'boton_videoclub' (get_modules) vuelve tambien con la
+    // barra (Sergio, 25/11/2026).
+    function botonSemana() {
+        return haySemana() && (!usarRail() || conModulo('boton_videoclub'));
+    }
+
     function usarRail() {
         for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === 'lateral') return true;
         return false;
@@ -5193,7 +5201,7 @@
         else if (genreFilter) etiqueta = generoActual() + ': ' + channels.length;
         // El acceso directo al videoclub va arriba, siempre a la vista. Al pie
         // de la ayuda no cabia y quedaba fuera del panel.
-        if (haySemana() && !usarRail()) h += '<div class="boton-semana' + (focoSemana ? ' sel' : '') +
+        if (botonSemana()) h += '<div class="boton-semana' + (focoSemana ? ' sel' : '') +
                               '" data-tecla="405"><i></i>Videoclub 7 dias</div>';
         // Cuantos canales, solo con un filtro puesto: es cuando importa saberlo.
         if (favOnly || genreFilter || soloRadio) h += '<div class="counter">' + esc(etiqueta) + '</div>';
@@ -6992,7 +7000,7 @@
             else if (k === 37) openMenu();
             else showChannels();
         } else {
-            if (k === 38 && currentChannel === 0 && haySemana() && !usarRail()) {
+            if (k === 38 && currentChannel === 0 && botonSemana()) {
                 focoSemana = true;
                 showChannels();
             } else if (k === 38 && currentChannel > 0) {

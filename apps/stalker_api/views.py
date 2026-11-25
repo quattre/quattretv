@@ -756,6 +756,12 @@ def handle_get_modules(request):
         timg = []
     if device and (device.mac_address in timg or device.model in timg):
         modulos.append('tarjetas_img')
+    try:
+        boton = cache.get('boton_videoclub') or []
+    except Exception:
+        boton = []
+    if device and (device.mac_address in boton or 'todos' in boton):
+        modulos.append('boton_videoclub')
 
     return stalker_response({
         'result': {
