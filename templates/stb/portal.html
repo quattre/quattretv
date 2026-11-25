@@ -2112,6 +2112,10 @@
         // ya habias soltado (el 322 pinta unas 10 por segundo). Ahora cada
         // una solo cuenta; se pinta una vez, cuando la cola se ha vaciado, y
         // directamente en la fila final.
+        // Con el video sonando detras el 322 pinta la lista mucho mas despacio
+        // (sin video, 0,2 s por pulsacion y sin amontonarse; 25/11/2026): se
+        // para al empezar a moverse y arranca el elegido al dejar de pulsar.
+        if (playingChannelIdx !== -1 && !diferido) pararVideo();
         restoTrasMover();
         if (pintarPendiente) return;
         pintarPendiente = true;
