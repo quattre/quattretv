@@ -3712,7 +3712,13 @@
     }
     var ahoraPedido = new Date().getTime(), ahoraEspera = Math.floor(Math.random() * 20);
 
+    // Cuando se pulso la ultima tecla. Refrescar la programacion de la lista
+    // (31 KB que leer y la lista entera que repintar) bloquea el MAG322 unos
+    // 0,7 s, y pasa casi cada minuto: si pillaba moviendose por la lista, se
+    // atascaba. Con lista_rapida espera a que lleve 4 s sin tocar nada.
+    var horaTecla = 0;
     function quizaRefrescarAhora() {
+        if (conModulo('lista_rapida') && new Date().getTime() - horaTecla < 4000) return;
         var t = Math.floor(new Date().getTime() / 1000), proximo = Infinity;
         for (var i = 0; i < allChannels.length; i++) {
             var fin = allChannels[i].epg_end_ts;
@@ -6599,6 +6605,7 @@
         if (quizaDiagnostico(normalizarTecla(e.keyCode))) return false;
         if (document.getElementById('diag').style.display === 'block') pintarDiagnostico();
         var k = normalizarTecla(e.keyCode);
+        horaTecla = new Date().getTime();
         // Parar (Alt+S en los MAG, 413 en LG y Samsung): sale de lo que se
         // esta viendo, como Atras. En los MAG es la misma tecla que la S, y la
         // S abria las grabaciones: parar una peli del videoclub te llevaba alli.
