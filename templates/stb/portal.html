@@ -3176,6 +3176,11 @@
             // A prueba en un deco: sin efectos ni letra web, por si es el pintado.
             if (conModulo('modo_ligero') && !/(^|\s)deco-ligero(\s|$)/.test(document.body.className))
                 document.body.className += ' deco-ligero';
+            // A prueba: la pagina opaca (sin transparencia sobre el video).
+            if (conModulo('pagina_opaca')) {
+                document.documentElement.style.background = '#000';
+                document.body.className += ' pagina-opaca';
+            }
             // A prueba en un deco: los otros reproductores del MAG (25/11/2026;
             // '', 'ffmpeg ' y 'auto ' ya se vieron iguales en el 322).
             if (conModulo('probar_ffrt')) PREFIJOS_PRUEBA = ['', 'ffrt ', 'ffrt2 ', 'ffrt3 '];
@@ -7331,6 +7336,7 @@
             font-family: Arial, Helvetica, sans-serif !important;
         }
         .deco-ligero .panel { background-image: none !important; }
+        html .pagina-opaca, .pagina-opaca { background: #000 !important; }
         /* El menu lateral: fondo liso (no el degradado transparente encima de
            todo) y sin los iconos en SVG, que el navegador del MAG pinta despacio. */
         .deco-ligero #rail { background: #0d0e10 !important; }

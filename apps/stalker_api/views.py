@@ -718,6 +718,12 @@ def handle_get_modules(request):
         ligero = []
     if device and device.mac_address in ligero:
         modulos.append('modo_ligero')
+    try:
+        opaca = cache.get('pagina_opaca') or []
+    except Exception:
+        opaca = []
+    if device and device.mac_address in opaca:
+        modulos.append('pagina_opaca')
 
     return stalker_response({
         'result': {
