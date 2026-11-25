@@ -2218,7 +2218,9 @@
         // para al empezar a moverse y arranca el elegido al dejar de pulsar.
         // Solo en los lentos: los MAG520/524/540 pintan bien con video y ahi la
         // vista previa sigue al cursor como siempre.
-        if (decoLento() && playingChannelIdx !== -1 && !diferido) pararVideo();
+        // Con 'sin_parar' (get_modules) no se para: parar el video tambien
+        // congela el 322 1,5-3 s, igual que arrancarlo (25/11/2026).
+        if (decoLento() && !conModulo('sin_parar') && playingChannelIdx !== -1 && !diferido) pararVideo();
         restoTrasMover();
         if (pintarPendiente) return;
         pintarPendiente = true;

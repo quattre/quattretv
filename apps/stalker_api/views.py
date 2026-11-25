@@ -798,6 +798,12 @@ def handle_get_modules(request):
         slig = []
     if device and device.mac_address in slig:
         modulos.append('semana_ligera')
+    try:
+        sparar = cache.get('sin_parar') or []
+    except Exception:
+        sparar = []
+    if device and (device.mac_address in sparar or 'todos' in sparar):
+        modulos.append('sin_parar')
 
     return stalker_response({
         'result': {
