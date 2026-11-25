@@ -4619,7 +4619,10 @@
     function moverEnFila() {
         if (!conModulo('semana_rapida')) { renderSemana(); return; }
         clearTimeout(relojSemana);
-        relojSemana = setTimeout(function() { relojSemana = null; if (view === "semana") renderSemana(); }, 500);
+        relojSemana = setTimeout(function() {
+            relojSemana = null;
+            if (view === "semana" && !actualizarFichaSemana()) renderSemana();
+        }, 500);
         if (semanaPendiente) return;
         semanaPendiente = true;
         setTimeout(function() {
@@ -4628,14 +4631,52 @@
             var f = semana.filas[semana.fila];
             if (!caja || !f || semana.ficha || semana.episodios) { renderSemana(); return; }
             var col = semana.cols[semana.fila], items = f.items;
-            var desde = Math.max(0, Math.min(col - 1, items.length - SEMANA_VISIBLES)), h = '';
-            for (var c = desde; c < Math.min(items.length, desde + SEMANA_VISIBLES); c++)
-                h += tarjetaSemana(items[c], c === col, f.id);
-            caja.innerHTML = h;
+            var desde = Math.max(0, Math.min(col - 1, items.length - SEMANA_VISIBLES));
+            var hasta = Math.min(items.length, desde + SEMANA_VISIBLES), tarjetas = caja.children;
+            var antes = parseInt(caja.getAttribute('data-desde') || '-1', 10);
+            var tmp = document.createElement('div');
+            if (antes === desde && tarjetas.length === hasta - desde) {
+                // La misma ventana: solo cambia cual va marcada.
+            } else if (antes === desde - 1 && tarjetas.length === SEMANA_VISIBLES && hasta - desde === SEMANA_VISIBLES) {
+                // Una a la derecha: fuera la primera, la nueva al final.
+                tmp.innerHTML = tarjetaSemana(items[hasta - 1], false, f.id);
+                caja.removeChild(tarjetas[0]);
+                caja.appendChild(tmp.firstChild);
+            } else if (antes === desde + 1 && tarjetas.length === SEMANA_VISIBLES && hasta - desde === SEMANA_VISIBLES) {
+                // Una a la izquierda: fuera la ultima, la nueva delante.
+                tmp.innerHTML = tarjetaSemana(items[desde], false, f.id);
+                caja.removeChild(tarjetas[tarjetas.length - 1]);
+                caja.insertBefore(tmp.firstChild, tarjetas[0]);
+            } else {
+                var h = '';
+                for (var c = desde; c < hasta; c++) h += tarjetaSemana(items[c], false, f.id);
+                caja.innerHTML = h;
+            }
+            caja.setAttribute('data-desde', String(desde));
+            for (var t = 0; t < tarjetas.length; t++) {
+                var cls = tarjetas[t].className.replace(/(^|\s)sel(?=\s|$)/g, '');
+                if (desde + t === col) cls += ' sel';
+                if (tarjetas[t].className !== cls) tarjetas[t].className = cls;
+            }
             var cuenta = document.querySelector('#semana .sem-fila.activa .sem-nombre span');
             if (cuenta) cuenta.innerHTML = (col + 1) + ' / ' + (f.total || items.length);
             for (var pi = col; pi < Math.min(items.length, col + SEMANA_VISIBLES + 4); pi++) precargar(items[pi].img);
         }, 0);
+    }
+
+    // Al dejar de pulsar en una fila: la ficha de arriba y el fondo, sin
+    // rehacer las filas (que ya estan bien). false si no se puede.
+    function actualizarFichaSemana() {
+        var it = itemSemana(), hero = document.querySelector('#semana .sem-hero');
+        if (!it || !hero || semana.ficha || semana.episodios) return false;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = heroSemana(it);
+        if (!tmp.firstChild) return false;
+        hero.parentNode.replaceChild(tmp.firstChild, hero);
+        var fondo = document.querySelector('#semana .sem-fondo');
+        if (fondo && it.img && !/['"()\\\s]/.test(it.img)) fondo.style.backgroundImage = 'url(' + it.img + ')';
+        if (it.grupo && !SEMANA_POR_FECHA[it.grupo]) adelantarReparto([it.grupo], it.titulo, it.anio);
+        return true;
     }
 
     function pantallaBuscar() {
