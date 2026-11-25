@@ -2241,7 +2241,7 @@
             if (view !== "list" || isFullscreen) return;
             updatePreviewCap(channels[currentChannel]);
             startPreview();
-        }, decoLento() ? 1500 : 300);
+        }, decoLento() ? 3000 : 300);
     }
 
     // Los MAG de procesador lento: el 322 (y el 324), el 254/256 y el 420.
@@ -2250,7 +2250,9 @@
     // "va mejor", con 1200 estable, y se probo 900 otra vez: "ahora le cuesta".
     // Medido: cada canal que arranca deja el 322 congelado 2-3,5 s (es su
     // reproductor), asi que conviene arrancar los menos posibles mientras se
-    // mira la lista: 1500 (25/11/2026).
+    // mira la lista: 1500. Sergio: "el problema es moverse por los menus, no
+    // que tarde en cargar un canal" -> 3000, que solo arranque si te quedas
+    // mirando ese canal (25/11/2026).
     function decoLento() {
         return /MAG(25[46]|32[24]|420)/.test(modeloStb);
     }
