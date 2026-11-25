@@ -694,6 +694,12 @@ def handle_get_modules(request):
         sin_previa = []
     if device and device.mac_address in sin_previa:
         modulos.append('sin_preview')
+    try:
+        carga = cache.get('medir_carga') or []
+    except Exception:
+        carga = []
+    if device and device.mac_address in carga:
+        modulos.append('medir_carga')
 
     return stalker_response({
         'result': {

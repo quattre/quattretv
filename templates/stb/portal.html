@@ -2084,6 +2084,33 @@
         }, 0);
     }
 
+    // Lo ocupado que esta el navegador, solo en los decos con 'medir_carga'
+    // (get_modules): un reloj de 100 ms mira cuanto llega tarde. Cada 10 s, al
+    // registro: % del tiempo ocupado, el peor bloqueo, la pantalla y si hay
+    // video. Para saber que hace ir lento al MAG322 (25/11/2026).
+    var midiendoCarga = false;
+    function medirCarga() {
+        if (midiendoCarga) return;
+        midiendoCarga = true;
+        var PASO = 100, antes = new Date().getTime(), desde = antes, tarde = 0, peor = 0, vistas = {};
+        var tic = function() {
+            var ahora = new Date().getTime(), r = Math.max(0, ahora - antes - PASO);
+            tarde += r;
+            if (r > peor) peor = r;
+            vistas[view + (playingChannelIdx !== -1 || diferido ? '+video' : '')] = 1;
+            antes = ahora;
+            if (ahora - desde >= 10000) {
+                var lista = [];
+                for (var v in vistas) lista.push(v);
+                api('type=stb&action=log&diag=' + encodeURIComponent('carga ocupado=' +
+                    Math.round(tarde * 100 / (ahora - desde)) + '% peor=' + peor + 'ms en=' + lista.join(',')), function() {});
+                desde = ahora; tarde = 0; peor = 0; vistas = {};
+            }
+            setTimeout(tic, PASO);
+        };
+        setTimeout(tic, PASO);
+    }
+
     function conModulo(nombre) {
         for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === nombre) return true;
         return false;
@@ -3092,6 +3119,7 @@
             // en un deco lento es trabajo de mas en cada pulsacion.
             if (conModulo('lista_rapida') && !/(^|\s)sin-anim(\s|$)/.test(document.body.className))
                 document.body.className += ' sin-anim';
+            if (conModulo('medir_carga')) medirCarga();
             // A prueba: el panel sin la imagen de fondo, por si es su repintado.
             if (conModulo('lista_lisa') && !/(^|\s)fondo-liso(\s|$)/.test(document.body.className))
                 document.body.className += ' fondo-liso';
