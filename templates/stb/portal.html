@@ -2115,6 +2115,8 @@
                 api('type=stb&action=log&diag=' + encodeURIComponent('carga ocupado=' +
                     Math.round(tarde * 100 / (ahora - desde)) + '% peor=' + peor + 'ms en=' + lista.join(',') +
                     ' teclas=' + cuentaCarga.teclas + ' canales=' + cuentaCarga.canales +
+                    ' nodos=' + document.getElementsByTagName('*').length +
+                    ' img=' + document.images.length +
                     ' [' + (prefijoStb || 'nada').trim() + ']'), function() {});
                 desde = ahora; tarde = 0; peor = 0; vistas = {}; cuentaCarga = {teclas: 0, canales: 0};
             }
