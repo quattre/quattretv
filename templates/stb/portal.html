@@ -2125,6 +2125,66 @@
         setTimeout(tic, PASO);
     }
 
+    // Prueba automatica en el portal de verdad (solo decos con 'auto_prueba'):
+    // mueve sola la lista y la barra lateral con distintas clases puestas y
+    // mide lo que tarda cada cambio, como prueba_pintado.html (25/11/2026).
+    function autoPrueba() {
+        var hecha = 0;
+        try { hecha = parseInt(localStorage.getItem('quattreAutoPrueba') || '0', 10); } catch (err) {}
+        if (new Date().getTime() - hecha < 1800000 || view !== 'list' || isFullscreen) return;
+        try { localStorage.setItem('quattreAutoPrueba', String(new Date().getTime())); } catch (err) {}
+        var base = document.body.className, htmlFondo = document.documentElement.style.background;
+        var PRUEBAS = [
+            ['lista', '', 'lista'], ['lista-ligero', ' deco-ligero', 'lista'],
+            ['lista-ligero-opaca', ' deco-ligero pagina-opaca', 'lista'],
+            ['menu', '', 'menu'], ['menu-ligero', ' deco-ligero', 'menu']
+        ];
+        var PASOS = 12, ESPACIO = 600, TIC = 50;
+        function prueba(n) {
+            if (n >= PRUEBAS.length) {
+                document.body.className = base; document.documentElement.style.background = htmlFondo;
+                if (rail.abierto) cerrarRail();
+                showChannels();
+                api('type=stb&action=log&diag=' + encodeURIComponent('auto fin'), function() {});
+                return;
+            }
+            var p = PRUEBAS[n];
+            document.body.className = base + p[1];
+            document.documentElement.style.background = p[1].indexOf('opaca') >= 0 ? '#000' : htmlFondo;
+            if (p[2] === 'menu' && !rail.abierto) abrirRail();
+            if (p[2] === 'lista' && rail.abierto) cerrarRail();
+            showChannels();
+            var paso = 0, tarde = 0, peor = 0, antes, desde, tic, sentido = 1;
+            setTimeout(function() {
+                antes = desde = new Date().getTime();
+                tic = setInterval(function() {
+                    var ahora = new Date().getTime(), r = Math.max(0, ahora - antes - TIC);
+                    tarde += r; if (r > peor) peor = r; antes = ahora;
+                }, TIC);
+                var mover = setInterval(function() {
+                    if (p[2] === 'menu') {
+                        if (rail.idx + sentido < 0 || rail.idx + sentido >= MENU.length) sentido = -sentido;
+                        moverRail(sentido);
+                    } else {
+                        if (currentChannel + sentido < 0 || currentChannel + sentido >= channels.length) sentido = -sentido;
+                        moverCanalLista(sentido);
+                    }
+                    if (++paso >= PASOS) {
+                        clearInterval(mover);
+                        setTimeout(function() {
+                            clearInterval(tic);
+                            var ms = new Date().getTime() - desde;
+                            api('type=stb&action=log&diag=' + encodeURIComponent('auto ' + p[0] + ' ocupado=' +
+                                Math.round(tarde * 100 / ms) + '% por_cambio=' + Math.round(tarde / PASOS) + 'ms peor=' + peor + 'ms'),
+                                function() { prueba(n + 1); });
+                        }, ESPACIO);
+                    }
+                }, ESPACIO);
+            }, 2000);
+        }
+        api('type=stb&action=log&diag=' + encodeURIComponent('auto empieza'), function() { prueba(0); });
+    }
+
     function conModulo(nombre) {
         for (var i = 0; i < MODULOS.length; i++) if (MODULOS[i] === nombre) return true;
         return false;
@@ -3171,6 +3231,7 @@
             // (El fundido de las filas se quito a prueba con lista_rapida y no
             // se notaba: vuelve, para que se vea igual en todos, 25/11/2026.)
             if (conModulo('medir_carga')) medirCarga();
+            if (conModulo('auto_prueba')) setTimeout(autoPrueba, 12000);
             // Prueba automatica de pintado (static/stb/prueba_pintado.html): una
             // vez cada media hora como mucho, y vuelve sola al portal.
             if (conModulo('prueba_pintado')) {

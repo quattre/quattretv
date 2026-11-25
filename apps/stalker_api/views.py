@@ -768,6 +768,12 @@ def handle_get_modules(request):
         ppint = []
     if device and device.mac_address in ppint:
         modulos.append('prueba_pintado')
+    try:
+        autop = cache.get('auto_prueba') or []
+    except Exception:
+        autop = []
+    if device and device.mac_address in autop:
+        modulos.append('auto_prueba')
 
     return stalker_response({
         'result': {
