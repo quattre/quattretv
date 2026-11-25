@@ -4449,6 +4449,7 @@
     }
 
     function renderSemana() {
+        if (relojSemana) { clearTimeout(relojSemana); relojSemana = null; }
         var actual = itemSemana();
         // Las que vienen a continuacion en la fila en la que se esta.
         var filaAhora = semana.filas[semana.fila];
@@ -4594,8 +4595,8 @@
         // Desde la primera fila se sube a las pestañas, como en Netflix.
         else if (k === 38) { semana.foco = 'pestanas'; renderSemana(); }
         else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; if (g) g.fila = semana.fila; renderSemana(); }
-        else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; renderSemana(); masDeFila(f); }
-        else if (k === 37 && col > 0) { semana.cols[semana.fila]--; renderSemana(); }
+        else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; moverEnFila(); masDeFila(f); }
+        else if (k === 37 && col > 0) { semana.cols[semana.fila]--; moverEnFila(); }
         // Izquierda en la primera tarjeta: en los decos abre la barra lateral
         // para ir a otra seccion; en las apps sale, como en el resto.
         else if (k === 37 && usarRail()) abrirRail();
@@ -4607,6 +4608,34 @@
             else if (it.n > 1) abrirEmisiones(it.grupo || f.id, it);
             else abrirFichaSemana(it);
         }
+    }
+
+    // A izquierda y derecha en una fila del videoclub. Antes se repintaba la
+    // pantalla entera en cada pulsacion (fondo grande, ficha y dos filas): en
+    // el MAG322 hasta 1,7 s cada una (25/11/2026). Con 'semana_rapida'
+    // (get_modules) solo se rehace la fila, juntando las pulsaciones que
+    // lleguen seguidas, y la ficha y el fondo cuando se deja de pulsar.
+    var semanaPendiente = false, relojSemana = null;
+    function moverEnFila() {
+        if (!conModulo('semana_rapida')) { renderSemana(); return; }
+        clearTimeout(relojSemana);
+        relojSemana = setTimeout(function() { relojSemana = null; if (view === "semana") renderSemana(); }, 500);
+        if (semanaPendiente) return;
+        semanaPendiente = true;
+        setTimeout(function() {
+            semanaPendiente = false;
+            var caja = document.querySelector('#semana .sem-fila.activa .sem-tarjetas');
+            var f = semana.filas[semana.fila];
+            if (!caja || !f || semana.ficha || semana.episodios) { renderSemana(); return; }
+            var col = semana.cols[semana.fila], items = f.items;
+            var desde = Math.max(0, Math.min(col - 1, items.length - SEMANA_VISIBLES)), h = '';
+            for (var c = desde; c < Math.min(items.length, desde + SEMANA_VISIBLES); c++)
+                h += tarjetaSemana(items[c], c === col, f.id);
+            caja.innerHTML = h;
+            var cuenta = document.querySelector('#semana .sem-fila.activa .sem-nombre span');
+            if (cuenta) cuenta.innerHTML = (col + 1) + ' / ' + (f.total || items.length);
+            for (var pi = col; pi < Math.min(items.length, col + SEMANA_VISIBLES + 4); pi++) precargar(items[pi].img);
+        }, 0);
     }
 
     function pantallaBuscar() {

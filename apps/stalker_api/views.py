@@ -780,6 +780,12 @@ def handle_get_modules(request):
         rfirma = []
     if device and (device.mac_address in rfirma or device.model in rfirma or 'todos' in rfirma):
         modulos.append('rail_firma')
+    try:
+        srap = cache.get('semana_rapida') or []
+    except Exception:
+        srap = []
+    if device and (device.mac_address in srap or device.model in srap or 'todos' in srap):
+        modulos.append('semana_rapida')
 
     return stalker_response({
         'result': {
