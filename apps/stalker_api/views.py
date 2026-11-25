@@ -835,6 +835,22 @@ def handle_get_modules(request):
     if device and (device.mac_address in omini or 'todos' in omini):
         modulos.append('osd_mini')
 
+    # Lo probado en el MAG322 de la oficina el 25/11/2026 y puesto a todos ese
+    # dia (Sergio: "aplicalo a todos"). En el portal, lo que es solo para los
+    # decos lentos (322, 254/256, 420) lo decide decoLento(); aqui va fijo
+    # para no depender de la cache.
+    if device and device.device_type == 'mag':
+        for m in ('rail_firma', 'previa_2s', 'zapping_rapido', 'osd_mini',
+                  'menu_primero', 'sin_fundido', 'osd_ligera'):
+            if m not in modulos:
+                modulos.append(m)
+        if device.model in ('MAG322', 'MAG324') and 'tarjetas_img' not in modulos:
+            modulos.append('tarjetas_img')
+    if como_deco(device):
+        for m in ('grabar_tarde', 'boton_videoclub'):
+            if m not in modulos:
+                modulos.append(m)
+
     return stalker_response({
         'result': {
             'all_modules': modulos,
