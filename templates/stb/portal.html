@@ -2091,7 +2091,8 @@
     // el canal: en el MAG322 el navegador se quedaba 1-6 s pintando y las
     // pulsaciones se amontonaban (medido el 25/11/2026). Con 'lista_rapida'
     // (get_modules), si la fila nueva ya esta en pantalla solo se mueve la
-    // marca; lo demas (texto, imagen, canal) cuando se deja de pulsar.
+    // marca; lo demas (texto, imagen, canal) cuando se deja de pulsar. Con
+    // 400 ms arrancaba el canal entre pulsacion y pulsacion y volvia a atascarse.
     function moverCanalLista(paso) {
         var t0 = new Date().getTime();
         var antes = currentChannel;
@@ -2110,8 +2111,18 @@
         var v = ventanas["canales"];
         if (!caja || !v || v.total !== channels.length || !caja.firstChild) return false;
         var visible = filasDe("canales", 11);
-        if (ahora < v.start || ahora > v.start + visible - 1) return false;
         if (caja.firstChild.getAttribute('data-i') !== String(v.start)) return false;
+        if (caja.children.length !== Math.min(visible, channels.length)) return false;
+        // Una fila por debajo o por encima de lo que se ve: la lista corre una
+        // fila quitando la del otro extremo y añadiendo solo la nueva.
+        if (ahora === v.start + visible || ahora === v.start - 1) {
+            var nueva = document.createElement('div');
+            nueva.innerHTML = filaCanal(ahora);
+            nueva = nueva.firstChild;
+            if (ahora > v.start) { caja.removeChild(caja.firstChild); caja.appendChild(nueva); v.start++; }
+            else { caja.removeChild(caja.lastChild); caja.insertBefore(nueva, caja.firstChild); v.start--; }
+        }
+        if (ahora < v.start || ahora > v.start + visible - 1) return false;
         var a = caja.querySelector('[data-i="' + antes + '"]');
         var b = caja.querySelector('[data-i="' + ahora + '"]');
         if (!a || !b) return false;
@@ -2128,7 +2139,7 @@
             if (view !== "list" || isFullscreen) return;
             updatePreviewCap(channels[currentChannel]);
             startPreview();
-        }, 400);
+        }, 900);
     }
 
     function iniciales(nombre) {
@@ -4912,6 +4923,53 @@
                '</span>' + (etiquetas || '') + '</div>';
     }
 
+    // Una fila de la lista de canales (showChannels y moverMarca).
+    function filaCanal(i) {
+        var h = '';
+        var c = channels[i];
+        var cls = (i === currentChannel) ? "item sel" : "item";
+        h += '<div class="' + cls + '" data-i="' + i + '">';
+        h += '<div class="num">' + numero(c) + '</div>';
+        // El hueco va siempre, con logotipo o sin el: si falta, la lista se
+        // descuadra porque el nombre arranca en otro sitio. Los que no
+        // tienen logotipo llevan sus iniciales.
+        if (MOSTRAR_LOGOS) {
+            h += '<div class="ico">';
+            if (c.logo) h += '<img src="' + esc(c.logo) + '" onerror="this.parentNode.innerHTML=\'<b>' + esc(iniciales(c.name)) + '</b>\'">';
+            else h += '<b>' + esc(iniciales(c.name)) + '</b>';
+            h += '</div>';
+        }
+        var etqC = '';
+        if (c.hd) etqC += ' <span class="hd">HD</span>';
+        if (c.fav) etqC += ' <span class="fav">★</span>';
+        // REC si el cliente lo esta grabando (va por hora, para que se
+        // apague sola al terminar) y ARCHIVO si tiene catchup. El simbolo
+        // que habia (ver osdFor) se quito porque salia en casi todos los
+        // canales sin que hubiera archivo de verdad; ahora el servidor solo
+        // lo manda si el canal esta grabado en disco y el aparato lo puede
+        // abrir, y va en texto, que se lee en cualquier tele.
+        etqC += etiquetasCanal(c);
+        if (c.locked) etqC += ' <span class="lock">🔒</span>';
+        h += '<div class="info">' + nombreConEtiquetas(c.name, etqC);
+        // El programa y la barra de avance van SIEMPRE, haya programacion o
+        // no. Pintandolos solo cuando hay EPG, las filas de los canales que
+        // no la tienen salen mas bajas, y entonces la lista pega un salto
+        // cada vez que el cursor pasa por una: subiendo y bajando se nota
+        // mucho. Se reserva el sitio y se oculta el contenido, que es lo
+        // mismo que se hizo con las pistas de la barra de informacion.
+        //
+        // Se puede reservar sin miedo porque las dos lineas son de una sola
+        // linea de alto: .name y .epg van con nowrap y puntos suspensivos,
+        // asi que un titulo largo no cambia la altura de la fila.
+        var sinEpg = c.cur_playing ? '' : ' style="visibility:hidden"';
+        h += '<div class="epg"' + sinEpg + '>' + esc(c.cur_playing || '-');
+        if (c.epg_cur_end) h += ' <span class="t">hasta ' + esc(c.epg_cur_end) + '</span>';
+        h += '</div>';
+        h += '<div class="bar"' + sinEpg + '><i style="width:' + (c.epg_progress || 0) + '%"></i></div>';
+        h += '</div></div>';
+        return h;
+    }
+
     function showChannels() {
         rj.volver = false;
         view = "list";
@@ -4936,49 +4994,7 @@
         var visible = filasDe("canales", 11);
         var start = ventanaDe("canales", currentChannel, visible, channels.length);
         var end = Math.min(channels.length, start + visible);
-        for (var i = start; i < end; i++) {
-            var c = channels[i];
-            var cls = (i === currentChannel) ? "item sel" : "item";
-            h += '<div class="' + cls + '" data-i="' + i + '">';
-            h += '<div class="num">' + numero(c) + '</div>';
-            // El hueco va siempre, con logotipo o sin el: si falta, la lista se
-            // descuadra porque el nombre arranca en otro sitio. Los que no
-            // tienen logotipo llevan sus iniciales.
-            if (MOSTRAR_LOGOS) {
-                h += '<div class="ico">';
-                if (c.logo) h += '<img src="' + esc(c.logo) + '" onerror="this.parentNode.innerHTML=\'<b>' + esc(iniciales(c.name)) + '</b>\'">';
-                else h += '<b>' + esc(iniciales(c.name)) + '</b>';
-                h += '</div>';
-            }
-            var etqC = '';
-            if (c.hd) etqC += ' <span class="hd">HD</span>';
-            if (c.fav) etqC += ' <span class="fav">★</span>';
-            // REC si el cliente lo esta grabando (va por hora, para que se
-            // apague sola al terminar) y ARCHIVO si tiene catchup. El simbolo
-            // que habia (ver osdFor) se quito porque salia en casi todos los
-            // canales sin que hubiera archivo de verdad; ahora el servidor solo
-            // lo manda si el canal esta grabado en disco y el aparato lo puede
-            // abrir, y va en texto, que se lee en cualquier tele.
-            etqC += etiquetasCanal(c);
-            if (c.locked) etqC += ' <span class="lock">🔒</span>';
-            h += '<div class="info">' + nombreConEtiquetas(c.name, etqC);
-            // El programa y la barra de avance van SIEMPRE, haya programacion o
-            // no. Pintandolos solo cuando hay EPG, las filas de los canales que
-            // no la tienen salen mas bajas, y entonces la lista pega un salto
-            // cada vez que el cursor pasa por una: subiendo y bajando se nota
-            // mucho. Se reserva el sitio y se oculta el contenido, que es lo
-            // mismo que se hizo con las pistas de la barra de informacion.
-            //
-            // Se puede reservar sin miedo porque las dos lineas son de una sola
-            // linea de alto: .name y .epg van con nowrap y puntos suspensivos,
-            // asi que un titulo largo no cambia la altura de la fila.
-            var sinEpg = c.cur_playing ? '' : ' style="visibility:hidden"';
-            h += '<div class="epg"' + sinEpg + '>' + esc(c.cur_playing || '-');
-            if (c.epg_cur_end) h += ' <span class="t">hasta ' + esc(c.epg_cur_end) + '</span>';
-            h += '</div>';
-            h += '<div class="bar"' + sinEpg + '><i style="width:' + (c.epg_progress || 0) + '%"></i></div>';
-            h += '</div></div>';
-        }
+        for (var i = start; i < end; i++) h += filaCanal(i);
         h += '</div>';
 
         // Grabar ya no va aqui: sale junto al canal, debajo de la imagen.
