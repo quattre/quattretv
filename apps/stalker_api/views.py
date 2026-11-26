@@ -721,6 +721,13 @@ def handle_get_modules(request):
         ozap = []
     if device and (device.mac_address in ozap or device.model in ozap or 'todos' in ozap):
         modulos.append('osd_zapping')
+    # Aviso en el videoclub de que la peli puede empezar mas tarde (a prueba, 26/11/2026).
+    try:
+        avi = cache.get('aviso_inicio') or []
+    except Exception:
+        avi = []
+    if device and (device.mac_address in avi or device.model in avi or 'todos' in avi):
+        modulos.append('aviso_inicio')
     try:
         ffrt = cache.get('probar_ffrt') or []
     except Exception:

@@ -5046,6 +5046,16 @@
                     tipo: 'archivo', chId: it.ch_id, inicio: it.ini, fin: it.fin, base: js.desde || utc,
                     volver: 'semana'
                 });
+                // Con 'aviso_inicio' (get_modules, a prueba, 26/11/2026): si se
+                // empieza por el principio y no se sabe la hora de verdad (la
+                // EIT no la dio), se empieza a la hora de la guia y la peli
+                // suele llegar unos minutos despues, tras la publicidad o el
+                // final de lo anterior. Se avisa de que se puede adelantar.
+                if (conModulo('aviso_inicio') && desde <= 30 && (!js.real_ini || js.real_ini === it.ini)) {
+                    setTimeout(function() {
+                        if (diferido && diferido.cero) toast('Puede empezar unos minutos mas tarde. Pulsa \u25B6 para adelantar', 8000);
+                    }, 1500);
+                }
             } else {
                 toast((js && js.error) ? js.error : 'No se pudo abrir');
             }
@@ -5449,13 +5459,13 @@
         updatePreviewCap(ch);
     }
 
-    function toast(msg) {
+    function toast(msg, ms) {
         graficosDelante();
         var t = document.getElementById("toast");
         t.innerHTML = esc(msg);
         t.style.display = "block";
         clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(function() { t.style.display = "none"; }, 2500);
+        toastTimeout = setTimeout(function() { t.style.display = "none"; }, ms || 2500);
     }
 
     // ---------- Guia de programacion ----------
