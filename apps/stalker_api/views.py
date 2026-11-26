@@ -700,6 +700,13 @@ def handle_get_modules(request):
         carga = []
     if device and device.mac_address in carga:
         modulos.append('medir_carga')
+    # Precarga del videoclub de una en una y sin pulsar (a prueba, 26/11/2026).
+    try:
+        calma = cache.get('precarga_calma') or []
+    except Exception:
+        calma = []
+    if device and (device.mac_address in calma or device.model in calma or 'todos' in calma):
+        modulos.append('precarga_calma')
     try:
         ffrt = cache.get('probar_ffrt') or []
     except Exception:

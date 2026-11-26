@@ -4219,7 +4219,25 @@
     // viejas se sueltan: 400 caratulas de 640x360 son unos 400 MB ya
     // abiertas, y el MAG322 tiene 512 MB; sin memoria tiraba las imagenes y
     // solo se veia la caratula elegida (25/11/2026).
+    // Con 'precarga_calma' (get_modules, a prueba) en los decos lentos, lo que
+    // se pide por adelantado fuera del videoclub se baja de una en una y solo
+    // si no se ha pulsado nada en 3 s: a los 20 s de encender se pedian ~80
+    // caratulas de golpe y el 322 iba mas lento los primeros minutos (26/11/2026).
+    var colaPrecarga = [], relojPrecarga = null;
     function precargar(url) {
+        if (!url || precargadas[url]) return;
+        if (conModulo('precarga_calma') && decoLento() && view !== "semana") {
+            if (colaPrecarga.indexOf(url) < 0) colaPrecarga.push(url);
+            if (!relojPrecarga) relojPrecarga = setInterval(function() {
+                if (!colaPrecarga.length) { clearInterval(relojPrecarga); relojPrecarga = null; return; }
+                if (new Date().getTime() - horaTecla < 3000) return;
+                bajarPrecarga(colaPrecarga.shift());
+            }, 400);
+            return;
+        }
+        bajarPrecarga(url);
+    }
+    function bajarPrecarga(url) {
         if (!url || precargadas[url]) return;
         if (conModulo('precarga_corta')) {
             precargadas[url] = new Image();
