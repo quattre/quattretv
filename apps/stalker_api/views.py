@@ -884,13 +884,13 @@ def handle_get_modules(request):
     if device and device.device_type == 'mag':
         for m in ('rail_firma', 'previa_2s', 'zapping_rapido', 'osd_mini',
                   'menu_primero', 'sin_fundido', 'osd_ligera', 'semana_rapida',
-                  'precarga_calma', 'rail_rapido', 'osd_zapping'):
+                  'precarga_calma', 'rail_rapido', 'osd_zapping', 'semana_filas', 'semana_cursor'):
             if m not in modulos:
                 modulos.append(m)
         if device.model in ('MAG322', 'MAG324') and 'tarjetas_img' not in modulos:
             modulos.append('tarjetas_img')
     if como_deco(device):
-        for m in ('grabar_tarde', 'boton_videoclub'):
+        for m in ('grabar_tarde', 'boton_videoclub', 'aviso_inicio'):
             if m not in modulos:
                 modulos.append(m)
 

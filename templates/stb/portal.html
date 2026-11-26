@@ -347,6 +347,117 @@
     // todos los que tengan una version anterior.
     var PORTAL_CARGADO = Math.floor(new Date().getTime() / 1000);
 
+    // Recargar el portal desde el panel dejaba a todos en La 1, en la lista:
+    // el que veia otro canal, una peli o una grabacion lo perdia, y los que
+    // estaban en reposo se ponian a bajar La 1 (26/11/2026). Antes de recargar
+    // se apunta donde se esta en la direccion (#volver=...; en el MAG322 el
+    // localStorage no dura) y al cargar se vuelve ahi.
+    function recargarConEstado() {
+        var e = {};
+        try {
+            var ch = channels[playingChannelIdx >= 0 ? playingChannelIdx : currentChannel];
+            if (ch) e.ch = ch.id;
+            e.fs = isFullscreen ? 1 : 0;
+            e.rep = decoEnReposo() ? 1 : 0;
+            if (e.rep && canalReposo) e.ch = canalReposo.id;
+            if (view === "semana" && !diferido) e.sem = 1;
+            var d = diferido;
+            if (d && !videoAyuda && (d.tipo === 'grabacion' ? d.recId : d.chId)) {
+                e.dif = {tipo: d.tipo, chId: d.chId, recId: d.recId, inicio: d.inicio, fin: d.fin,
+                         cero: d.cero, final: d.final, finVisto: d.finVisto, volver: d.volver,
+                         etiqueta: d.etiqueta, canal: d.canal, cuando: d.cuando,
+                         titulo: (d.titulo || '').substring(0, 80), sub: (d.sub || '').substring(0, 80),
+                         pos: Math.floor(momentoDiferido())};
+            }
+        } catch (err) {}
+        var hecho = false;
+        function ya() {
+            if (hecho) return;
+            hecho = true;
+            try { location.hash = 'volver=' + encodeURIComponent(JSON.stringify(e)); } catch (err) {}
+            location.reload();
+        }
+        api('type=stb&action=log&diag=' + encodeURIComponent('recarga con estado ' + JSON.stringify(e).substring(0, 300)), ya);
+        setTimeout(ya, 3000);
+    }
+
+    var estadoVolver = null;
+    try {
+        var mh = /volver=([^&]*)/.exec(location.hash || '');
+        if (mh) {
+            estadoVolver = JSON.parse(decodeURIComponent(mh[1]));
+            location.hash = '';
+        }
+    } catch (err) { estadoVolver = null; }
+
+    // Se llama cuando ya estan los canales y no hay novedades que enseñar.
+    // true si se ha ocupado (y no hay que arrancar la vista previa normal).
+    function volverAlEstado() {
+        var e = estadoVolver;
+        if (!e) return false;
+        // Hacen falta los canales; los de mas alla del 50 llegan en la
+        // segunda pagina, un momento despues: se espera hasta 8 s.
+        if (!channels.length) return true;
+        var idx = -1;
+        for (var i = 0; i < channels.length; i++) if (channels[i].id === e.ch) idx = i;
+        if (e.ch && idx < 0 && (e.n = (e.n || 0) + 1) <= 8) {
+            setTimeout(function() {
+                if (estadoVolver === e && !volverAlEstado() && view === "list" && !isFullscreen) startPreview();
+            }, 1000);
+            return true;
+        }
+        estadoVolver = null;
+        api('type=stb&action=log&diag=' + encodeURIComponent('vuelve al estado ' + JSON.stringify(e).substring(0, 300)), function() {});
+        if (idx >= 0) currentChannel = idx;
+        if (e.rep) {
+            // En reposo: nada suena; al encender con el boton vuelve a su canal.
+            if (idx >= 0) { canalReposo = channels[idx]; enReposo = true; }
+            showChannels();
+            if (!e.fs) { startPreview(); return true; }   // en reposo no suena: espera a que se encienda
+            if (e.fs) {
+                isFullscreen = true;
+                view = "list";
+                setViewportFullscreen();
+                document.getElementById("content").style.display = "none";
+                document.getElementById("preview").style.display = "none";
+                document.getElementById("preview-cap").style.display = "none";
+            }
+            return true;
+        }
+        if (e.dif) { volverADiferido(e.dif); return true; }
+        if (e.sem) { openSemana('canales'); return true; }
+        if (e.fs && idx >= 0) { showChannels(); goFullscreen(); return true; }
+        return false;
+    }
+
+    function volverADiferido(d) {
+        var fallo = function() { if (!isFullscreen) startPreview(); };
+        if (d.tipo === 'grabacion') {
+            api("type=pvr&action=create_link&cmd=" + d.recId, function(js) {
+                if (!js || !js.cmd) { fallo(); return; }
+                d.base = d.inicio;
+                reproducirPantallaCompleta(js.cmd, 'Grabacion', d.titulo, d);
+                var salto = (d.pos || d.inicio) - d.inicio;
+                if (salto > 10) setTimeout(function() {
+                    if (diferido !== d) return;
+                    try { if (stbAPI && stbAPI.SetPosTime) { stbAPI.SetPosTime(salto); d.base = d.inicio + salto; d.arrancado = new Date().getTime(); } } catch (err) {}
+                }, 4000);
+            });
+            return;
+        }
+        if (d.tipo === 'directo') {
+            for (var i = 0; i < channels.length; i++) if (channels[i].id === d.chId) d.canalIdx = i;
+            if (d.canalIdx === undefined) { fallo(); return; }
+        }
+        var pos = d.pos || d.inicio;
+        var hasta = d.tipo === 'directo' ? pos + 6 * 3600 : (d.cero ? finVideoclub(d.fin) : finConMargen(d.fin));
+        api("type=tv_archive&action=create_link&ch_id=" + d.chId + "&utc=" + pos + "&lutc=" + hasta, function(js) {
+            if (!js || !js.cmd) { fallo(); return; }
+            d.base = js.desde || pos;
+            reproducirPantallaCompleta(js.cmd, d.titulo, d.sub, d);
+        });
+    }
+
     // Modelo y firmware del deco, una vez al arrancar: se guardan en su ficha
     // del panel para saber que version tiene cada uno y cuales actualizar.
     function contarEquipo() {
@@ -443,7 +554,7 @@
             // Lo que no es un deco no se puede reiniciar desde aqui: se recarga.
             location.reload();
         } else if (evento === 'recargar') {
-            location.reload();
+            recargarConEstado();
         } else if (evento === 'mensaje' && js && js.msg) {
             mostrarMensaje(js.msg.titulo, js.msg.texto);
         } else if (evento === 'firmware' && js && js.firmware) {
@@ -745,6 +856,7 @@
     function soltarAvisos() {
         if (!esperandoAvisos || avisoAbierto) return;
         esperandoAvisos = false;
+        if (volverAlEstado()) return;
         if (view === "list" && !isFullscreen) startPreview();
     }
 
@@ -771,6 +883,7 @@
 
     function volverAlCanal() {
         esperandoAvisos = false;
+        if (volverAlEstado()) return;
         if (isFullscreen || view === "semana") return;
         startPreview();
     }
@@ -1030,7 +1143,7 @@
 
             if (page === 0) {
                 showChannels();
-                startPreview();
+                if (esperandoAvisos || !volverAlEstado()) startPreview();
             } else {
                 if (view === "list") showChannels();
             }
