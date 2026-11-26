@@ -4915,7 +4915,18 @@
     // Moverse por las pestañas no carga nada hasta que se para: pasar de
     // Inicio a Programas no tiene que pedir las cinco de en medio.
     function elegirPestana() {
-        renderSemana();
+        // Con 'semana_filas': solo se mueve la marca de la pestaña; lo de
+        // debajo se pinta al cargarla, al dejar de pulsar. Antes se repintaba
+        // la pantalla entera en cada pulsacion.
+        var tabs = conModulo('semana_filas') ? document.querySelectorAll('#semana .sem-tabs span') : [];
+        if (tabs.length && tabs.length === semana.pestanas.length) {
+            for (var i = 0; i < tabs.length; i++) {
+                var cls = i === semana.tabIdx ? 'sel' : '';
+                if (tabs[i].className !== cls) tabs[i].className = cls;
+            }
+        } else {
+            renderSemana();
+        }
         clearTimeout(semana.tabTimer);
         semana.tabTimer = setTimeout(function() {
             var p = semana.pestanas[semana.tabIdx];
