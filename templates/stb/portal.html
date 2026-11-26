@@ -4490,8 +4490,35 @@
         return h + '</div>';
     }
 
-    function filaSemana(nombre, cuenta, items, col, activa, grupo) {
-        var desde = Math.max(0, Math.min(col - 1, items.length - SEMANA_VISIBLES));
+    // Con 'semana_cursor' (get_modules, a prueba, 26/11/2026) el cursor recorre
+    // las tarjetas que se ven y la fila solo corre al llegar al borde; antes la
+    // elegida iba siempre la segunda y la fila corria en cada pulsacion. Cada
+    // fila recuerda desde que tarjeta se ve (en semana.cols.desdes).
+    function ventanaFila(r) {
+        var f = semana.filas[r];
+        if (!f || !f.items) return 0;
+        var n = f.items.length, col = semana.cols[r] || 0;
+        var D = semana.cols.desdes || (semana.cols.desdes = []);
+        var d = D[r];
+        if (d === undefined) d = Math.max(0, Math.min(col - 1, n - SEMANA_VISIBLES));
+        if (col < d) d = col;
+        if (col > d + SEMANA_VISIBLES - 1) d = col - SEMANA_VISIBLES + 1;
+        d = Math.max(0, Math.min(d, Math.max(0, n - SEMANA_VISIBLES)));
+        D[r] = d;
+        return d;
+    }
+
+    // Al cambiar de fila con 'semana_cursor': el cursor en el mismo sitio de la
+    // pantalla (la tercera que se ve, en la tercera que se ve de la otra fila).
+    function mismoSitioAlCambiar(antes, ahora) {
+        if (!conModulo('semana_cursor') || !semana.filas[antes] || !semana.filas[ahora]) return;
+        var sitio = (semana.cols[antes] || 0) - ventanaFila(antes);
+        var d = ventanaFila(ahora), n = semana.filas[ahora].items.length;
+        semana.cols[ahora] = Math.max(0, Math.min(n - 1, d + sitio));
+    }
+
+    function filaSemana(nombre, cuenta, items, col, activa, grupo, desdeFijo) {
+        var desde = desdeFijo !== undefined ? desdeFijo : Math.max(0, Math.min(col - 1, items.length - SEMANA_VISIBLES));
         var h = '<div class="sem-fila' + (activa ? ' activa' : '') + '">' +
                 '<div class="sem-nombre">' + esc(nombre) + '<span>' + cuenta + '</span></div>' +
                 '<div class="sem-tarjetas">';
@@ -4566,7 +4593,8 @@
                 var activa = r === semana.fila && semana.foco === 'filas';
                 // En la fila elegida, por donde va: alguna pasa de cien.
                 var cuenta = (r === semana.fila ? (col + 1) + ' / ' : '') + (f.total || f.items.length);
-                h += filaSemana(f.nombre, cuenta, f.items, col, activa, f.id);
+                h += filaSemana(f.nombre, cuenta, f.items, col, activa, f.id,
+                                conModulo('semana_cursor') ? ventanaFila(r) : undefined);
             }
         }
         document.getElementById("semana").innerHTML = h;
@@ -4656,10 +4684,10 @@
         var g = semana.porPestana[semana.pestana];
         if (!f) {
             if (k === 37 || salir) cerrarSemana();
-        } else if (k === 38 && semana.fila > 0) { semana.fila--; if (g) g.fila = semana.fila; cambiarDeFila(); }
+        } else if (k === 38 && semana.fila > 0) { mismoSitioAlCambiar(semana.fila, semana.fila - 1); semana.fila--; if (g) g.fila = semana.fila; cambiarDeFila(); }
         // Desde la primera fila se sube a las pestañas, como en Netflix.
         else if (k === 38) { semana.foco = 'pestanas'; renderSemana(); }
-        else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; if (g) g.fila = semana.fila; cambiarDeFila(); }
+        else if (k === 40 && semana.fila < semana.filas.length - 1) { mismoSitioAlCambiar(semana.fila, semana.fila + 1); semana.fila++; if (g) g.fila = semana.fila; cambiarDeFila(); }
         else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; moverEnFila(); masDeFila(f); }
         else if (k === 37 && col > 0) { semana.cols[semana.fila]--; moverEnFila(); }
         // Izquierda en la primera tarjeta: en los decos abre la barra lateral
@@ -4696,7 +4724,8 @@
             var f = semana.filas[semana.fila];
             if (!caja || !f || semana.ficha || semana.episodios) { renderSemana(); return; }
             var col = semana.cols[semana.fila], items = f.items;
-            var desde = Math.max(0, Math.min(col - 1, items.length - SEMANA_VISIBLES));
+            var desde = conModulo('semana_cursor') ? ventanaFila(semana.fila) :
+                        Math.max(0, Math.min(col - 1, items.length - SEMANA_VISIBLES));
             var hasta = Math.min(items.length, desde + SEMANA_VISIBLES), tarjetas = caja.children;
             var antes = parseInt(caja.getAttribute('data-desde') || '-1', 10);
             var tmp = document.createElement('div');
@@ -4756,7 +4785,7 @@
                 if (!f) return '';
                 var col = semana.cols[i] || 0;
                 return filaSemana(f.nombre, (activa ? (col + 1) + ' / ' : '') + (f.total || f.items.length),
-                                  f.items, col, activa, f.id);
+                                  f.items, col, activa, f.id, conModulo('semana_cursor') ? ventanaFila(i) : undefined);
             }
             function nodo(h) {
                 var tmp = document.createElement('div');

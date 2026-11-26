@@ -735,6 +735,13 @@ def handle_get_modules(request):
         sfil = []
     if device and (device.mac_address in sfil or device.model in sfil or 'todos' in sfil):
         modulos.append('semana_filas')
+    # Videoclub: el cursor recorre las tarjetas y la fila corre en el borde (a prueba, 26/11/2026).
+    try:
+        scur = cache.get('semana_cursor') or []
+    except Exception:
+        scur = []
+    if device and (device.mac_address in scur or device.model in scur or 'todos' in scur):
+        modulos.append('semana_cursor')
     try:
         ffrt = cache.get('probar_ffrt') or []
     except Exception:
