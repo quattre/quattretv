@@ -4501,9 +4501,13 @@
         var D = semana.cols.desdes || (semana.cols.desdes = []);
         var d = D[r];
         if (d === undefined) d = Math.max(0, Math.min(col - 1, n - SEMANA_VISIBLES));
+        // De las cinco que se pintan, la ultima asoma cortada por la derecha:
+        // el cursor no llega a ella, la fila corre antes. Al final de la fila
+        // la ultima queda en la cuarta y el hueco de la quinta, vacio.
+        var enteras = SEMANA_VISIBLES - 1;
         if (col < d) d = col;
-        if (col > d + SEMANA_VISIBLES - 1) d = col - SEMANA_VISIBLES + 1;
-        d = Math.max(0, Math.min(d, Math.max(0, n - SEMANA_VISIBLES)));
+        if (col > d + enteras - 1) d = col - enteras + 1;
+        d = Math.max(0, Math.min(d, Math.max(0, n - enteras)));
         D[r] = d;
         return d;
     }
