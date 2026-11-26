@@ -728,6 +728,13 @@ def handle_get_modules(request):
         avi = []
     if device and (device.mac_address in avi or device.model in avi or 'todos' in avi):
         modulos.append('aviso_inicio')
+    # Videoclub: arriba y abajo moviendo solo las filas (a prueba, 26/11/2026).
+    try:
+        sfil = cache.get('semana_filas') or []
+    except Exception:
+        sfil = []
+    if device and (device.mac_address in sfil or device.model in sfil or 'todos' in sfil):
+        modulos.append('semana_filas')
     try:
         ffrt = cache.get('probar_ffrt') or []
     except Exception:

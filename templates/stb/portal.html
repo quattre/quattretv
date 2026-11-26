@@ -4513,6 +4513,7 @@
 
     function renderSemana() {
         if (relojSemana) { clearTimeout(relojSemana); relojSemana = null; }
+        semanaFilaPintada = -1;
         var actual = itemSemana();
         // Las que vienen a continuacion en la fila en la que se esta.
         var filaAhora = semana.filas[semana.fila];
@@ -4558,6 +4559,7 @@
         } else if (semana.pestana === 'buscar') {
             h += pantallaBuscar();
         } else {
+            semanaFilaPintada = semana.fila;
             // La fila elegida arriba y la siguiente asomando debajo.
             for (var r = semana.fila; r < Math.min(semana.filas.length, semana.fila + 2); r++) {
                 var f = semana.filas[r], col = semana.cols[r];
@@ -4654,10 +4656,10 @@
         var g = semana.porPestana[semana.pestana];
         if (!f) {
             if (k === 37 || salir) cerrarSemana();
-        } else if (k === 38 && semana.fila > 0) { semana.fila--; if (g) g.fila = semana.fila; renderSemana(); }
+        } else if (k === 38 && semana.fila > 0) { semana.fila--; if (g) g.fila = semana.fila; cambiarDeFila(); }
         // Desde la primera fila se sube a las pestañas, como en Netflix.
         else if (k === 38) { semana.foco = 'pestanas'; renderSemana(); }
-        else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; if (g) g.fila = semana.fila; renderSemana(); }
+        else if (k === 40 && semana.fila < semana.filas.length - 1) { semana.fila++; if (g) g.fila = semana.fila; cambiarDeFila(); }
         else if (k === 39 && col < f.items.length - 1) { semana.cols[semana.fila]++; moverEnFila(); masDeFila(f); }
         else if (k === 37 && col > 0) { semana.cols[semana.fila]--; moverEnFila(); }
         // Izquierda en la primera tarjeta: en los decos abre la barra lateral
@@ -4724,6 +4726,65 @@
             var cuenta = document.querySelector('#semana .sem-fila.activa .sem-nombre span');
             if (cuenta) cuenta.innerHTML = (col + 1) + ' / ' + (f.total || items.length);
             for (var pi = col; pi < Math.min(items.length, col + SEMANA_VISIBLES + 4); pi++) precargar(items[pi].img);
+        }, 0);
+    }
+
+    // Arriba y abajo entre las filas del videoclub. Con 'semana_filas'
+    // (get_modules, a prueba, 26/11/2026) como a los lados: solo se mueven
+    // las dos filas que se ven (la que entra se pinta, la otra se aprovecha),
+    // juntando las pulsaciones seguidas; la ficha y el fondo al dejar de
+    // pulsar. Antes se repintaba la pantalla entera en cada pulsacion.
+    var semanaFilaPintada = -1, semanaFilaPendiente = false;
+    function cambiarDeFila() {
+        if (!conModulo('semana_filas')) { renderSemana(); return; }
+        clearTimeout(relojSemana);
+        relojSemana = setTimeout(function() {
+            relojSemana = null;
+            if (view === "semana" && !actualizarFichaSemana()) renderSemana();
+        }, 500);
+        if (semanaFilaPendiente) return;
+        semanaFilaPendiente = true;
+        setTimeout(function() {
+            semanaFilaPendiente = false;
+            var caja = document.getElementById("semana");
+            var filas = caja ? caja.querySelectorAll('.sem-fila') : [];
+            var r = semana.fila, antes = semanaFilaPintada;
+            if (!caja || semana.ficha || semana.episodios || semana.pestana === 'buscar' || semana.foco !== 'filas' ||
+                antes < 0 || !filas.length || filas[0].parentNode !== caja) { renderSemana(); return; }
+            function html(i, activa) {
+                var f = semana.filas[i];
+                if (!f) return '';
+                var col = semana.cols[i] || 0;
+                return filaSemana(f.nombre, (activa ? (col + 1) + ' / ' : '') + (f.total || f.items.length),
+                                  f.items, col, activa, f.id);
+            }
+            function nodo(h) {
+                var tmp = document.createElement('div');
+                tmp.innerHTML = h;
+                return tmp.firstChild;
+            }
+            if (antes === r - 1 && filas.length === 2) {
+                // Una abajo: fuera la de arriba, la de abajo pasa a ser la
+                // elegida (se rehace, por la marca y la cuenta) y entra otra.
+                caja.removeChild(filas[0]);
+                caja.replaceChild(nodo(html(r, true)), filas[1]);
+                var nueva = html(r + 1, false);
+                if (nueva) caja.appendChild(nodo(nueva));
+            } else if (antes === r + 1 && filas.length >= 1) {
+                // Una arriba: fuera la de abajo, la elegida pasa abajo sin marca
+                // y entra la nueva arriba.
+                if (filas.length === 2) caja.removeChild(filas[1]);
+                var vieja = nodo(html(r + 1, false));
+                caja.replaceChild(vieja, filas[0]);
+                caja.insertBefore(nodo(html(r, true)), vieja);
+            } else if (antes !== r) {
+                for (var i = 0; i < filas.length; i++) caja.removeChild(filas[i]);
+                caja.insertAdjacentHTML('beforeend', html(r, true) + html(r + 1, false));
+            }
+            semanaFilaPintada = r;
+            var f = semana.filas[r], col0 = semana.cols[r] || 0;
+            if (f && f.items) for (var pi = col0; pi < Math.min(f.items.length, col0 + SEMANA_VISIBLES + 4); pi++) precargar(f.items[pi].img);
+            if (semana.filas[r + 2]) precargarFilas([semana.filas[r + 2]], SEMANA_VISIBLES + 1);
         }, 0);
     }
 
