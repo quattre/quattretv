@@ -660,6 +660,18 @@
                         setTimeout(function() { try { gSTB.ExecAction('reboot'); } catch (err) {} }, 10000);
                         return;
                     }
+                    // Rechazada antes de escribir (2 = otro modelo, 22 = cabecera,
+                    // 25 = no esta, 27 = no se lee...): el 322 de la oficina con la
+                    // 201 se quedaba en 2 con "Cargando" sin porcentaje 20 minutos
+                    // (26/11/2026); no se habia bajado nada.
+                    if ([1, 2, 3, 4, 22, 25, 27].indexOf(st) >= 0 && pct < 100) {
+                        clearInterval(seguir);
+                        contar('rechazada estado=' + st);
+                        avisoFirmware('Este aparato no acepta este firmware (' + st + ': ' +
+                                      (function() { try { return stbUpdate.getStatusStr(); } catch (e) { return ''; } })() +
+                                      '). No se ha cambiado nada.', true);
+                        return;
+                    }
                     rondas++;
                     // Sin empezar al medio minuto: el actualizador no ha arrancado (suele
                     // quedar abierta la ventana de un intento anterior).
