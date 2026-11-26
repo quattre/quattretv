@@ -714,6 +714,13 @@ def handle_get_modules(request):
         rrap = []
     if device and (device.mac_address in rrap or device.model in rrap or 'todos' in rrap):
         modulos.append('rail_rapido')
+    # Zapping con la barra entera, sin la imagen del programa (a prueba, 26/11/2026).
+    try:
+        ozap = cache.get('osd_zapping') or []
+    except Exception:
+        ozap = []
+    if device and (device.mac_address in ozap or device.model in ozap or 'todos' in ozap):
+        modulos.append('osd_zapping')
     try:
         ffrt = cache.get('probar_ffrt') or []
     except Exception:

@@ -6358,7 +6358,7 @@
         cap.innerHTML = html;
     }
 
-    function osdFor(ch) {
+    function osdFor(ch, sinCartel) {
         var ahora = new Date();
         var hora = ('0' + ahora.getHours()).slice(-2) + ':' + ('0' + ahora.getMinutes()).slice(-2);
 
@@ -6400,7 +6400,7 @@
         // Miniatura de lo que estan echando, al final y pegada a la derecha,
         // para que no le robe sitio al texto ni lo separe del numero de canal.
         // Desaparece sola si la fuente no la trae.
-        if (ch.epg_icon) h += '<img class="osd-cartel" src="' + esc(ch.epg_icon) +
+        if (ch.epg_icon && !sinCartel) h += '<img class="osd-cartel" src="' + esc(ch.epg_icon) +
                               '" onerror="this.style.display=\'none\'">';
 
         h += '<div class="osd-reloj">' + hora + '</div>';
@@ -6477,11 +6477,11 @@
         if (m) m.style.display = 'none';
     }
 
-    function mostrarOsd(ch) {
+    function mostrarOsd(ch, sinCartel) {
         var osd = document.getElementById("osd");
         graficosDelanteInsistiendo();
-        osd.innerHTML = diferido ? osdDiferido(diferido) : osdFor(ch);
-        osd.style.display = "block";
+        osd.innerHTML = diferido ? osdDiferido(diferido) : osdFor(ch, sinCartel);
+        if (osd.style.display !== "block") osd.style.display = "block";
         clearTimeout(osdTimeout);
         osdTimeout = setTimeout(function() { osd.style.display = "none"; }, TIEMPO_OSD);
     }
@@ -7142,7 +7142,13 @@
                     var tOsd = new Date().getTime();
                     // Con 'osd_mini': mientras se cambia, solo numero y nombre en
                     // un recuadro pequeño; la barra entera al arrancar el canal.
-                    if (conModulo('osd_mini')) mostrarOsdMini(ch); else mostrarOsd(ch);
+                    // Con 'osd_zapping' (a prueba, 26/11/2026): la barra entera como
+                    // antes, pero sin la imagen del programa mientras se cambia
+                    // (bajarla y abrirla en cada pulsacion es lo que pesa); la
+                    // imagen se pone al arrancar el canal.
+                    var barraZap = conModulo('osd_zapping');
+                    if (barraZap) { ocultarOsdMini(); mostrarOsd(ch, true); }
+                    else if (conModulo('osd_mini')) mostrarOsdMini(ch); else mostrarOsd(ch);
                     if (conModulo('medir_carga')) {
                         var enOsd = new Date().getTime() - tOsd;
                         setTimeout(function() {
@@ -7160,7 +7166,8 @@
                         // La barra entera no: esconderla en el siguiente cambio
                         // costaba lo mismo que pintarla (1,5-2 s en el 322). Se
                         // queda el recuadro; la barra, con ▶ como siempre.
-                        if (conModulo('osd_mini')) mostrarOsdMini(channels[destino]);
+                        if (barraZap) mostrarOsd(channels[destino]);
+                        else if (conModulo('osd_mini')) mostrarOsdMini(channels[destino]);
                     }, 1200);   // la barra tarda 0,5 s en pintarse en el 322: con 600 llegaban a la vez
                 } else {
                     playChannel(ch);
