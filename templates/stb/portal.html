@@ -5053,7 +5053,7 @@
                 // tambien puede haber anuncios o avances antes: siempre.
                 if (conModulo('aviso_inicio') && desde <= 30) {
                     setTimeout(function() {
-                        if (diferido && diferido.cero) toast('Si tarda en empezar, pulsa \u25B6 para adelantar', 8000);
+                        if (diferido && diferido.cero) toast('Si tarda en empezar, pulsa \u25B6 para adelantar', 8000, true);
                     }, 1500);
                 }
             } else {
@@ -5459,9 +5459,11 @@
         updatePreviewCap(ch);
     }
 
-    function toast(msg, ms) {
+    function toast(msg, ms, arriba) {
         graficosDelante();
         var t = document.getElementById("toast");
+        // Arriba cuando abajo esta la barra del video (el aviso del videoclub).
+        if (t.className !== (arriba ? 'arriba' : '')) t.className = arriba ? 'arriba' : '';
         t.innerHTML = esc(msg);
         t.style.display = "block";
         clearTimeout(toastTimeout);
@@ -8279,6 +8281,7 @@
             bottom: 64px; left: 50%; -webkit-transform: translateX(-50%); transform: translateX(-50%);
             padding: 20px 36px; font-size: 22px; border-radius: 14px;
         }
+        #toast.arriba { top: 64px; bottom: auto; }
         #numjump {
             top: 64px; right: 72px; padding: 22px 42px;
             font-family: Poppins, 'Segoe UI', Arial, sans-serif;
@@ -8733,6 +8736,7 @@
             #preview-cap .pq-cap #pq-botones { margin-top: 11px; }
             #preview-cap .pq-b { margin: 0 11px 0 0; padding: 5px 23px; font-size: 15px; border-radius: 20px; }
             #toast { bottom: 43px; padding: 13px 24px; font-size: 15px; border-radius: 9px; }
+            #toast.arriba { top: 43px; bottom: auto; }
             #numjump { top: 43px; right: 48px; padding: 15px 28px; font-size: 40px; }
             .pinbox { font-size: 37px; letter-spacing: 8px; padding: 15px 21px; min-width: 187px; }
         }
