@@ -2040,8 +2040,29 @@
         playingChannelIdx = -1;
     }
 
+    // En reposo no se arranca nada. Una recarga del portal (desde el panel)
+    // pillaba a los decos en reposo y cada uno se ponia a bajar La 1 sin que
+    // nadie la viera: 26/11/2026 13:00, 4,6 Gbps en cdn10. Se espera a que se
+    // encienda (el boton de apagar ya recarga al encender; esto es por si se
+    // enciende de otra forma).
+    var esperandoDespertar = null;
+    function decoEnReposo() {
+        try { return typeof gSTB !== 'undefined' && gSTB.GetStandByStatus && !!gSTB.GetStandByStatus(); } catch (err) { return false; }
+    }
+
     function startPreview() {
         if (channels.length === 0 || isFullscreen || esperandoAvisos) return;
+        if (decoEnReposo()) {
+            if (!esperandoDespertar) {
+                api('type=stb&action=log&diag=' + encodeURIComponent('en reposo: no se arranca el canal'), function() {});
+                esperandoDespertar = setInterval(function() {
+                    if (decoEnReposo()) return;
+                    clearInterval(esperandoDespertar); esperandoDespertar = null;
+                    if (view === "list" && !isFullscreen && playingChannelIdx === -1) startPreview();
+                }, 5000);
+            }
+            return;
+        }
         // Solo para probar en un deco (get_modules): la lista sin video detras,
         // para saber cuanto pesa el video en lo que tarda en pintar.
         if (conModulo('sin_preview')) { pararVideo(); return; }
