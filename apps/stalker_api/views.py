@@ -707,6 +707,13 @@ def handle_get_modules(request):
         calma = []
     if device and (device.mac_address in calma or device.model in calma or 'todos' in calma):
         modulos.append('precarga_calma')
+    # Abrir la barra lateral cambiando solo clases (a prueba, 26/11/2026).
+    try:
+        rrap = cache.get('rail_rapido') or []
+    except Exception:
+        rrap = []
+    if device and (device.mac_address in rrap or device.model in rrap or 'todos' in rrap):
+        modulos.append('rail_rapido')
     try:
         ffrt = cache.get('probar_ffrt') or []
     except Exception:

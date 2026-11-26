@@ -3267,6 +3267,9 @@
             // los lentos: con ellos el 322 tardaba 1,6-2,8 s en pintarla encima
             // del video (25/11/2026).
             if (conModulo('osd_ligera') && decoLento()) document.body.className += ' osd-ligera';
+            // Barra lateral abierta de color liso, sin degradado transparente.
+            if (conModulo('rail_rapido') && decoLento() && !/(^|\s)rail-opaco(\s|$)/.test(document.body.className))
+                document.body.className += ' rail-opaco';
             // A prueba en un deco: sin efectos ni letra web, por si es el pintado.
             if (conModulo('modo_ligero') && !/(^|\s)deco-ligero(\s|$)/.test(document.body.className))
                 document.body.className += ' deco-ligero';
@@ -3984,12 +3987,31 @@
         rail.idx = 0;
         var actual = seccionActual();
         for (var i = 0; i < MENU.length; i++) if (MENU[i].id === actual) rail.idx = i;
-        pintarRail();
+        if (!abrirRailLigero()) pintarRail();
     }
 
     function cerrarRail() {
         rail.abierto = false;
-        pintarRail();
+        if (!abrirRailLigero()) pintarRail();
+    }
+
+    // Con 'rail_rapido' (get_modules, a prueba): abrir y cerrar la barra solo
+    // cambia sus clases; antes se volvia a escribir entera con sus iconos SVG.
+    // En el MAG322, desde la lista (con el video detras) tardaba en salir;
+    // desde el videoclub no (26/11/2026). false si no se puede.
+    function abrirRailLigero() {
+        if (!conModulo('rail_rapido')) return false;
+        var caja = document.getElementById("rail");
+        var ops = caja ? caja.querySelectorAll('.rail-op') : [];
+        if (!caja || caja.style.display !== "block" || ops.length !== MENU.length) return false;
+        var actual = seccionActual();
+        for (var i = 0; i < ops.length; i++) {
+            var cls = 'rail-op' + (MENU[i].id === actual ? ' actual' : '') + (rail.abierto && i === rail.idx ? ' sel' : '');
+            if (ops[i].className !== cls) ops[i].className = cls;
+        }
+        caja.className = rail.abierto ? 'abierto' : '';
+        if (conModulo('rail_firma')) railPintado = firmaRail();
+        return true;
     }
 
     // Como la lista de canales (lista_rapida): solo se mueve la marca, sin
@@ -7670,6 +7692,7 @@
         /* El menu lateral: fondo liso (no el degradado transparente encima de
            todo) y sin los iconos en SVG, que el navegador del MAG pinta despacio. */
         .deco-ligero #rail { background: #0d0e10 !important; }
+        .rail-opaco #rail.abierto { background: #0d0e10 !important; }
         .deco-ligero #rail .mico { display: none !important; }
         .item.sel {
             background: #474e53;
